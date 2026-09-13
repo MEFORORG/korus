@@ -1165,6 +1165,24 @@ owner talks to, so it carries this list. The Console held that route until 2026-
 | An item needing a DECISION belongs on this list even when no PR is stopped | The first send omitted a four-day-old item whose only blocker was an owner ruling, because it lived in a PR comment rather than in a queue. |
 | The rule | **Writing "needs a ruling" somewhere is not the same as asking for one.** |
 
+### 18c. A terser companion board is SPECCED, not yet built
+
+`docs/boards/LANDER-STATUS-BOARD-SPEC.md`, in the **vault** repository, specs a second board: six
+KPI cards plus one merges-per-hour chart, values only, no prose. It complements 18a rather than
+replacing it. 18a answers what is blocked and why, in prose and a per-PR table; this one answers
+how the shift is going right now, in numbers a script can fill without a sentence of explanation.
+
+**Nothing in it is built.** No generator, no `docs/boards/boards.json` entry, no artifact URL
+recorded anywhere durable. Whoever builds it must register the published URL in `boards.json` and
+describe it in `docs/boards/README.md` before treating any link to it as stable -- an artifact URL
+is account-scoped, and this project has already lost one to a silent account switch.
+
+**Why this section exists here and not only in the vault.** It was first written into the vault's
+own copy of this file, which opens with a banner telling the reader it is stale and to come here
+instead. A Lander following that instruction would have read 18a and 18b and never learned 18c
+existed. The spec belongs in the vault, beside the other boards; the pointer to it belongs in the
+copy seats are told to read.
+
 ## Task rules live in skills, loaded at their trigger
 
 These sections were split out on 2026-09-05. Each loads when its trigger fires. Load one
