@@ -86,11 +86,11 @@ Two halves of it survive because that section restates them. The routing itself 
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
 | Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **Nothing reads a diff before the merge, and you do not wait for one.** |
-| That row's successor -- ADDED 2026-09-16 | **Something has now replaced it, and it is YOU.** Owner ruling 2026-09-16 (`docs/METHOD.md:24` on engine `origin/main`, engine PR 1193): *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first."* The stated case is *"a PR that needs a fix with no Manager alive, which nothing else resolves: no workflow reads a red PR back."* See section 2. |
+| That row's successor -- ADDED 2026-09-16 | **Something replaced it, and it is YOU.** Owner ruling 2026-09-16, `docs/METHOD.md:24`, engine PR 1193. Section 2 carries it. |
 | That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for that phrase in `CLAUDE.md` returns zero. |
 | The control for that reading | Same command shape on *This table governs the roster*: 1 hit. So the grep was live rather than empty. |
 | Neither you nor the Builder ever started it | Part of the same retired row. A Builder's process has already exited when its PR opens. |
-| Where the spawn grant lives -- **AND YOU ARE NOW ONE OF THE SEATS THAT NEEDS IT** | PER CONFIG ROOT: a rule matching `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `settings.json` of the root named by `CLAUDE_CONFIG_DIR`. **This row previously read "for the sessions that still need one", which read as excluding you.** Measured 2026-09-16: present on all six config roots. |
+| Where the spawn grant lives -- **YOU NEED IT NOW TOO** | PER CONFIG ROOT: `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `CLAUDE_CONFIG_DIR` root's `settings.json`. On all six roots, 2026-09-16. |
 | Measured 2026-09-02 | `.claude-account-1` carries both rules and spawned a session in 38.8 seconds. Every root measured without them was refused. |
 | Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). |
 | What does report, and what it misses | `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron. `failure-signal.yml` writes a `ci-red` label that no workflow reads back. |
@@ -310,7 +310,7 @@ Read `strict` and N fresh from the protection call under *Assess state on arriva
 | Only one PR can be up-to-date-with-base at a time | Each merge advances `main` and knocks every other open PR BEHIND. |
 | CI is roughly 15 to 25 minutes per cycle | The queue moves about one PR per cycle. Push and merge in the background; never sit idle waiting for green (owner rule). |
 | Never merge directly | Arm a PR with auto-merge and let it land on green. |
-| A DIRTY (true-conflict) PR | Needs a human or a Builder. Surface it; do not force it. **AMENDED 2026-09-16: you can now supply that Builder yourself** -- see section 2. Surfacing is still right when a Manager is alive to take it; spawning is for when none is. |
+| A DIRTY (true-conflict) PR | Needs a human or a Builder. Surface it; do not force it. **AMENDED 2026-09-16: you can supply that Builder** -- section 2. Surface when a Manager is alive; spawn when none is. |
 
 ### 4a. BEHIND is not a wake condition, but a queue of armed BEHIND PRs is a stall
 
