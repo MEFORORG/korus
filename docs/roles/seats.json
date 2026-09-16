@@ -5,7 +5,9 @@
     "fails if the two drift apart. roles/README.md holds a third copy and is not a source for",
     "this file. The claim that its live table listed seven retired seats as live was retracted",
     "in CLAUDE.md on 2026-09-10; that table named one retired seat, in a Replaces clause.",
-    "FIVE seats are live since 2026-09-12, when the Reviewer retired with no successor.",
+    "SIX seats are live since 2026-09-16, when the Owner added the SPECIAL seat. It holds work",
+    "that falls outside the five standing seats, and it is the only seat that does NOT announce or",
+    "declare on arrival: it reads COMMON.md and stands by until the Owner instructs it.",
     "An unmapped label resolves to NOTHING. The hook never guesses."
   ],
 
@@ -14,7 +16,8 @@
     "builder",
     "regulator",
     "steward",
-    "lander"
+    "lander",
+    "special"
   ],
 
   "_aliases_comment": [
@@ -44,7 +47,14 @@
     "manager1": "manager",
     "manager-1": "manager",
     "mgr": "manager",
-    "owner-manager": "manager"
+    "owner-manager": "manager",
+    "special1": "special",
+    "special2": "special",
+    "special-1": "special",
+    "special-2": "special",
+    "specials": "special",
+    "adhoc": "special",
+    "ad-hoc": "special"
   },
 
   "_retired_comment": [

@@ -40,14 +40,18 @@ AGREEMENT = t.REPO_ROOT / "CLAUDE.md"
 MARKER_RELPATH = ".claude/seat.local.txt"
 ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 
-#: The seat table in the working agreement governs the roster. FIVE seats since 2026-09-12, when the
-#: Reviewer retired and NOTHING replaced it: the review gate it fed was retired 2026-09-04, so a pull
-#: request merges on `gates (ubuntu-latest)` and `gates (windows-latest)` with no review step.
+#: The seat table in the working agreement governs the roster. SIX seats since 2026-09-16, when the
+#: owner added `special`: a seat for work outside the other five, which reads COMMON.md and stands by
+#: rather than announcing on arrival.
 #:
-#: SIX from 2026-09-10, when the Console retired and the Manager took its work. The Manager arrived
-#: 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is now the only
-#: seat that writes a brief.
-EXPECTED_SEATS = frozenset({"manager", "builder", "regulator", "steward", "lander"})
+#: FIVE from 2026-09-12, when the Reviewer retired and NOTHING replaced it: the review gate it fed
+#: was retired 2026-09-04, so a pull request merges on `gates (ubuntu-latest)` and
+#: `gates (windows-latest)` with no review step.
+#:
+#: SIX before that, from 2026-09-10, when the Console retired and the Manager took its work. The
+#: Manager arrived 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is
+#: now the only seat that writes a brief.
+EXPECTED_SEATS = frozenset({"manager", "builder", "regulator", "steward", "lander", "special"})
 
 #: Retired seats whose card page an ARCHIVE still links to. The page stays and becomes a tombstone.
 #:

@@ -8,6 +8,9 @@ session's opening prompt.
 The roster changed on 2026-09-01, when seven seats retired. It changed again on 2026-09-10 and
 2026-09-12. Older instructions may still route work to a seat that is gone.
 
+The Special seat joined on 2026-09-16. It is an addition, not a replacement, so nothing retired to
+make room for it.
+
 The site serves the cards. Open the full playbooks in your checkout; nothing delivers them to a
 session automatically.
 
@@ -24,6 +27,7 @@ Read `roles/COMMON.md` before your seat's playbook. It holds the rules shared by
 | Regulator | Decides whose failure a red check is. | [Regulator](roles/regulator.card.md) | `roles/REGULATOR.md` |
 | Steward | A cron rather than a seat. Reads usage and names the account with headroom. | [Steward](roles/steward.card.md) | `roles/STEWARD.md` |
 | Lander | What enters the merge queue, and in what order. | [Lander](roles/lander.card.md) | `roles/LANDER.md` |
+| Special | Work the Owner wants done outside the other five. It stands by silently until instructed. | [Special](roles/special.card.md) | `roles/SPECIAL.md` |
 
 Cards live under `docs/`, which Jekyll builds into this site. Playbooks live at the repository root,
 outside Jekyll's source directory, so this host has no page for them.
