@@ -538,18 +538,65 @@ resources still need shared rules:
 
 | Shared thing | Why | What to do |
 |---|---|---|
-| **The git stash stack** | One stack lives in the shared git directory, so every worktree sees every session's entries. A bare `pop` takes whichever was pushed last: one session restores another's work into its own tree, and neither notices. | Set work aside with a WIP commit. Where you must stash, use `git stash push -m "<tag>"`, record the SHA it prints, and restore by SHA with `git stash apply`. `git stash drop` does not undo. |
+| **The git stash stack** | One stack lives in the shared git directory, so every worktree sees every session's entries. A bare `pop` takes whichever was pushed last: one session restores another's work into its own tree, and neither notices. | Set work aside with a WIP commit. Where you must stash, use `git stash push -m "<tag>"`, read the SHA back with `git stash list --format='%H %gs'`, and restore with `git stash apply <sha>`. Recovery needs that SHA. |
 | **Coordination state** | It lives at `<git-common-dir>/<prefix>-coord`, which is identical across every worktree of a clone (that is the point -- a claim taken in one worktree must be visible in another). | Its corollary: **state outlives the worktree.** Remove a worktree and the claims it took are still there. Release on *evidence* -- the directory is gone **and** deregistered -- never on a timer. See [Coordination](COORDINATION.md). |
 | **The git hooks directory** | One `commit-msg` / `pre-push` set lives in the shared git directory and governs every worktree of that clone at once. | Install once per clone, not per worktree. It also sees every write route, because it inspects the tree at commit time rather than a tool call. |
 | **`.git/config`** | Written by `git worktree add`. | Already handled by the mutex above. |
 | **The AI coding assistant's project memory** | It lives outside the repository, in one directory shared by every session on the machine. Last write wins. | Reads are fine. Coordinate **writes** explicitly, or let exactly one session own them. |
 | **`.claude/` mostly does not reach a new worktree** | A project-scoped settings file is a creation-time snapshot at best, lives on one branch, and is commonly git-ignored. Anything *tracked* under `.claude/` is checked out like any other file; what is git-ignored cannot arrive at all. | Wire cross-session hooks at **user** scope, with the script installed outside every working tree. See [Install](INSTALL.md). |
 
+Ports, development databases, Redis keyspaces, package caches, and git-ignored `.env` files also
+remain outside these checks. See [Limits and requirements](LIMITS.md).
+
+### A dropped stash is recoverable until the next `gc`, and only from its SHA
+
 Nothing detects a wrong stash pop. The stack records no worktree, so a popped entry leaves no trace
 of where it came from or where it went.
 
-Ports, development databases, Redis keyspaces, package caches, and git-ignored `.env` files also
-remain outside these checks. See [Limits and requirements](LIMITS.md).
+**The row above read "record the SHA it prints" and "`git stash drop` does not undo" until
+2026-09-17. Both were false.** Measured on git 2.55.0.windows.5, in a throwaway `git init`
+repository rather than against this machine's shared stack.
+
+Push prints no SHA, so the published instruction could not be followed. The read-back is a second
+command:
+
+```text
+$ git stash push -u -m "tag-alpha"
+Saved working directory and index state On master: tag-alpha
+$ git stash list --format='%H %gs'
+a39e73a87b7f2678bb59674f794f21fdc1ece1b7 On master: tag-alpha
+```
+
+`grep -c -E '[0-9a-f]{40}'` over that push output returns 0, against 1 over `git rev-parse HEAD` as
+a control, so the pattern was live rather than empty.
+
+The drop leaves the commit object in place, and `git stash store` puts the entry back:
+
+```text
+$ git stash drop
+Dropped refs/stash@{0} (a39e73a87b7f2678bb59674f794f21fdc1ece1b7)
+$ git cat-file -t a39e73a87b7f2678bb59674f794f21fdc1ece1b7
+commit
+$ git stash store -m "tag-alpha" a39e73a87b7f2678bb59674f794f21fdc1ece1b7
+$ git stash list
+stash@{0}: tag-alpha
+```
+
+`git stash apply` then restored the tracked edit and the untracked file both.
+
+**Recovery needs three things, and the session that lost the work holds none of them.**
+
+| What recovery needs | Why the losing session lacks it |
+|---|---|
+| The SHA | `git stash push` prints none. The `Dropped ... (<sha>)` line prints in whoever ran the drop, not in you. |
+| The object, unpruned | `git reflog expire --expire-unreachable=now --all` then `git gc --prune=now` took it. `cat-file` exited 128 and `stash store` refused it as *not a stash-like commit*. |
+| A reason to look | The pop is silent in your tree. You find out when something is missing, which may be after the window has shut. |
+
+`git fsck --unreachable` finds the commit without a recorded SHA. It names every unreachable object
+in the repository, so it identifies the entry only where there is one candidate.
+
+A raw object name cannot be dropped: `git stash drop <sha>` answers *is not a stash reference*. So a
+drop re-resolves `stash@{n}` at drop time, and that is the step where it takes a peer's entry.
 
 ---
 
