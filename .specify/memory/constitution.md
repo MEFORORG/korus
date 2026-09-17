@@ -715,7 +715,6 @@ Amendment log. Kept because Governance requires retired text to stay with its re
 
 1.16.0 2026-09-12  The Owner retired a seat, deliberately unnamed here, and nothing replaced
        it. Two articles described that seat in the present tense.
-       described that seat in the present tense.
        ARTICLE III IS UNCHANGED and its evidence is untouched. Its closing sentence read
        "Whether the Reviewer seat outlives the gate it fed is an Owner decision and is not settled
        here". That question is now answered, so the sentence is kept with the answer beside it. The

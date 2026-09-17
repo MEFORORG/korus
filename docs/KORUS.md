@@ -34,8 +34,8 @@ My setup combined these choices:
 - Worktrees and hooks to enforce the rules that prompts alone did not hold.
 - The Kynet method for communication between sessions, described in section 8.
 
-The regulator role adds a check around the builders' work. One further role, deliberately unnamed here, did too until it retired on 2026-09-12.
-on 2026-09-12. The sections below explain the choices and their limits.
+The regulator role adds a check around the builders' work. One further role, deliberately unnamed here, did too until it retired on 2026-09-12. The sections below explain the choices and their
+limits.
 
 ## 1. Use Claude Code with Ultracode Mode and Opus 5
 
