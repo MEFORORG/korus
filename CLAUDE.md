@@ -163,13 +163,21 @@ A non-ASCII character raises `UnicodeEncodeError` the moment a script prints it 
 and it is invisible in review because it looks like its ASCII neighbour.
 
 ```powershell
-pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Path scripts docs roles tests .github
+pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path scripts,docs,roles,tests,.github"
 pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Path <one path> -Fix
 ```
 
 **Run it over what you changed, not over the tree.** A bare run exits 1 on a clean checkout: the
 vendored Spec Kit templates carry 275 non-ASCII characters and are not ours to rewrite. CI scans the
 tree in two steps for that reason, and `.github/workflows/gates.yml` is the source of record.
+
+**The first line read `-File ... -Path scripts docs roles tests .github` until 2026-09-16, and it
+could not run.** `pwsh -File` passes arguments literally, so `docs` bound to the positional
+`-MaxReport` and the call died with *Cannot convert value "docs" to type "System.Int32"*. The comma
+spelling fails the other way under `-File`: it arrives as one directory name, matches nothing, and
+exits 2 on `NOTHING WAS SCANNED`. Use `-Command`, which parses the array, as `gates.yml` does and
+explains in its own comment. Measured at `b243c5a`: the line above exits 0 over 300 files, against a
+control on `.claude/skills` that exits 1 on 167 characters.
 
 **`-Fix` is not a route for the vendored trees.** Against a copy it leaves 134 of the 275, because
 one template's 81 hits are box-drawing characters in a directory diagram, and where it does act on
