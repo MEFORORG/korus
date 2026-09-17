@@ -38,5 +38,6 @@ You cannot arrive here. The hook resolves `reviewer` to the retired message, nev
 
 ## The full playbook
 
-The record of what this seat did is `roles/retired/REVIEWER.md`. Read it as history. The version of
+The record of what this seat did is `roles/retired/SEAT-RETIRED-2026-09-12.md`. Read it as history.
+The version of
 this page from before the retirement is at [reviewer.card.old.md](reviewer.card.old.md).
