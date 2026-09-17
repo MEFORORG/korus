@@ -472,6 +472,47 @@ Two verbs to distrust together: a check-only flag that leaves no artifact, and a
 to arm a control. Plant the control in a throwaway copy, never in the one the real measurement
 reads.
 
+### A file's arrival is a change surface, and a search for consumers misses it
+
+Search for what reads your file's name as well as for what reads its content. A check that globs a
+directory sees a new file the moment it exists.
+
+Reported by a peer session on 2026-09-17, on a pull request in another repository. Three CI legs
+went red. Two sessions independently searched for consumers of the edited script, and both found the
+same four test files. Both readings were correct.
+
+The failing check never reads that script. `test_tooling_partition.py` globs `tests/test_*.py` and
+fails on any file missing from `tests/tooling_manifest.txt`. It saw the branch's new test file as a
+name in that glob.
+
+Those searches drew their population from what the change touched. The failing consumer cares that
+the file exists, which nothing in the edit's content can answer.
+
+*A control can fire and still miss the subject* is the wrong subject, an instrument pointed at the
+wrong tree. This one is the wrong population: the aim was right, and the answer sat outside the set
+searched.
+
+The same split sits in this repository. `tests/test_prose_rules_hold.py` excludes the frozen
+`.old.md` archives, because nobody may edit them. `tests/test_internal_links_resolve.py` reads
+`git ls-files *.md`, which returns all 50 of them.
+
+Measured at `339b9ff`:
+
+```powershell
+(git ls-files '*.old.md').Count   # 50, the archives no editing sweep opens
+(git ls-files '*.md').Count       # 163, the link scan's corpus
+
+# 38 anchored links from those archives into current pages
+(git grep -hoE '\]\([A-Za-z0-9_./-]+\.md#[a-z0-9-]+\)' -- '*.old.md' |
+    Select-String -Pattern '\.old\.md' -NotMatch).Count
+```
+
+Renaming one of those 38 headings fails a check over a file the sweep had ruled out of scope.
+
+Run the check's own classifier against your ref and against the base ref, which is the armed control.
+Here that returned `['test_coord_occupancy_unplaceable.py']` at the branch and `[]` at the base, with
+pytest never run.
+
 ### A gate cannot see a policy judgment
 
 A scanner cannot judge whether ordinary prose belongs in a repository. Assign that decision to a
