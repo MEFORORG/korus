@@ -171,8 +171,15 @@ try {
     else {
         $receipt = (& git -C $PrimaryRoot stash drop $index 2>&1 | Out-String)
         if ($LASTEXITCODE -ne 0) {
+            # Name the ref, not the object. "Drop it by hand: <sha>" reads as an instruction to run
+            # `git stash drop <sha>`, which answers "is not a stash reference" -- the same shape of
+            # unusable advice this script was fixed for, printed at the same moment.
             Write-Warning "Could not drop the spent stash entry $index (exit $LASTEXITCODE)."
-            Write-Warning "Your work is in $Target. Drop it by hand when convenient: $stashSha"
+            Write-Warning "Your work is in $Target, so this is tidying rather than recovery:"
+            Write-Warning "    git -C `"$PrimaryRoot`" stash list --format='%H %gd'"
+            Write-Warning "  find the row whose object name is $stashSha, then drop it by its ref --"
+            Write-Warning "  drop refuses an object name:"
+            Write-Warning "    git -C `"$PrimaryRoot`" stash drop 'stash@{N}'"
         }
         else {
             $receiptSha = [regex]::Match($receipt, '\(([0-9a-f]{40})\)')
