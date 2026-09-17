@@ -253,7 +253,120 @@ hook, which is not the same as never read. Reading a box by hand does not consum
 directory. It is bounded by something else instead, and that boundary is the one that strands
 people.**
 
-### The seat registry is the only channel that crosses accounts, so declare into it on arrival
+## The fleet spans CCD instances, and only one channel crosses between them
+
+**Fleet** is every session working this repository, spread across every Claude Code Desktop (CCD)
+instance on the machine. **A CCD instance is one running desktop app with its own config root,
+signed into one account.** Measured here: five, `~/.claude-account-1` through `-5`.
+
+A peer is either inside your instance or outside it, and that one fact picks the channel.
+
+| The peer sits | Channel | Addressed by |
+| --- | --- | --- |
+| In your CCD instance | `ccd_session_mgmt` MCP, or built-in `SendMessage` | a session id, or a session name |
+| In another CCD instance | `scripts/coord/mail.ps1` | the peer's worktree path |
+
+Neither is a superset of the other, so "I could not reach them" has to name which one you tried.
+
+### Same instance: the MCP method
+
+    list_sessions -> match on cwd -> send_message
+
+`list_sessions` returns every session in your instance with its `sessionId`, `cwd`, `branch` and
+`lastActivityAt`. Join a peer to its row on `cwd`, exactly, case-insensitively.
+
+**Never prefix-match.** Every worktree path extends the primary checkout's path, so a prefix match
+resolves a peer in the primary to some arbitrary worktree. No exact match means skip the peer rather
+than guess.
+
+Send to that row's `sessionId`. A usable one starts with `local_`.
+
+**It arrives as a user turn in the peer's session, not as a notification.** A busy peer reads it
+between tool calls, and an idle one reads it when it next takes a turn.
+
+`isRunning: false` is not unreachable. It reports whether the peer was mid-turn when you listed, and
+peers spend most of their time idle.
+
+**The MCP is desktop-only.** A plain CLI install does not carry it. There the same-instance channel
+is built-in `ListAgents` and `SendMessage`, which address by name and accept no path.
+
+### The instance boundary, measured
+
+Measured 2026-09-16 at `13a2579`, from this worktree on `.claude-account-5`:
+
+| Instrument | Peers named | Instances covered |
+| --- | --- | --- |
+| `list_sessions` | 3 | account-5 only |
+| `ListAgents` | 2 | account-5 only |
+| Live registry records on disk | 11 | accounts 2, 4 and 5 |
+
+Both rosters exclude the calling session, so the eleven is peers and not a head count. Nine of them
+ran under `.claude-account-2` and `-4`.
+
+Every one held a live process id, and six had taken a turn within the hour. Neither roster named one
+of them.
+
+**Control: `list_sessions` returned three rows, one of which `ListAgents` missed.** The instrument
+was reading rather than dead, so the zero is the boundary and not a broken probe.
+
+**No retry crosses it.** *The seat registry is how you find a peer in another instance* reaches the
+same conclusion from a separate reading, taken four days earlier on the engine clone.
+
+### Another instance: the mail method
+
+    pwsh -NoProfile -File scripts/coord/mail.ps1 -Send -To "<peer worktree path>" -Kind note -Body "..."
+
+**Mail crosses because its queue is a path, not a roster.** It lives at `<git-common-dir>/mail/box/`,
+keyed by the recipient's worktree root. Nothing in that path carries an account.
+
+Measured at `13a2579`: this repository's queue holds 11 boxes, written from three config roots --
+`.claude-account-1` (3), `-2` (5) and `-5` (3). One repository, one queue, three instances.
+
+Method: for each box, name the config roots whose `projects/` folder holds that worktree. Every box
+resolved to exactly one root, so none was ambiguous, and the probe did return three different roots
+across the set.
+
+**`-To` wants a full worktree path.** A bare name and a box name both fail `Test-Path -PathType
+Container`. The refusal reads `Recipient worktree does not exist`, which says the peer is gone when
+it means you passed the wrong shape.
+
+**The queue is per clone, so mail reaches a peer working this repository.** For a peer in a different
+clone, name that clone's queue with `-Anchor <path-to-clone>` and keep `-To` on their worktree.
+
+Without the anchor the message lands in your clone's queue under their box key, and their drain reads
+a different root. The send reports success either way.
+
+### What mail does not promise
+
+**Queued is not delivered.** The recipient's own drain hook delivers, and that runs at their next
+`SessionStart` or `Stop`. `mail.ps1` prints this on every send.
+
+**The default time to live is 1440 minutes.** It clears an overnight gap and expires a weekend.
+Expiry is silent at both ends. Before a longer dark, commit what you need read.
+
+**The caps belong to the drain, not to the sender.** Whoever writes a file into an inbox never runs
+`mail.ps1`, so the sender reports the bounds and enforces none of them.
+
+| Bound | Value | What happens past it |
+| --- | --- | --- |
+| Rendered body | 2000 bytes | The drain truncates at render. The send still reports success. |
+| Line | 240 characters | Cut, and counted as truncation. |
+| Messages per injection | 5 | The rest wait for the next drain. |
+
+So long content goes in a file, and you mail the path.
+
+**Nothing sensitive goes in a body.** Delivery copies it into the recipient's transcript, and every
+`from` field is an unverified self-assertion.
+
+`fleet-message-a-peer` carries the four delivery grades, the receipt that separates them, and the
+addressing traps. Load it before you send.
+
+### The seat registry is how you find a peer in another instance, so declare into it on arrival
+
+**That heading read "the only channel that crosses accounts" until 2026-09-16, and it was wrong
+twice.** The registry is discovery, not a channel, and mail crosses too -- *Another instance: the
+mail method* measures 11 boxes in this clone's queue written from three config roots.
+
 
     pwsh -NoProfile -File scripts\coord\seat.ps1 -Declare -Seat <role> -Goal "<one line>"
 
@@ -282,12 +395,31 @@ holds a role.
 
 **Finding a live seat from any account, which is the read side of the same rule:**
 
-    grep -rl '"seat": *"<role>"' <repo>/.git/mefor-coord/seats
+    grep -rl '"seat": *"<role>"' <repo>/.git/<state-root>/seats
     # newest by mtime wins; read its boxKey; mail that box.
+
+**Read the state root off `seat.ps1` rather than out of this page.** The recipe above named
+`mefor-coord` until 2026-09-16, which is the engine clone's root and not this one's.
+
+Measured at `13a2579`: `seat.ps1` joins `ccx-coord` to the git common directory, and
+`korus/.git/ccx-coord` holds no `seats` folder, because no seat has ever declared in this clone.
+Control, same path shape: `MessageFoundry/.git/mefor-coord/seats` exists, so the probe could see a
+seats folder where one had been written.
 
 Newest-by-mtime is load-bearing, for the reason this section already gives: a record answers "a seat
 once declared here", never "a seat is alive here". Five dead Lander records outrank a live one on
 every axis except recency, so any search that does not sort by time finds a corpse first.
+
+### Picking one
+
+| You need | Channel |
+| --- | --- |
+| A peer in your own instance, now | The MCP method |
+| Any peer in another instance | Mail |
+| A receipt you can read afterwards | Mail |
+| To wake an idle peer in your instance | The MCP method |
+
+Mail also works inside your own instance. It is the only one that works outside it.
 
 ---
 
