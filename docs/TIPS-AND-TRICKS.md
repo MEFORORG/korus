@@ -453,6 +453,25 @@ stale subject from a true zero.
 [Worktrees](WORKTREES.md#read-from-a-ref-not-from-a-working-tree) carries the reading rule that
 avoids this.
 
+### Arming a control in place can contaminate what you measure next
+
+Assert on the result's content, not on its exit code. A merge that keeps your change and a merge
+that silently drops it both exit 0.
+
+Reported by a peer session on 2026-09-17, against its own work. It checked a patch against a scratch
+copy with `git apply --check`. That flag writes nothing, so the copy never received the patch.
+
+To arm its detector it then mutated a line in that same copy, and the patch was refused. The control
+fired, correctly. But the merge probe it built from that directory carried the mutation and none of
+the change.
+
+`git merge-tree` returned exit 0, and exit 0 was true. It answered whether the merge had a textual
+conflict, while the question asked was whether the merged file held the fix.
+
+Two verbs to distrust together: a check-only flag that leaves no artifact, and an in-place edit made
+to arm a control. Plant the control in a throwaway copy, never in the one the real measurement
+reads.
+
 ### A gate cannot see a policy judgment
 
 A scanner cannot judge whether ordinary prose belongs in a repository. Assign that decision to a
