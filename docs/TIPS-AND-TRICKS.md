@@ -509,6 +509,18 @@ Measured at `339b9ff`:
 
 Renaming one of those 38 headings fails a check over a file the sweep had ruled out of scope.
 
+The repair is not to fix the link. Each archive is sha256-pinned, so editing one reds
+`test_page_revisions.py` instead. Both routes are closed, and the rename is what has to give.
+
+That gap is now guarded. Ask before you rename, and the answer names the archives and the options:
+
+```powershell
+python scripts/quality/frozen_citations.py docs/LIMITS.md "What actually switches each control on"
+```
+
+`tests/test_a_heading_a_frozen_archive_cites_cannot_be_renamed.py` pins the set and reddens with the
+same message when one of those headings goes.
+
 Run the check's own classifier against your ref and against the base ref, which is the armed control.
 Here that returned `['test_coord_occupancy_unplaceable.py']` at the branch and `[]` at the base, with
 pytest never run.
