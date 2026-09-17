@@ -137,5 +137,69 @@ class TheDocumentedCommandDoesNotExitOne(unittest.TestCase):
                 )
 
 
+class TheDocumentedCommandKeepsItsExitCode(unittest.TestCase):
+    """The published invocation has to survive TWO traps with OPPOSITE remedies.
+
+    TRAP 1, THE ARGUMENT BINDING. `pwsh -File` passes arguments literally, so `-Path a,b` arrives as
+    one directory name matching nothing and `-Path a b` binds `b` to the positional `-MaxReport`.
+    `-Command` parses the array, which is why the line uses it.
+
+    TRAP 2, THE EXIT CODE. A script invoked as the last thing `-Command` does returns 1 for any
+    non-zero code. `check-ascii.ps1` exits 2 for NOTHING WAS SCANNED so a run that measured nothing
+    cannot read as a clean one, and that 2 then arrives as 1 -- the code for a real violation.
+    `-Command` itself collapses nothing: `-Command "exit N"` propagates 0, 1, 2 and 3 unchanged.
+
+    TRAP 3 IS THE ONE THE FIX INTRODUCES. Inside DOUBLE quotes the calling shell expands
+    `$LASTEXITCODE` before the inner pwsh sees it, so the line runs `exit 0` after any successful
+    command and a real violation reports SUCCESS. Single quotes are what make the clause safe.
+
+    MEASURED 2026-09-17 on pwsh 7.6.6 at 9379109. The single-quoted line: 0 over the five published
+    paths, 1 on `.claude/skills`, 2 on `-Path 'no-such-dir-xyzzy'`. Double-quoted after
+    `cmd /c exit 7`, over a clean `docs`: 7 -- the caller's code, not the gate's.
+    """
+
+    REEXPORT = "; exit $LASTEXITCODE"
+
+    def command_lines(self) -> list[str]:
+        text = (_REPO / "CLAUDE.md").read_text(encoding="utf-8")
+        return [
+            line.strip()
+            for line in text.splitlines()
+            if line.strip().startswith("pwsh")
+            and "-Command" in line
+            and "check-ascii.ps1" in line
+        ]
+
+    def test_every_published_command_form_reexports_the_code(self):
+        for line in self.command_lines():
+            self.assertIn(
+                self.REEXPORT,
+                line,
+                f"CLAUDE.md publishes {line!r}. A script invoked as the last thing `-Command` does "
+                "returns 1 for any non-zero code, so the gate's exit 2 for NOTHING WAS SCANNED "
+                "reads as an ordinary violation.",
+            )
+
+    def test_the_command_string_is_single_quoted(self):
+        for line in self.command_lines():
+            if self.REEXPORT not in line:
+                continue
+            self.assertIn(
+                "-Command '",
+                line,
+                f"CLAUDE.md publishes {line!r} with a double-quoted -Command string. The calling "
+                "shell expands $LASTEXITCODE before the inner pwsh runs, so the line exits with "
+                "the CALLER's code and a real violation reports success.",
+            )
+
+    def test_there_is_a_command_form_to_check(self):
+        """The empty-corpus guard. Both assertions above pass trivially against no lines."""
+        self.assertTrue(
+            self.command_lines(),
+            "no `pwsh -Command` invocation of check-ascii.ps1 was parsed out of CLAUDE.md, so the "
+            "checks above examined nothing and reported success.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
