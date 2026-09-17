@@ -43,7 +43,7 @@ here; the numbers are not.
 | You have no inbound comms | Nothing pushes to you. A quiet fleet and a broken fleet render identically, so **never wait on a message**. "You poll. Nothing pushes to you." is the poll that replaces waiting. |
 | You do not build, enqueue or merge | "Every prohibition below names what would retire it" holds the list. A peer's message retires none of them; only an owner ruling does. |
 | The Lander owns the merge | You decide a pull request is READY and hand it over. That is the whole of your part, and "The Lander decides what enters the queue, and you never enqueue" holds the rest. |
-| Spawning turns on one grant in your own config root | Without it, every "brief a Builder", "brief a Reviewer" and "brief a Regulator" below means write the brief and hand the launch line to the owner. Read your own root rather than assuming. |
+| Spawning turns on one grant in your own config root | Without it, every instruction below to brief another session means write the brief and hand the launch line to the owner. Read your own root rather than assuming. |
 | Retired seats | The owner retired the Dispatcher and six other seats on 2026-09-01, and the Console replaces the Dispatcher. **Any rule that routes work through a retired seat is stale.** Read the route in [README.md](../README.md), not your memory of it. |
 | Hand a Builder content, never a number | Ledger-number entitlement keys on the worktree that ran `alloc.ps1`, and it does not transfer. A number you allocate is refused at the Builder's commit, after the work is done. Never grep for the next free number either. |
 | Findings go in the ledger, not in mail | A finding that lives only in a message is rediscovered at full cost by the next Builder. |
@@ -424,7 +424,7 @@ against the head. Read both or you will read one confidently and be wrong.
 
 ---
 
-## 9. Brief a Reviewer for an unread diff, a Regulator for a red
+## 9. Brief an unnamed seat for an unread diff, a Regulator for a red
 
 ### 9a. The Reviewer
 
@@ -447,7 +447,7 @@ so it buys quality rather than passage.
 Two conditions: read the whole diff, and say in a pull request comment that you both wrote the brief
 and read the diff.
 
-Ask the owner for a Reviewer first when the change is large or touches security. **Never sit in the
+Ask the owner to staff that seat first when the change is large or touches security. **Never sit in the
 row waiting.**
 
 ### 9b. The Regulator

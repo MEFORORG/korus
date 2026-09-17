@@ -91,8 +91,10 @@ Work is divided among **seats**, each a session with one job:
 | Steward | Writes files other seats read | cron, no model calls |
 | Lander | Decides merge order | long-lived |
 
-Nine further seats were tried and retired: the Console on 2026-09-10 and the Reviewer on 2026-09-12,
-with nothing replacing the Reviewer. Why each went is part of the record this repository holds.
+Nine further seats were tried and retired: the Console on 2026-09-10 and another on 2026-09-12,
+with nothing replacing that one and its name deliberately left out here. Why each went is part of
+the record this repository holds.
+Nine further seats were tried and retired: the Console on 2026-09-10, and a ninth on 2026-09-12 that is deliberately left unnamed here, with nothing replacing it. Why each went is part of the record this repository holds.
 
 ## Repository layout
 

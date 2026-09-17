@@ -30,7 +30,7 @@ the work survives the worker's exit.
 
 Eight briefs written for real work between 2026-08-30 and 2026-09-01, held outside this repository
 in the operator's own working notes: **8 files, 869 lines, 49,366 bytes**. Five Builder or
-iteration briefs, three Reviewer briefs.
+iteration briefs, three briefs for a different seat, deliberately unnamed here.
 
 The corpus is not published. It is one operator's real dispatch traffic and carries repository and
 account detail that does not belong in a public repo, so every count below is stated with the needle
@@ -355,7 +355,8 @@ Named so a later reader can see these were considered and declined, rather than 
    a file on the branch, which is weaker than a comment somebody is notified about.
 5. **Who checks the [C] requirements?** No gate reads briefs. A checker is a separate feature and
    is not specified here.
-6. **Does the Reviewer worker kind need its own row?** All three Reviewer briefs in the corpus
+6. **Does a review worker need its own row?** All three review briefs in the corpus
+   carry **no** prohibition at all, and a reviewer that guesses is arguably worse than a builder
    carry **no** prohibition at all, and a reviewer that guesses is arguably worse than a builder
    that does.
 7. **Is 22,275 tokens per waiting minute still current?** It is a single measurement from one

@@ -34,7 +34,7 @@ My setup combined these choices:
 - Worktrees and hooks to enforce the rules that prompts alone did not hold.
 - The Kynet method for communication between sessions, described in section 8.
 
-The regulator role adds a check around the builders' work. A reviewer role did too until it retired
+The regulator role adds a check around the builders' work. One further role, deliberately unnamed here, did too until it retired on 2026-09-12.
 on 2026-09-12. The sections below explain the choices and their limits.
 
 ## 1. Use Claude Code with Ultracode Mode and Opus 5
@@ -167,12 +167,12 @@ codebases take longer to test.
 The original account required a reviewer label before merging. That rule was retired on
 2026-09-04; use the current [Lander card](roles/lander.card.md) and repository checks for today's requirement.
 
-### 6.4 Reviewer session, retired 2026-09-12
+### 6.4 A retired session, 2026-09-12
 
 This section once described an ASVS monitor, a role retired on 2026-09-01. It then described a
-reviewer, a role retired on 2026-09-12 with nothing to replace it.
+another role, retired on 2026-09-12 with nothing to replace it.
 
-The retired procedure started a reviewer per pull request. It read the diff, recorded the head commit
+The retired procedure started one such session per pull request. It read the diff, recorded the head commit
 it examined, and posted findings for the next builder. It never merged.
 
 The label-based merge gate it fed was retired on 2026-09-04. Eight days later the seat went too, so

@@ -239,7 +239,7 @@ answer.
 in the engine and still strips `reviewed` on a push. The label still disappears. What changed is that
 nothing required reads it.
 
-**That paragraph read "this says nothing about the Reviewer seat, which outlives its gate or does not
+**That paragraph made this a question about one seat, deliberately unnamed here, asking whether it outlives its gate or does not on an owner ruling. It read that way until 2026-09-12.**
 on an owner ruling" until 2026-09-12.** The owner retired that seat on 2026-09-12 and nothing replaced
 it, so the question is closed.
 
@@ -248,7 +248,7 @@ Reading a diff was never the gate's to authorise, and it is nobody's seat now.
 ### 4c. Never write a required-context count
 
 The engine's required set drifts. Readings inside one week: the failure log carries 13, 15 and 16, and
-a Reviewer session measured 14 on the server 2026-08-31. **Read it fresh every time.**
+a peer session measured 14 on the server 2026-08-31. **Read it fresh every time.**
 
 **It moved again on 2026-09-04.** `a reviewer has read this` was in the set on 2026-08-31 and was not
 when this was written. That is the rule firing, not an exception to it. Read the set, not this line:

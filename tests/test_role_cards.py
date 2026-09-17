@@ -44,7 +44,7 @@ ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 #: owner added `special`: a seat for work outside the other five, which reads COMMON.md and stands by
 #: rather than announcing on arrival.
 #:
-#: FIVE from 2026-09-12, when the Reviewer retired and NOTHING replaced it: the review gate it fed
+#: FIVE from 2026-09-12, when one of the six retired and NOTHING replaced it: the review gate it fed
 #: was retired 2026-09-04, so a pull request merges on `gates (ubuntu-latest)` and
 #: `gates (windows-latest)` with no review step.
 #:
@@ -426,7 +426,7 @@ class TheHookNeverGuessesASeat(unittest.TestCase):
         """One label per retired spelling, because a spelling left out reads as a typo.
 
         `console1` was measured returning "MATCHES NO SEAT" before it got its own row, which sends
-        the reader looking for a card rather than telling them the seat went away. The Reviewer's
+the reader looking for a card rather than telling them the seat went away. Another seat's
         five spellings were added on 2026-09-12 for the same reason.
         """
         for label in sorted(seats()["retired"]):
