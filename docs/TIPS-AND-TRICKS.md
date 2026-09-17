@@ -805,12 +805,15 @@ It refuses transcripts touched within `-MinIdleMinutes`, because moving one whil
 can corrupt it.
 
 Use `rescue.ps1` for uncommitted work left in the primary. It stashes tracked and untracked changes,
-creates a worktree from the primary's current commit, and pops there.
+creates a worktree from the primary's current commit, and applies the entry there by object name.
+
+It never pops. The stack is shared, and building the worktree takes minutes, so `stash@{0}` by then
+may belong to a peer.
 
 Use `restore-primary.ps1` to reattach a primary left on the wrong branch.
 
-A failed pop leaves work in `git stash list`. Recovery instructions print from a `finally` block
-even after failure, so the work remains recoverable.
+A failed restore leaves work in the stash. Recovery instructions print from a `finally` block even
+after failure, and they name the entry by object name, so the work remains recoverable.
 
 ---
 

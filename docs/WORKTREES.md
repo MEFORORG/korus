@@ -222,22 +222,41 @@ Name the destination worktree:
 pwsh -NoProfile -File scripts/worktree/rescue.ps1 -Name alerts-fix
 ```
 
-The script stashes primary changes, creates a worktree, and pops the stash there. Three details
-preserve the work:
+The script stashes primary changes, creates a worktree, and applies the stash there by object name.
+Four details preserve the work:
 
 - `--include-untracked`. Without it, untracked files stay behind in the primary. The new worktree
   then recreates them: two diverging copies, with no indication which one you are editing.
 - **The new branch is cut from the primary's *current* commit**, not from the trunk, so the stash
   applies cleanly. This is the one case where the fetched-remote-tip rule above is deliberately not
   applied -- a rescue that conflicts is a rescue that failed.
-- The stash is the safety net, and the recovery path is printed at the moment of failure. If pop
-  fails, `finally` prints commands to list and restore the stash. It also prints the original stash
-  message. Mid-panic is not when someone opens a document.
+- **The entry is named, never taken off the top.** The push carries a per-run token, the script reads
+  the entry's object name back, and the restore is `git stash apply <sha>`. Building the worktree
+  takes minutes, and `stash@{0}` by then may be a peer's.
+- The stash is the safety net, and the recovery path is printed at the moment of failure. If the
+  restore fails, `finally` prints the object name and the commands to inspect and apply it. Mid-panic
+  is not when someone opens a document.
 
 If the primary is clean, the script reports nothing to rescue and suggests `new.ps1`. It creates no
 empty worktree.
 
 ### Known defect: `rescue.ps1` pops the stack by position
+
+**RETIRED 2026-09-17. Fixed in #119, which landed after #118 wrote the text below.** The script now
+pins the entry it pushed and restores it by object name. Both pops are gone: the one it ran, and the
+one it printed.
+
+`tests/test_the_rescue_names_the_stash_entry_it_pushed.py` holds the fixture. Its mutation control
+reverts the restore to a bare pop and requires the case to go red, so the claim is falsifiable.
+
+Two constraints shaped it. `git stash drop` refuses an object name -- `is not a stash reference` --
+so a drop must resolve the SHA back to a `stash@{n}` first. And `git stash create` avoids the race
+but cannot capture untracked files, which is why this command exists.
+
+Kept rather than deleted, per the rule that retired text stays with its reason. A reader who sees
+only a removal cannot tell whether the defect was fixed or the claim was wrong.
+
+The retired text follows.
 
 Read at `6eb6be0`, both of the script's pops are bare. It pushes with a unique `-m` tag, runs
 `new.ps1` as a child process, then pops whatever now sits on top.

@@ -68,8 +68,9 @@ pwsh -NoProfile -File scripts/worktree/rescue.ps1 -Name <short-name>
 ```
 
 That stashes the primary's uncommitted work (tracked *and* untracked), creates the worktree off the
-primary's current commit so the stash applies cleanly, and pops it there. Nothing is discarded -- if
-the pop fails the work is still in `git stash list` and the script says so.
+primary's current commit so the stash applies cleanly, and applies it there **by object name**. Never
+`pop`: the stack is shared, and the worktree takes minutes to build, so `stash@{0}` by then may be a
+peer's. Nothing is discarded -- if the restore fails the script prints the object name to recover it.
 
 Rules that are not negotiable:
 
