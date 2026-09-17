@@ -61,7 +61,8 @@ engine file is ever updated, this row is what stops the next seat re-deriving th
 turns out right.
 
 **On the retired label row:** the gate went on 2026-09-04 and the seat on 2026-09-12. See
-[README.md](README.md), *The review gate retired on 2026-09-04, and the Reviewer seat on 2026-09-12*.
+[README.md](README.md), *The review gate retired on 2026-09-04, and the seat it belonged to on
+2026-09-12*.
 
 **On the retired review-step row:** a pull request merges on `gates (ubuntu-latest)` and
 `gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so say in the
