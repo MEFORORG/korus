@@ -471,7 +471,10 @@ check is the only reason the seat that hit this caught its own.**
    `BACKLOG #N` in the subject only if you hold the claim and the diff touches code.
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
-11. **Open the pull request, write the exit report, and exit.** There is no next item. The Manager
+11. **Review the diff for correctness before you open the pull request.** Invoke the `Skill` tool
+    with `skill: "code-review"` and name the effort level. Fix what it confirms, then commit and
+    re-anchor again. Section 4c carries the reasoning and the traps.
+12. **Open the pull request, write the exit report, and exit.** There is no next item. The Manager
     writes the next brief.
 
 **On step 3:** refresh the claim note when the work changes.
@@ -479,7 +482,7 @@ check is the only reason the seat that hit this caught its own.**
 **On step 5:** the run ids live in the launch result and nowhere else. *Do not pause a run you
 cannot resume* needs them turns later, when they are gone.
 
-**On step 11:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
+**On step 12:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
 The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read
 the result back.
 
@@ -573,6 +576,39 @@ is actionable; "not enough" is not, to anyone replenishing four lanes.
 
 The reasoning goes in the prose above the table. **A dashboard that has to be read is not a
 dashboard.**
+
+---
+
+### 4c. Nothing reads your diff before the merge, so read it yourself
+
+The Reviewer seat retired on 2026-09-12 and nothing replaced it. Section 1's standing-rules table
+carries that line and its date.
+
+So you are the last reader of your own diff before it lands. Step 7 does not close that.
+
+`/simplify` is a quality pass and says so in its own description. It hunts reuse, simplification,
+efficiency and altitude, and it points at `code-review` for bugs.
+
+Ruff is style, mypy is types, pytest is regression. None of those looks for a NEW correctness
+defect. `code-review` does, and it ships in the harness with nothing to install.
+
+| Item | Rule |
+| --- | --- |
+| How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
+| Name the effort level | A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
+| A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
+| Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
+| Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
+
+**It degrades quietly without `Agent`, and it says so.** With fan-out it works several angles, then
+grades each candidate CONFIRMED, PLAUSIBLE or REFUTED.
+
+Without the tool it makes one inline pass, and it is instructed to report that it did. Section 2
+already grants you `Agent` with no permission, so fan-out is the path you normally get.
+
+**Name the level and the outcome in your exit report.** A review whose scope nobody can see is the
+gate that examined nothing.
 
 ---
 
