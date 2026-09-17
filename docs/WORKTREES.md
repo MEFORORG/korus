@@ -237,6 +237,22 @@ preserve the work:
 If the primary is clean, the script reports nothing to rescue and suggests `new.ps1`. It creates no
 empty worktree.
 
+### Known defect: `rescue.ps1` pops the stack by position
+
+Read at `6eb6be0`, both of the script's pops are bare. It pushes with a unique `-m` tag, runs
+`new.ps1` as a child process, then pops whatever now sits on top.
+
+Its `finally` block prints the same shape: find your entry in `stash list` by its message, then
+`git stash pop`. The stack is shared, so those are two different entries whenever a peer stashed in
+between.
+
+The fix is to resolve the pushed entry to a SHA and apply that SHA, which is what
+[the shared-stack row](#what-a-worktree-does-not-isolate) asks of every other caller. It is filed
+and not yet made.
+
+Until it lands, run `rescue.ps1` when no peer session is mid-stash, and read the message on the
+entry before you accept the result.
+
 ---
 
 ## What actually stops the failure
