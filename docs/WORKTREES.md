@@ -110,6 +110,32 @@ govern that fetch:
 An explicit local `-Base` that trails upstream triggers a warning with the branch, lag count, and
 suggested remote ref. Remote-tracking refs lack `@{upstream}`, so the default skips this check.
 
+### Read from a ref, not from a working tree
+
+The rule above governs where a branch starts. The same lag defeats reading, and that failure is
+quieter: a search of a checkout answers for whatever that checkout last had.
+
+Measured in this repository on 2026-09-17, from the primary checkout:
+
+```powershell
+git rev-parse --abbrev-ref HEAD                                      # a feature branch, not main
+git rev-list --count HEAD..origin/main                               # 48
+git ls-files .github/workflows/required-workflow-state.yml           # 0 lines
+git show 'origin/main:.github/workflows/required-workflow-state.yml' # 158 lines
+```
+
+The primary sat 48 commits behind the trunk, on a branch nobody had switched back. A file that
+exists on `origin/main` reads as absent there.
+
+A second clone on the same machine read 257 behind by the same command. Three analysis passes
+reported a file missing from that project because they had searched its primary tree.
+
+So name the ref. `git show <ref>:<path>` and `git grep <pattern> <ref>` answer about the ref rather
+than about wherever your shell happens to be standing.
+
+Their positive control fired, which is why nobody caught it.
+[Tips and tricks](TIPS-AND-TRICKS.md#a-control-can-fire-and-still-miss-the-subject) carries that half.
+
 ### Concurrent creation races `.git/config.lock`
 
 Concurrent `git worktree add` calls can fail with
@@ -164,6 +190,24 @@ Setup reports two distinct failures:
 
 Use `-NoSetup` to create files without an environment. The printed next steps explicitly report that
 setup has not run.
+
+### Environments multiply, so start the removal habit in week one
+
+One environment per worktree stays right. It is also the line item that grows, and nothing here
+removes an environment for you.
+
+Measured on the development host on 2026-09-17:
+
+- 110 registered worktrees in one clone and 40 in a second, by `git worktree list`. The first clone
+  read 107 earlier the same day, so treat these as a shape rather than a level.
+- 0.86 GB for a single worktree's `.venv`, by `Get-ChildItem <path>/.venv -Recurse -File -Force`
+  piped into `Measure-Object -Property Length -Sum`.
+- 63.36 GB across every worktree directory on the machine, by `du -sb`. Dependency environments were
+  19.66 GB of that total, or 31 percent.
+- 18.75 GB across 322,826 files in the agent scratchpad directories, by `Get-ChildItem -Recurse`.
+
+[Pruning](PRUNING.md) is the sweep that clears them. `prune-merged.ps1` defaults to a dry run, so
+reading its decisions costs nothing and is the cheapest habit to start with.
 
 ---
 
@@ -308,6 +352,9 @@ The suggested repair would have moved sessions off their actual branches. Apply 
   decides.
 - Never print a destructive remediation command from a detector you have not proven correct. The
   warning tells you to commit or stash first, and to run the switch yourself from a plain terminal.
+
+Take the commit. Those are the hook's words, and a stash lands on the stack
+[every worktree shares](#what-a-worktree-does-not-isolate).
 
 When no record exists, the backstop records the worktree's current branch. That bootstrap can race
 the harness's session setup.
@@ -470,16 +517,20 @@ duplicated it and a fifth pattern-matched it, letting rules drift apart.
 
 ## What a worktree does *not* isolate
 
-Worktrees separate files, branches, indexes, and setup-hook dependency environments. These five
+Worktrees separate files, branches, indexes, and setup-hook dependency environments. These six
 resources still need shared rules:
 
 | Shared thing | Why | What to do |
 |---|---|---|
+| **The git stash stack** | One stack lives in the shared git directory, so every worktree sees every session's entries. A bare `pop` takes whichever was pushed last: one session restores another's work into its own tree, and neither notices. | Set work aside with a WIP commit. Where you must stash, use `git stash push -m "<tag>"`, record the SHA it prints, and restore by SHA with `git stash apply`. `git stash drop` does not undo. |
 | **Coordination state** | It lives at `<git-common-dir>/<prefix>-coord`, which is identical across every worktree of a clone (that is the point -- a claim taken in one worktree must be visible in another). | Its corollary: **state outlives the worktree.** Remove a worktree and the claims it took are still there. Release on *evidence* -- the directory is gone **and** deregistered -- never on a timer. See [Coordination](COORDINATION.md). |
 | **The git hooks directory** | One `commit-msg` / `pre-push` set lives in the shared git directory and governs every worktree of that clone at once. | Install once per clone, not per worktree. It also sees every write route, because it inspects the tree at commit time rather than a tool call. |
 | **`.git/config`** | Written by `git worktree add`. | Already handled by the mutex above. |
 | **The AI coding assistant's project memory** | It lives outside the repository, in one directory shared by every session on the machine. Last write wins. | Reads are fine. Coordinate **writes** explicitly, or let exactly one session own them. |
 | **`.claude/` mostly does not reach a new worktree** | A project-scoped settings file is a creation-time snapshot at best, lives on one branch, and is commonly git-ignored. Anything *tracked* under `.claude/` is checked out like any other file; what is git-ignored cannot arrive at all. | Wire cross-session hooks at **user** scope, with the script installed outside every working tree. See [Install](INSTALL.md). |
+
+Nothing detects a wrong stash pop. The stack records no worktree, so a popped entry leaves no trace
+of where it came from or where it went.
 
 Ports, development databases, Redis keyspaces, package caches, and git-ignored `.env` files also
 remain outside these checks. See [Limits and requirements](LIMITS.md).

@@ -428,6 +428,31 @@ also returned zero on a ref that had to match.
 The conclusion was true, but the check supplied no evidence. Always run the search against a known
 positive before trusting a zero.
 
+### A control can fire and still miss the subject
+
+A positive control proves the instrument works. It does not prove the instrument was pointed at what
+you asked about.
+
+On 2026-09-17, three analysis passes reported a file absent from a project because they searched a
+primary checkout sitting hundreds of commits behind its trunk.
+
+Their control was a different file, old enough to exist in both trees. It fired, so the search
+looked healthy while answering about the wrong tree.
+
+Reproduced in this repository the same day, from a primary checkout 48 commits behind `origin/main`:
+
+```powershell
+git ls-files docs/WORKTREES.md                              # 1, their control: in both trees
+git ls-files .github/workflows/required-workflow-state.yml  # 0, the subject: a false absence
+git show 'origin/main:.github/workflows/required-workflow-state.yml' | Measure-Object -Line  # 158
+```
+
+Control on something that exists only at the ref you mean. A control both trees share cannot tell a
+stale subject from a true zero.
+
+[Worktrees](WORKTREES.md#read-from-a-ref-not-from-a-working-tree) carries the reading rule that
+avoids this.
+
 ### A gate cannot see a policy judgment
 
 A scanner cannot judge whether ordinary prose belongs in a repository. Assign that decision to a

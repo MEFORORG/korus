@@ -192,7 +192,7 @@ cooldown.
 
 Worktrees separate files, but running programs can still share resources. These include listening
 ports, development databases, Redis keyspaces, local services, package caches, generated build
-output, and git-ignored `.env` files.
+output, git-ignored `.env` files, and the machine's own processors and disk.
 
 Tests running in separate worktrees can collide on those shared resources. Neither the gates nor the
 doctor checks ports or database names.
@@ -206,6 +206,56 @@ This project has no control for shared runtime resources. Apply these two practi
   [Worktrees](WORKTREES.md) gives the contract the hook receives.
 - Choose ports and database names per worktree, by hand. Nothing derives them for you. A setup hook
   that writes one port into every checkout has moved the collision, not removed it.
+
+### A tool call that times out can leave its child running
+
+Windows has no process groups. When a tool call hits its timeout, the wrapper shell dies and the
+grandchild it started keeps running. Reaping the tree needs a Job Object with
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, or `taskkill /T /F`.
+
+Measured on the development host across two sessions, 2026-09-16 and 2026-09-17: seven runaway
+processes, 126.2 CPU-hours between them, each pinned near a full core.
+
+Five were whole-filesystem `find /` scans. Two were `post-commit` hooks that had been running 53
+hours.
+
+Killing them treats the symptom. Three fresh ones appeared within nine minutes of that sweep, started
+by a different session.
+
+An A/B on the same grandchild binary, with the same timeout and only the calling tool differing: the
+Bash-style tool reported exit 143 while its child kept running orphaned.
+
+The PowerShell-style tool's child kept a live parent and died with the tree. In an independent
+census, all nine orphans came from `C:\Program Files\Git\` and none from `pwsh.exe`.
+
+Two predicates a reader will otherwise get wrong:
+
+- **A dead parent alone over-flags.** The assistant's shell wrapper exits before its child, so every
+  live tool call shows a dead parent for its whole duration. One census found four dead-parent
+  processes, all of them in-flight children of live agents, age zero.
+- **Liveness is the wrong check after a kill.** A killed `find /` still read alive on two
+  independent process instruments ten seconds later. Measure accrued CPU over a window instead,
+  against a control process that does accrue.
+
+Anything keyed on a missing parent kills live work first. The usable discriminator is binary path
+AND age AND sustained core fraction, together.
+
+On this host the assistant's own processes ran 0.00 to 0.06 of a core, and the runaways sat at 0.74
+to 0.98. The band between was empty in two independent censuses.
+
+Your absolute numbers will differ. The empty band is the part that transfers, so measure your own
+fleet normal before you pick a threshold.
+
+### An unattended output file has no size limit
+
+A malformed shell heredoc left `python` at its interactive prompt. The background task looped one
+traceback into its output file until that file reached 5,374,980,595 bytes.
+
+Sampled at five offsets, a 2 MB window held 25,623 lines and 19 distinct ones. The file's first line
+named the cause: `warning: here-document at line 12 delimited by end-of-file`.
+
+Nothing bounds that file. One malformed command becomes gigabytes days later, and the session that
+wrote it has long exited.
 
 ## Guardrails against accidents, not security boundaries
 
