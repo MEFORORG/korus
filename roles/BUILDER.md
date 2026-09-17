@@ -581,8 +581,8 @@ dashboard.**
 
 ### 4c. Nothing reads your diff before the merge, so read it yourself
 
-The Reviewer seat retired on 2026-09-12 and nothing replaced it. Section 1's standing-rules table
-carries that line and its date.
+Section 1's standing-rules table already carries this, with its date. The review step retired on
+2026-09-12 and nothing replaced it.
 
 So you are the last reader of your own diff before it lands. Step 7 does not close that.
 
