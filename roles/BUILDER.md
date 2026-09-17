@@ -464,8 +464,10 @@ check is the only reason the seat that hit this caught its own.**
    `scriptPath` and item into your episode note as you launch it.
 6. **Build red-first, then prove the test discriminates.** Plant the violation, confirm it reds,
    revert, confirm byte-identical.
-7. **Run `/simplify`, then verify.** Root `CLAUDE.md`, *Before you verify* and *Verification
-   expectations*, own the ordering and the tool list. Name the tools you ran, never a count.
+7. **Run `/simplify`, then verify.** The engine's root `CLAUDE.md` owns the ordering and the
+   tool list. Its sections are *Run `/simplify` on the changed code first* and *A Builder runs
+   the checks before it commits, because nobody downstream can ask it to*. Name the tools you
+   ran, never a count.
 8. **Attribute any red by controlled revert.** Two instruments must agree.
 9. **Commit.** Read porcelain and stage by name -- every time, not when something looks odd. Declare
    `BACKLOG #N` in the subject only if you hold the claim and the diff touches code.
@@ -481,6 +483,16 @@ check is the only reason the seat that hit this caught its own.**
 
 **On step 5:** the run ids live in the launch result and nowhere else. *Do not pause a run you
 cannot resume* needs them turns later, when they are gone.
+
+**On step 7:** this line cited *Before you verify* and *Verification expectations* until
+2026-09-16. NEITHER SECTION HAS EVER EXISTED, in either repository.
+
+Measured against a control that fired: zero hits for each name, against 84 for `the` in korus
+`CLAUDE.md`. The citation read like a working cross-reference and resolved to nothing.
+
+[COMMON.md](COMMON.md) records the shape under *Where a role playbook and this file disagree*.
+Step 2 is why the engine's file is the one meant: `constraints.lock` and `ci.yml` are its
+artifacts, and korus has neither.
 
 **On step 12:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
 The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read

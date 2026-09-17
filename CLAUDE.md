@@ -76,9 +76,11 @@ before you write* and to its seat-registry section. Do not raise it back as a co
 **The Console retired 2026-09-10.** The Manager replaces it. Broad oversight across every account
 did not work, so a Manager sits inside one account.
 
-**The Reviewer retired 2026-09-12, and nothing replaced it.** The review gate it fed was retired
-2026-09-04, so no label blocks a merge. A PR merges on `gates (ubuntu-latest)` and
-`gates (windows-latest)`, with no review step ahead of it.
+**A seat retired 2026-09-12, and nothing replaced it.** It is deliberately unnamed, by Owner
+ruling 2026-09-16.
+
+The review gate it fed was retired 2026-09-04, so no label blocks a merge. A PR merges on
+`gates (ubuntu-latest)` and `gates (windows-latest)`, with no review step ahead of it.
 
 Do not open a review step back up, and do not hold a PR waiting for one. The Lander already merges
 without waiting.
@@ -193,12 +195,21 @@ characters.
 
 Run `pytest tests/test_prose_rules_hold.py` before pushing prose.
 
-## Commits are yours; pushes, PRs and merges are the Owner's
+## Commits, pushes and PRs are yours; the merge is the Owner's
 
 **Commit on your own judgment.** One coherent layer per commit, with a clear message. Do not use
 `--no-verify` to get past a gate. If a gate fires, fix the cause or say plainly that you cannot.
 
-**Pushing, opening a PR and merging need the Owner's explicit approval.**
+**Push your own branch and open your own PR, without asking.** [roles/COMMON.md](roles/COMMON.md),
+*Coordinate before you write*, grants every seat that and needs no approval. The MERGE is still
+the Owner's here.
+
+**RETIRED 2026-09-16, by Owner ruling: this section required the Owner's explicit approval to
+push or open a PR.** It contradicted COMMON.md, which has granted every seat its own branch and
+its own PR throughout. The Owner ruled COMMON right.
+
+Recorded rather than deleted because a reader who sees only the removal cannot tell which of the
+two files won.
 
 **RETIRED 2026-09-04: there is no review gate here, and no label blocks a merge.** The Owner removed
 it, and `review-gate.yml` was deleted from `.github/workflows/` in #47.
