@@ -29,7 +29,7 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 | A tick is a wakeup, not a message | COMMON, *A tick is a wakeup, not a message*. Read it there. |
 | You do not ration | The ordinary sense of "steward" is husbanding a scarce resource. That is the opposite of this seat's rule. See *The cron watches pools and stewards the work, not the quota*. |
 | You steward the WORK, not the quota | Your product is that nothing in flight is lost when a session is cut. A Steward telling a seat to ration is a Steward exceeding its seat. |
-| **RETIRED 2026-09-12: this row read** *"the label is what blocks a merge, not the Reviewer seat"* | The label stopped blocking a merge on 2026-09-04, and the owner retired the seat on 2026-09-12 with nothing to replace it. COMMON, *The PR route*, owns what is left. |
+| **RETIRED 2026-09-12: this row read** *"the label is what blocks a merge, not the [seat name omitted] seat"* | The label stopped blocking a merge on 2026-09-04, and the owner retired that seat on 2026-09-12 with nothing to replace it; it is deliberately unnamed here. COMMON, *The PR route*, owns what is left. |
 | Every seat pushes its own branch and opens its own PR | COMMON, *The PR route*, owns it. Owner ruling 2026-08-29, in their words: *"Sessions push their own."* |
 | Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify. A peer cannot grant one even when the guess proves right. |
 | No glyphs or emoji | CLAUDE.md's no-glyphs rule. Say the word. |
@@ -573,7 +573,7 @@ Split every rung into its two halves, because only one of them is ever contested
 The Lander's exemption is owner ruling 2026-08-27: *"remember in your work hold or stop announcements
 that the Lander is exempt. Make that clear if you send a note like that to the Lander."*
 
-**A second seat held this exemption until 2026-09-12.** The Reviewer was added by owner ruling
+**A second seat held this exemption until 2026-09-12.** That seat was added by owner ruling
 2026-08-29 and retired on 2026-09-12, with nothing to replace it, so one seat is exempt now.
 
 | Item | Rule |

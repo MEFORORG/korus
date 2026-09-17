@@ -15,15 +15,25 @@
 > and do not invent work to fill it. ***DO NOT SEND AN ACK*** -- no mail, no message, to anyone.
 > **Use it to stay awake and continue.**
 >
-> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND THE REVIEWER IS NOW IN THE PATH:***
-> **1. When your work is ready, CREATE A PR and NOTIFY THE REVIEWER seat.**
-> **2. The Reviewer reviews it. If any change is needed, IT RETURNS THE PR TO YOU** -- the
+> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND A DIFFERENT SEAT -- DELIBERATELY UNNAMED HERE -- IS NOW IN THE PATH:***
+Replace the block at lines 18-26 as a unit:
+
+> ***THE PR ROUTE, OWNER-SET 2026-08-29, AND RETIRED 2026-09-12 ALONG WITH THE SEAT IT RAN THROUGH -- THAT SEAT IS DELIBERATELY NOT NAMED HERE. THE THREE STEPS WERE:***
+> **1. When your work was ready, CREATE A PR and NOTIFY THAT SEAT.**
+> **2. It reviewed the PR. If any change was needed, IT RETURNED THE PR TO YOU** -- the
+>    originating session -- and you fixed it and handed it back.
+> **3. When IT APPROVED, IT PASSED THE PR TO THE LANDER, and the Lander merged.**
+>
+> ***THAT ROUTE HAD REPLACED "push, PR and merge route to the Lander", AND HAS NOW LAPSED BACK TO IT. THERE IS NO SEAT TO NOTIFY.*** The Lander still owns the MERGE and holds its standing grant for it; a PR now reaches it directly. See [README.md](../README.md) section 3.
+
+If the sweep must stay line-scoped, the submitted text for line 19 is fine, but only when lines 18, 20 and 22 are fixed in the same commit -- otherwise "THAT SEAT" refers to nothing and the name survives two lines below it.
+> **2. That seat reviews it. If any change is needed, IT RETURNS THE PR TO YOU** -- the
 >    originating session -- and you fix it and hand it back.
-> **3. When the Reviewer APPROVES, IT PASSES THE PR TO THE LANDER, and the Lander merges.**
+> **3. When that seat APPROVES, IT PASSES THE PR TO THE LANDER, and the Lander merges.**
 >
 > ***THIS REPLACES "push, PR and merge route to the Lander". The Lander still owns the MERGE and
 > holds its standing grant for it. What changed is that a PR now reaches the Lander THROUGH the
-> Reviewer, not directly.***
+> seat in the steps above, not directly.***
 > 
 > ***WHO PUSHES: THE ORIGINATING SESSION. OWNER-RULED 2026-08-29, IN THEIR WORDS: "Sessions push
 > their own."*** **You push your own branch and open your own PR.** *This settles a conflict that was

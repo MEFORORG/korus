@@ -51,13 +51,13 @@ the fix it awaited merged.
 
 ## The seats that retired, and what replaced each
 
-Seven seats retired on 2026-09-01, the Console on 2026-09-10, and the Reviewer on 2026-09-12.
+Seven seats retired on 2026-09-01, the Console on 2026-09-10, and a ninth seat on 2026-09-12.
 Retired playbooks remain in `roles/retired/` as a record. Instructions that route work through
 those seats are stale.
 
 | Retired seat | What replaced it |
 |---|---|
-| Reviewer, 2026-09-12 | Nothing, by Owner decision. The review gate it fed was retired on 2026-09-04, so a pull request merges on its two required checks with no review step. |
+| The ninth seat to retire, 2026-09-12, deliberately unnamed | Nothing, by Owner decision. The review gate it fed was retired on 2026-09-04, so a pull request merges on its two required checks with no review step. |
 | Console, 2026-09-10 | The Manager. Broad oversight across every account did not work. |
 | Dispatcher | The Console replaced it in September 2026, then retired. Use the Manager. |
 | Liaison | The Console replaced it in September 2026, then retired. The Owner talks to the Manager. |
@@ -91,7 +91,7 @@ work to them or read retired rows as live.
 
 Section 1a listed the same seven live seats this page then listed. Section 1b lists the retired
 files. This page and that section both show five now: the Console retired on 2026-09-10 and the
-Reviewer on 2026-09-12.
+ninth seat on 2026-09-12.
 
 As a control, `wc -l roles/README.md` returned 237. The search read a real document, not an empty
 file.

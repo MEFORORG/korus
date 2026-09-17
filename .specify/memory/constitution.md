@@ -76,7 +76,7 @@ able to tell an author from a reviewer. **KORUS has no gate meeting this require
 and anything proposed to replace one must record refusal as legibly as approval before it is
 worth building.
 
-**That paragraph ended "Whether the Reviewer seat outlives the gate it fed is an Owner
+**That paragraph left open, until 2026-09-12, whether the seat that fed this gate would
 decision and is not settled here" until 2026-09-12.** The Owner settled it on 2026-09-12:
 the seat retired and nothing replaced it. The article is unchanged, because it binds a
 gate rather than a seat.
@@ -346,7 +346,7 @@ that recorded the decision:
 > SOMETHING DOWN. Every seat that went away did its job by TALKING TO ANOTHER SEAT.
 
 **Evidence.** Seven seats were retired on 2026-09-01 and six kept. Every retained seat had
-an artefact: the Console wrote briefs, the Builder writes a pull request, the Reviewer wrote
+an artefact: the Console wrote briefs, the Builder writes a pull request, another seat wrote
 a label, the Regulator writes an attribution log, the Steward writes files other
 seats read, the Lander writes a merge order. Every retired seat existed to relay, route or
 represent, and produced nothing a later reader could open.
@@ -357,7 +357,7 @@ went away was not one this article would have kept out. The retirement turned on
 not on output: a Console reached across every account, and a Manager sits inside one.
 
 **It moved a third time on 2026-09-12, and this is the case the article does not cover.**
-The Owner retired the Reviewer and nothing replaced it. That seat wrote an artefact, a label
+The Owner retired a seat, deliberately unnamed here, and nothing replaced it. That seat wrote an artefact, a label
 and findings on a pull request, so writing something down did not save it.
 
 **So the rule is necessary and not sufficient, and it always was.** A seat whose product is
@@ -713,14 +713,14 @@ silently absent.
 <!--
 Amendment log. Kept because Governance requires retired text to stay with its reason.
 
-1.16.0 2026-09-12  The Owner retired the Reviewer seat and nothing replaced it. Two articles
-       described that seat in the present tense.
+1.16.0 2026-09-12  The Owner retired a seat, deliberately unnamed here, and nothing replaced
+       it. Two articles described that seat in the present tense.
        ARTICLE III IS UNCHANGED and its evidence is untouched. Its closing sentence read
        "Whether the Reviewer seat outlives the gate it fed is an Owner decision and is not settled
        here". That question is now answered, so the sentence is kept with the answer beside it. The
        article binds any future gate rather than any seat, which is why the retirement costs it
        nothing.
-       ARTICLE XI GAINS THE CASE IT DID NOT COVER. Its evidence listed the Reviewer among the
+       ARTICLE XI GAINS THE CASE IT DID NOT COVER. Its evidence listed that seat among the
        retained seats because it wrote a label. That seat has now retired while still writing one,
        so writing something down is NECESSARY and not SUFFICIENT. The article's prohibition is
        unchanged: a seat whose product is a message is still not a seat. What is added is that an
@@ -756,7 +756,7 @@ Amendment log. Kept because Governance requires retired text to stay with its re
        therefore" became "Any review gate built on top of that is therefore", which is the same
        claim without asserting a live gate.
 
-       Whether the Reviewer SEAT survives the loss of its gate is an Owner decision. It is not
+Whether the SEAT that fed that gate survives its removal is an Owner decision. It is not
        answered here, and the article says so rather than leaving the question implied.
 
        HOW A CHANGE LANDS: the wait-then-label-then-read-back step is now marked as a retired
@@ -928,7 +928,7 @@ Amendment log. Kept because Governance requires retired text to stay with its re
 
        Article III rewritten. It said a gate must record that someone LOOKED. That framed
        review as human judgement, which contradicts the Owner's 2026-08-31 ruling that the
-       Reviewer is a process applying a tag. The real constraint is mechanical: every
+gate's reviewer is a process applying a tag. The real constraint is mechanical: every
        session pushes as one account, so the platform cannot stop an author approving their
        own change, and the gate is a PROCESS gate by necessity. A process gate can be
        satisfied by the party it checks, so its only unfakeable signal is a REFUSAL. The

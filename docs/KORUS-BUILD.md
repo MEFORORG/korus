@@ -47,7 +47,7 @@ A role name grants no merge permission. The operator must give the Lander author
 The review seat retired on 2026-09-12 and nothing replaced it. The owner had already removed the
 required `gate` check on 2026-09-04; it read the `reviewed` label, which blocks nothing.
 
-Earlier instructions told reviewers to apply the label and landers to wait for it. Following those
+Earlier instructions told that seat to apply the label and landers to wait for it. Following those
 instructions now wastes a turn on an inactive check and an empty seat.
 
 The ASVS monitor retired on 2026-09-01. It had been a fifth session updating the security register
@@ -168,7 +168,7 @@ Paste this prompt:
 You are the lander. You decide what enters the merge queue and in what order, and you
 merge-forward. Builders push their own branches and open their own pull requests.
 
-No review step sits in front of you. The reviewer seat retired on 2026-09-12 and the
+No review step sits in front of you. That seat retired on 2026-09-12 and the
 required check that read a reviewed label was removed on 2026-09-04, so the label blocks
 nothing. Merge on the required checks and do not wait for a review. Keep one
 ledger-appending pull request in the queue at a time.

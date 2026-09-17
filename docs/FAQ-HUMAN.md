@@ -153,7 +153,7 @@ that empty roster from a real absence of peers.
 The manager runs one or more builders, either as subagents or as separate sessions. It replaced the console seat, retired on 2026-09-10, whose broad oversight did not work.
 
 Builders take
-tasks, a regulator investigates failed checks, and a lander merges. A reviewer seat read pull requests
+tasks, a regulator investigates failed checks, and a lander merges. A further seat, deliberately unnamed, read pull requests
 until it retired on 2026-09-12.
 
 [Run a KORUS build](KORUS-BUILD.md) describes that setup. The roughly fourteen sessions sharing one

@@ -91,7 +91,7 @@ Special was added on 2026-09-16 for work outside the other five. Its card tells 
 Console was the seventh until 2026-09-10. Its broad oversight did not work, so the Manager took its
 work. The label now resolves to no card, and the hook says it was retired.
 
-Reviewer was the sixth until 2026-09-12, and nothing replaced it. The review gate it fed was retired
+A sixth seat went on 2026-09-12, unreplaced and deliberately unnamed. Its review gate was retired
 on 2026-09-04, so a pull request merges on its two required checks. That label resolves to no card too.
 
 The original design record described `roles/README.md` as a partial list copied from a private

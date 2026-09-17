@@ -29,7 +29,7 @@ every account and oversaw the whole build. That breadth did not work.
 A Manager sits inside ONE account, and several run at once. So the plan, the brief and the owner's
 questions all arrive at the same seat they did before, held by a smaller one.
 
-**The Reviewer retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
+**A ninth seat retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
 question, and this is the answer to it.
 
 **The owner added the Special seat on 2026-09-16, and it is the first addition rather than a
@@ -91,7 +91,7 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 | A playbook that contradicts COMMON is an owner question | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, owns it. No seat resolves the contradiction by picking a winner. |
 | Why the seat files point rather than restate | Nine copies of a behaviour contract have no drift signal between them. This project has hit that defect repeatedly. Make a pointer, never a second summary. |
 
-## 3. The review gate retired on 2026-09-04, and the Reviewer seat on 2026-09-12
+## 3. The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12
 
 **Owner decision, 2026-09-04.** `a reviewer has read this` is no longer a required status check on
 `main`, and `.github/workflows/review-gate.yml` is deleted. Only `gates (ubuntu-latest)` and

@@ -26,9 +26,10 @@
 > and do not invent work to fill it. ***DO NOT SEND AN ACK*** -- no mail, no message, to anyone.
 > **Use it to stay awake and continue.**
 >
-> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND THE REVIEWER IS NOW IN THE PATH:***
+> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND ANOTHER SEAT -- SINCE RETIRED, DELIBERATELY UNNAMED -- IS NOW IN THE PATH:***
 > **1. When your work is ready, CREATE A PR. Notify the REVIEWER seat if one is running -- but the
->    Reviewer finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
+> **1. When your work is ready, CREATE A PR. Notify the seat then holding the review step if one is
+>    running -- but that seat finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
 > **2. The Reviewer reviews it. If any change is needed, IT POSTS THE FINDINGS ON THE PR**, which
 >    outlives any session that ends. ***IT DOES NOT HAND THE PR BACK TO ITS AUTHOR.*** **The PR is
 >    then picked up by whoever is running:** the originating session when `fleet.ps1` shows it

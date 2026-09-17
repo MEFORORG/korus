@@ -22,7 +22,7 @@ Measured 2026-09-01 from a worktree sharing the primary's git directory, so no s
 primary. The primary's recorded HEAD is 39 commits behind `origin/main` and 4 ahead. Its `roles/`
 differs across 13 files. `REVIEWER.md` is absent there and present on `origin/main`.
 
-That seat retired on 2026-09-12, so the path is now `roles/retired/REVIEWER.md`.
+That seat retired on 2026-09-12, so its card now sits under `roles/retired/`.
 
 `INSTRUMENTS.md` is present there and deleted on `origin/main`.
 
