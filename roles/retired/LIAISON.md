@@ -62,7 +62,7 @@
 > previously read** "if no Reviewer seat is running, hand the PR to the LANDER as before". *Since
 > the review gate was armed, `a reviewer has read this` is a required status check on `main`, so
 > the Lander cannot merge an unlabelled PR either.* **Start a Reviewer, have any other running seat read the diff and label it (`gh pr edit <N> --add-label reviewed`), or let the CONSOLE carry the question to the owner.
-> See [REVIEWER.md](REVIEWER.md) section 1.**
+> See [SEAT-RETIRED-2026-09-12.md](SEAT-RETIRED-2026-09-12.md) section 1.**
 >
 > **Run in the Proactive output style -- [COMMON.md](../COMMON.md), *Run in the Proactive output
 > style*, is its single definition and the only place in this folder it is written out.** Bias to

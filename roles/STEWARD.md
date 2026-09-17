@@ -580,7 +580,7 @@ that the Lander is exempt. Make that clear if you send a note like that to the L
 | --- | --- |
 | The exemption itself is NOT restated here | It is stated in the playbook of the seat it exempts. |
 | The Lander's exemption, in its own file | [LANDER.md](LANDER.md) carries *"You are exempt from calls to throttle or stop because of pending usage limits"* and *"It is exempt from any hold sent by the Steward"*. Both strings were in that file on 2026-08-26. |
-| **RETIRED 2026-09-12, the second exempt seat** | [retired/REVIEWER.md](retired/REVIEWER.md) carries *"You are exempt from usage holds"*, owner-set 2026-08-29 -- the day that seat was created and put in the PR path. |
+| **RETIRED 2026-09-12, the second exempt seat** | [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md) carries *"You are exempt from usage holds"*, owner-set 2026-08-29 -- the day that seat was created and put in the PR path. |
 | Search the strings, not a position | Here a location is a search hint, not an address. A second copy is the one that drifts, and COMMON's *State it once* owns that. |
 | Why that seat was exempt | The same reason as the Lander: a PR then waited on a review, so a stood-down reviewer converted every in-flight PR into work that did not land. No PR waits on one now. |
 | The notice duty is GONE, and it moved nowhere | It read: when a rung fires and you tell the Lander, the message must state the exemption. |

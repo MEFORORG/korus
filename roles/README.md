@@ -60,7 +60,7 @@ stands by, and announces only when its instruction makes the message worth sendi
 
 | Item | Rule |
 | --- | --- |
-| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/REVIEWER.md](retired/REVIEWER.md). Nine seats, nine files. |
+| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). Nine seats, nine files. |
 | **RETRACTED 2026-09-04** | This table once called `ASVS-TRACKER.md` **absent from this edition**, on a `find . -iname '*asvs*'` returning zero files. True when measured. The file was then imported, and that command now returns the path above. |
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
@@ -98,8 +98,8 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 `gates (windows-latest)` remain required. **An unlabelled PR merges.**
 
 **ANSWERED 2026-09-12: the owner retired the seat, and nothing replaced it.** Its playbook is
-[retired/REVIEWER.md](retired/REVIEWER.md). A PR now merges on its two required gates, with no
-review step ahead of it.
+[retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). A PR now merges on its two
+required gates, with no review step ahead of it.
 
 **This paragraph read "Whether the Reviewer seat survives the loss of its gate is an owner question,
 and this file does not answer it" from 2026-09-04 until 2026-09-12.** It was open for eight days, and
