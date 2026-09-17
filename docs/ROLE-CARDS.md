@@ -83,7 +83,10 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The five registered labels are Manager, Builder, Regulator, Steward, and Lander.
+The six registered labels are Manager, Builder, Regulator, Steward, Lander, and Special.
+
+Special was added on 2026-09-16 for work outside the other five. Its card tells the session to read
+`roles/COMMON.md` and stand by, without announcing itself.
 
 Console was the seventh until 2026-09-10. Its broad oversight did not work, so the Manager took its
 work. The label now resolves to no card, and the hook says it was retired.

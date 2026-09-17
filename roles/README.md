@@ -17,7 +17,7 @@ present-tense claim that MessageFoundry is deployed, because it is a not-yet-dep
 who is blocked on whom and session names belong in a dated episode note. *These files carry nothing
 that expires* states the split; *Episode notes live outside this folder* says where they go.
 
-## 1. The seat set changed three times, and nine seats have retired
+## 1. The seat set changed four times, nine seats have retired, and one was added
 
 **Seven seats retired by owner decision on 2026-09-01: Dispatcher, Project Manager, Liaison, Cleaner,
 Role manager, Process improvement and ASVS Tracker.** The Console took the Dispatcher's and the
@@ -32,6 +32,12 @@ questions all arrive at the same seat they did before, held by a smaller one.
 **The Reviewer retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
 question, and this is the answer to it.
 
+**The owner added the Special seat on 2026-09-16, and it is the first addition rather than a
+replacement.** It holds work that falls outside the other five, so no retirement made room for it.
+
+It is also the only seat that stays silent on arrival. Owner-set: it reads [COMMON.md](COMMON.md),
+stands by, and announces only when its instruction makes the message worth sending.
+
 **Do not route work to a retired seat, and do not read a retired row as a live instruction.**
 
 ### 1a. The live seats
@@ -44,6 +50,8 @@ question, and this is the answer to it.
 | Regulator | [REGULATOR.md](REGULATOR.md) | Decides whose failure a red is: the PR's, `main`'s, a flake, or the queue's. Only the PR's own failure becomes work. **It starts with no memory, so its log is not optional.** |
 | Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. Handing back PRs needing a ruling. |
 | Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
+| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
+| | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
 | Not a seat | [COMMON-STAGED.md](COMMON-STAGED.md) | **Staging, not a playbook.** Sections split out of COMMON.md on 2026-09-05 that belong to one seat or fire never. Unedited, awaiting a destination. |
 | Not a seat | [LANDER-ROUTED-OUT.md](LANDER-ROUTED-OUT.md) | **Staging, not a playbook.** Sections split out of LANDER.md on 2026-09-05 that belong to another seat. Unedited, and awaiting a destination. Do not read it as rules for any seat. |
 | Every seat | [COMMON.md](COMMON.md) | The rules and instrument failures that belong to no single seat. **Read this first, whichever seat you hold.** |

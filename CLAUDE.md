@@ -32,7 +32,7 @@ lies between what is convenient here and what a copier needs, the copier wins.
 
 ## The seats
 
-Five seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
+Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
@@ -41,6 +41,7 @@ Five seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`
 | Regulator | [REGULATOR.md](roles/REGULATOR.md) | Decides whose failure a red check is. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. |
+| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
 whichever seat you hold.
@@ -66,6 +67,11 @@ rather than empty. That README lists every retired seat as retired, in its own s
 **[The playbooks](docs/PLAYBOOKS.md) retracted the same claim on 2026-09-08**, under *`roles/README.md`
 agrees with the roster*, and says it was copied from here without checking the file. The repair did
 not come back the other way. A claim copied in two directions needs retracting in both.
+
+**The Special seat arrived 2026-09-16, and it is the one seat that stays silent on arrival.** Owner
+ruling. It reads [COMMON.md](roles/COMMON.md) and stands by, and it announces only when its
+instruction makes announcing worth the message. That is a named exception to COMMON's *Coordinate
+before you write* and to its seat-registry section. Do not raise it back as a contradiction.
 
 **The Console retired 2026-09-10.** The Manager replaces it. Broad oversight across every account
 did not work, so a Manager sits inside one account.
