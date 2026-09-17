@@ -422,9 +422,16 @@ levels are the backstop.
 
 | State | Time to cutoff | Session (5-hour) | Weekly | What the state means |
 |---|---|---|---|---|
-| **1. HOLD NEW WORK** | 20 minutes | 80 percent | 85 percent | Start nothing new. Finish what is open |
-| **2. PROTECT AND WRAP** | 10 minutes | 86 percent | 92 percent | Commit, write the note, hand off |
-| **3. URGENT STOP** | 5 minutes | 92 percent | 95 percent | Stop now. Commit whatever exists, even half-done |
+| **1. HOLD NEW WORK** | 20 minutes | 80 percent | 90 percent | Start nothing new. Finish what is open |
+| **2. PROTECT AND WRAP** | 10 minutes | 86 percent | 94 percent | Commit, write the note, hand off |
+| **3. URGENT STOP** | 5 minutes | 92 percent | 97 percent | Stop now. Commit whatever exists, even half-done |
+
+**The weekly column read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved it to
+90 / 94 / 97. The session column did not move.
+
+Recorded rather than replaced silently, because the old numbers are cited elsewhere on this page --
+section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
+89/93 against 86/92. Those readings stay true of the dates they name.
 
 **One act reads a state.** The Manager reads the published reading before it writes a launch line.
 Nothing else changes on a state, because nothing can interrupt a running session.
