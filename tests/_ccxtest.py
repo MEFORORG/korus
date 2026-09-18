@@ -88,6 +88,45 @@ PRUNE_MERGED = REPO_ROOT / "scripts" / "worktree" / "prune-merged.ps1"
 COLLISION_GATE = REPO_ROOT / "scripts" / "hooks" / "collision_gate.ps1"
 
 
+# ---------------------------------------------------------------------------------------------
+# The published script inventory
+# ---------------------------------------------------------------------------------------------
+
+SCRIPTS_PAGE = REPO_ROOT / "docs" / "SCRIPTS.md"
+
+# A row of the script inventory: a table cell naming a shipped script by path. Matching the PATH
+# rather than the word "script" is what keeps this from firing on prose that mentions one.
+#
+# THE `[^|]*` IS WHAT MAKES IT A FIRST-CELL MATCH. A path in a later cell -- a "Does" cell naming
+# the other half of a pair, which `alloc.ps1` and `seq_check.py` do to each other -- is a mention,
+# and counting it as a row would let one script's prose satisfy another script's row.
+#
+# THIS LIVES HERE BECAUSE TWO FILES READ THE SAME TABLE and they must not disagree about what a row
+# is. test_the_landing_page_stays_a_front_door.py counts rows, on one page as a cap and on the
+# other as a floor. test_the_script_inventory_names_every_script.py reads the same rows as a SET.
+# A second hand-written copy of this pattern is a fact stated in two files, which is HS-3, and the
+# failure it produces is specific: reshape the table and one copy keeps matching while the other
+# silently returns nothing, so the count moves and the set does not.
+INVENTORY_ROW = re.compile(r"^\|[^|]*`((?:scripts|bin)/[\w./-]+)`", re.M)
+
+
+def inventory_paths(text: str) -> set[str]:
+    """Every script path the inventory table names in a first cell. Raises on none.
+
+    The raise is this module's rule rather than this function's preference: an extractor that
+    returns an empty set hands its caller something that compares equal to an empty expectation
+    and reads as agreement. A completeness check built on that would pass on a page whose table
+    had been deleted.
+    """
+    found = set(INVENTORY_ROW.findall(text))
+    if not found:
+        raise AssertionError(
+            "no inventory rows found: the table was reshaped, or this pattern stopped matching it. "
+            "Either way the set is empty for a reason that is not 'the page lists no scripts'."
+        )
+    return found
+
+
 def read(path: Path) -> str:
     """Read a source file. Explicit encoding, always.
 

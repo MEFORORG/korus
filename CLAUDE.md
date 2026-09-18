@@ -163,7 +163,7 @@ A non-ASCII character raises `UnicodeEncodeError` the moment a script prints it 
 and it is invisible in review because it looks like its ASCII neighbour.
 
 ```powershell
-pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path scripts,docs,roles,tests,.github"
+pwsh -NoProfile -Command '& ./scripts/quality/check-ascii.ps1 -Path scripts,docs,roles,tests,.github; exit $LASTEXITCODE'
 pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Path <one path> -Fix
 ```
 
@@ -178,6 +178,30 @@ spelling fails the other way under `-File`: it arrives as one directory name, ma
 exits 2 on `NOTHING WAS SCANNED`. Use `-Command`, which parses the array, as `gates.yml` does and
 explains in its own comment. Measured at `b243c5a`: the line above exits 0 over 300 files, against a
 control on `.claude/skills` that exits 1 on 167 characters.
+
+**That rewrite fixed the argument binding and left the exit code wrong until 2026-09-17.** A script
+invoked as the last thing `-Command` does returns 1 for any non-zero code, so the gate's 2 for
+`NOTHING WAS SCANNED` arrived as 1 -- the code it uses for a real violation.
+
+**`-Command` itself does not collapse anything.** Measured on pwsh 7.6.6 at `9379109`, asking for
+0, 1, 2, 3: `-Command "exit N"` returns 0 1 2 3, `-Command "& probe.ps1 -Code N"` returns 0 1 1 1,
+`cmd /c exit N` the same, and `-File` returns 0 1 2 3.
+
+**The collapse loses nothing where the reader only asks whether the code is zero**, because 0 stays
+0 and every failure stays a failure. It costs where something tells failures apart, and this script
+reserves 1 and 2 for different ones.
+
+**Quote the `-Command` string with SINGLE quotes.** Inside double quotes the calling shell expands
+`$LASTEXITCODE` before the inner `pwsh` sees it, so the line runs `exit 0` after any successful
+command and a real violation reports success.
+
+Measured 2026-09-17 at `9379109`, the line above: 0 over the five paths, 1 on `.claude/skills`, 2
+on `-Path 'no-such-dir-xyzzy'`. Double-quoted, after `cmd /c exit 7`, it returns 7 over a clean
+`docs` -- the caller's code, not the gate's.
+
+The `-Fix` line is `-File`, which propagates every code unchanged. `.github/workflows/gates.yml`
+keeps the collapsing form: a step fails on any non-zero, so its result is unchanged and only the
+distinction in the log is lost. Adding this clause there in double quotes would mask a red step.
 
 **`-Fix` is not a route for the vendored trees.** Against a copy it leaves 134 of the 275, because
 one template's 81 hits are box-drawing characters in a directory diagram, and where it does act on

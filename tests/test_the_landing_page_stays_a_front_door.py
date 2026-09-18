@@ -45,9 +45,19 @@ WORD_CAP = 1_400
 # paragraphs, so this reaches the end of them and no further.
 OPENING_CHARS = 1_200
 
-# A row of the script inventory: a table cell naming a shipped script by path. Matching the PATH
-# rather than the word "script" is what keeps this from firing on prose that mentions one.
-INVENTORY_ROW = re.compile(r"^\|[^|]*`(?:scripts|bin)/[\w./-]+`", re.M)
+# A row of the script inventory. THE PATTERN MOVED TO _ccxtest.py ON 2026-09-17 and gained a capture
+# group; it is re-exported here under its old name so the cases below read unchanged.
+#
+# It moved because a second file now reads the same table. This one counts rows -- a cap on the
+# landing page, a floor on SCRIPTS.md -- while test_the_script_inventory_names_every_script.py reads
+# them as a set and compares that set to the tree. Two hand-written copies of one pattern is HS-3,
+# and its failure mode is exact: reshape the table and one copy keeps matching while the other
+# returns nothing, so the count moves and the set does not.
+#
+# The capture group changes what findall RETURNS, from the matched row prefix to the path alone. It
+# does not change how many it returns, so every count below is unaffected, and the cap's failure
+# message improved: it now lists the paths rather than the leading halves of rows.
+INVENTORY_ROW = t.INVENTORY_ROW
 
 # A raw HTML block. Same rule tests/test_prose_rules_hold.py uses, and for the same reason: a hand
 # written inline SVG is markup, and a scanner that cannot tell markup from prose counts its
