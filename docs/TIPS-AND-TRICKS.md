@@ -525,6 +525,69 @@ Run the check's own classifier against your ref and against the base ref, which 
 Here that returned `['test_coord_occupancy_unplaceable.py']` at the branch and `[]` at the base, with
 pytest never run.
 
+### The string you ran and the string you published can be different commands
+
+Paste the exact published text into the target shell and run it there. A tool layer that re-quotes
+your input hands the shell a different command from the one your page will show a reader.
+
+Two sessions hit this on 2026-09-17, from opposite ends of one line. The subject was the ASCII gate
+command, which the root `CLAUDE.md` publishes under *Pure ASCII, everywhere* and owns.
+
+A peer verified it from a Bash tool with the dollar sign backslash-escaped. What bash executed was
+behaviourally single-quoted and graded every case correctly. What the peer published was
+double-quoted.
+
+A second session then tested that published string, escaped the dollar sign the same way, read the
+same correct grades, and nearly called it sound. It had re-run the first session's correction rather
+than its command.
+
+Measured at `538ea4b` on pwsh 7.6.6, run from bash over three trees the gate grades 0, 1 and 2:
+
+<!-- no-copy -->
+```bash
+# <tree> is docs, then .claude/skills, then no-such-dir-xyzzy
+
+# Escaped, which is what the tool layer executed -> 0, 1, 2
+pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path <tree>; exit \$LASTEXITCODE"
+
+# Unescaped, which is what the page published -> 0, 0, 0
+pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path <tree>; exit $LASTEXITCODE"
+```
+
+Bash expands the unset variable to nothing, so the inner `exit` carries no argument and returns 0. A
+violation and a scan that read no files both report clean.
+
+One case is not enough. Over `docs` both forms return 0, and the broken form returns 0 for a
+violation and for a scan that read no files as well. Run every case the command distinguishes; a
+control that fires proves the instrument works, not that you ran the published text.
+
+The `; exit $LASTEXITCODE` clause is load-bearing, and trimming it as noise is the likeliest way to
+arrive here. Over the same three trees:
+
+| The published line | `docs` | `.claude/skills` | `no-such-dir-xyzzy` |
+|---|---|---|---|
+| clause expanded away | 0 | 0 | 0 |
+| clause removed | 0 | 1 | 1 |
+| clause intact | 0 | 1 | 2 |
+
+The middle row is the one to watch. It passes two cases and fails only the case a reader is least
+likely to run. That failure grades a violation and a scan that read nothing alike, which is what the
+gate reserves 2 to prevent.
+
+A relay lost a clause the third time, and neither session was wrong. A brief carrying the peer's line
+to the second session dropped `> $null 2>&1` from inside the quoted string, so the two measured
+strings one clause apart.
+
+Measured the same way from pwsh, after a success and after `cmd /c exit 7`: with the clause, 1 and 1.
+Without it, the 0 and 7 that `CLAUDE.md` publishes.
+
+The caller expands `$null` as well, so the inner shell gets a redirection operator with no target. It
+refuses to parse and never runs the gate, so that 1 is not a verdict about any tree.
+
+*A control can fire and still miss the subject* is an instrument pointed at the wrong tree. Here the
+instrument, the subject and the population were all right. The artifact under test was not: one
+string was measured and another was shipped.
+
 ### A gate cannot see a policy judgment
 
 A scanner cannot judge whether ordinary prose belongs in a repository. Assign that decision to a
