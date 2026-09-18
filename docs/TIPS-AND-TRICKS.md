@@ -543,12 +543,21 @@ pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path <tree>; exit
 ```
 
 Bash expands the unset variable to nothing, so the inner `exit` carries no argument and returns 0. A
-violation and a scan that read no files both report clean. The root `CLAUDE.md` carries what the same
-string does to a pwsh caller.
+violation and a scan that read no files both report clean.
 
 One case is not enough. Over `docs` both forms return 0, and the broken form returns 0 for a
 violation and for a scan that read no files as well. Run every case the command distinguishes; a
 control that fires proves the instrument works, not that you ran the published text.
+
+A relay lost a clause the third time, and neither session was wrong. A brief carrying the peer's line
+to the second session dropped `> $null 2>&1` from inside the quoted string, so the two measured
+strings one clause apart.
+
+Measured the same way from pwsh, after a success and after `cmd /c exit 7`: with the clause, 1 and 1.
+Without it, the 0 and 7 that `CLAUDE.md` publishes.
+
+The caller expands `$null` as well, so the inner shell gets a redirection operator with no target. It
+refuses to parse and never runs the gate, so that 1 is not a verdict about any tree.
 
 *A control can fire and still miss the subject* is an instrument pointed at the wrong tree. Here the
 instrument, the subject and the population were all right. The artifact under test was not: one
