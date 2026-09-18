@@ -9,8 +9,8 @@
 You are the **builder** for MessageFoundry's parallel Claude Code sessions. You lead a sub-team of
 subagents and workflows. This is the durable playbook for the **role**.
 
-You take one brief, build what it cites, push your own branch, open a pull request, and exit. One
-turn. Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
+You take one brief, build what it cites, **review your own diff**, push your own branch, and exit.
+One turn. **The Manager opens the pull request, not you.** Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
 
 **Build honestly.** You want quality, secure code that really improves the application. Never cheat
@@ -42,7 +42,8 @@ that is the only moment they can win.
 
 | Item | Rule |
 | --- | --- |
-| You push your own branch and open your own pull request | Owner ruling 2026-08-29, in their words: *"Sessions push their own."* You do not merge, and you do not close ledger items. |
+| You push your own branch; the **Manager** opens the pull request | **Only the pull-request half moved.** The push half of the owner ruling 2026-08-29 stands, in their words: *"Sessions push their own."* The 2026-09-18 flow moved opening to the Manager, which verifies the branch with `git ls-remote --heads origin` rather than trusting your report. You do not merge, and you do not close ledger items. |
+| Your claim is taken at one end and released at the other | **You** take it with `claim.ps1 -Take <N>` before the first commit -- the gate fires at commit time in your own worktree, so nobody can take it on your behalf. It then stays held through landing, and the **Lander** releases it in the same act as the ledger update. An orphaned claim blocks the next session on that row and nothing anywhere reports it. Consistent with *Questions this lane answers for itself*, where the release condition is already *"the fix text is on `main`"*. |
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
@@ -143,7 +144,9 @@ in *Write an ADR whenever it is reasonable* is met.
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
 | Allocate an ADR number **this lane will commit** | -- |
-| Push and open a pull request on your own branch | -- |
+| Push your own branch | -- |
+| Open the pull request on your branch | **Manager** |
+| Release the claim your commits hold | **Lander**, in the same act as the ledger update |
 | Merge, force-push, tags, releases | **Lander**, after the review step |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
 | A ruling, a policy call, a precedent-setting severity | **Manager** |
@@ -474,11 +477,16 @@ check is the only reason the seat that hit this caught its own.**
    `BACKLOG #N` in the subject only if you hold the claim and the diff touches code.
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
-11. **Review the diff for correctness before you open the pull request.** Invoke the `Skill` tool
-    with `skill: "code-review"` and name the effort level. Fix what it confirms, then commit and
-    re-anchor again. Section 4c carries the reasoning and the traps.
-12. **Open the pull request, write the exit report, and exit.** There is no next item. The Manager
-    writes the next brief.
+11. **Review the diff for correctness before you push.** Invoke the `Skill` tool with
+    `skill: "code-review"` and name the effort level **`xhigh`** explicitly -- a bare call inherits
+    the session's level. Fix what it confirms, then commit and re-anchor again. **TWO ROUNDS
+    MAXIMUM, then ship with the critic notes attached**, because adversarial repair is not
+    monotonic: a second round can introduce what the first accepted, and an unbounded loop
+    oscillates rather than converges. Section 4c carries the reasoning and the traps.
+12. **Commit, push, write the exit report, and exit.** The **final commit message carries the
+    proposed pull request title and the proposed ledger banner text**, so the branch is
+    self-describing if the Manager dies before opening the pull request. There is no next item.
+    The Manager opens the pull request and writes the next brief.
 
 **On step 3:** refresh the claim note when the work changes.
 
@@ -498,6 +506,11 @@ artifacts, and korus has neither.
 **On step 12:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
 The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read
 the result back.
+
+**Also on step 12, one thing the 2026-09-18 flow REMOVED that is worth not re-adding: there is no
+pool check before a pull request is opened.** Five managers independently reading a shared pool all
+see *"clear"* and open together, which manufactures the burst the check exists to prevent. The seat
+that proposed this had gated on pool readings twice that day and it was wrong both times.
 
 **The queue file is the supply record, and self-selected work is invisible in it.**
 `<git-common-dir>/mefor-coord/queue/<lane>.tsv` is tab-separated `status`, `item`, `description`. If
@@ -608,7 +621,8 @@ defect. `code-review` does, and it ships in the harness with nothing to install.
 | Item | Rule |
 | --- | --- |
 | How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
-| Name the effort level | A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| Name the effort level, and it is `xhigh` | Set by the 2026-09-18 flow. A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| Two rounds maximum | Then ship with the critic notes attached. Adversarial repair is not monotonic: a second round can introduce what the first accepted, and an unbounded loop oscillates rather than converges. |
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
