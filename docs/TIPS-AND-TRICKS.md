@@ -561,6 +561,19 @@ One case is not enough. Over `docs` both forms return 0, and the broken form ret
 violation and for a scan that read no files as well. Run every case the command distinguishes; a
 control that fires proves the instrument works, not that you ran the published text.
 
+The `; exit $LASTEXITCODE` clause is load-bearing, and trimming it as noise is the likeliest way to
+arrive here. Over the same three trees:
+
+| The published line | `docs` | `.claude/skills` | `no-such-dir-xyzzy` |
+|---|---|---|---|
+| clause expanded away | 0 | 0 | 0 |
+| clause removed | 0 | 1 | 1 |
+| clause intact | 0 | 1 | 2 |
+
+The middle row is the one to watch. It passes two cases and fails only the case a reader is least
+likely to run. That failure grades a violation and a scan that read nothing alike, which is what the
+gate reserves 2 to prevent.
+
 A relay lost a clause the third time, and neither session was wrong. A brief carrying the peer's line
 to the second session dropped `> $null 2>&1` from inside the quoted string, so the two measured
 strings one clause apart.
