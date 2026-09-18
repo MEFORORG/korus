@@ -428,6 +428,166 @@ also returned zero on a ref that had to match.
 The conclusion was true, but the check supplied no evidence. Always run the search against a known
 positive before trusting a zero.
 
+### A control can fire and still miss the subject
+
+A positive control proves the instrument works. It does not prove the instrument was pointed at what
+you asked about.
+
+On 2026-09-17, three analysis passes reported a file absent from a project because they searched a
+primary checkout sitting hundreds of commits behind its trunk.
+
+Their control was a different file, old enough to exist in both trees. It fired, so the search
+looked healthy while answering about the wrong tree.
+
+Reproduced in this repository the same day, from a primary checkout 48 commits behind `origin/main`:
+
+```powershell
+git ls-files docs/WORKTREES.md                              # 1, their control: in both trees
+git ls-files .github/workflows/required-workflow-state.yml  # 0, the subject: a false absence
+git show 'origin/main:.github/workflows/required-workflow-state.yml' | Measure-Object -Line  # 158
+```
+
+Control on something that exists only at the ref you mean. A control both trees share cannot tell a
+stale subject from a true zero.
+
+[Worktrees](WORKTREES.md#read-from-a-ref-not-from-a-working-tree) carries the reading rule that
+avoids this.
+
+### Arming a control in place can contaminate what you measure next
+
+Assert on the result's content, not on its exit code. A merge that keeps your change and a merge
+that silently drops it both exit 0.
+
+Reported by a peer session on 2026-09-17, against its own work. It checked a patch against a scratch
+copy with `git apply --check`. That flag writes nothing, so the copy never received the patch.
+
+To arm its detector it then mutated a line in that same copy, and the patch was refused. The control
+fired, correctly. But the merge probe it built from that directory carried the mutation and none of
+the change.
+
+`git merge-tree` returned exit 0, and exit 0 was true. It answered whether the merge had a textual
+conflict, while the question asked was whether the merged file held the fix.
+
+Two verbs to distrust together: a check-only flag that leaves no artifact, and an in-place edit made
+to arm a control. Plant the control in a throwaway copy, never in the one the real measurement
+reads.
+
+### A file's arrival is a change surface, and a search for consumers misses it
+
+Search for what reads your file's name as well as for what reads its content. A check that globs a
+directory sees a new file the moment it exists.
+
+Reported by a peer session on 2026-09-17, on a pull request in another repository. Three CI legs
+went red. Two sessions independently searched for consumers of the edited script, and both found the
+same four test files. Both readings were correct.
+
+The failing check never reads that script. `test_tooling_partition.py` globs `tests/test_*.py` and
+fails on any file missing from `tests/tooling_manifest.txt`. It saw the branch's new test file as a
+name in that glob.
+
+Those searches drew their population from what the change touched. The failing consumer cares that
+the file exists, which nothing in the edit's content can answer.
+
+*A control can fire and still miss the subject* is the wrong subject, an instrument pointed at the
+wrong tree. This one is the wrong population: the aim was right, and the answer sat outside the set
+searched.
+
+The same split sits in this repository. `tests/test_prose_rules_hold.py` excludes the frozen
+`.old.md` archives, because nobody may edit them. `tests/test_internal_links_resolve.py` reads
+`git ls-files *.md`, which returns all 50 of them.
+
+Measured at `339b9ff`:
+
+```powershell
+(git ls-files '*.old.md').Count   # 50, the archives no editing sweep opens
+(git ls-files '*.md').Count       # 163, the link scan's corpus
+
+# 38 anchored links from those archives into current pages
+(git grep -hoE '\]\([A-Za-z0-9_./-]+\.md#[a-z0-9-]+\)' -- '*.old.md' |
+    Select-String -Pattern '\.old\.md' -NotMatch).Count
+```
+
+Renaming one of those 38 headings fails a check over a file the sweep had ruled out of scope.
+
+The repair is not to fix the link. Each archive is sha256-pinned, so editing one reds
+`test_page_revisions.py` instead. Both routes are closed, and the rename is what has to give.
+
+That gap is now guarded. Ask before you rename, and the answer names the archives and the options:
+
+```powershell
+python scripts/quality/frozen_citations.py docs/LIMITS.md "What actually switches each control on"
+```
+
+`tests/test_a_heading_a_frozen_archive_cites_cannot_be_renamed.py` pins the set and reddens with the
+same message when one of those headings goes.
+
+Run the check's own classifier against your ref and against the base ref, which is the armed control.
+Here that returned `['test_coord_occupancy_unplaceable.py']` at the branch and `[]` at the base, with
+pytest never run.
+
+### The string you ran and the string you published can be different commands
+
+Paste the exact published text into the target shell and run it there. A tool layer that re-quotes
+your input hands the shell a different command from the one your page will show a reader.
+
+Two sessions hit this on 2026-09-17, from opposite ends of one line. The subject was the ASCII gate
+command, which the root `CLAUDE.md` publishes under *Pure ASCII, everywhere* and owns.
+
+A peer verified it from a Bash tool with the dollar sign backslash-escaped. What bash executed was
+behaviourally single-quoted and graded every case correctly. What the peer published was
+double-quoted.
+
+A second session then tested that published string, escaped the dollar sign the same way, read the
+same correct grades, and nearly called it sound. It had re-run the first session's correction rather
+than its command.
+
+Measured at `538ea4b` on pwsh 7.6.6, run from bash over three trees the gate grades 0, 1 and 2:
+
+<!-- no-copy -->
+```bash
+# <tree> is docs, then .claude/skills, then no-such-dir-xyzzy
+
+# Escaped, which is what the tool layer executed -> 0, 1, 2
+pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path <tree>; exit \$LASTEXITCODE"
+
+# Unescaped, which is what the page published -> 0, 0, 0
+pwsh -NoProfile -Command "& ./scripts/quality/check-ascii.ps1 -Path <tree>; exit $LASTEXITCODE"
+```
+
+Bash expands the unset variable to nothing, so the inner `exit` carries no argument and returns 0. A
+violation and a scan that read no files both report clean.
+
+One case is not enough. Over `docs` both forms return 0, and the broken form returns 0 for a
+violation and for a scan that read no files as well. Run every case the command distinguishes; a
+control that fires proves the instrument works, not that you ran the published text.
+
+The `; exit $LASTEXITCODE` clause is load-bearing, and trimming it as noise is the likeliest way to
+arrive here. Over the same three trees:
+
+| The published line | `docs` | `.claude/skills` | `no-such-dir-xyzzy` |
+|---|---|---|---|
+| clause expanded away | 0 | 0 | 0 |
+| clause removed | 0 | 1 | 1 |
+| clause intact | 0 | 1 | 2 |
+
+The middle row is the one to watch. It passes two cases and fails only the case a reader is least
+likely to run. That failure grades a violation and a scan that read nothing alike, which is what the
+gate reserves 2 to prevent.
+
+A relay lost a clause the third time, and neither session was wrong. A brief carrying the peer's line
+to the second session dropped `> $null 2>&1` from inside the quoted string, so the two measured
+strings one clause apart.
+
+Measured the same way from pwsh, after a success and after `cmd /c exit 7`: with the clause, 1 and 1.
+Without it, the 0 and 7 that `CLAUDE.md` publishes.
+
+The caller expands `$null` as well, so the inner shell gets a redirection operator with no target. It
+refuses to parse and never runs the gate, so that 1 is not a verdict about any tree.
+
+*A control can fire and still miss the subject* is an instrument pointed at the wrong tree. Here the
+instrument, the subject and the population were all right. The artifact under test was not: one
+string was measured and another was shipped.
+
 ### A gate cannot see a policy judgment
 
 A scanner cannot judge whether ordinary prose belongs in a repository. Assign that decision to a
@@ -509,6 +669,28 @@ The third, which justified a hard denial, was one undocumented observation that 
 
 Mark figures you cite without remeasuring them. Present-tense wording can make an old measurement
 look fresh.
+
+### A rebase can change what a check is measuring
+
+A branch opened against 58 tracked scripts and a page naming 47 of them. Two pull requests landed
+under it before it merged.
+
+One added `scripts/quality/frozen_citations.py`. The subject the branch's own check reads grew by
+one while it sat open, so the tree it was written against was not the tree it would run on.
+
+Re-derived after that rebase: 59 tracked, 59 rowed. The check calls `git ls-files` per run, so it
+demanded a row for the arrival rather than passing at 58.
+
+Two numbers agreeing does not prove the instrument saw the new member. A cached subject list returns
+59 and 59 as well. Deleting that file's row from a copy of the page made the check name that exact
+file, which is what separated the two cases.
+
+A suite count moved the same way and was restated rather than replaced: 634 at `9379109`, 637 after
+one rebase, 652 after the next. Each was a true reading of a ref the branch no longer pushed.
+
+Re-derive after a rebase. Arm the check on the file that arrived, not on the ones you wrote.
+
+Measured at `a22cfba`.
 
 ### Reconcile the parts against the total the tool already printed
 
@@ -720,12 +902,15 @@ It refuses transcripts touched within `-MinIdleMinutes`, because moving one whil
 can corrupt it.
 
 Use `rescue.ps1` for uncommitted work left in the primary. It stashes tracked and untracked changes,
-creates a worktree from the primary's current commit, and pops there.
+creates a worktree from the primary's current commit, and applies the entry there by object name.
+
+It never pops. The stack is shared, and building the worktree takes minutes, so `stash@{0}` by then
+may belong to a peer.
 
 Use `restore-primary.ps1` to reattach a primary left on the wrong branch.
 
-A failed pop leaves work in `git stash list`. Recovery instructions print from a `finally` block
-even after failure, so the work remains recoverable.
+A failed restore leaves work in the stash. Recovery instructions print from a `finally` block even
+after failure, and they name the entry by object name, so the work remains recoverable.
 
 ---
 

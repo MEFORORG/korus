@@ -16,7 +16,7 @@ shared helpers.
 
 You can also read the source on [GitHub](https://github.com/wshallwshall/korus).
 
-For manual downloads, also fetch `ccx.config.json` and the four shared modules listed under
+For manual downloads, also fetch `ccx.config.json` and the seven shared modules listed under
 [Internals and installers](#internals-and-installers).
 
 Without those dependencies, the PowerShell scripts throw at the start of their bodies. The three
@@ -38,6 +38,8 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 | `scripts/coord/overlap.ps1` | What everyone else is changing -- files and stated work. `-File <path>`, `-Json`; cached, so the gate's common case is a cache read | [Coordination](COORDINATION.md) |
 | `scripts/coord/claim.ps1` | Take, release or list an atomic claim on a piece of work, so a session finds out before the work rather than at merge. Advisory for free-text keys, enforced at `commit-msg` for numbered ones. Claims do not expire and releasing is manual, on purpose | [Coordination](COORDINATION.md) |
 | `scripts/coord/alloc.ps1` | Allocate the next number in a shared sequence atomically, so two sessions can never be handed the same one; `-ShowFloor` inspects without spending one. `seq_check.py` is the other half -- neither is sufficient alone | [Sequence allocation](SEQUENCE-ALLOC.md) |
+| `scripts/coord/mail.ps1` | Send, list or inspect the file-drop queue that reaches a peer in another Claude account or editor extension. `-Send -To <worktree path>` or `all`, `-List`, `-Status`. Queued is not delivered; the recipient's drain does that | [Session mail](SESSION-MAIL.md) |
+| `scripts/coord/seat.ps1` | Write this session's episode record -- seat, goal, handoff -- so the next session is not guessing. `-Declare` also writes the role-card marker and refuses an unrostered seat; `-Record` never invents a goal | [Role cards](ROLE-CARDS.md) |
 | `bin/ccx-steer.ps1` | Queue a steering note from a second terminal while a session is mid-task | [Steering](STEERING.md) |
 
 ## To clean up and recover
@@ -66,6 +68,11 @@ Once installed, these controls run through client events or git hooks.
 | `scripts/hooks/seq_check.py` | `pre-commit` | Refuses a colliding, unallocated, or unindexed sequence number; `--ci` re-runs the collision rules against a freshly fetched trunk. No installer wires it | [Sequence allocation](SEQUENCE-ALLOC.md) |
 | `scripts/hooks/block-blanket-git-stage.ps1` | `PreToolUse` | Opt-in. Denies `git add -A/--all/-u/.` and `git commit -a/-am/--all`. Fails open | [Hooks](HOOKS.md) |
 | `scripts/hooks/steer-inject.ps1` | `PreToolUse` | Opt-in per worktree. Delivers a queued steering note at the next tool-call boundary rather than at the end of the turn | [Steering](STEERING.md) |
+| `scripts/hooks/role-card-inject.ps1` | `SessionStart` | Hand-wired. Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. Never guesses from a branch or directory name -- it stays silent instead | [Role cards](ROLE-CARDS.md) |
+| `scripts/hooks/mail-drain.ps1` | `SessionStart`, `Stop` | Hand-wired, one script on two events. Renders this worktree's session mail at `SessionStart` and leaves it in the inbox; at `Stop` it consumes only what it displayed | [Session mail](SESSION-MAIL.md) |
+| `scripts/hooks/context-budget.ps1` | `UserPromptSubmit` | Hand-wired. Reports how full this session's context window is, at 0.75/0.85/0.92. Refuses a percentage when the count exceeds the assumed ceiling, because the ceiling is a default. Never blocks | [Hooks](HOOKS.md) |
+| `scripts/hooks/precompact-reprime.ps1` | `PreCompact` | Hand-wired. Reads back what a compaction drops: the seat declaration on disk, and the allocations, claims and unpushed work this worktree holds. An unfiled allocation burns | [Hooks](HOOKS.md) |
+| `scripts/hooks/block-api-burn.ps1` | `PreToolUse` | Hand-wired. Denies `gh run watch`, any `gh --watch`, and hand-rolled `gh` poll loops. Every seat spends one shared 5000/hr budget, and the seat that pays is not the seat that spent | [Hooks](HOOKS.md) |
 
 ## Scheduled jobs
 
@@ -85,11 +92,13 @@ them to your own continuous integration workflow too.
 |---|---|---|
 | `scripts/security/scan_forbidden.py` | The leak gate: refuse identifying content before a private repo goes public. `--path DIR`, `--show-context`. With no token source it scans shapes only and still exits 0; `--require-tokens` refuses instead | [Leak gate](LEAK-GATE.md) |
 | `scripts/quality/check-ascii.ps1` | The ASCII gate: names every non-ASCII character it finds, and `-Fix` rewrites the safe substitutions. The doctor reports it `OFF (opt-in)`, because nothing installs it | [House style](HOUSE-STYLE.md) |
+| `scripts/quality/frozen_citations.py` | Which frozen `.old.md` archives cite a heading. Run it before you rename one: those links are hash-pinned, so they cannot be repaired. CI runs the test behind it, never this script | [House style](HOUSE-STYLE.md) |
 
 ## Instruments for a run
 
-These instruments report detected failures. Before running them, read [what broken looks like](https://claude-multisession.pages.dev/scripts/validation/README.md) for failure criteria
-and the run's stopping point.
+These instruments report detected failures. Before running the `scripts/validation/` checks, read
+[what broken looks like](https://claude-multisession.pages.dev/scripts/validation/README.md) for
+their failure criteria and the run's stopping point.
 
 | Script | Does | Doc |
 |---|---|---|
@@ -99,9 +108,11 @@ and the run's stopping point.
 | `scripts/validation/check-claim-holders.ps1` | Claim holders per item. Fires when two keys naming one item are held by two live worktrees, or one claim's worktree holds two live sessions | [Coordination](COORDINATION.md) |
 | `scripts/validation/check-allocation-collisions.ps1` | Every ref, grouped by sequence number. Fires when one number maps to two paths its index row does not declare as companions | [Sequence allocation](SEQUENCE-ALLOC.md) |
 | `scripts/validation/check-session-reaping.ps1` | Liveness against last write. Fires when a live record's worktree has seen no commit and no file write for a day | [Pruning](PRUNING.md) |
+| `scripts/quality/expiry_audit.py` | Does the artifact a standing rule's expiry clause points at still exist? Reports DANGLING, UNCHECKABLE or LIVE per clause, and never decides a rule expired. Exits 0 unless `--strict` | [House style](HOUSE-STYLE.md) |
 
-These instruments report results without blocking commits or pushes. CANNOT_TELL means nothing was
-examined; it does not mean nothing was wrong.
+These instruments report results without blocking commits or pushes. CANNOT_TELL from a validation
+check, and UNCHECKABLE from the expiry audit, mean nothing was examined. Neither means nothing was
+wrong.
 
 ## Internals and installers
 
@@ -113,6 +124,9 @@ examined; it does not mean nothing was wrong.
 | `scripts/hooks/_ccxconfig.py` | The Python counterpart, imported by all three git hooks. Copy a hook without it and that hook exits 1 on every commit | [Hooks](HOOKS.md) |
 | `scripts/hooks/_command.ps1` | The one command splitter, dot-sourced by the worktree gate and the blanket-stage gate | [Hooks](HOOKS.md) |
 | `scripts/hooks/_gittarget.ps1` | Which repository a git command actually acts on. Dot-sourced by the worktree gate, and pulls in `_common.ps1` itself | [Hooks](HOOKS.md) |
+| `scripts/coord/_mail.ps1` | Worktree root, mail root, hashed box key and delivery bounds for the mail lane. Dot-sourced by `mail.ps1`, `seat.ps1` and the drain, never run on its own | [Session mail](SESSION-MAIL.md) |
+| `scripts/validation/_receipt.ps1` | The receipt shape and the one verdict rule every instrument reads: CLEAN, BROKEN, or CANNOT_TELL when nothing was examined. Dot-sourced by all five checks | [What broken looks like](https://claude-multisession.pages.dev/scripts/validation/README.md) |
+| `scripts/validation/_mailbox.ps1` | The schema-tolerant mail-lane reader the two message checks share. It counts a file it cannot parse rather than dropping it, so a broken lane never reads as an empty one | [What broken looks like](https://claude-multisession.pages.dev/scripts/validation/README.md) |
 | `scripts/site/publish_sources.py` | Copies everything `git ls-files` tracks into the built site, which is why the paths on this page resolve without a clone | [House style](HOUSE-STYLE.md) |
 | `scripts/site/publish_revisions.py` | Validates archive hashes, publishes exact `.old.md` sources, and checks revision links and search exclusion after the Jekyll build | [House style](HOUSE-STYLE.md) |
 | `scripts/site/plot_token_meter.py` | Rebuilds the token-meter chart from the published measurement table | [Token accounting](TOKEN-ACCOUNTING.md) |

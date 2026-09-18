@@ -24,7 +24,7 @@ approval. The Lander merges it once the two required checks are green.
 | Do not spend a turn on it | `reviewed` now carries no machine meaning. Do not apply it, wait on it, or read a pull request as blocked for want of it. |
 | What that label proved, kept | That a step happened, not that a party looked. A seat could label a pull request it wrote itself and satisfy the machine. Any gate keyed on a self-appliable mark has this shape. |
 | Direct pushes to `main` | Still blocked by the harness. Branch and pull request is the path. |
-| RETIRED 2026-08-31, the fallback | The old route around an absent review seat. The record is [retired/REVIEWER.md](../../../roles/retired/REVIEWER.md), *You sit in the pull request path*. |
+| RETIRED 2026-08-31, the fallback | The old route around an absent review seat. The record is [retired/SEAT-RETIRED-2026-09-12.md](../../../roles/retired/SEAT-RETIRED-2026-09-12.md), *You sit in the pull request path*. |
 
 **What the retired rows used to say**, kept because seats still quote them.
 

@@ -24,7 +24,7 @@ one, that timing is what you would be deleting.**
 like every other seat: **no ACK sent to anyone**, no acknowledgement, no status line produced because
 a tick arrived, no work invented to fill it.
 
-***THE PR ROUTE IS THREE STEPS (owner-set 2026-08-29): create the PR and notify the REVIEWER (a courtesy, not the trigger), which POSTS ANY FINDINGS ON THE PR rather than handing it back to an author that has usually exited, or passes it to the LANDER on approval.*** **Handing work over is still the DEFAULT action** --
+***THE PR ROUTE IS THREE STEPS (owner-set 2026-08-29): create the PR and notify ANOTHER SEAT (a courtesy, not the trigger), which POSTS ANY FINDINGS ON THE PR rather than handing it back to an author that has usually exited, or passes it to the LANDER on approval.*** **Handing work over is still the DEFAULT action** --
 [COMMON.md](../COMMON.md) 2.1, which owns that rule. It binds you like every other seat: this folder's
 branch goes to the lander, and you do not ask the owner to name a route that is already standing.
 

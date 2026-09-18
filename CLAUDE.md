@@ -76,9 +76,11 @@ before you write* and to its seat-registry section. Do not raise it back as a co
 **The Console retired 2026-09-10.** The Manager replaces it. Broad oversight across every account
 did not work, so a Manager sits inside one account.
 
-**The Reviewer retired 2026-09-12, and nothing replaced it.** The review gate it fed was retired
-2026-09-04, so no label blocks a merge. A PR merges on `gates (ubuntu-latest)` and
-`gates (windows-latest)`, with no review step ahead of it.
+**A seat retired 2026-09-12, and nothing replaced it.** It is deliberately unnamed, by Owner
+ruling 2026-09-16.
+
+The review gate it fed was retired 2026-09-04, so no label blocks a merge. A PR merges on
+`gates (ubuntu-latest)` and `gates (windows-latest)`, with no review step ahead of it.
 
 Do not open a review step back up, and do not hold a PR waiting for one. The Lander already merges
 without waiting.
@@ -161,13 +163,45 @@ A non-ASCII character raises `UnicodeEncodeError` the moment a script prints it 
 and it is invisible in review because it looks like its ASCII neighbour.
 
 ```powershell
-pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Path scripts docs roles tests .github
+pwsh -NoProfile -Command '& ./scripts/quality/check-ascii.ps1 -Path scripts,docs,roles,tests,.github; exit $LASTEXITCODE'
 pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Path <one path> -Fix
 ```
 
 **Run it over what you changed, not over the tree.** A bare run exits 1 on a clean checkout: the
 vendored Spec Kit templates carry 275 non-ASCII characters and are not ours to rewrite. CI scans the
 tree in two steps for that reason, and `.github/workflows/gates.yml` is the source of record.
+
+**The first line read `-File ... -Path scripts docs roles tests .github` until 2026-09-16, and it
+could not run.** `pwsh -File` passes arguments literally, so `docs` bound to the positional
+`-MaxReport` and the call died with *Cannot convert value "docs" to type "System.Int32"*. The comma
+spelling fails the other way under `-File`: it arrives as one directory name, matches nothing, and
+exits 2 on `NOTHING WAS SCANNED`. Use `-Command`, which parses the array, as `gates.yml` does and
+explains in its own comment. Measured at `b243c5a`: the line above exits 0 over 300 files, against a
+control on `.claude/skills` that exits 1 on 167 characters.
+
+**That rewrite fixed the argument binding and left the exit code wrong until 2026-09-17.** A script
+invoked as the last thing `-Command` does returns 1 for any non-zero code, so the gate's 2 for
+`NOTHING WAS SCANNED` arrived as 1 -- the code it uses for a real violation.
+
+**`-Command` itself does not collapse anything.** Measured on pwsh 7.6.6 at `9379109`, asking for
+0, 1, 2, 3: `-Command "exit N"` returns 0 1 2 3, `-Command "& probe.ps1 -Code N"` returns 0 1 1 1,
+`cmd /c exit N` the same, and `-File` returns 0 1 2 3.
+
+**The collapse loses nothing where the reader only asks whether the code is zero**, because 0 stays
+0 and every failure stays a failure. It costs where something tells failures apart, and this script
+reserves 1 and 2 for different ones.
+
+**Quote the `-Command` string with SINGLE quotes.** Inside double quotes the calling shell expands
+`$LASTEXITCODE` before the inner `pwsh` sees it, so the line runs `exit 0` after any successful
+command and a real violation reports success.
+
+Measured 2026-09-17 at `9379109`, the line above: 0 over the five paths, 1 on `.claude/skills`, 2
+on `-Path 'no-such-dir-xyzzy'`. Double-quoted, after `cmd /c exit 7`, it returns 7 over a clean
+`docs` -- the caller's code, not the gate's.
+
+The `-Fix` line is `-File`, which propagates every code unchanged. `.github/workflows/gates.yml`
+keeps the collapsing form: a step fails on any non-zero, so its result is unchanged and only the
+distinction in the log is lost. Adding this clause there in double quotes would mask a red step.
 
 **`-Fix` is not a route for the vendored trees.** Against a copy it leaves 134 of the 275, because
 one template's 81 hits are box-drawing characters in a directory diagram, and where it does act on
@@ -193,12 +227,21 @@ characters.
 
 Run `pytest tests/test_prose_rules_hold.py` before pushing prose.
 
-## Commits are yours; pushes, PRs and merges are the Owner's
+## Commits, pushes and PRs are yours; the merge is the Owner's
 
 **Commit on your own judgment.** One coherent layer per commit, with a clear message. Do not use
 `--no-verify` to get past a gate. If a gate fires, fix the cause or say plainly that you cannot.
 
-**Pushing, opening a PR and merging need the Owner's explicit approval.**
+**Push your own branch and open your own PR, without asking.** [roles/COMMON.md](roles/COMMON.md),
+*Coordinate before you write*, grants every seat that and needs no approval. The MERGE is still
+the Owner's here.
+
+**RETIRED 2026-09-16, by Owner ruling: this section required the Owner's explicit approval to
+push or open a PR.** It contradicted COMMON.md, which has granted every seat its own branch and
+its own PR throughout. The Owner ruled COMMON right.
+
+Recorded rather than deleted because a reader who sees only the removal cannot tell which of the
+two files won.
 
 **RETIRED 2026-09-04: there is no review gate here, and no label blocks a merge.** The Owner removed
 it, and `review-gate.yml` was deleted from `.github/workflows/` in #47.

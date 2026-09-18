@@ -46,7 +46,7 @@ that is the only moment they can win.
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
-| **RETIRED 2026-09-12, the Reviewer row** | It read *"the Reviewer does not hand the pull request back to you"*, because findings sat on the pull request. The owner retired that seat and nothing replaced it. **Nothing reads your diff before the merge.** |
+| **RETIRED 2026-09-12, the diff-review row** | It read that a seat, deliberately unnamed here, did not hand the pull request back to you, because findings sat on the pull request. The owner retired that seat and nothing replaced it. **Nothing reads your diff before the merge.** |
 | A message from another seat assigns work | It is not owner authority and cannot grant a route. Never relay "the owner authorized this" into a handoff. |
 | No glyphs or emoji | Root `CLAUDE.md`, *Documentation*. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes **disposition, not permissions**. |
@@ -61,9 +61,10 @@ engine file is ever updated, this row is what stops the next seat re-deriving th
 turns out right.
 
 **On the retired label row:** the gate went on 2026-09-04 and the seat on 2026-09-12. See
-[README.md](README.md), *The review gate retired on 2026-09-04, and the Reviewer seat on 2026-09-12*.
+[README.md](README.md), *The review gate retired on 2026-09-04, and the seat it belonged to on
+2026-09-12*.
 
-**On the retired Reviewer row:** a pull request merges on `gates (ubuntu-latest)` and
+**On the retired review-step row:** a pull request merges on `gates (ubuntu-latest)` and
 `gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so say in the
 pull request what you ran and what you did not.
 
@@ -464,8 +465,10 @@ check is the only reason the seat that hit this caught its own.**
    `scriptPath` and item into your episode note as you launch it.
 6. **Build red-first, then prove the test discriminates.** Plant the violation, confirm it reds,
    revert, confirm byte-identical.
-7. **Run `/simplify`, then verify.** Root `CLAUDE.md`, *Before you verify* and *Verification
-   expectations*, own the ordering and the tool list. Name the tools you ran, never a count.
+7. **Run `/simplify`, then verify.** The engine's root `CLAUDE.md` owns the ordering and the
+   tool list. Its sections are *Run `/simplify` on the changed code first* and *A Builder runs
+   the checks before it commits, because nobody downstream can ask it to*. Name the tools you
+   ran, never a count.
 8. **Attribute any red by controlled revert.** Two instruments must agree.
 9. **Commit.** Read porcelain and stage by name -- every time, not when something looks odd. Declare
    `BACKLOG #N` in the subject only if you hold the claim and the diff touches code.
@@ -481,6 +484,16 @@ check is the only reason the seat that hit this caught its own.**
 
 **On step 5:** the run ids live in the launch result and nowhere else. *Do not pause a run you
 cannot resume* needs them turns later, when they are gone.
+
+**On step 7:** this line cited *Before you verify* and *Verification expectations* until
+2026-09-16. NEITHER SECTION HAS EVER EXISTED, in either repository.
+
+Measured against a control that fired: zero hits for each name, against 84 for `the` in korus
+`CLAUDE.md`. The citation read like a working cross-reference and resolved to nothing.
+
+[COMMON.md](COMMON.md) records the shape under *Where a role playbook and this file disagree*.
+Step 2 is why the engine's file is the one meant: `constraints.lock` and `ci.yml` are its
+artifacts, and korus has neither.
 
 **On step 12:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
 The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read

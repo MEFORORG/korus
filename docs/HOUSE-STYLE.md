@@ -153,7 +153,7 @@ was not for still had to appear in the assigned paragraph.
 | HS-10 | A refusal **MUST** say what was refused, why, and the next command, and the command **MUST** be runnable as printed | Three slots, all filled |
 | HS-11 | Prose **MUST** be ASCII: no em dash, no smart quotes, no section sign | `scripts/quality/check-ascii.ps1` |
 | HS-12 | A normative rule document **MUST** carry a "how to read the rules" section, stable rule identifiers, and an evidence column | The three, present |
-| HS-13 | A heading **MUST NOT** be renamed until the repository has been searched for its text | Standards cite headings by name, and only the link-adjacent form is gated |
+| HS-13 | A heading **MUST NOT** be renamed until the repository has been searched for its text | Standards cite headings by name. `scripts/quality/frozen_citations.py` names the frozen archives citing one; `tests/test_a_heading_a_frozen_archive_cites_cannot_be_renamed.py` holds the set and reddens when one goes |
 | HS-14 | Lines **SHOULD** wrap near 100 characters | The wrap |
 | HS-15 | A quantity **MUST** be the number where one exists, not a vague determiner | "139", not "nearly all" |
 | HS-20 | A paragraph **MUST NOT** exceed 300 characters. Rewrite it shorter; do **not** satisfy this by splitting one paragraph into two | A hard cap in `tests/test_prose_rules_hold.py` since 2026-08-16, when the last of the debt cleared. It shipped as a ratchet because 463 paragraphs were over the limit on 2026-08-10; the baseline is now 0, so the next one over fails the run |
@@ -242,6 +242,6 @@ These bans came from prose found in this repository.
 ## The standing edit protocol
 
 1. Find the passage by its heading or exact wording. Line numbers from an earlier plan or review may have moved.
-2. Search the repository before renaming a heading. Preserve inbound anchors and run `tests/test_internal_links_resolve.py`.
+2. Search the repository before renaming a heading. Run `python scripts/quality/frozen_citations.py <page> "<heading>"` first: a frozen archive may cite it, and that link cannot be repaired. Preserve inbound anchors and run `tests/test_internal_links_resolve.py`.
 3. Run tests from `tests/` with `python -m unittest discover -s . -q`. Running discovery from the root can find no tests.
 4. Run `scripts/coord/overlap.ps1` before editing. A clean text merge does not establish that two changes serve different purposes.

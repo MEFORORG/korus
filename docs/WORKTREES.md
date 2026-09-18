@@ -110,6 +110,32 @@ govern that fetch:
 An explicit local `-Base` that trails upstream triggers a warning with the branch, lag count, and
 suggested remote ref. Remote-tracking refs lack `@{upstream}`, so the default skips this check.
 
+### Read from a ref, not from a working tree
+
+The rule above governs where a branch starts. The same lag defeats reading, and that failure is
+quieter: a search of a checkout answers for whatever that checkout last had.
+
+Measured in this repository on 2026-09-17, from the primary checkout:
+
+```powershell
+git rev-parse --abbrev-ref HEAD                                      # a feature branch, not main
+git rev-list --count HEAD..origin/main                               # 48
+git ls-files .github/workflows/required-workflow-state.yml           # 0 lines
+git show 'origin/main:.github/workflows/required-workflow-state.yml' # 158 lines
+```
+
+The primary sat 48 commits behind the trunk, on a branch nobody had switched back. A file that
+exists on `origin/main` reads as absent there.
+
+A second clone on the same machine read 257 behind by the same command. Three analysis passes
+reported a file missing from that project because they had searched its primary tree.
+
+So name the ref. `git show <ref>:<path>` and `git grep <pattern> <ref>` answer about the ref rather
+than about wherever your shell happens to be standing.
+
+Their positive control fired, which is why nobody caught it.
+[Tips and tricks](TIPS-AND-TRICKS.md#a-control-can-fire-and-still-miss-the-subject) carries that half.
+
 ### Concurrent creation races `.git/config.lock`
 
 Concurrent `git worktree add` calls can fail with
@@ -165,6 +191,24 @@ Setup reports two distinct failures:
 Use `-NoSetup` to create files without an environment. The printed next steps explicitly report that
 setup has not run.
 
+### Environments multiply, so start the removal habit in week one
+
+One environment per worktree stays right. It is also the line item that grows, and nothing here
+removes an environment for you.
+
+Measured on the development host on 2026-09-17:
+
+- 110 registered worktrees in one clone and 40 in a second, by `git worktree list`. The first clone
+  read 107 earlier the same day, so treat these as a shape rather than a level.
+- 0.86 GB for a single worktree's `.venv`, by `Get-ChildItem <path>/.venv -Recurse -File -Force`
+  piped into `Measure-Object -Property Length -Sum`.
+- 63.36 GB across every worktree directory on the machine, by `du -sb`. Dependency environments were
+  19.66 GB of that total, or 31 percent.
+- 18.75 GB across 322,826 files in the agent scratchpad directories, by `Get-ChildItem -Recurse`.
+
+[Pruning](PRUNING.md) is the sweep that clears them. `prune-merged.ps1` defaults to a dry run, so
+reading its decisions costs nothing and is the cheapest habit to start with.
+
 ---
 
 ## Rescuing work already in the primary
@@ -178,20 +222,55 @@ Name the destination worktree:
 pwsh -NoProfile -File scripts/worktree/rescue.ps1 -Name alerts-fix
 ```
 
-The script stashes primary changes, creates a worktree, and pops the stash there. Three details
-preserve the work:
+The script stashes primary changes, creates a worktree, and applies the stash there by object name.
+Four details preserve the work:
 
 - `--include-untracked`. Without it, untracked files stay behind in the primary. The new worktree
   then recreates them: two diverging copies, with no indication which one you are editing.
 - **The new branch is cut from the primary's *current* commit**, not from the trunk, so the stash
   applies cleanly. This is the one case where the fetched-remote-tip rule above is deliberately not
   applied -- a rescue that conflicts is a rescue that failed.
-- The stash is the safety net, and the recovery path is printed at the moment of failure. If pop
-  fails, `finally` prints commands to list and restore the stash. It also prints the original stash
-  message. Mid-panic is not when someone opens a document.
+- **The entry is named, never taken off the top.** The push carries a per-run token, the script reads
+  the entry's object name back, and the restore is `git stash apply <sha>`. Building the worktree
+  takes minutes, and `stash@{0}` by then may be a peer's.
+- The stash is the safety net, and the recovery path is printed at the moment of failure. If the
+  restore fails, `finally` prints the object name and the commands to inspect and apply it. Mid-panic
+  is not when someone opens a document.
 
 If the primary is clean, the script reports nothing to rescue and suggests `new.ps1`. It creates no
 empty worktree.
+
+### Known defect: `rescue.ps1` pops the stack by position
+
+**RETIRED 2026-09-17. Fixed in #119, which landed after #118 wrote the text below.** The script now
+pins the entry it pushed and restores it by object name. Both pops are gone: the one it ran, and the
+one it printed.
+
+`tests/test_the_rescue_names_the_stash_entry_it_pushed.py` holds the fixture. Its mutation control
+reverts the restore to a bare pop and requires the case to go red, so the claim is falsifiable.
+
+Two constraints shaped it. `git stash drop` refuses an object name -- `is not a stash reference` --
+so a drop must resolve the SHA back to a `stash@{n}` first. And `git stash create` avoids the race
+but cannot capture untracked files, which is why this command exists.
+
+Kept rather than deleted, per the rule that retired text stays with its reason. A reader who sees
+only a removal cannot tell whether the defect was fixed or the claim was wrong.
+
+The retired text follows.
+
+Read at `6eb6be0`, both of the script's pops are bare. It pushes with a unique `-m` tag, runs
+`new.ps1` as a child process, then pops whatever now sits on top.
+
+Its `finally` block prints the same shape: find your entry in `stash list` by its message, then
+`git stash pop`. The stack is shared, so those are two different entries whenever a peer stashed in
+between.
+
+The fix is to resolve the pushed entry to a SHA and apply that SHA, which is what
+[the shared-stack row](#what-a-worktree-does-not-isolate) asks of every other caller. It is filed
+and not yet made.
+
+Until it lands, run `rescue.ps1` when no peer session is mid-stash, and read the message on the
+entry before you accept the result.
 
 ---
 
@@ -308,6 +387,9 @@ The suggested repair would have moved sessions off their actual branches. Apply 
   decides.
 - Never print a destructive remediation command from a detector you have not proven correct. The
   warning tells you to commit or stash first, and to run the switch yourself from a plain terminal.
+
+Take the commit. Those are the hook's words, and a stash lands on the stack
+[every worktree shares](#what-a-worktree-does-not-isolate).
 
 When no record exists, the backstop records the worktree's current branch. That bootstrap can race
 the harness's session setup.
@@ -470,11 +552,12 @@ duplicated it and a fifth pattern-matched it, letting rules drift apart.
 
 ## What a worktree does *not* isolate
 
-Worktrees separate files, branches, indexes, and setup-hook dependency environments. These five
+Worktrees separate files, branches, indexes, and setup-hook dependency environments. These six
 resources still need shared rules:
 
 | Shared thing | Why | What to do |
 |---|---|---|
+| **The git stash stack** | One stack lives in the shared git directory, so every worktree sees every session's entries. A bare `pop` takes whichever was pushed last: one session restores another's work into its own tree, and neither notices. | Set work aside with a WIP commit. Where you must stash, use `git stash push -m "<tag>"`, read the SHA back with `git stash list --format='%H %gs'`, and restore with `git stash apply <sha>`. Recovery needs that SHA. |
 | **Coordination state** | It lives at `<git-common-dir>/<prefix>-coord`, which is identical across every worktree of a clone (that is the point -- a claim taken in one worktree must be visible in another). | Its corollary: **state outlives the worktree.** Remove a worktree and the claims it took are still there. Release on *evidence* -- the directory is gone **and** deregistered -- never on a timer. See [Coordination](COORDINATION.md). |
 | **The git hooks directory** | One `commit-msg` / `pre-push` set lives in the shared git directory and governs every worktree of that clone at once. | Install once per clone, not per worktree. It also sees every write route, because it inspects the tree at commit time rather than a tool call. |
 | **`.git/config`** | Written by `git worktree add`. | Already handled by the mutex above. |
@@ -483,6 +566,56 @@ resources still need shared rules:
 
 Ports, development databases, Redis keyspaces, package caches, and git-ignored `.env` files also
 remain outside these checks. See [Limits and requirements](LIMITS.md).
+
+### A dropped stash is recoverable until the next `gc`, and only from its SHA
+
+Nothing detects a wrong stash pop. The stack records no worktree, so a popped entry leaves no trace
+of where it came from or where it went.
+
+**The row above read "record the SHA it prints" and "`git stash drop` does not undo" until
+2026-09-17. Both were false.** Measured on git 2.55.0.windows.5, in a throwaway `git init`
+repository rather than against this machine's shared stack.
+
+Push prints no SHA, so the published instruction could not be followed. The read-back is a second
+command:
+
+```text
+$ git stash push -u -m "tag-alpha"
+Saved working directory and index state On master: tag-alpha
+$ git stash list --format='%H %gs'
+a39e73a87b7f2678bb59674f794f21fdc1ece1b7 On master: tag-alpha
+```
+
+`grep -c -E '[0-9a-f]{40}'` over that push output returns 0, against 1 over `git rev-parse HEAD` as
+a control, so the pattern was live rather than empty.
+
+The drop leaves the commit object in place, and `git stash store` puts the entry back:
+
+```text
+$ git stash drop
+Dropped refs/stash@{0} (a39e73a87b7f2678bb59674f794f21fdc1ece1b7)
+$ git cat-file -t a39e73a87b7f2678bb59674f794f21fdc1ece1b7
+commit
+$ git stash store -m "tag-alpha" a39e73a87b7f2678bb59674f794f21fdc1ece1b7
+$ git stash list
+stash@{0}: tag-alpha
+```
+
+`git stash apply` then restored the tracked edit and the untracked file both.
+
+**Recovery needs three things, and the session that lost the work holds none of them.**
+
+| What recovery needs | Why the losing session lacks it |
+|---|---|
+| The SHA | `git stash push` prints none. The `Dropped ... (<sha>)` line prints in whoever ran the drop, not in you. |
+| The object, unpruned | `git reflog expire --expire-unreachable=now --all` then `git gc --prune=now` took it. `cat-file` exited 128 and `stash store` refused it as *not a stash-like commit*. |
+| A reason to look | The pop is silent in your tree. You find out when something is missing, which may be after the window has shut. |
+
+`git fsck --unreachable` finds the commit without a recorded SHA. It names every unreachable object
+in the repository, so it identifies the entry only where there is one candidate.
+
+A raw object name cannot be dropped: `git stash drop <sha>` answers *is not a stash reference*. So a
+drop re-resolves `stash@{n}` at drop time, and that is the step where it takes a peer's entry.
 
 ---
 

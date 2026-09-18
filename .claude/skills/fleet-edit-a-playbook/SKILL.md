@@ -42,7 +42,7 @@ worktree sharing the vault primary's git directory: HEAD 39 commits behind `orig
 ahead, `roles/` differing across 13 files.
 
 `REVIEWER.md` was absent there and present on `origin/main`. That seat retired 2026-09-12, so its
-path is now `roles/retired/REVIEWER.md`. `INSTRUMENTS.md` was present there and deleted on
+card now sits under `roles/retired/`. `INSTRUMENTS.md` was present there and deleted on
 `origin/main`.
 
 **Two repositories, two checkouts, one failure.** The repository of record changes. The habit of

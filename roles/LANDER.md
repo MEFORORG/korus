@@ -73,7 +73,7 @@ merge queue cannot route around a failing required check.**
 Source of record: root `CLAUDE.md`, *Route it to the seat that owns it*, which REPLACED the
 pre-2026-09-01 method. The
 2026-08-29 three-step route is from the replaced era and is **stale as routing**. That route sent a
-notice to a Reviewer seat, had it return the PR to you, then had it pass the PR on to the Lander.
+notice to a middle seat, had it return the PR to you, then had it pass the PR on to the Lander.
 
 **That seat retired on 2026-09-12 and nothing replaced it**, so the route has no middle step left to
 be stale about. A PR merges on its two required gates.

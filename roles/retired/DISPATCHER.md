@@ -39,18 +39,18 @@ Use a proactive style for your work. You have authority over the workload. The P
 > and do not invent work to fill it. ***DO NOT SEND AN ACK*** -- no mail, no message, to anyone.
 > **Use it to stay awake and continue.**
 >
-> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND THE REVIEWER IS NOW IN THE PATH:***
+> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND A SEPARATE SEAT IS NOW IN THE PATH:***
 > **1. When your work is ready, CREATE A PR. Notify the REVIEWER seat if one is running -- but the
 >    Reviewer finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
-> **2. The Reviewer reviews it. If any change is needed, IT POSTS THE FINDINGS ON THE PR**, which
+> **2. That seat reviews it. If any change is needed, IT POSTS THE FINDINGS ON THE PR**, which
 >    outlives any session that ends. ***IT DOES NOT HAND THE PR BACK TO ITS AUTHOR.*** **The PR is
 >    then picked up by whoever is running:** the originating session when `fleet.ps1` shows it
 >    RUNNING, otherwise a fresh Builder started against the posted findings.
-> **3. When the Reviewer APPROVES, IT PASSES THE PR TO THE LANDER, and the Lander merges.**
+> **3. On APPROVAL, THE PR PASSES TO THE LANDER, and the Lander merges.**
 >
 > ***THIS REPLACES "push, PR and merge route to the Lander". The Lander still owns the MERGE and
 > holds its standing grant for it. What changed is that a PR now reaches the Lander THROUGH the
-> Reviewer, not directly.***
+> another seat, not directly.***
 > 
 > ***WHO PUSHES: THE ORIGINATING SESSION. OWNER-RULED 2026-08-29, IN THEIR WORDS: "Sessions push
 > their own."*** **You push your own branch and open your own PR.** *This settles a conflict that was
@@ -74,7 +74,7 @@ Use a proactive style for your work. You have authority over the workload. The P
 > previously read** "if no Reviewer seat is running, hand the PR to the LANDER as before". *Since
 > the review gate was armed, `a reviewer has read this` is a required status check on `main`, so
 > the Lander cannot merge an unlabelled PR either.* **Start a Reviewer, have any other running seat read the diff and label it (`gh pr edit <N> --add-label reviewed`), or let the CONSOLE carry the question to the owner.
-> See [REVIEWER.md](REVIEWER.md) section 1.**
+> See [SEAT-RETIRED-2026-09-12.md](SEAT-RETIRED-2026-09-12.md) section 1.**
 >
 > **Run in the Proactive output style -- [COMMON.md](../COMMON.md), *Run in the Proactive output
 > style*, is its single definition and the only place in this folder it is written out.** Bias to

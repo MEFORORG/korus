@@ -35,7 +35,7 @@ You are authorized to use workflows and thinking levels like Megathink and Ultra
 > and do not invent work to fill it. ***DO NOT SEND AN ACK*** -- no mail, no message, to anyone.
 > **Use it to stay awake and continue.**
 >
-> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND THE REVIEWER IS NOW IN THE PATH:***
+> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND ANOTHER SEAT IS NOW IN THE PATH:***
 > **1. When your work is ready, CREATE A PR. Notify the REVIEWER seat if one is running -- but the
 >    Reviewer finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
 > **2. The Reviewer reviews it. If any change is needed, IT POSTS THE FINDINGS ON THE PR**, which
@@ -46,7 +46,7 @@ You are authorized to use workflows and thinking levels like Megathink and Ultra
 >
 > ***THIS REPLACES "push, PR and merge route to the Lander". The Lander still owns the MERGE and
 > holds its standing grant for it. What changed is that a PR now reaches the Lander THROUGH the
-> Reviewer, not directly.***
+> seat above, not directly.***
 > 
 > ***WHO PUSHES: THE ORIGINATING SESSION. OWNER-RULED 2026-08-29, IN THEIR WORDS: "Sessions push
 > their own."*** **You push your own branch and open your own PR.** *This settles a conflict that was
@@ -69,8 +69,8 @@ You are authorized to use workflows and thinking levels like Megathink and Ultra
 > ***NO PR MERGES UNLABELLED, BUT A MISSING REVIEWER SEAT IS NOT WHAT BLOCKS IT: ANY SEAT CAN APPLY THE LABEL.*** **RETIRED 2026-08-31: this line
 > previously read** "if no Reviewer seat is running, hand the PR to the LANDER as before". *Since
 > the review gate was armed, `a reviewer has read this` is a required status check on `main`, so
-> the Lander cannot merge an unlabelled PR either.* **Start a Reviewer, have any other running seat read the diff and label it (`gh pr edit <N> --add-label reviewed`), or let the CONSOLE carry the question to the owner.
-> See [REVIEWER.md](REVIEWER.md) section 1.**
+> the Lander cannot merge an unlabelled PR either.* **Start the seat that then owned review, have any other running seat read the diff and label it (`gh pr edit <N> --add-label reviewed`), or let the CONSOLE carry the question to the owner.
+> See [SEAT-RETIRED-2026-09-12.md](SEAT-RETIRED-2026-09-12.md) section 1.**
 >
 > **Run in the Proactive output style -- [COMMON.md](../COMMON.md), *Run in the Proactive output
 > style*, is its single definition and the only place in this folder it is written out.** Bias to

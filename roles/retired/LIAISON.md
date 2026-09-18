@@ -26,9 +26,10 @@
 > and do not invent work to fill it. ***DO NOT SEND AN ACK*** -- no mail, no message, to anyone.
 > **Use it to stay awake and continue.**
 >
-> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND THE REVIEWER IS NOW IN THE PATH:***
+> ***THE PR ROUTE, OWNER-SET 2026-08-29. THREE STEPS, AND ANOTHER SEAT -- SINCE RETIRED, DELIBERATELY UNNAMED -- IS NOW IN THE PATH:***
 > **1. When your work is ready, CREATE A PR. Notify the REVIEWER seat if one is running -- but the
->    Reviewer finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
+> **1. When your work is ready, CREATE A PR. Notify the seat then holding the review step if one is
+>    running -- but that seat finds waiting PRs itself, so your notice is a courtesy and not the trigger.**
 > **2. The Reviewer reviews it. If any change is needed, IT POSTS THE FINDINGS ON THE PR**, which
 >    outlives any session that ends. ***IT DOES NOT HAND THE PR BACK TO ITS AUTHOR.*** **The PR is
 >    then picked up by whoever is running:** the originating session when `fleet.ps1` shows it
@@ -61,7 +62,7 @@
 > previously read** "if no Reviewer seat is running, hand the PR to the LANDER as before". *Since
 > the review gate was armed, `a reviewer has read this` is a required status check on `main`, so
 > the Lander cannot merge an unlabelled PR either.* **Start a Reviewer, have any other running seat read the diff and label it (`gh pr edit <N> --add-label reviewed`), or let the CONSOLE carry the question to the owner.
-> See [REVIEWER.md](REVIEWER.md) section 1.**
+> See [SEAT-RETIRED-2026-09-12.md](SEAT-RETIRED-2026-09-12.md) section 1.**
 >
 > **Run in the Proactive output style -- [COMMON.md](../COMMON.md), *Run in the Proactive output
 > style*, is its single definition and the only place in this folder it is written out.** Bias to

@@ -29,7 +29,7 @@ every account and oversaw the whole build. That breadth did not work.
 A Manager sits inside ONE account, and several run at once. So the plan, the brief and the owner's
 questions all arrive at the same seat they did before, held by a smaller one.
 
-**The Reviewer retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
+**A ninth seat retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
 question, and this is the answer to it.
 
 **The owner added the Special seat on 2026-09-16, and it is the first addition rather than a
@@ -60,7 +60,7 @@ stands by, and announces only when its instruction makes the message worth sendi
 
 | Item | Rule |
 | --- | --- |
-| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/REVIEWER.md](retired/REVIEWER.md). Nine seats, nine files. |
+| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). Nine seats, nine files. |
 | **RETRACTED 2026-09-04** | This table once called `ASVS-TRACKER.md` **absent from this edition**, on a `find . -iname '*asvs*'` returning zero files. True when measured. The file was then imported, and that command now returns the path above. |
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
@@ -91,15 +91,15 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 | A playbook that contradicts COMMON is an owner question | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, owns it. No seat resolves the contradiction by picking a winner. |
 | Why the seat files point rather than restate | Nine copies of a behaviour contract have no drift signal between them. This project has hit that defect repeatedly. Make a pointer, never a second summary. |
 
-## 3. The review gate retired on 2026-09-04, and the Reviewer seat on 2026-09-12
+## 3. The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12
 
 **Owner decision, 2026-09-04.** `a reviewer has read this` is no longer a required status check on
 `main`, and `.github/workflows/review-gate.yml` is deleted. Only `gates (ubuntu-latest)` and
 `gates (windows-latest)` remain required. **An unlabelled PR merges.**
 
 **ANSWERED 2026-09-12: the owner retired the seat, and nothing replaced it.** Its playbook is
-[retired/REVIEWER.md](retired/REVIEWER.md). A PR now merges on its two required gates, with no
-review step ahead of it.
+[retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). A PR now merges on its two
+required gates, with no review step ahead of it.
 
 **This paragraph read "Whether the Reviewer seat survives the loss of its gate is an owner question,
 and this file does not answer it" from 2026-09-04 until 2026-09-12.** It was open for eight days, and
