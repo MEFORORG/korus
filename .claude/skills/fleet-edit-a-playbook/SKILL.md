@@ -30,7 +30,7 @@ STALE AND IS NOT THE ONE TO READ ... You were probably sent here by a stale poin
 
 Naming korus does not certify that a korus checkout is current. One measurably is not.
 
-**Measured 2026-09-17 on `C:\Users\Scott\Code\korus`.** The working checkout sits on branch
+**Measured 2026-09-17 on the korus working checkout.** The working checkout sits on branch
 `fix/strip-account-vars-from-child-env`: 15 commits ahead of `origin/main`, and 46 behind. A seat
 reading `roles/LANDER.md` there reads a file 46 commits stale. A directory listing cannot show it.
 
