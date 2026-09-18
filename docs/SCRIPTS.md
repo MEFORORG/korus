@@ -85,6 +85,7 @@ them to your own continuous integration workflow too.
 |---|---|---|
 | `scripts/security/scan_forbidden.py` | The leak gate: refuse identifying content before a private repo goes public. `--path DIR`, `--show-context`. With no token source it scans shapes only and still exits 0; `--require-tokens` refuses instead | [Leak gate](LEAK-GATE.md) |
 | `scripts/quality/check-ascii.ps1` | The ASCII gate: names every non-ASCII character it finds, and `-Fix` rewrites the safe substitutions. The doctor reports it `OFF (opt-in)`, because nothing installs it | [House style](HOUSE-STYLE.md) |
+| `scripts/quality/frozen_citations.py` | Which frozen `.old.md` archives cite a heading. Run it before you rename one: those links are hash-pinned, so they cannot be repaired. CI runs the test behind it, never this script | [House style](HOUSE-STYLE.md) |
 
 ## Instruments for a run
 
