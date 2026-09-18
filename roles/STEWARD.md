@@ -426,6 +426,13 @@ levels are the backstop.
 | **2. PROTECT AND WRAP** | 10 minutes | 86 percent | 94 percent | Commit, write the note, hand off |
 | **3. URGENT STOP** | 5 minutes | 92 percent | 97 percent | Stop now. Commit whatever exists, even half-done |
 
+**The Weekly column names a severity, not an authority. Only the Session column can stop anyone.**
+A weekly-only rung has the protect half and no start-nothing half. Section 3a carries the rest.
+
+Stated here rather than only in 3a because a reader of this table does not reach 3a, and four
+sessions have now read a weekly crossing as a hold: the seat and PM 3a records, and three more on
+2026-09-17, one of which declined offered work over it.
+
 **The weekly column read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved it to
 90 / 94 / 97. The session column did not move.
 
