@@ -40,10 +40,21 @@ Relabelling the conflict as document ambiguity moves it where nobody can settle 
 
 **Project name:** MessageFoundry, or mefor.
 
+**Three repositories, not two, since 2026-09-04.**
+
 | Repository | Visibility | Content |
 | --- | --- | --- |
 | MessageFoundry | Public | Only what is required to run mefor. Nothing that exposes an attack surface, such as ASVS scores or their reasoning. |
-| MessageFoundry-vault | Private | Everything that must never reach the public repository: confidential material, anything naming an attack vector, and all project build items including these role playbooks. |
+| MessageFoundry-vault | Private | Confidential material and anything naming an attack vector. The ledger, the ADR mirror, the security scorecard, the handoffs, the fleet tooling. |
+| korus | Private | **This folder.** The role playbooks and the `fleet-*` skills. |
+
+**CORRECTED 2026-09-17, by owner ruling: korus is the folder of record for `roles/`.**
+
+The vault row read *"all project build items including these role playbooks"*. That stopped being
+true on 2026-09-04, when the playbooks moved to korus at `5728484`.
+
+The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
+who trusted this table went to the stale copy.** That is why this is a correction and not a tidy-up.
 
 **Project status:** there are no installed operational instances of mefor. That is why a code change
 needs no migration plan and no compatibility shim -- there is no installed base to protect.

@@ -390,8 +390,16 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | The instrument that carries it | A diff-level assertion: every changed line is an ADDED line of the expected kind, and modified-or-deleted lines of every other kind number ZERO. |
 | Why that is stronger | It answers "did it touch this field" by answering "did it touch anything else", which a legal-but-different value cannot satisfy. |
 | Before writing "the green on X proves Y" | State what X actually asserts, then ask whether a change you would object to could pass it. If it could, keep X and drop the sentence. |
-| The obligation this implies | With `required_approving_review_count: 0`, arming is merging unread and you are the last reader. You owe an inspection of content you do not own. |
-| That inspection is a CHECK, NOT A HOLD | Reading a peer's unopened work is not blocking it. Fusing the two turns a reasonable look into a freeze on somebody else's lane. |
+| **RETIRED 2026-09-17 by owner ruling** | You do not owe an inspection. |
+| What stood here | *"arming is merging unread and you are the last reader. You owe an inspection of content you do not own."* And: *"That inspection is a CHECK, NOT A HOLD."* |
+| Kept, not deleted | A seat who remembers the duty should find it retired rather than absent. |
+| Why it went | **The Builder reads the diff already.** `BUILDER.md` step 11 invokes the `code-review` skill before the pull request opens. |
+| Two playbooks, one role | `BUILDER.md`, *Nothing reads your diff before the merge*, calls the author the last reader. This row called you the same. The second read was yours. |
+| What it cost | Measured 2026-09-16: 53 pull requests opened, 33 merged. Fourteen green ones held on one seat's reading time, with the queue idle. |
+| The row carried no attribution | Other authorities here are stamped. The push grant names a ref. The bypass quotes the owner. This entered in `e5fefd5`, a reformatting commit. |
+| Which is not the same claim | **It is not evidence the owner never set it.** COMMON holds that no seat can support that sentence. The file simply never named who did. |
+| What still binds | The rest of this section. You choose the checks, arm the merge, and write the body with no reader between. |
+| And the claim rule survives | *Before writing "the green on X proves Y"* is untouched. Dropping the inspection licenses no claim about what a green proves. |
 | Retractions must reach PR bodies | COMMON's retraction rule names memory, index lines, handoffs, docstrings and banners. **A PR body is not among them, and nobody else will correct yours.** |
 | Measured 2026-08-22 | A seat published a conflict-hunk count from a check that could never have found anything, and corrected it on the PR as well as in the handoff. |
 | Keep a running list | Track the numeric claims you have put in PR bodies, so retiring an instrument hands you a bounded sweep set instead of a memory search. |
