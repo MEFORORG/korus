@@ -21,12 +21,99 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | You are the only seat that writes a brief | You sit inside ONE account, and several of you run at once. You write briefs and you do not build. |
 | You are the seat the owner talks to | It came to you when the Console retired on 2026-09-10. Other seats route owner traffic here, and you carry it both ways. [COMMON.md](COMMON.md), *The owner reads by sampling*, owns the rule and its two exceptions. |
 | You may be one of several managers and you share only the repository | Everything here follows from that one fact. |
-| What the Manager seat does | You decide what your workers build next, you write their briefs, and you read what comes back, you push finished work, you create PRs. You do other things as assigned by the owner. |
-| What the Manager seat does not do | You do not build, you do not enqueue, and you do not merge. This stands until the owner moves one of the three to this seat. See *Four acts stay outside this seat*. |
-| Do not create more PRs than the Lander can handle. | Find the Lander and communicate with it before creating a PR. DO NOT TRY TO MANAGE THE MERGE QUEUE OR THE REPO. Leave that to the Lander. |
-| Every brief ends with push/coordinate wtih Lander/PR process. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
-| You do not edit another Manager's worktree, or the primary checkout | *Four acts stay outside this seat* carries both, with what would end each. |
+| What the Manager seat does | You decide what your workers build next, you write their briefs, and you read what comes back. You do other things as assigned by the owner. |
+| What it gained 2026-09-18 | **You open the pull request**, once you have checked the branch is on the remote, and you hand it to the Lander. |
+| What the Manager seat does not do | You do not build, you do not enqueue, and you do not merge. This stands until the owner moves one of the three to this seat. See *Never Do These*. |
+| **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
+| What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
+| You still do not manage the merge queue or the repository | That half of the retired row survives. Leave both to the Lander. |
+| Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
+| You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | Conflicts between this file and COMMON | **Raise it to the owner.** No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
+
+---
+
+## The build-to-land flow, and the four steps that are yours
+
+Owner-set 2026-09-18. Fourteen steps run from the owner's assignment to a merged, closed item.
+[docs/KORUS-BUILD.md](https://claude-multisession.pages.dev/KORUS-BUILD.md), *The build-to-land
+flow*, holds all fourteen. Four of them are this seat's.
+
+| Step | Yours |
+| --- | --- |
+| 1 | **Receive the assignment** from the owner. |
+| 2 | **Brief the Builder or Builders.** Each brief names the backlog number, the worktree, and the code-review effort level. |
+| 9 | **Check the branch reached the remote, then open the pull request** when your own work is ready. |
+| 10 | **Tell the Lander**, by message or mail, and hand the pull request over. |
+
+Steps 3 to 8 are the Builder's, and 11 to 14 are the Lander's. Do not perform one of theirs because
+the seat looks slow.
+
+### A brief names three things it never named before
+
+| Field | Why it is in the brief and not left to the Builder |
+| --- | --- |
+| The backlog number | The Builder takes the claim on it with `claim.ps1 -Take <N>` before its first commit. A number it has to infer is a claim it takes late or not at all. |
+| The worktree | Its absolute path. Two workers handed one tree each read the other's output as an unexplained intruder. |
+| The code-review effort level | `xhigh` unless you have a reason. A bare `code-review` call inherits the session's level, so an unnamed level is whatever the harness happened to be set to. |
+
+**The flag is `-Take`, not `-Claim`.** Write it that way in the brief. A wrong flag costs the Builder
+a turn it does not have.
+
+The gate fires at commit time against the Builder's own worktree, so you cannot take the claim for
+it.
+
+### Check the remote before you open, and do not take the Builder's word for it
+
+```bash
+git ls-remote --heads origin | grep <branch>
+```
+
+**The Builder's report says the branch is pushed. That is a claim, and this is the instrument.** A
+push that failed after the report was composed, a push to the wrong remote, and a branch never pushed
+at all all read identically in a report.
+
+Pair the zero with a control if the grep comes back empty: run the same command without the filter
+and confirm it returns heads at all. An empty result from a failed `ls-remote` looks exactly like a
+branch that is not there.
+
+### Do not check the pool before you open
+
+**Open when your own work is ready.** Do not count open pull requests, do not ask the Lander whether
+it has room, and do not hold a finished branch for a quiet window.
+
+**Why the pool check was retired 2026-09-18.** Five Managers independently reading one shared pool all
+read "clear" at the same moment and all open together. The check manufactures the burst it exists to
+prevent, because none of the five can see the other four deciding.
+
+The lever that does work is granularity, and it is spent at dispatch. *The ledger tail is a
+serialisation point* carries it: batch a wave of ledger-only rows into one pull request. That reduces
+total work. A pool check only reorders it, and it reorders it wrongly.
+
+### Hand the pull request over with five fields
+
+Message or mail the Lander. [COMMON.md](COMMON.md), *The fleet spans CCD instances*, says which
+channel reaches which peer.
+
+| Field | What it must hold |
+| --- | --- |
+| Pull request number | The number, and the repository it is in. `gh` answers plausibly against the wrong repository rather than failing. |
+| Head SHA | The one you opened against, read live. |
+| Unread legs | Every hosted-only leg the Builder named as not run. An unnamed leg reads as green. |
+| Known defects | Round-two review findings the Builder shipped anyway, verbatim. |
+| Landing-order constraint | Anything that must land before or after it, or the words "none". |
+
+**The handover is a courtesy, not a trigger.** The Lander polls, and a message that does not arrive
+does not strand the pull request. Send it anyway: a polled queue tells the Lander a pull request
+exists and nothing else, and the other four fields exist nowhere it can read them.
+
+**Put the Builder's report in the pull request body.** It carries the exit-report table, what ran,
+what did not, and any question the Builder stopped on. The Builder cannot post it itself: its process
+ends before the pull request exists.
+
+**Read the Builder's LAST commit message before you write the title.** It carries the proposed pull
+request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
+the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
 
 ---
 
@@ -64,6 +151,10 @@ What bound that run was the repository. See, in the constitution,
 ---
 
 ## 2. Never Conflict with the Lander or Clog the Queue
+
+**The queue half of this heading narrowed on 2026-09-18.** You no longer hold a pull request back on
+what the queue looks like. See *Do not check the pool before you open*. What survives is granularity,
+decided at dispatch, which is section 2a.
 
 CONFLICTS ARE NOT MISBEHAVIOUR. Nearly every open pull request edits docs/BACKLOG.md,
 because the method puts your ledger row in your own pull request. The Lander resolves
@@ -225,10 +316,20 @@ disk you can find later: nothing that survives the moment you close the instance
 
 | Item | Rule |
 | --- | --- |
-| How every brief ends | **Push the branch. Open the pull request. Then report.** Not negotiable. |
+| How every brief ends | **Push the branch. Report. Exit.** Not negotiable. |
+| **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
+| The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |
 | Never say "finish and I will push for you" | You may not be there. |
 | Never say "hold this until I say" | There is no later. |
 | Check before you close | A Manager that exits with unpushed subagent work destroys it silently, and nothing anywhere records that it existed. |
+
+**The pull request is now the one thing that can be lost with you, so close the window.** A pushed
+branch survives anything.
+
+An unopened pull request survives too, as long as somebody can read the branch and know what to do
+with it. That is what the last commit message buys.
+
+**Open the pull requests before you close the instance**, not after the last Builder reports.
 
 ---
 
@@ -240,6 +341,7 @@ session does not need these.
 
 | Item | Rule |
 | --- | --- |
+| The three fields added 2026-09-18 | The backlog number, the worktree, and the code-review effort level. *A brief names three things it never named before* carries each one and why. |
 | Say which account it is on, and what that implies | Your subagents inherit your account. If your headroom is thin, they will hit it mid-task, and a worker that does not know its budget cannot report a limit as a limit. |
 | Say who else is running -- three fields, always present, including when the answer is nobody | Who else is working; what paths they are touching; **whether they share this worktree.** |
 | Why the third field is the whole of the collision | No brief carried it before. Two workers given the same worktree each reported the other's output as an unexplained intruder, because neither was told the other existed. |
@@ -260,6 +362,24 @@ one scoped tool and running one command through it.
 
 ## 6. Never Do These
 
+**Two rows in *Standing rules* cited this section by a heading that has never existed here, and
+2026-09-18 repointed them.** They named it *Four acts stay outside this seat*.
+
+Measured at `ff11047`, before the repair:
+
+```bash
+git show ff11047:roles/MANAGER.md | grep -cE '^#{2,3} .*Four acts'
+```
+
+It returns 0. Control, the same pattern over every heading in that file, `'^#{2,3} '`: 10. So the
+extraction read the file rather than returning empty.
+
+The name also promised four acts against a table of two. A reader following it found nothing, and
+could not tell a missing section from a missing rule.
+
+**Do not measure the phrase's absence in THIS file.** The paragraph you are reading contains it, and
+so does the repair's own commit message.
+
 | Item | Rule | What would end it |
 | --- | --- | --- |
 | Never merge. | The Lander handles all merges. Ask it, do not do it. | The owner moving merge authority to this seat. |
@@ -271,6 +391,22 @@ one scoped tool and running one command through it.
 
 When a builder finishes, always clean up:
 
-- remove the worktrees your workers created, once their branches are pushed
+- remove the worktrees your workers created, once their branches are pushed **and the pull request is
+  open**
 - close the instance rather than leaving it idle
+
+**Removing the worktree is what lets the Lander release the claim at step 14**, and this is not a
+side effect worth losing.
+
+`claim.ps1 -Release` acts on the worktree the shell stands in, so a Lander releasing a Builder's
+claim is releasing another worktree's. The script refuses, then probes the holder.
+
+A worktree still on disk reads **HOLDER IS STILL THERE**, and the script tells the Lander not to force
+it. A removed one reads **HOLDER GONE**, and `-Force` becomes the script's own recommendation.
+
+So a worktree left behind converts a one-command release into a judgement call for a seat that never
+met the Builder.
+
+**Use `scripts/worktree/remove.ps1`, never `git worktree prune`.** Prune deregisters any worktree
+whose directory is momentarily missing, harness-managed ones included.
 

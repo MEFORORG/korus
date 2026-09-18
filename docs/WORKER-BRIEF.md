@@ -26,7 +26,7 @@ Workers already had a channel for questions. They needed a rule telling them to 
 ```text
 If the brief does not answer something you must know to proceed:
 do not guess and do not wait. Send the question through the route named in this brief,
-comment it on the pull request, and stop.
+and stop. The coordinating session carries it onto the pull request.
 ```
 
 The manager writes the brief and chooses how the builder runs. It reads the result and resolves questions before assigning more work.
@@ -83,16 +83,22 @@ Stopping loses the session's context, but preserves its work.
 | Mail to the coordinating session | Crosses the account boundary. Nothing else here reaches a session under a second login |
 | A comment on the pull request | Sits beside the work, outlives the session, and a later reader finds it |
 
-Delivery consumes the mail; the pull request comment remains for later readers. The rule requires
-both channels because they serve different needs.
+Delivery consumes the mail; the pull request comment remains for later readers. Both channels are
+still needed, and since 2026-09-18 one worker cannot reach both.
 
-### The pull request half needs a pull request
+### The worker writes to one place; the manager writes to the other
 
-The earlier contract assigned pull request creation to the lander. The current [Builder card](roles/builder.card.md)
-assigns it to the builder ([Run a KORUS build](KORUS-BUILD.md)).
+Pull request creation moved to the manager on 2026-09-18. A builder exits before its pull request
+exists, so it cannot comment on one.
 
-A worker may need to ask before opening its pull request. Name both destinations in the brief: the
-mail target and a pull request number or source issue.
+Earlier contracts assigned creation to the lander, then to the builder. Both are retired
+([Run a KORUS build](KORUS-BUILD.md)).
+
+So the worker sends the question through its route and stops. The manager carries it into the pull
+request body, which is what keeps the question beside the work.
+
+Name the mail target in the brief. A pull request number only belongs there when the worker is
+adding to a pull request that already exists.
 
 ## Sending the question
 
@@ -111,7 +117,8 @@ boundary. Sending alone does not deliver it ([Session mail](SESSION-MAIL.md#step
 On 2026-08-31, two sessions on different Claude accounts sent five messages each way. All arrived;
 one box recorded 396 consumed messages.
 
-Until mail works, questions reach only the comment thread and wait for someone to read them.
+Until mail works, a subagent returns its question in its result and a separate session has no route
+at all. Test the route before you brief.
 
 ---
 
@@ -121,11 +128,12 @@ Include all five slots. A missing slot may force the worker to ask and stop.
 
 | Slot | What goes in it |
 |---|---|
-| Scope | The branch, the worktree, and the one thing this worker owns |
+| Scope | The branch, the worktree, the backlog number, and the one thing this worker owns |
 | The items | The work, in order, sized for a single session |
 | Done | An end state somebody else can check |
 | Out of scope | What it must not touch, named rather than implied |
-| The rule | The block above, plus the two addresses to ask at |
+| Review | The code-review effort level. Name it; a bare call inherits whatever the harness was set to |
+| The rule | The block above, plus the address to ask at |
 
 ### A brief only has to hold for one turn
 
@@ -151,13 +159,14 @@ ITEMS, in order:
 
 DONE. <the end state somebody else can check>
 
-Commit at logical stops, one coherent layer each. <YOUR PUSH AND PULL REQUEST RULE>
+Commit at logical stops, one coherent layer each. <YOUR PUSH RULE>
+Your LAST commit message carries the proposed pull request title and the proposed ledger
+banner text. Push your branch, report, and exit. You do not open the pull request.
 
 RUN AS. <subagent OR separate session>.
 
 ASK AT. <For a subagent: return questions in your result. For a separate session:
 name the recipient and a tested message route, such as mail.ps1 -Send -To <worktree>.>
-Record questions on <pull request number, or the issue>.
 
 If the brief does not answer something you must know to proceed:
 do not guess and do not wait. Send the question through the route named in this brief,

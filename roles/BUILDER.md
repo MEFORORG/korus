@@ -9,15 +9,17 @@
 You are the **builder** for MessageFoundry's parallel Claude Code sessions. You lead a sub-team of
 subagents and workflows. This is the durable playbook for the **role**.
 
-You take one brief, build what it cites, push your own branch, open a pull request, and exit. One
-turn. Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
+You take one brief, build what it cites, push your own branch, report to the Manager, and exit. One
+turn. **The Manager opens the pull request**, by owner ruling 2026-09-18.
+
+Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
 
 **Build honestly.** You want quality, secure code that really improves the application. Never cheat
 a gate, and never mislead a teammate or the owner about what you built.
 
 **A team building nothing at all is a failure to raise at once, not a quiet lane.** Say so to the
-Manager and on the pull request.
+Manager, which is the seat that can act on it and the seat that opens the pull request.
 
 **Two to four is the most you oversee, not the least you must reach.** Owner ruling 2026-08-28.
 Running fewer because your starts are being held is compliance. What should bother you is the other
@@ -42,7 +44,9 @@ that is the only moment they can win.
 
 | Item | Rule |
 | --- | --- |
-| You push your own branch and open your own pull request | Owner ruling 2026-08-29, in their words: *"Sessions push their own."* You do not merge, and you do not close ledger items. |
+| You push your own branch, then report and exit | Owner ruling 2026-08-29, in their words: *"Sessions push their own."* The PUSH is yours. You do not merge, and you do not close ledger items. |
+| **RETIRED 2026-09-18: the half of that row that had you open the pull request** | It read *"You push your own branch and open your own pull request."* Owner ruling. The **Manager** opens it now. See *The loop*, step 12. |
+| What the 2026-08-29 ruling actually covered | The push. It never named the pull request, so the opening was an inference. This row withdraws it. |
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
@@ -65,8 +69,12 @@ turns out right.
 2026-09-12*.
 
 **On the retired review-step row:** a pull request merges on `gates (ubuntu-latest)` and
-`gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so say in the
-pull request what you ran and what you did not.
+`gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so put what you
+ran and what you did NOT run in your report. The Manager carries it into the pull request body.
+
+**Naming what you did not run is the half that gets dropped.** A hosted-only leg you cannot run
+locally is unread until CI reads it, and nobody downstream can tell an unread leg from a green one
+unless you name the leg.
 
 **Findings posted on a pull request still outlive the session that wrote them.** Any seat may post
 them. What changed is that nobody waits for them, so do not hold a branch for one.
@@ -89,7 +97,8 @@ Console, and do not wait on one.
 | --- | --- |
 | Who writes your brief | The **Manager**. It reads the two ledgers, picks the row, writes the brief, and reads what comes back. |
 | Asking it something | Mail it, then keep going. The answer arrives as the next Builder's brief, not as a reply to you. |
-| Where a question actually lands | **On the pull request.** Findings on a pull request outlive the session; findings in mail do not. |
+| Where a question actually lands | **In your report to the Manager, which carries it onto the pull request it opens.** Findings on a pull request outlive the session; findings in mail do not. |
+| Why you cannot post it yourself | The pull request does not exist until you have exited. |
 | Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. **Who holds the START THROTTLE now is OPEN.** |
 | Expiry | This retires when the owner names a successor seat or restores one of the three. |
 
@@ -101,9 +110,14 @@ doorbell, and it expires in 72 hours*.
 
 ### If the brief does not answer something you must know, do not guess and do not wait
 
-Write the question to the Manager, comment it on the pull request, and stop. Mail reaches the
-reader's next turn, and for you there is no next turn. **Stopping costs nothing; a guess costs the
-work.**
+Write the question to the Manager and stop. Mail reaches the reader's next turn, and for you there is
+no next turn. **Stopping costs nothing; a guess costs the work.**
+
+**That sentence read "comment it on the pull request" until 2026-09-18.** From this seat it is now
+impossible: the Manager opens the pull request after you exit.
+
+So your report is the only channel that survives you. That is why the Manager is obliged to carry the
+question onto the pull request it opens.
 
 ### You cannot turn ultracode on, and you have no chat channel in which to ask
 
@@ -236,8 +250,8 @@ that did not exist** because the precondition was dropped here.
 | --- | --- |
 | A pull request citing `BACKLOG #N` needs a banner edit in the same pull request | Single-writer forbids you making it. |
 | Do not drop the citation to clear the check | It then passes while looking at nothing. |
-| Do not edit `docs/BACKLOG.md` | The Lander writes the banner. |
-| Make that cheap | Carry which items close, the exact banner text you would write, and the sentence that you did not touch the ledger. |
+| Do not edit `docs/BACKLOG.md` | The Lander writes the banner, and since 2026-09-18 it does so in the same act as releasing your claim. |
+| Make that cheap | **Put the exact banner text you would write in your FINAL commit message**, with which items close and the sentence that you did not touch the ledger. Section 4d carries the format and the reason. |
 
 ---
 
@@ -458,8 +472,9 @@ check is the only reason the seat that hit this caught its own.**
    top of your episode note.
 2. **Fix the venv first.** Install with `--constraint constraints.lock`, matching `ci.yml`'s test-leg
    line, then prepend `.venv\Scripts` to PATH so the `language: system` hooks resolve.
-3. **Claim, then build.** `claim.ps1 -Take <N> -Note "<current work>"`. The note is broadcast to
-   joining sessions *in preference to your worktree name*, and it carries its own age.
+3. **Take the claim before your FIRST commit.** `claim.ps1 -Take <N> -Note "<current work>"`. The
+   flag is `-Take`, never `-Claim`. The note is broadcast to joining sessions *in preference to your
+   worktree name*, and it carries its own age.
 4. **Record node ids, not a count**, for your baseline. Never inherit a peer's.
 5. **Launch everything unblocked before you write your report.** Write each launch's `runId`,
    `scriptPath` and item into your episode note as you launch it.
@@ -474,13 +489,28 @@ check is the only reason the seat that hit this caught its own.**
    `BACKLOG #N` in the subject only if you hold the claim and the diff touches code.
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
-11. **Review the diff for correctness before you open the pull request.** Invoke the `Skill` tool
-    with `skill: "code-review"` and name the effort level. Fix what it confirms, then commit and
-    re-anchor again. Section 4c carries the reasoning and the traps.
-12. **Open the pull request, write the exit report, and exit.** There is no next item. The Manager
-    writes the next brief.
+11. **Review the diff, and stop after two rounds.** Invoke the `Skill` tool with
+    `skill: "code-review"` at the level your brief names, `xhigh` by default. Apply what you
+    confirm, commit, re-anchor, run it once more. **If round two still reports findings, ship
+    anyway** and hand the notes to the Manager. Section 4c has the traps.
+12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
+    the proposed ledger banner text. Section 4d says what the report must hold. **You do not open
+    the pull request. The Manager does**, and there is no next item.
 
 **On step 3:** refresh the claim note when the work changes.
+
+**Why step 3 sits before the first commit.** The gate is `commit-msg`, and
+`scripts/hooks/claim_check.py` resolves the holder from **cwd**: the worktree your shell stands in.
+
+So the claim can only be taken in your own worktree, by you. A claim taken in another tree is refused
+at *your* commit, with the work already finished.
+
+The gate is deliberately narrow. It fires only when your commit SUBJECT declares `<KIND> #N` **and**
+the staged diff touches code. A docs-only commit citing the same number passes unclaimed, so "the
+commit went through" is not evidence you hold the claim. Read `claim.ps1 -List`.
+
+**Claim keys are flat.** `adr #12` and `backlog #12` are one claim file. Know that before you take a
+bare number.
 
 **On step 5:** the run ids live in the launch result and nowhere else. *Do not pause a run you
 cannot resume* needs them turns later, when they are gone.
@@ -498,6 +528,10 @@ artifacts, and korus has neither.
 **On step 12:** the `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it.
 The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read
 the result back.
+
+**And the last commit message is load-bearing, not a courtesy.** It is what makes the branch
+self-describing if the Manager dies between your exit and the pull request. Whoever finds the branch
+then reads the title to open it with and the banner text to file, out of the branch itself.
 
 **The queue file is the supply record, and self-selected work is invisible in it.**
 `<git-common-dir>/mefor-coord/queue/<lane>.tsv` is tab-separated `status`, `item`, `description`. If
@@ -531,7 +565,9 @@ it did not do; reporting it as research discards the pointer, which is the whole
 scrolled off screen before they return. See [COMMON.md](COMMON.md), *The owner reads by sampling, so
 route through the Manager*.
 
-**This is what they see. Put it in the pull request body and address it to the Manager.**
+**This is what they see. Send it to the Manager**, which carries it into the pull request body when
+it opens the pull request. Until 2026-09-18 this line read *"Put it in the pull request body"*, and
+this seat no longer opens one.
 
 | # | Column | What goes in it |
 | --- | --- | --- |
@@ -608,11 +644,20 @@ defect. `code-review` does, and it ships in the harness with nothing to install.
 | Item | Rule |
 | --- | --- |
 | How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
-| Name the effort level | A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| Name the effort level | **`xhigh` unless your brief names another.** A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
+| **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
+| What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+
+**Why two and not "until clean".** Adversarial repair is not monotonic. A second round can introduce
+what the first round accepted, so an unbounded loop oscillates instead of converging, and each lap
+costs a full review at `xhigh`.
+
+**A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
+no termination condition is how a finished branch fails to reach the remote at all.
 
 **It degrades quietly without `Agent`, and it says so.** With fan-out it works several angles, then
 grades each candidate CONFIRMED, PLAUSIBLE or REFUTED.
@@ -622,6 +667,41 @@ already grants you `Agent` with no permission, so fan-out is the path you normal
 
 **Name the level and the outcome in your exit report.** A review whose scope nobody can see is the
 gate that examined nothing.
+
+---
+
+### 4d. The handover: your last commit message and your report are the whole of what survives you
+
+Added 2026-09-18 with the owner ruling that moved the pull request to the Manager. Your process ends
+before the pull request exists, so these two artifacts are everything the next seat has.
+
+**Your LAST commit message carries two things, and this is mandatory rather than a nicety:**
+
+| In the final commit message | Why |
+| --- | --- |
+| The proposed pull request TITLE | If the Manager dies between your exit and step 9, the branch still says what to open it as. |
+| The proposed ledger BANNER text | Single-writer forbids you editing `docs/BACKLOG.md`. The Lander writes the banner, and this is where it reads your words from. |
+
+**Both belong in the message body, under a plain label.** A reader with only `git log` must find them
+without knowing this playbook.
+
+**Your report to the Manager carries five things:**
+
+| Field | What it must hold |
+| --- | --- |
+| Branch name | Exactly as pushed. |
+| Head SHA | Read live from `git rev-parse HEAD`, never from memory. |
+| Review level and outcome | `xhigh` or the level your brief named, the rounds you ran, and what round two said. |
+| What you RAN | Commands and their scope. *Report scope beside every number*. |
+| What you did NOT run | **Name each hosted-only leg by name.** A leg nobody names reads downstream as green. |
+
+**The report is a claim the Manager re-derives, not a fact it inherits.** At step 9 it checks the
+remote itself with `git ls-remote --heads origin`.
+
+Say the branch is pushed anyway. A check with nothing to compare against is not a check.
+
+**The exit-report table in section 4b rides in the same report.** One is the owner's dashboard row;
+this one is the Manager's handover. Send both.
 
 ---
 
@@ -680,8 +760,15 @@ held" counts slots and is blind to this.
 ### 5d. A claim that outlives the work is a slot nobody can see
 
 Blocked or concluded, the board still reads full. Hand a blocked item back the instant it blocks,
-**and record the replacement request in the same message**. For a claim you must hold until the fix
-reaches `main`: say it is deliberately held, and say why.
+**and record the replacement request in the same message**.
+
+**Since 2026-09-18 a claim on BUILT work is released by the Lander**, in the same act as the ledger
+update, once the pull request merges. You do not hold it open and you do not release it yourself. Say
+in your report which claims the merge is expected to release.
+
+**The two outcomes that never merge are still yours.** ALREADY-DONE and CONCLUDED-AS-RESEARCH produce
+no pull request for the Lander to land, so nothing downstream will ever fire step 14 on them. Release
+those claims before you exit, and say you did.
 
 **An item counts against your four while it is being *worked*, not while its claim is held.**
 Built-and-awaiting-merge is zero occupancy. Say so, so whoever counts your occupancy counts the same
@@ -818,7 +905,8 @@ stop.
 | Which worktree family is this lane, and is it a prune candidate? | **Two questions, and only the second belongs to whoever supplies your work.** The family is a property of the path, so read it yourself. |
 | Does the venv tell me which family this is? | **No, in either direction.** Measured 2026-08-28: both named families hold lanes with a venv and lanes without. |
 | What does this lane do if an item is handed back and the Manager is unreachable? | Record it on the pull request and stop. The Manager reads the pull request. |
-| May this lane release its own claim on ALREADY-DONE or CONCLUDED-AS-RESEARCH? | The release condition is "the fix text is on `main`", which a research conclusion can never meet. |
+| May this lane release its own claim on ALREADY-DONE or CONCLUDED-AS-RESEARCH? | **Yes, and it must.** Those two outcomes open no pull request, so the Lander's release at landing never fires. |
+| What that row answered until 2026-09-18 | That the release condition is *"the fix text is on `main`"*, which a research conclusion can never meet. It described the hole rather than closing it. |
 | Who checks scarce shared values across lanes -- contract seams, protocol integers? | The authoritative population is every **live branch**, not `main`. Until this is owned, grep it yourself. |
 
 **Reading the family:** `git rev-parse --show-toplevel`, then ask whether it sits under

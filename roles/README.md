@@ -44,11 +44,14 @@ stands by, and announces only when its instruction makes the message worth sendi
 
 | Seat | File | What it owns |
 |---|---|---|
-| Manager | [MANAGER.md](MANAGER.md) | The plan and the brief. Reads the ledger, picks the row, writes a brief that holds for one turn, and reads what comes back. **Replaces the Dispatcher, the Liaison and the Console.** Does not build, enqueue or merge. |
+| Manager | [MANAGER.md](MANAGER.md) | The plan and the brief. Reads the ledger, picks the row, writes a brief that holds for one turn, and reads what comes back. **Replaces the Dispatcher, the Liaison and the Console.** |
+| | | **Opens the pull request and hands it to the Lander**, added 2026-09-18. Does not build, enqueue or merge. |
 | | | Added 2026-09-04. Owner-spawned and bound to ONE account. Its workers are subagents or separate sessions. Several Managers run at once, sharing only the repository. |
-| Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Commits, pushes, opens the PR carrying the ledger row, then exits. It never guesses at what the brief left open and never waits: it writes the question to the Manager and onto the PR, then stops. |
+| Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Takes the claim, builds, reviews its own diff, commits, pushes, reports, then exits. **It no longer opens the PR**, changed 2026-09-18. |
+| | | It never guesses at what the brief left open and never waits: it writes the question to the Manager, which carries it onto the PR, then stops. |
 | Regulator | [REGULATOR.md](REGULATOR.md) | Decides whose failure a red is: the PR's, `main`'s, a flake, or the queue's. Only the PR's own failure becomes work. **It starts with no memory, so its log is not optional.** |
-| Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. Handing back PRs needing a ruling. |
+| Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. |
+| | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
 | Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
@@ -107,7 +110,9 @@ the answer closed it rather than the question expiring.
 
 | Item | Rule |
 | --- | --- |
-| What routes a PR now | Push your own branch, open your own PR, and the Lander merges it. No seat reads the diff first, and no seat is notified. |
+| What routes a PR now | Push your own branch, open your own PR, and the Lander merges it. No seat reads the diff first. |
+| **NARROWED 2026-09-18** | A Builder under a Manager pushes and reports; the **Manager** opens the PR and hands it to the Lander with five fields. Every other seat still opens its own. |
+| So one seat IS notified now | The Lander, by the Manager, as a courtesy. It still polls: nothing pushes a PR to it. |
 | The Lander still owns the merge | It holds its standing grant for it. |
 | Handing work over needs no permission | It is the default action, and no seat asks. |
 | **RETIRED 2026-09-12, the three-step route** | Two rows here read *"Create the PR and notify the Reviewer. It posts findings on the PR, or passes it to the Lander, which merges"* and *"the Reviewer finds waiting PRs itself"*. Owner-set 2026-08-29. No seat to notify now. |
