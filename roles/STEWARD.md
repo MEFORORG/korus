@@ -431,7 +431,16 @@ A weekly-only rung has the protect half and no start-nothing half. Section 3a ca
 
 Stated here rather than only in 3a because a reader of this table does not reach 3a, and four
 sessions have now read a weekly crossing as a hold: the seat and PM 3a records, and three more on
-2026-09-17, one of which declined offered work over it.
+2026-09-17.
+
+The sharpest of the three is the one where it changed what got done. The session on branch
+`claude/rederive-after-the-tree-moves`, which landed #125, reports declining offered work partly
+because its banner read HOLD NEW WORK -- with the no-rationing paragraph printed directly beneath it.
+
+Named at that session's own request, and its own report. It argued an unattributed instance cannot
+be checked, and that being the fourth named instance of a fixable defect beats being an anonymous
+one. The other two are this branch, which published a weekly-85 hold and retracted it, and the
+Manager, which relayed the misreading before correcting it.
 
 **The weekly column read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved it to
 90 / 94 / 97. The session column did not move.
