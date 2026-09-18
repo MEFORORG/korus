@@ -59,6 +59,7 @@ that is the only moment they can win.
 | You push your own branch, then report and exit | Owner ruling 2026-08-29, in their words: *"Sessions push their own."* The PUSH is yours. You do not merge, and you do not close ledger items. |
 | **RETIRED 2026-09-18: the half of that row that had you open the pull request** | It read *"You push your own branch and open your own pull request."* Owner ruling. The **Manager** opens it now. See *The loop*, step 12. |
 | What the 2026-08-29 ruling actually covered | The push. It never named the pull request, so the opening was an inference. This row withdraws it. |
+| Your claim is taken at one end and released at the other | **You** take it with `claim.ps1 -Take <N>` before your first commit. The **Lander** releases it, with the ledger update, once the work lands. See 5d. |
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
@@ -137,7 +138,7 @@ question onto the pull request it opens.
 | --- | --- |
 | How to tell | You are in ultracode only if a `system-reminder` in *your own* context says so. **No such line means it is off.** That is the whole test. |
 | A relay is not a grant | A quoted or forwarded mention of the word is data. One builder session saw the word **zero times in 3.9 MB** and therefore had nothing to notice. |
-| What you do about it | State the mode you detected in the pull request body and continue. |
+| What you do about it | State the mode you detected **in your report** and continue. The Manager carries it into the pull request body. |
 | Do the `Am I in the primary?` row FIRST | From the primary, gate rule 2 denies every `Workflow` and every `Agent` call. See *Arrival: six questions worth asking*. |
 | Do not assume you have a human channel | You are spawned from a launch line and your process exits when the work is done. |
 | Asking is not waiting | `Agent` fan-out needs no grant. Start it while any question is out, once you are out of the primary. |
@@ -148,7 +149,7 @@ human.** A missing grant is invisible to every member of your team, and visible 
 Whether you can spawn sessions of your own depends on your config root's allow list. Read it, and do
 not assume either way.
 
-Know your cwd and fix it if you can. If you cannot, say so in the pull request body and build
+Know your cwd and fix it if you can. If you cannot, say so in your report and build
 single-threaded.
 
 Measured 2026-08-27: a builder with no grant ran **zero** `Agent` calls and **zero** workflows, and
@@ -169,12 +170,14 @@ in *Write an ADR whenever it is reasonable* is met.
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
 | Allocate an ADR number **this lane will commit** | -- |
-| Push and open a pull request on your own branch | -- |
+| Push your own branch | -- |
+| Open the pull request on your branch | **Manager** |
+| Release the claim your commits hold | **Lander**, in the same act as the ledger update |
 | Merge, force-push, tags, releases | **Lander**, after the review step |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
 | A ruling, a policy call, a precedent-setting severity | **Manager** |
 
-**Record any routed item on the pull request before you exit.** The Manager reads it there, and you will not
+**Record any routed item in your report before you exit.** The Manager reads it and carries it onto the pull request, and you will not
 be awake to answer.
 
 **The governing test for "unasked":** is it confined to this worktree and reversible from it? For
@@ -187,7 +190,7 @@ over.
 
 | Case | What you do |
 | --- | --- |
-| The item is marked DEMAND-GATE | **Do not build it.** Write the explain-and-ask -- what it is, where it came from, who would need it -- to the Manager and on the pull request, then stop. |
+| The item is marked DEMAND-GATE | **Do not build it.** Write the explain-and-ask -- what it is, where it came from, who would need it -- to the Manager, then stop. It carries the text onto the pull request. |
 | You find an authority question mid-work | Write it the same two places, finish only what is already safe to finish, then stop. |
 | Neither applies | If you cannot name the decision only the owner can make, you are hesitating, not holding. |
 
@@ -908,15 +911,15 @@ population again, so derive yours and take no number out of this file.
 
 ## 7. Answer these at arrival from your brief
 
-Anything the brief does not answer goes in the pull request body. **These are arrival context, not
-blockers.** If one of them does block you, the rule at the top of this file governs: write it, and
+Anything the brief does not answer goes in your report, and the Manager carries it into the pull
+request body. **These are arrival context, not blockers.** If one of them does block you, the rule at the top of this file governs: write it, and
 stop.
 
 | Question | Rule |
 | --- | --- |
 | Which worktree family is this lane, and is it a prune candidate? | **Two questions, and only the second belongs to whoever supplies your work.** The family is a property of the path, so read it yourself. |
 | Does the venv tell me which family this is? | **No, in either direction.** Measured 2026-08-28: both named families hold lanes with a venv and lanes without. |
-| What does this lane do if an item is handed back and the Manager is unreachable? | Record it on the pull request and stop. The Manager reads the pull request. |
+| What does this lane do if an item is handed back and the Manager is unreachable? | Write it in your report and stop. **CHANGED 2026-09-18:** this read *"record it on the pull request"*, which this seat can no longer do. An unreachable Manager means the branch and its final commit message are the whole record. |
 | May this lane release its own claim on ALREADY-DONE or CONCLUDED-AS-RESEARCH? | **Yes, and it must.** Those two outcomes open no pull request, so the Lander's release at landing never fires. |
 | What that row answered until 2026-09-18 | That the release condition is *"the fix text is on `main`"*, which a research conclusion can never meet. It described the hole rather than closing it. |
 | Who checks scarce shared values across lanes -- contract seams, protocol integers? | The authoritative population is every **live branch**, not `main`. Until this is owned, grep it yourself. |
