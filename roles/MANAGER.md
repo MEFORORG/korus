@@ -49,6 +49,46 @@ flow*, holds all fourteen. Four of them are this seat's.
 Steps 3 to 8 are the Builder's, and 11 to 14 are the Lander's. Do not perform one of theirs because
 the seat looks slow.
 
+**Report progress as one row per item, columned by step.** *Report progress as one row per item*
+holds the shape and what each cell carries.
+
+### Report progress as one row per item, with a column per step
+
+Owner-set 2026-09-18. When you report progress, this is the shape. The header is the owner's, and
+the column names are the flow's step numbers.
+
+| Item | 4 built | 5 review xhigh | 6 fixes | 7 pushed | 9 PR open | 10 -> Lander | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1412 | yes | xhigh, 3 findings | 3 applied, round 2 clean | `a3f9c21` | 1193 | sent 14:02 | -- |
+| 1418 | yes | xhigh, 2 findings | 1 applied, 1 shipped open | `7be0d14` | 1194 | sent 14:06 | `npm-audit` unread, hosted only |
+| 1421 | building | -- | -- | -- | -- | -- | worktree `lane-c`, claim held |
+
+**One row per ITEM, not per Builder.** The owner is counting work, and a Builder that handled two
+items is two rows.
+
+| Column | What goes in it |
+| --- | --- |
+| Item | The backlog number. The same number the Builder claimed with `-Take`. |
+| 4 built | `yes`, `building`, or the outcome type: BLOCKED, ALREADY-DONE, CONCLUDED-AS-RESEARCH. |
+| 5 review xhigh | The level actually run and the finding count. Name the level even when it is xhigh. |
+| 6 fixes | Applied, then open. `3 applied, round 2 clean` and `1 applied, 1 shipped open` are different states. |
+| 7 pushed | The **head SHA**, not a tick. That is the cell a reader can check against the remote. |
+| 9 PR open | The pull request number. Blank until you have opened it. |
+| 10 -> Lander | When you sent the handover, or blank. |
+| Notes | The unread legs, the landing-order constraint, and nothing else. |
+
+**Every cell is a reading, not a verdict.** A SHA, a number, a count, a time. Article II of the
+constitution: post what you ran and what it returned.
+
+**A tick in the pushed column is the cell that rots.** It cannot be checked, and it reads the same
+whether the push worked, failed after the Builder reported, or went to another remote.
+
+**Blank means not reached. It never means fine.** A step you skipped deliberately goes in Notes with
+the reason, because a blank cell and a skipped step look identical.
+
+**Do not drop a row once it lands.** The row is how the owner sees an item reach step 14. Carry it
+until the Lander closes the item, then say so in Notes.
+
 ### A brief names three things it never named before
 
 | Field | Why it is in the brief and not left to the Builder |
@@ -316,7 +356,8 @@ disk you can find later: nothing that survives the moment you close the instance
 
 | Item | Rule |
 | --- | --- |
-| How every brief ends | **Push the branch. Report. Exit.** Not negotiable. |
+| How every brief ends | **Run the code-review subagent. Push the branch. Report. Exit.** Not negotiable. |
+| Why the review is in this row | A Manager briefing from the seat table alone omits it. Reported 2026-09-18 and not re-measured here: eight Builders briefed that way, none told to review, none reviewed. |
 | **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
 | The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |
 | Never say "finish and I will push for you" | You may not be there. |

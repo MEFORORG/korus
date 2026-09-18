@@ -9,8 +9,8 @@ Handle one brief in one turn. Exit when the work is done.
 
 ## What this seat owns
 
-Own only the code and item named in the brief. Take the claim, build, review, commit, push, report to
-the Manager, then exit.
+Own only the code and item named in the brief. Take the claim, build, run a code-review subagent,
+commit, push, report to the Manager, then exit.
 
 The Manager opens the pull request (PR), changed 2026-09-18. The line above read "open the pull
 request with its ledger row" until then.

@@ -37,7 +37,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Seat | Playbook | What it owns |
 |---|---|---|
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
-| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, reviews, commits, pushes, reports, exits. |
+| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. |
 | Regulator | [REGULATOR.md](roles/REGULATOR.md) | Decides whose failure a red check is. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
