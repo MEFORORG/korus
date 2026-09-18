@@ -670,6 +670,28 @@ The third, which justified a hard denial, was one undocumented observation that 
 Mark figures you cite without remeasuring them. Present-tense wording can make an old measurement
 look fresh.
 
+### A rebase can change what a check is measuring
+
+A branch opened against 58 tracked scripts and a page naming 47 of them. Two pull requests landed
+under it before it merged.
+
+One added `scripts/quality/frozen_citations.py`. The subject the branch's own check reads grew by
+one while it sat open, so the tree it was written against was not the tree it would run on.
+
+Re-derived after that rebase: 59 tracked, 59 rowed. The check calls `git ls-files` per run, so it
+demanded a row for the arrival rather than passing at 58.
+
+Two numbers agreeing does not prove the instrument saw the new member. A cached subject list returns
+59 and 59 as well. Deleting that file's row from a copy of the page made the check name that exact
+file, which is what separated the two cases.
+
+A suite count moved the same way and was restated rather than replaced: 634 at `9379109`, 637 after
+one rebase, 652 after the next. Each was a true reading of a ref the branch no longer pushed.
+
+Re-derive after a rebase. Arm the check on the file that arrived, not on the ones you wrote.
+
+Measured at `a22cfba`.
+
 ### Reconcile the parts against the total the tool already printed
 
 Eight reported section counts added to 1202. The same output said `found 646 section citations`,
