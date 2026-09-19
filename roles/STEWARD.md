@@ -430,7 +430,7 @@ levels are the backstop.
 **The Weekly column names a severity, not an authority. Only the Session column can stop anyone.**
 A weekly-only rung has the protect half and no start-nothing half. Section 3a carries the rest.
 
-Stated here rather than only in 3a because a reader of this table does not reach 3a, and four
+Stated here rather than only in 3a, because a reader of this table does not reach 3a. Four
 sessions have now read a weekly crossing as a hold: the seat and PM 3a records, and three more on
 2026-09-17.
 
@@ -446,8 +446,8 @@ Manager, which relayed the misreading before correcting it.
 **The weekly column read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved it to
 90 / 94 / 97. The session column did not move.
 
-Recorded rather than replaced silently, because the old numbers are cited elsewhere on this page --
-section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
+Recorded rather than replaced silently, because the old numbers are cited elsewhere on this page.
+Section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
 89/93 against 86/92. Those readings stay true of the dates they name.
 
 **One act reads a state.** The Manager reads the published reading before it writes a launch line.
