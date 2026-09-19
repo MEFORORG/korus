@@ -10,25 +10,43 @@ disable-model-invocation: false
 > Shared fleet rules, split out of [COMMON.md](../../../roles/COMMON.md) on 2026-09-05.
 > Prohibitions that bind before this task starts stay in that file. Read it first.
 
-### The vault primary's `roles/` folder is authoritative, and its checkout can still be stale
+### Korus is authoritative, and any checkout of it can still be stale
 
-**Read `roles/<SEAT>.md`, and say in your output which copy you read.** The owner ruled the vault
-primary's `roles/` folder authoritative (vault `5e361756`, restated in the engine `CLAUDE.md`
-2026-08-28). That ruling names the folder of record.
+**Owner ruling 2026-09-17: `roles/` in `wshallwshall/korus` is the folder of record.** Read
+`roles/<SEAT>.md` from there. Say in your output which copy you read.
 
-It does not certify that any checkout of it is current, and one measurably is not.
+    git -C <korus> show origin/main:roles/<SEAT>.md
 
-Measured 2026-09-01 from a worktree sharing the primary's git directory, so no seat entered the
-primary. The primary's recorded HEAD is 39 commits behind `origin/main` and 4 ahead. Its `roles/`
-differs across 13 files. `REVIEWER.md` is absent there and present on `origin/main`.
+**RETIRED 2026-09-17: this section named the VAULT's `roles/` folder.** It cited an owner ruling
+(vault `5e361756`, restated in the engine `CLAUDE.md` 2026-08-28).
 
-That seat retired on 2026-09-12, so its card now sits under `roles/retired/`.
+The playbooks moved to korus on 2026-09-04, at korus `5728484`. That move overtook the ruling. This
+section did not follow it.
 
-`INSTRUMENTS.md` is present there and deleted on `origin/main`.
+The vault copy last changed 2026-09-02. It now opens with its own banner: *"STOP. THIS COPY IS
+STALE AND IS NOT THE ONE TO READ ... You were probably sent here by a stale pointer."*
 
-Check the copy before you trust it with `git -C <your-vault-tree> diff --stat origin/main HEAD --
-roles/`. Empty means your copy matches the ref. Non-empty is something to read, not a reason to
-switch copies blind.
+**This section was one of those pointers.**
+
+Naming korus does not certify that a korus checkout is current. One measurably is not.
+
+**Measured 2026-09-17 on the korus working checkout.** The working checkout sits on branch
+`fix/strip-account-vars-from-child-env`: 15 commits ahead of `origin/main`, and 46 behind. A seat
+reading `roles/LANDER.md` there reads a file 46 commits stale. A directory listing cannot show it.
+
+Check any copy with `git -C <korus> diff --stat origin/main HEAD -- roles/`. Empty means it matches
+the ref. Non-empty is something to read, never a reason to switch copies blind.
+
+**The earlier vault measurement is kept, because its shape still holds.** Measured 2026-09-01 from a
+worktree sharing the vault primary's git directory: HEAD 39 commits behind `origin/main` and 4
+ahead, `roles/` differing across 13 files.
+
+`REVIEWER.md` was absent there and present on `origin/main`. That seat retired 2026-09-12, so its
+card now sits under `roles/retired/`. `INSTRUMENTS.md` was present there and deleted on
+`origin/main`.
+
+**Two repositories, two checkouts, one failure.** The repository of record changes. The habit of
+reading a working tree does not.
 
 Fetch first, because `origin/main` is itself a cached ref, and `git worktree list` reports a
 recorded HEAD rather than a working tree, so it cannot see uncommitted edits.

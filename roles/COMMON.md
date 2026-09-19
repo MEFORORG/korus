@@ -21,7 +21,8 @@ branches are held, unpushed SHAs and "pick up here" lists belong in a dated epis
 | --- | --- |
 | A grant ADDS, it never narrows | Ask "do I already hold more than this", not "what does this cover". Scoping an incoming grant conservatively is right. Treating it as your ceiling is the defect. |
 | A tick is a wakeup, not a message | Do not answer it. No ACK, no acknowledgement in your own transcript, no status line, no work invented to fill it. Continue; do not report. |
-| Every seat pushes its own branch and opens its own pull request | No approval needed. The merge stays the Lander's, and since 2026-09-12 no review step sits in front of it. *The PR route* carries the steps. |
+| Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and since 2026-09-12 no review step sits in front of it. |
+| Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
 | Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the two named exceptions. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
@@ -40,10 +41,21 @@ Relabelling the conflict as document ambiguity moves it where nobody can settle 
 
 **Project name:** MessageFoundry, or mefor.
 
+**Three repositories, not two, since 2026-09-04.**
+
 | Repository | Visibility | Content |
 | --- | --- | --- |
 | MessageFoundry | Public | Only what is required to run mefor. Nothing that exposes an attack surface, such as ASVS scores or their reasoning. |
-| MessageFoundry-vault | Private | Everything that must never reach the public repository: confidential material, anything naming an attack vector, and all project build items including these role playbooks. |
+| MessageFoundry-vault | Private | Confidential material and anything naming an attack vector. The ledger, the ADR mirror, the security scorecard, the handoffs, the fleet tooling. |
+| korus | Private | **This folder.** The role playbooks and the `fleet-*` skills. |
+
+**CORRECTED 2026-09-17, by owner ruling: korus is the folder of record for `roles/`.**
+
+The vault row read *"all project build items including these role playbooks"*. That stopped being
+true on 2026-09-04, when the playbooks moved to korus at `5728484`.
+
+The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
+who trusted this table went to the stale copy.** That is why this is a correction and not a tidy-up.
 
 **Project status:** there are no installed operational instances of mefor. That is why a code change
 needs no migration plan and no compatibility shim -- there is no installed base to protect.
@@ -76,8 +88,12 @@ no error.
 | Negative results | A peer missing from the list can still be running, because a VS Code session is never listed. Ask before you act on an absence. |
 | Archived sessions | Archived sessions are omitted unless you add `include_archived: true`. There is normally no reason to. |
 | Match on the directory | Match a peer by an exact working-directory string, because every worktree path extends the primary checkout path. |
-| Claim the work | Run `scripts/coord/claim.ps1 -Take <item>` before you write code for that item. |
-| Release your claims | Run `scripts/coord/claim.ps1 -Release <item>` when you finish. An unreleased claim blocks the next session. |
+| Claim the work | Run `scripts/coord/claim.ps1 -Take <item>` **before you write code** for that item, which is earlier than the gate. |
+| Why earlier than the gate | The `commit-msg` gate fires at your first commit. Everything between writing code and committing is a window where a peer can be briefed onto the same item and nothing can see you. |
+| Release your claims | Run `scripts/coord/claim.ps1 -Release <item>` when you finish. An unreleased claim blocks the next session, and **nothing anywhere reports one**. |
+| The one claim you do NOT release yourself | **A Builder's claim on work that will merge.** Since 2026-09-18 the **Lander** releases it, in the same act as the ledger update. |
+| What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
+| `-Release` is worktree-scoped | It acts on the worktree your shell stands in. Releasing another worktree's claim needs `-Force`, and the script refuses first and probes the holder. Read the probe line; do not skip to `-Force`. |
 | Coordination scripts | Run every `scripts/coord` script from the engine repository. The vault holds no `fleet.ps1` or `mail.ps1`, and its `claim.ps1` is a stale copy. |
 | Paths | List the directory. Never take a path out of a document. |
 | Relayed lists | Examine each open item before you relay a work list, and escalate when you are unsure. |

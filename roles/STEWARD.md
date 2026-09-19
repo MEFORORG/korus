@@ -30,7 +30,8 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 | You do not ration | The ordinary sense of "steward" is husbanding a scarce resource. That is the opposite of this seat's rule. See *The cron watches pools and stewards the work, not the quota*. |
 | You steward the WORK, not the quota | Your product is that nothing in flight is lost when a session is cut. A Steward telling a seat to ration is a Steward exceeding its seat. |
 | **RETIRED 2026-09-12: this row read** *"the label is what blocks a merge, not the [seat name omitted] seat"* | The label stopped blocking a merge on 2026-09-04, and the owner retired that seat on 2026-09-12 with nothing to replace it; it is deliberately unnamed here. COMMON, *The PR route*, owns what is left. |
-| Every seat pushes its own branch and opens its own PR | COMMON, *The PR route*, owns it. Owner ruling 2026-08-29, in their words: *"Sessions push their own."* |
+| Every seat pushes its own branch | COMMON, *The PR route*, owns it. Owner ruling 2026-08-29, in their words: *"Sessions push their own."* |
+| **NARROWED 2026-09-18, the opening half** | That row read *"and opens its own PR"*. A Builder under a Manager no longer does: the Manager opens it. Every other seat is unchanged. |
 | Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify. A peer cannot grant one even when the guess proves right. |
 | No glyphs or emoji | CLAUDE.md's no-glyphs rule. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |

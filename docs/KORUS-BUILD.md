@@ -10,9 +10,11 @@ first; this procedure assumes installed and proven gates.
 
 The console seat was meant to oversee many parts of the build. That did not work, so the manager replaced it and the console retired on 2026-09-10.
 
-The manager assigns work to its builders and reads their results. A builder can run as a subagent or in its own session.
+The manager assigns work to its builders, reads their results, and opens the pull request for each. A builder can run as a subagent or in its own session.
 
 Name that choice in each brief. Subagents return results to the manager; separate sessions need an explicit message route.
+
+Fourteen steps run from the owner's assignment to a closed item. [The build-to-land flow](#the-build-to-land-flow) lists them.
 
 ---
 
@@ -34,15 +36,18 @@ opening prompts and `CLAUDE.md`.
 The Builder uses its own worktree and branch, with the collision gate checking covered edits.
 Findings stay on the pull request for correction, and nobody waits for them.
 
+The Builder reviews its own diff before it pushes, at the effort level its brief names. Two rounds,
+then it ships whatever the second round says.
+
 A role name grants no merge permission. The operator must give the Lander authority through the
 [documented route](RUNNING-MULTIPLE-SESSIONS.md); the retired review label enforces nothing.
 
 | Session | Owns | Must not |
 |---|---|---|
-| **Manager** | Its builders, their briefs, and their results | Write application code |
-| **Builder** | The change, the commit, the push, and the pull request for one brief | Guess at what the brief left open, or wait for an answer |
+| **Manager** | Its builders, their briefs, their results, and the pull request it opens for each | Write application code, or check the pool before opening |
+| **Builder** | The change, the review, the commit, and the push for one brief | Guess at what the brief left open, wait for an answer, or open the pull request |
 | **Regulator** | Deciding whose failure a red is: the pull request's, the trunk's, a flake's, or the queue's | Assume it remembers an earlier red |
-| **Lander** | What enters the merge queue and in what order | Hold a pull request waiting for a review step that no longer exists |
+| **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review step that no longer exists |
 
 The review seat retired on 2026-09-12 and nothing replaced it. The owner had already removed the
 required `gate` check on 2026-09-04; it read the `reviewed` label, which blocks nothing.
@@ -57,6 +62,61 @@ This setup helps divide work larger than one context. An OWASP ASVS 5.0 assessme
 hundred requirements; separate sessions need common rules to keep their verdicts consistent.
 
 [Large assessments](https://secure-development-standards.pages.dev/ASVS-ASSESSMENT.html) is the method for that case.
+
+## The build-to-land flow
+
+Fourteen steps run from the owner's assignment to a closed item. Owner-set 2026-09-18.
+
+| # | Seat | Step |
+|---|---|---|
+| 1 | Manager | Receives the assignment. |
+| 2 | Manager | Briefs one or more builders. Each brief names the backlog number, the worktree, and the code-review effort level. |
+| 3 | Builder | Takes the claim before its first commit: `claim.ps1 -Take <N>`. |
+| 4 | Builder | Codes what the brief names. |
+| 5 | Builder | Runs a `/code-review` subagent at xhigh effort. |
+| 6 | Builder | Applies confirmed fixes and reviews again. Two rounds maximum. |
+| 7 | Builder | Commits, pushes its branch, exits. |
+| 8 | Builder | Reports to the manager. |
+| 9 | Manager | Checks the branch is on the remote, then opens the pull request. |
+| 10 | Manager | Messages or mails the lander. |
+| 11 | Lander | Owns the pull request. Triages a red check and dispatches any repair. |
+| 12 | Lander | Enqueues as it judges best. |
+| 13 | GitHub | Merges. |
+| 14 | Lander | Updates the backlog and releases the claim, in one act. |
+
+### Why the steps that look redundant are not
+
+**Step 3 says `-Take`, not `-Claim`.** The gate fires at commit time in the builder's own worktree.
+Nobody can take the claim on the builder's behalf.
+
+**Step 6 stops at two rounds.** Adversarial repair is not monotonic. A second round can introduce
+what the first accepted, so an unbounded loop oscillates rather than converges.
+
+If round two still reports findings, ship anyway. Attach the critic notes to the pull request body.
+
+**Step 7 requires a self-describing final commit.** Its message carries the proposed pull request
+title and the proposed ledger banner text.
+
+That is mandatory, not a nicety. It is what makes the branch usable if the manager dies before step
+9.
+
+**Step 8 names what the builder did NOT run.** Each hosted-only leg, by name. A leg nobody names
+reads downstream as green.
+
+**Step 9 reads the remote, not the report.** `git ls-remote --heads origin` answers it. A push that
+failed after the report was written looks identical to one that worked.
+
+**Step 9 has no pool check.** Five managers independently reading a shared pool all see "clear" and
+open together, which manufactures the burst it is meant to prevent.
+
+**Step 11 rules out a capacity artifact first.** A rollup that completed while its own children were
+still queued is not a finding.
+
+For a genuine failure the lander dispatches a repair, preferring a spawned session over a subagent
+when the fix is non-trivial. A subagent dies with the lander, and this is someone else's branch.
+
+**Step 14 is one act, not two.** An orphaned claim blocks the next session on that row, and nothing
+anywhere reports it.
 
 ## Before you open any session
 
@@ -91,15 +151,26 @@ You are the manager for this build. You plan and track; you do not write applica
 Read the backlog. Produce a build plan that breaks it into tasks sized for one session each,
 and write an ADR for any decision that outlives the task that made it.
 
-Write one complete brief per task. State whether the builder is a subagent or a separate session.
-For a subagent, receive its result directly. For a separate session, name a working message route.
+Write one complete brief per task. Name the backlog number, the worktree, and the code-review
+effort level. State whether the builder is a subagent or a separate session. For a subagent,
+receive its result directly. For a separate session, name a working message route.
 Give each builder its own worktree and branch. Check for overlapping paths before dispatch.
 When a builder reports a blocker, read it, update the backlog, and revise the brief.
 
-Read each builder's result before assigning its next task. Confirm that finished work is pushed
-before closing the manager. Coordinate pull requests with the lander.
+Read each builder's result. Check the branch reached the remote yourself:
+  git ls-remote --heads origin
+Then open the pull request. Do not count open pull requests first: every manager reading one
+shared pool sees "clear" at the same moment, and they all open together.
 
-Do not build. Do not merge.
+Put the builder's report in the pull request body. It cannot post there itself. Read the
+builder's last commit message for the proposed title and the proposed ledger banner text.
+
+Message the lander with five fields: pull request number, head SHA, unread legs, known defects,
+and any landing-order constraint. The pull request is the lander's from that message on.
+
+Remove your builders' worktrees once their pull requests are open.
+
+Do not build. Do not merge. Do not enqueue.
 ```
 
 The manager returns a plan and task breakdown. Have it save the backlog in a tracked file before
@@ -118,10 +189,14 @@ You are a builder. Your brief names whether you run as a subagent or a separate 
 Build the task in your brief as a workflow, then report through the route it names.
 
 If the brief leaves something open, do not guess and do not wait for an answer. Write the
-question through the route in your brief, comment it on the pull request, and stop.
+question through the route in your brief and stop. Your manager carries it onto the pull
+request. You cannot: it opens after you exit.
 
-Before starting a task, take a claim on it with a one-line note saying what you are building:
+Before your first commit, take a claim on the task with a one-line note saying what you build:
   pwsh -NoProfile -File scripts/coord/claim.ps1 -Take "<task>" -Note "<what you are building>"
+
+The flag is -Take, not -Claim. The gate fires at commit time in your own worktree, so nobody
+can take the claim for you.
 
 A free-text key like this is ADVISORY: peers can see it, and nothing enforces it. Only a
 numbered key is enforced, by the commit-msg gate, and only when your commit subject names it.
@@ -134,8 +209,19 @@ run prints the whole-repo roster and never names a file:
 Read the exit code, not just the rows. 0 means the question was answered, including an
 answer of nobody. 2 means it could not be, and silence there is not an all-clear.
 
-Commit at logical stops. Push your own branch and open your own pull request. Do not merge:
-the lander decides what enters the merge queue.
+Before you commit for the last time, review your own diff:
+  /code-review at the effort level your brief names, xhigh by default
+Apply what you confirm, then review once more. Stop after two rounds. If round two still
+reports findings, ship anyway and hand the notes to your manager.
+
+Commit at logical stops. Your LAST commit message carries the proposed pull request title and
+the proposed ledger banner text. That is mandatory: it is what makes the branch usable if your
+manager dies before it opens the pull request.
+
+Push your own branch, then report: branch name, head SHA, review level and outcome, what you
+ran, and what you did NOT run. Name every hosted-only leg. Then exit.
+
+Do not open the pull request; your manager does. Do not merge; the lander does.
 ```
 
 Use [Brief a worker session](WORKER-BRIEF.md) to fill out each prompt. Its rule requires a worker to ask when the brief
@@ -166,7 +252,22 @@ Paste this prompt:
 
 ```text
 You are the lander. You decide what enters the merge queue and in what order, and you
-merge-forward. Builders push their own branches and open their own pull requests.
+merge-forward. Builders push their own branches; their managers open the pull requests.
+
+A manager hands you a pull request with five fields: number, head SHA, unread legs, known
+defects, and any landing-order constraint. From that message it is yours. Poll anyway:
+nothing pushes a pull request to you, and a handover that was never sent strands nothing.
+
+Before you call a red check a failure, rule out a capacity artifact. A rollup that completed
+while its own children were still queued reports on legs that never ran.
+
+For a genuine failure, dispatch a repair. Prefer a spawned session over a subagent when the
+fix is non-trivial: a subagent dies with you, and this is someone else's branch.
+
+When it merges, update the backlog and release the builder's claim in the same act:
+  pwsh -NoProfile -File scripts/coord/claim.ps1 -Release <N>
+The claim is another worktree's, so the script refuses and probes the holder. Read that line
+before you reach for -Force.
 
 No review step sits in front of you. That seat retired on 2026-09-12 and the
 required check that read a reviewed label was removed on 2026-09-04, so the label blocks
@@ -181,10 +282,11 @@ Decide which of two branches on the same ground lands first, and who re-syncs af
 You arbitrate and land. You do not build.
 ```
 
-The lander reads branch state instead of waiting for messages about it.
+The lander reads branch state instead of waiting for messages about it. The manager's handover
+adds the four things the queue cannot report, and it replaces nothing.
 
-Builders push their branches. The lander reads open pull requests and takes the ones whose checks
-are green.
+Builders push their branches and their managers open the pull requests. The lander reads open pull
+requests and takes the ones whose checks are green.
 
 Read any comments already on the pull request. The required checks, `gates (ubuntu-latest)` and
 `gates (windows-latest)`, cannot establish that anyone read the diff, and since 2026-09-12 no seat
