@@ -76,7 +76,10 @@ flip: the heading set is identical with an open banner and a closed one.
 | Item | Rule |
 | --- | --- |
 | Why it stalls a lane | A held claim on a completed item looks exactly like someone actively building it, so it blocks the next session for days. |
-| `claim.ps1 -Release` is worktree-scoped | Like `alloc.ps1`, it acts on the worktree the shell stands in, so no other session can release it. |
+| Since 2026-09-18 the release is YOURS, with the ledger update | Owner-set, and both in one act. A Builder no longer holds its claim open until the fix reaches `main`. |
+| `claim.ps1 -Release` is worktree-scoped | Like `alloc.ps1`, it acts on the worktree the shell stands in, so releasing a Builder's needs `-Force`. |
+| Expect the refusal, then read the probe | `HOLDER GONE` means the worktree is off disk, and the script recommends `-Force` itself. `HOLDER IS STILL THERE` is about a directory, not a live session. |
+| What licenses the force in this flow | The Manager's handover for that branch, plus the merge. Both say the author has exited. Name the two you read. |
 | What makes that worse | Background watches cap at ten minutes, so if the holding session goes quiet the claim just sits. |
 | The release condition | The fix **TEXT** is on `main`, never that the PR closed. |
 | How that earned itself | Twice in one day, when a PR merged while the correction its author believed was in it had never been pushed. |

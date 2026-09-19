@@ -22,11 +22,11 @@ Read `roles/COMMON.md` before your seat's playbook. It holds the rules shared by
 
 | Seat | What it owns | Card | Playbook |
 |---|---|---|---|
-| Manager | Runs one or more Builders as subagents or separate sessions. Writes their briefs and reads their results. | [Manager](roles/manager.card.md) | `roles/MANAGER.md` |
-| Builder | One brief, one turn. Commits, opens the pull request, exits. | [Builder](roles/builder.card.md) | `roles/BUILDER.md` |
+| Manager | Runs one or more Builders as subagents or separate sessions. Writes their briefs, reads their results, opens the pull request, and hands it to the Lander. | [Manager](roles/manager.card.md) | `roles/MANAGER.md` |
+| Builder | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. | [Builder](roles/builder.card.md) | `roles/BUILDER.md` |
 | Regulator | Decides whose failure a red check is. | [Regulator](roles/regulator.card.md) | `roles/REGULATOR.md` |
 | Steward | A cron rather than a seat. Reads usage and names the account with headroom. | [Steward](roles/steward.card.md) | `roles/STEWARD.md` |
-| Lander | What enters the merge queue, and in what order. | [Lander](roles/lander.card.md) | `roles/LANDER.md` |
+| Lander | What enters the merge queue, and in what order. It owns a handed-over pull request from the handover on. | [Lander](roles/lander.card.md) | `roles/LANDER.md` |
 | Special | Work the Owner wants done outside the other five. It stands by silently until instructed. | [Special](roles/special.card.md) | `roles/SPECIAL.md` |
 
 Cards live under `docs/`, which Jekyll builds into this site. Playbooks live at the repository root,
