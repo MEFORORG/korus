@@ -89,7 +89,7 @@ issuing verdicts has taken a retired seat's grant, which no seat can hand over.
 part of watching the Lander.**
 
 [LANDER-BOARD.md](../docs/LANDER-BOARD.md) is the specification, written to rebuild it from
-nothing. The build scripts ship as `scripts/board/` in korus PR 134.
+nothing. `scripts/board/` builds it: `collect.py`, then `series.py`, then `build.py`.
 
 **This is the seat's first standing duty.** Everything else here waits for the Owner to name a
 subject. This does not.
@@ -359,7 +359,7 @@ a mutation, and correct yourself faster than you correct others.
 | --- | --- |
 | 1, the assignment and the poller | The Watchdog's account, with its four-against-forty reading |
 | 1a, the Regulator boundary | [REGULATOR.md](retired/REGULATOR.md), quoted cell by cell. **No longer inference.** |
-| 1b, the board pointer | korus PR 134, named because it had not merged |
+| 1b, the board and its cadence | `docs/LANDER-BOARD.md`, and the Owner's 15-minute instruction |
 | 2, do not take the action | The Watchdog's account, including the queue it left undrained |
 | 2a, never relay a grant | The Watchdog's account of a relay a peer correctly refused |
 | 3, arrival checks | The Watchdog's account, all four |

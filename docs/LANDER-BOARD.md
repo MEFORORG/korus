@@ -67,7 +67,7 @@ format the hour by arithmetic rather than a format string. See
 
 ---
 
-## 4. The eight data cards
+## 4. The nine data cards
 
 Each card carries a hero number, a per-repository strip, and one sentence saying what the number
 means. The sentence is the part a reader acts on.
@@ -75,32 +75,85 @@ means. The sentence is the part a reader acts on.
 | Card | Hero | Sentence says |
 | --- | --- | --- |
 | PRs open | total open | whether the vault is clear |
-| Ready and waiting | open minus not-ready | that queue throughput is the only thing in the way |
-| Not ready to merge | needs a person | draft, conflicted, or failing a required check |
+| Ready and waiting | every required check green | that queue throughput is the only thing in the way |
+| Waiting on CI | no required check red, one or more still running | that nobody acts yet |
+| Needs a person | draft, conflicted, or a red required check | refresh the branch before reading a red as broken |
 | Enqueued now | queue entries | whether anything is moving |
 | Merged, last 60 min | merges in the hour | the best hour in the window, for contrast |
 | Avg merged per hour | mean over 24h | the total landed across the full window |
 | Idle periods | runs of 3h or more | the longest run |
 | Time since last merge | duration | the same figure the pill buckets |
 
-### 4a. BEHIND is not "not ready", and the split matters
+The three readiness cards partition the open set, so they always sum to the first card.
 
-**A pull request that is only BEHIND needs nobody.** The merge queue rebases it. Counting it as
-blocked inflates the scary number and hides the real one.
+### 4a. Classify on the required checks, because BEHIND hides a red one
 
-Split on whether a person must act:
+**A pull request that is only BEHIND needs nobody.** The merge queue rebases it. That half of the
+first rule was right.
 
-```python
-NEEDS_PERSON = {"DIRTY", "BLOCKED", "UNSTABLE"}
-notready = sum(1 for p in open_prs
-               if p["isDraft"] or p["mergeStateStatus"] in NEEDS_PERSON)
-ready = len(open_prs) - notready
+**That holds only where a queue exists.** Read 2026-09-19: the engine has one. KORUS and the vault
+have none and require an up-to-date branch. There the Lander updates the branch as part of landing,
+so BEHIND alone still counts as ready.
+
+**BEHIND is still not safe to read as ready.** `mergeStateStatus` reports BEHIND in preference to
+BLOCKED, so it hides a failing required check. The engine's `CLAUDE.md` records this under "A PR's
+merge state is a join over clocks".
+
+So classify on the required contexts themselves. Read the required set live, then intersect each
+pull request's check rollup with it:
+
+| Bucket | Rule |
+| --- | --- |
+| Needs a person | draft, DIRTY, or a failing required context |
+| Waiting on CI | no failing required context, one or more still pending |
+| Ready | every required context green |
+
+A required context that has not reported yet counts as pending. Missing data can then never read as
+ready.
+
+```bash
+gh api repos/<owner/name>/branches/main/protection/required_status_checks --jq '.contexts[]'
 ```
 
-Measured 2026-09-19 on the engine: the wrong split reported 56 blocked. The right one reported 17,
-and moved 35 pull requests out of a column that implied they were broken.
+**Never pin the count.** On 2026-09-19 the engine required 8 contexts, KORUS 2 and the vault 2. The
+set moves.
 
-### 4b. Count idle RUNS, not idle hours
+**Measured 2026-09-19 at 16:45 UTC, engine, 62 open pull requests.** Classifying on
+`mergeStateStatus` said 13 were not ready. The required-context rollup found 29 with a red required
+check, and 28 of those read BEHIND. Four of them:
+
+| PR | Merge state | Failing required context |
+| --- | --- | --- |
+| 1288 | BEHIND | `CI gate` |
+| 1271 | BEHIND | `dependency-and-secret-scan (pip-audit, npm-audit, gitleaks)` |
+| 1197 | BEHIND | `CI gate`, `test (windows-2025, py3.14)` |
+| 1286 | BEHIND | `test (ubuntu-latest, py3.14)`, `test (windows-2022, py3.14)` |
+
+**This section once read BEHIND as ready outright.** Its figure of 17 not ready came from that rule,
+so it is withdrawn rather than carried forward.
+
+Two traps, each handled in `scripts/board/collect.py` rather than left to the reader:
+
+| Trap | What happens | What the collector does |
+| --- | --- | --- |
+| Counting every red check | Advisory legs such as diff-coverage, zizmor, sbom and trivy go red and block nothing. Counting them put 28 harmless pull requests in the human column | Intersects the failing names with the required set, always |
+| `gh pr list --json statusCheckRollup` over 60+ pull requests | Returns HTTP 504. A `jq` default then yields zero failures for every row, which reads exactly like a clean repository | Pages a GraphQL query 20 at a time and halves the page on a failure. It writes nothing unless every open pull request came back with all its checks |
+
+`tests/test_the_board_reads_readiness_off_the_required_set.py` pins both, and fails when either
+guard is removed.
+
+### 4b. Most red required checks are stale, not broken
+
+On 2026-09-19, 27 of the engine's 29 reds had run against an older `main`:
+
+- 16 were one pip-audit finding, three anyio CVEs. `main` already pinned `anyio==4.14.2`.
+- 11 were the CI gate roll-up on repo harness tests, which `main`'s latest run passed.
+
+A branch refresh clears both, and nobody writes code. So the "Needs a person" card says to refresh
+the branch before reading a red as broken. A card that said "each needs a person" sent readers
+looking for work that did not exist.
+
+### 4c. Count idle RUNS, not idle hours
 
 A scattered idle hour is a turn boundary. A run of hours is the failure the board exists to catch.
 
@@ -148,12 +201,12 @@ cards. Say so in the footer rather than forcing them to agree.
 
 **`jq` is not on the path.** `gh --jq` works, because `gh` embeds it. Do the rest in Python.
 
-Open pull requests, per repository:
+The required set, per repository, is the `gh api` call in
+[section 4a](#4a-classify-on-the-required-checks-because-behind-hides-a-red-one).
 
-```bash
-gh pr list --repo <owner/name> --state open --limit 300 \
-  --json number,mergeStateStatus,isDraft,createdAt
-```
+Open pull requests, per repository, with the check rollup on each head commit. Use the paged GraphQL
+query `OPEN_Q` in `scripts/board/collect.py`. **Do not use `gh pr list --json statusCheckRollup`.**
+Over 60 or more pull requests it returns HTTP 504, as section 4a records.
 
 The merge queue, which is the only true reading of what is enqueued:
 
@@ -217,7 +270,8 @@ Tabular figures everywhere digits line up.
 throughput, warning for work needing a person, critical for failures.
 
 **Layout.** Four cards across on a wide screen. Going from five across to four made each card
-shorter, because the sentence wraps to fewer lines.
+shorter, because the sentence wraps to fewer lines. The ninth card, time since last merge, spans the
+third row on its own.
 
 **Both themes.** Define the light palette on bare `:root`, redefine the tokens under
 `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and again under

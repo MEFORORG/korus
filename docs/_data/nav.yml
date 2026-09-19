@@ -152,9 +152,6 @@
     - label: Role cards
       title: "Role cards: giving a worktree a seat that outlives its session"
       path: /ROLE-CARDS.html
-    - label: Lander Board
-      title: "The Lander Board: is merge-ready work reaching main, or piling up"
-      path: /LANDER-BOARD.html
     - label: Usage awareness (design)
       title: "Usage awareness: Knowing when to stop, without lying about it"
       path: /USAGE-AWARENESS.html
@@ -167,6 +164,9 @@
     - label: Watching for a red
       title: Noticing a red without a session watching for it
       path: /CI-RED-WATCH.html
+    - label: The Lander Board
+      title: The Lander Board
+      path: /LANDER-BOARD.html
 
 - group: Reference
   items:
