@@ -63,7 +63,6 @@ Fail-open controls allow work when their check breaks. Fail-closed controls refu
 | `PreToolUse` | `scripts/hooks/steer-inject.ps1` | `*` (opt-in, hand-wired) | Delivers a queued steering note as `additionalContext` at the next tool-call boundary. Decides nothing. | fail open, silent |
 | `SessionStart` | `scripts/hooks/role-card-inject.ps1` | -- (hand-wired) | Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. **Never guesses from a branch or directory name** -- it stays silent instead, because a wrong card outranks the document the session should be reading. Decides nothing. | fail open, silent |
 | `UserPromptSubmit` | `scripts/hooks/announce-session.ps1` | -- | Resolves live peers and asks the model to announce itself to them. Decides nothing. | fail open, **loud** |
-| `UserPromptSubmit` | `scripts/hooks/context-budget.ps1` | -- (hand-wired) | Reports how full **this session's context window** is, at 0.75/0.85/0.92. Refuses to print a percentage when the count exceeds the assumed window, because the ceiling is a default and not a reading. Never blocks. Decides nothing. | fail open, silent below 0.75 |
 | `PreCompact` | `scripts/hooks/precompact-reprime.ps1` | -- (hand-wired) | Reads back what a compaction drops: the **declaration** `scripts/coord/seat.ps1` recorded, and the **ledger** of allocations, claims and unpushed work this worktree holds. Never invents a goal, and flags a record from another branch rather than restoring it. Decides nothing. | fail open, silent |
 | `PreToolUse` | `scripts/hooks/block-api-burn.ps1` | `Bash\|PowerShell` (hand-wired) | Denies `gh run watch`, any `gh --watch`, and hand-rolled `gh` poll loops. Every seat draws on one shared 5000/hr GitHub budget, and the seat that pays is not the seat that spent. | fail open, **loud** |
 | `SessionStart` | `scripts/hooks/mail-drain.ps1` | -- (hand-wired) | **Renders** this worktree's session mail and leaves it in the inbox. Consuming here would lose mail to a phantom: one measured launch fired six `SessionStart` events and only one session ever submitted a prompt. Decides nothing. | fail open, silent |
@@ -92,7 +91,7 @@ Use these three locations:
 
 | Control | Where it goes |
 |---|---|
-| Blanket-stage guard, API-burn guard, role-card injector, context budget, precompact reprime, mail drain | Copy their tracked rows out of `.claude/settings.example.json` into a real `settings.json`, and replace every loud placeholder path |
+| Blanket-stage guard, API-burn guard, role-card injector, precompact reprime, mail drain | Copy their tracked rows out of `.claude/settings.example.json` into a real `settings.json`, and replace every loud placeholder path |
 | Steering injector | A `settings.local.json` row, per worktree. [Steering](STEERING.md) has it |
 | Sequence gate | **Not a settings row at all** -- a `pre-commit` hook you own. [Wiring the pre-commit hook](SEQUENCE-ALLOC.md#wiring-the-pre-commit-hook) has the snippet |
 

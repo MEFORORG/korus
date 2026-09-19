@@ -762,6 +762,85 @@ Test counts need causes, coverage percentages need scope, and queue depth needs 
 
 ---
 
+### A merge queue entry sees a conflict before the pull request does
+
+A queue entry is tested against every entry ahead of it. The pull request view is tested against the
+current trunk, so it stays green until those entries land.
+
+Measured 2026-09-19 on `MEFORORG/MessageFoundry`. At 03:14:58Z `#1201` and `#1279` both read
+`CLEAN/MERGEABLE` at pull request level while their queue entries read `UNMERGEABLE`.
+
+```bash
+gh api graphql -f query='{repository(owner:"MEFORORG",name:"MessageFoundry"){mergeQueue(branch:"main"){entries(first:30){nodes{position state pullRequest{number}}}}}}'
+```
+
+By 03:17:37Z, after `#1256` landed, both read `DIRTY/CONFLICTING`. The entry was right the whole
+time and the pull request caught up.
+
+Read the entry for anything queue-related, and treat `UNMERGEABLE` there as an early conflict
+warning rather than a quirk.
+
+An entry in that state evicts itself. Measured three times in one day, on `#1279`, `#1201` and
+`#1227`, with nothing behind them blocked and no lever pulled. Neither `gh pr merge --disable-auto`
+nor the `dequeuePullRequest` mutation removes an entry from that repository.
+
+`roles/LANDER.md` section *4d-bis* logs the same eviction as a hazard: the row *A PR is open,
+mergeable, nothing red, and simply not merging*. One mechanism, both readings true. **Automatic
+eviction is also why a stuck entry never blocks the queue**, and no lever would help if it did.
+
+### A mergeability count read just after a merge counts a recomputation
+
+GitHub recomputes mergeability lazily once the trunk moves, so every open pull request reads
+`UNKNOWN` until it settles.
+
+Measured 2026-09-19: a poll 77 seconds after a merge reported **0 CLEAN**. A re-read 15 seconds
+later returned **20**.
+
+A filter counting one bucket folds `UNKNOWN` into not-ready and publishes that zero. Wait two
+minutes, or report the whole distribution so the `UNKNOWN` bucket stays visible.
+
+The same shape had already fired that night on `autoMergeRequest`, which reads null for a queued
+pull request. Five non-null values proved the field was readable and proved nothing about whether it
+answered the question being asked.
+
+### A warning reaches only the seat that opens the file it sits in
+
+`roles/LANDER.md` section *4d-bis* has recorded since 2026-08-28 that `autoMergeRequest` returns
+null on a genuinely enqueued pull request, and that a count of armed pull requests read the old way
+**reports zero while the queue is working**. It names the failure exactly.
+
+A watchdog session made that error anyway on 2026-09-19, published the zero, and was corrected by
+the seat that holds the file.
+
+The cause is reach, not attention. That warning sits two thirds of the way into a 1239-line playbook
+belonging to one seat. The trap belongs to anyone who reads a merge queue, and nothing put it where
+they look.
+
+So when a finding constrains more seats than the file it lands in, cross-reference it from the
+shared page rather than trusting the playbook to carry it. Restating it in both is worse: the repo
+already has a claim it had to retract twice because a copy travelled and the correction did not.
+
+### Prove a system went silent with an actor outside it
+
+Silence and a broken detector look the same, so a claim that everything stopped needs a control that
+was still running.
+
+Measured 2026-09-19: no agent session pushed a branch for an hour, which on its own says nothing
+about the fleet.
+
+```bash
+git for-each-ref --sort=-committerdate --format='%(committerdate:iso8601-strict)  %(refname:short)' refs/remotes/origin | grep -v dependabot | head -1
+```
+
+Dependabot pushed three branches and opened three pull requests inside that same window. That put
+the repository, the push path, pull request creation and CI triggers outside suspicion, and narrowed
+the silence to the agent fleet.
+
+Pick the control before you need it. An actor that shares the suspected failure domain is the same
+measurement taken twice.
+
+---
+
 ## 6. Platform and parser traps
 
 | Trap | What actually happens | Fix |
