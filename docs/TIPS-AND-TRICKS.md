@@ -784,9 +784,9 @@ An entry in that state evicts itself. Measured three times in one day, on `#1279
 `#1227`, with nothing behind them blocked and no lever pulled. Neither `gh pr merge --disable-auto`
 nor the `dequeuePullRequest` mutation removes an entry from that repository.
 
-`roles/LANDER.md:486` records the same eviction as a hazard: a pull request open, mergeable and
-simply not merging. One mechanism, both readings true. **Automatic eviction is also the only reason
-a stuck entry never blocks the queue**, and no lever would help if it did.
+`roles/LANDER.md` section *4d-bis* logs the same eviction as a hazard: the row *A PR is open,
+mergeable, nothing red, and simply not merging*. One mechanism, both readings true. **Automatic
+eviction is also why a stuck entry never blocks the queue**, and no lever would help if it did.
 
 ### A mergeability count read just after a merge counts a recomputation
 
@@ -805,15 +805,16 @@ answered the question being asked.
 
 ### A warning reaches only the seat that opens the file it sits in
 
-`roles/LANDER.md:469` has recorded since 2026-08-28 that `autoMergeRequest` returns null on a
-genuinely enqueued pull request, and that a count of armed pull requests read the old way **reports
-zero while the queue is working**. It names the failure exactly.
+`roles/LANDER.md` section *4d-bis* has recorded since 2026-08-28 that `autoMergeRequest` returns
+null on a genuinely enqueued pull request, and that a count of armed pull requests read the old way
+**reports zero while the queue is working**. It names the failure exactly.
 
 A watchdog session made that error anyway on 2026-09-19, published the zero, and was corrected by
 the seat that holds the file.
 
-The cause is reach, not attention. That warning sits at line 469 of a 1239-line playbook belonging
-to one seat. The trap belongs to anyone who reads a merge queue, and nothing put it where they look.
+The cause is reach, not attention. That warning sits two thirds of the way into a 1239-line playbook
+belonging to one seat. The trap belongs to anyone who reads a merge queue, and nothing put it where
+they look.
 
 So when a finding constrains more seats than the file it lands in, cross-reference it from the
 shared page rather than trusting the playbook to carry it. Restating it in both is worse: the repo
