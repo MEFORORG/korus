@@ -453,6 +453,9 @@ merges.
 
 Release your claims after the work lands so other sessions can use them.
 
+The lander does this for a builder's claim, in the same act as the backlog update. An orphaned claim
+blocks the next session on that row, and nothing anywhere reports it.
+
 ```powershell
 pwsh -NoProfile -File scripts/coord/claim.ps1 -Release <key>
 pwsh -NoProfile -File scripts/coord/claim.ps1 -List
@@ -460,6 +463,12 @@ pwsh -NoProfile -File scripts/coord/claim.ps1 -List
 
 `-List` confirms which claims remain. The pruner releases a worktree's claims only after
 proving the directory is gone and deregistered, never on a timer.
+
+`-Release` acts on the worktree your shell stands in. Releasing another worktree's claim needs
+`-Force`, and the script refuses first and probes the holder.
+
+Read that probe line. `HOLDER GONE` means the worktree is off disk and forcing is safe. `HOLDER IS
+STILL THERE` is a fact about a directory, not about a live session.
 
 ## What this tooling does and does not do for you
 

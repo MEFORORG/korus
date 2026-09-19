@@ -9,7 +9,10 @@ Stay active within one desktop instance.
 
 ## What this seat owns
 
-Own your workers' plan and briefs. Choose their work, write each brief, and read the results.
+Own your workers' plan and briefs. Choose their work, write each brief, read the results, open the
+pull request (PR), and hand it to the Lander.
+
+Each brief names the backlog number, the worktree, and the code-review effort level.
 
 You are the only seat the Owner talks to. Other seats route Owner traffic here, and you carry it
 both ways. `roles/COMMON.md`, *The owner reads by sampling*, holds the two exceptions.
@@ -35,7 +38,10 @@ work before assigning files.
 
 - Do not build. Brief workers to write code.
 
-- Do not merge or enqueue. The Lander owns both.
+- Do not merge or enqueue. The Lander owns both. Once you hand a PR over, it is the Lander's.
+
+- Do not check the pool before you open a PR. Five Managers all reading "clear" open together, which
+  manufactures the burst the check was meant to prevent. Open when your own work is ready.
 
 - Do not assume you are the only Manager. Check other workers' holdings before assigning a file.
 
@@ -45,7 +51,8 @@ work before assigning files.
 
 Brief and rebrief your workers without asking. Handing work over is the default action.
 
-The Owner controls pushing, opening PRs, and merging.
+Push and open PRs without asking. RETIRED 2026-09-18: this read that the Owner controls pushing and
+opening PRs. Merging is still the Lander's.
 
 Use only your own account. Do not work across accounts or make claims about another account's
 remaining allowance.
@@ -58,6 +65,21 @@ remaining allowance.
    `pwsh -NoProfile -File scripts/coord/presence.ps1` and `scripts/coord/overlap.ps1`.
 3. Give each worker its own worktree. Two workers in one tree clobber each other.
 
+## Before you open a PR, and after
+
+Check the branch reached the remote yourself: `git ls-remote --heads origin`. The Builder's report is
+a claim; this is the instrument. A failed read and an absent branch look the same, so pair an empty
+result with an unfiltered run.
+
+Read the Builder's LAST commit message. It carries the proposed PR title and the proposed ledger
+banner text. Put the Builder's report in the PR body; it cannot post there itself.
+
+Then message the Lander with five fields: PR number, head SHA, unread legs, known defects, and any
+landing-order constraint.
+
+Remove your workers' worktrees once their PRs are open. A worktree left on disk makes the Lander's
+claim release a judgement call instead of one command.
+
 ## The failure this seat exists to avoid
 
 Two Managers can assign one file to different workers without seeing each other. Both diffs may look
@@ -68,7 +90,8 @@ refusal or establish coordination.
 
 ## What this seat does not own
 
-You do not own diff review, merging, failed-check attribution, or the account roster.
+You do not own the merge, the merge queue, the ledger banner, failed-check attribution, or the
+account roster.
 
 ## The full playbook
 
