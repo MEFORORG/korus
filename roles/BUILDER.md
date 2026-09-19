@@ -67,7 +67,7 @@ that is the only moment they can win.
 | A message from another seat assigns work | It is not owner authority and cannot grant a route. Never relay "the owner authorized this" into a handoff. |
 | No glyphs or emoji | Root `CLAUDE.md`, *Documentation*. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes **disposition, not permissions**. |
-| Where this file loses | On **landing** -- push, pull request, merge, who writes the ledger banner -- [LANDER.md](LANDER.md) is the authority. On everything else, COMMON. |
+| Where this file loses | On **the merge, the queue and the ledger banner**, [LANDER.md](LANDER.md) is the authority. On **who opens the pull request**, [MANAGER.md](MANAGER.md) is, since 2026-09-18. On everything else, COMMON. |
 | Editing this folder | Send what broke when you *ran* this playbook to the Manager. |
 
 **Why the ordering of the first two rows matters.** The stale `CLAUDE.md` text is longer, more
@@ -111,7 +111,8 @@ Console, and do not wait on one.
 | Who writes your brief | The **Manager**. It reads the two ledgers, picks the row, writes the brief, and reads what comes back. |
 | Asking it something | Mail it, then keep going. The answer arrives as the next Builder's brief, not as a reply to you. |
 | Where a question actually lands | **In your report to the Manager, which carries it onto the pull request it opens.** Findings on a pull request outlive the session; findings in mail do not. |
-| Why you cannot post it yourself | The pull request does not exist until you have exited. |
+| Why you cannot post it yourself | For a NEW branch the pull request does not exist until you have exited. |
+| The one case where you can | A follow-up brief onto a branch whose pull request is already open. Then the brief names the number, and you comment there as well as reporting. |
 | Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. **Who holds the START THROTTLE now is OPEN.** |
 | Expiry | This retires when the owner names a successor seat or restores one of the three. |
 
@@ -173,7 +174,7 @@ in *Write an ADR whenever it is reasonable* is met.
 | Push your own branch | -- |
 | Open the pull request on your branch | **Manager** |
 | Release the claim your commits hold | **Lander**, in the same act as the ledger update |
-| Merge, force-push, tags, releases | **Lander**, after the review step |
+| Merge, force-push, tags, releases | **Lander**, on the two required gates. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
 | A ruling, a policy call, a precedent-setting severity | **Manager** |
 
@@ -191,7 +192,8 @@ over.
 | Case | What you do |
 | --- | --- |
 | The item is marked DEMAND-GATE | **Do not build it.** Write the explain-and-ask -- what it is, where it came from, who would need it -- to the Manager, then stop. It carries the text onto the pull request. |
-| You find an authority question mid-work | Write it the same two places, finish only what is already safe to finish, then stop. |
+| You find an authority question mid-work | Write it to the **Manager**, finish only what is already safe to finish, then stop. |
+| That row read "the same two places" until 2026-09-18 | The row above named two, and now names one. A count in a cross-reference breaks when the thing counted changes. |
 | Neither applies | If you cannot name the decision only the owner can make, you are hesitating, not holding. |
 
 ### 1b. Acts that no condition makes correct
@@ -487,9 +489,11 @@ check is the only reason the seat that hit this caught its own.**
    top of your episode note.
 2. **Fix the venv first.** Install with `--constraint constraints.lock`, matching `ci.yml`'s test-leg
    line, then prepend `.venv\Scripts` to PATH so the `language: system` hooks resolve.
-3. **Take the claim before your FIRST commit.** `claim.ps1 -Take <N> -Note "<current work>"`. The
-   flag is `-Take`, never `-Claim`. The note is broadcast to joining sessions *in preference to your
-   worktree name*, and it carries its own age.
+3. **Take the claim before your FIRST commit, and COMMON asks for it earlier still.**
+   `claim.ps1 -Take <N> -Note "<current work>"`. The flag is `-Take`, never `-Claim`.
+   [COMMON.md](COMMON.md), *Claim the work*, says before you write code, which is the safer of the
+   two. The note is broadcast to joining sessions *in preference to your worktree name*, and it
+   carries its own age.
 4. **Record node ids, not a count**, for your baseline. Never inherit a peer's.
 5. **Launch everything unblocked before you write your report.** Write each launch's `runId`,
    `scriptPath` and item into your episode note as you launch it.
@@ -619,7 +623,9 @@ flight."*
 | Item | Rule |
 | --- | --- |
 | Columns 1 and 4 are the pair that matters, and they are supposed to disagree | The gap between what you are BUILDING and what you HOLD is *A claim that outlives the work* made visible. Nothing else in the estate measures occupancy. |
-| A large column 4 with a small column 1 is not a busy lane | It is slots the fleet cannot see and cannot refill. **The honest answer there is "no", and the fix is `claim.ps1 -Release`, not a better sentence.** |
+| A large column 4 with a small column 1 is not a busy lane | It is slots the fleet cannot see and cannot refill. **The honest answer there is "no", and a better sentence is not the fix.** |
+| **NARROWED 2026-09-18: the fix is no longer always yours** | That row ended *"and the fix is `claim.ps1 -Release`"*. You still release a claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH or BLOCKED work. A claim on BUILT work is the **Lander's** to release, with the ledger update. |
+| So say which kind each held claim is | "4 held, 3 awaiting merge, 1 stale and released" is checkable. A bare 4 reads as occupancy you could have freed and did not. |
 | Column 1 is the subject of *A lane at concurrency ONE* | Report **concurrency, not occupancy**. A lane running one thing at a time can honestly write a high number and stay blind to that trap. |
 | Keep the last cell to about ten words | A verdict plus one load-bearing fact. Owner correction 2026-08-28, on the same shape of table: those cells become text walls. |
 | The health test is contradictability, not valence | A cell has stopped working when it can **no longer be contradicted**, not when it stops saying "no". |
@@ -781,9 +787,13 @@ Blocked or concluded, the board still reads full. Hand a blocked item back the i
 update, once the pull request merges. You do not hold it open and you do not release it yourself. Say
 in your report which claims the merge is expected to release.
 
-**The two outcomes that never merge are still yours.** ALREADY-DONE and CONCLUDED-AS-RESEARCH produce
-no pull request for the Lander to land, so nothing downstream will ever fire step 14 on them. Release
-those claims before you exit, and say you did.
+**The outcomes that never reach a merge are still yours: ALREADY-DONE, CONCLUDED-AS-RESEARCH and
+BLOCKED.** None of them produces a pull request for the Lander to land, so nothing downstream will
+ever fire step 14 on them.
+
+Release those claims before you exit, and say you did. This list is the same one in
+[COMMON.md](COMMON.md), *What a Builder still releases*, and in 4b. If you find the three
+disagreeing, COMMON governs.
 
 **An item counts against your four while it is being *worked*, not while its claim is held.**
 Built-and-awaiting-merge is zero occupancy. Say so, so whoever counts your occupancy counts the same

@@ -88,10 +88,11 @@ no error.
 | Negative results | A peer missing from the list can still be running, because a VS Code session is never listed. Ask before you act on an absence. |
 | Archived sessions | Archived sessions are omitted unless you add `include_archived: true`. There is normally no reason to. |
 | Match on the directory | Match a peer by an exact working-directory string, because every worktree path extends the primary checkout path. |
-| Claim the work | Run `scripts/coord/claim.ps1 -Take <item>` before you write code for that item. |
+| Claim the work | Run `scripts/coord/claim.ps1 -Take <item>` **before you write code** for that item, which is earlier than the gate. |
+| Why earlier than the gate | The `commit-msg` gate fires at your first commit. Everything between writing code and committing is a window where a peer can be briefed onto the same item and nothing can see you. |
 | Release your claims | Run `scripts/coord/claim.ps1 -Release <item>` when you finish. An unreleased claim blocks the next session, and **nothing anywhere reports one**. |
 | The one claim you do NOT release yourself | **A Builder's claim on work that will merge.** Since 2026-09-18 the **Lander** releases it, in the same act as the ledger update. |
-| What a Builder still releases | Its own claim on ALREADY-DONE and CONCLUDED-AS-RESEARCH. Those open no pull request, so nothing downstream ever fires. |
+| What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
 | `-Release` is worktree-scoped | It acts on the worktree your shell stands in. Releasing another worktree's claim needs `-Force`, and the script refuses first and probes the holder. Read the probe line; do not skip to `-Force`. |
 | Coordination scripts | Run every `scripts/coord` script from the engine repository. The vault holds no `fleet.ps1` or `mail.ps1`, and its `claim.ps1` is a stale copy. |
 | Paths | List the directory. Never take a path out of a document. |

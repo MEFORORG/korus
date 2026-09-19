@@ -451,3 +451,9 @@ met the Builder.
 **Use `scripts/worktree/remove.ps1`, never `git worktree prune`.** Prune deregisters any worktree
 whose directory is momentarily missing, harness-managed ones included.
 
+**Do NOT pass `-DeleteBranch` while the pull request is open.** The branch is what the pull request
+points at, and the Lander has not merged it yet.
+
+This rule got sharper on 2026-09-18, not safer: tying removal to the claim release moves it earlier
+and makes it routine. Remove the directory, leave the branch.
+

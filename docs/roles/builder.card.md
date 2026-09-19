@@ -61,8 +61,11 @@ it arrived.
 
 ## Before you exit
 
-Run `/code-review` at the level the brief names, xhigh by default. Apply what you confirm, then run
-it once more. Stop after two rounds: ship, and hand round-two findings to the Manager.
+Invoke the `Skill` tool with `skill: "code-review"` at the level the brief names, xhigh by default.
+Apply what you confirm, then run it once more. Stop after two rounds: ship, and hand round-two
+findings to the Manager.
+
+It degrades to one inline pass without the `Agent` tool and says so. Report which you got.
 
 Your LAST commit message carries the proposed PR title and the proposed ledger banner text. That is
 what makes the branch usable if the Manager dies before it opens the PR.
