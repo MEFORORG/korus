@@ -90,7 +90,17 @@ session.** The measurement behind it is already in COMMON.
 | Channel | What it does | Can it wake? |
 | --- | --- | --- |
 | `ccd_session_mgmt` `send_message` | Arrives as a user turn in the peer's session | **Yes**, for a peer inside your CCD instance |
+| Built-in `SendMessage` | **Enqueues.** The send reports success either way | **NOT ESTABLISHED, and measured failing once** |
 | `scripts/coord/mail.ps1` | Queues a file the peer's own hook drains | **No.** It delivers at the peer's next `SessionStart` or `Stop` |
+
+**Use the CCD transport for your partner. Not the built-in.** Measured 2026-09-19 by the Watchdog,
+from the Lander's own session JSONL rather than from either seat's report.
+
+Four `SendMessage` sends, at 03:18:29.479Z, 03:43:03.253Z, 04:02:43.262Z and 04:21:24.337Z. Every
+one returned success, and every one enqueued. The next queue REMOVE was 13:56:42.800Z, 9h35m later.
+
+**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, lists the two same-instance transports as
+equivalent.** For addressing they are. For waking they are not, and that table is uncorrected.
 
 [COMMON.md](COMMON.md), *What mail does not promise*, carries the mail half: the recipient's drain
 hook delivers, and it runs at their next `SessionStart` or `Stop`.
@@ -105,6 +115,25 @@ worktree path extends the primary checkout's, so a prefix match resolves to an a
 
 **A peer in another CCD instance cannot be woken at all.** Mail is the only channel that crosses, and
 mail does not wake. Spawn your partner inside your own instance and the problem does not arise.
+
+#### Verify a wake by the REMOVE record, never by the partner's next merge
+
+The recipient's own transcript is the instrument:
+
+    .claude-account-<n>/projects/<encoded-cwd>/<session-id>.jsonl
+
+**A wake worked only if a queue REMOVE follows your ENQUEUE within minutes, there.** It is checkable
+after the fact, on any session, without that session's cooperation.
+
+**Do NOT verify on "did the partner push, enqueue or merge within N minutes".** A partner already
+busy does those anyway, and hands you a false pass.
+
+That is the same shape as the claim it would confirm. The `fleet-message-a-peer` skill records a
+seat running within a minute of a cross-session re-send, which reads as a wake.
+
+**A seat that was ALREADY RUNNING looks identical from outside.** The skill's wake claim rests on
+that case and does not separate the two, so treat it as unestablished until someone re-runs it with
+the REMOVE record.
 
 #### A ping is a nudge, not a wake signal, and your own loop is what keeps you awake
 
@@ -139,8 +168,14 @@ in, and its output alone cannot separate them.
 **A blocked partner looks exactly like a working one from the outside.** Neither is merging. Only
 the transcript separates them, which is why output alone is the wrong instrument here.
 
-A partner blocked on a question goes in your own end-of-turn table, beside your own blockers.
-*Never use AskUserQuestion* has the shape of that table.
+**Tell the Owner in the SAME TURN you find it, in those words: the partner is blocked on a
+question.** Then keep it in your end-of-turn table until it clears.
+
+Neither of you can answer it. The Owner is the only one who can, and nothing else reaches the
+suspended seat.
+
+**A Watchdog reported on a blocked Lander for ten hours without once saying it was blocked.** Its
+own account, 2026-09-19. One sentence would have ended the stall.
 
 The transcript is also a third liveness surface. A last entry that has not moved across your own
 ticks is evidence the seat is gone, not merely quiet.
@@ -174,6 +209,17 @@ Every other seat is still required to use it.**
 
 **AskUserQuestion stalls the session until the Owner answers.** A stalled Lander is the exact
 failure this seat exists to prevent, and it can stall while a green queue sits.
+
+**The case this rule exists for, measured 2026-09-19 from the Lander's own JSONL.** It called
+AskUserQuestion at 03:19:31.701Z. Its transcript then carried no rows at all through hours 05 to 12.
+
+The Owner's answer arrived at 13:56:42.790Z. **That is 10h37m suspended, with green work waiting.**
+
+**A session suspended on AskUserQuestion does not drain its message queue.** Its Watchdog's four
+queued messages removed at 13:56:42.800Z, ten milliseconds after the Owner's turn, all at once.
+
+**So the stall is invisible and unreachable at once.** No peer can wake it, because the channel that
+wakes runs on the turn it is not taking. Nothing but the Owner ends it.
 
 The ladder, in the Owner's words:
 

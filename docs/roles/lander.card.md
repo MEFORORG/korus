@@ -16,19 +16,24 @@ engine, vault and korus.
 Check two surfaces before you call a partner missing. An agent listing can omit a live seat, and a
 false "missing" puts two Landers on one queue.
 
-**Wake your partner with CCD messaging: `list_sessions`, match on `cwd` exactly, `send_message` to
-its `local_` id.** Fleet mail does not wake a session -- it delivers at the peer's next
-`SessionStart` or `Stop`.
+**Wake your partner with the CCD transport: `list_sessions`, match on `cwd` exactly, `send_message`
+to its `local_` id.** Spawn your partner inside your own CCD instance.
 
-Spawn your partner inside your own CCD instance. Mail is the only channel that crosses instances,
-and mail cannot wake.
+**Not the built-in `SendMessage`, and not mail.** Both enqueue. Measured 2026-09-19: four
+`SendMessage` sends all reported success and sat 9h35m unread.
 
-A ping is a nudge, not a wake signal. Delivery to an idle peer is not prompt, so a partner quiet
-across several ticks needs a spawn, not a third ping. Never ACK a ping.
+Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by "did it merge within N
+minutes" -- a partner already busy gives a false pass.
+
+A ping is a nudge, not a wake signal. A partner quiet across several ticks needs a spawn, not a
+third ping. Never ACK a ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
 blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
-merging. Blocked is the one you own -- carry its question, do not answer it.
+merging.
+
+**Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
+drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
 Keep a standing `/loop` running, with the goal of getting every open PR merged. Owner-set
 2026-09-19. Nothing here tells you a pull request is waiting, so your own poll is the trigger.

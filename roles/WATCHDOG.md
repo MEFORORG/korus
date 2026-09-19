@@ -78,6 +78,10 @@ seat's work from yours.
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
+| **It EXTENDS a narrower grant, and that is deliberate** | `docs/METHOD.md:24`, in the ENGINE repo, reads *"A MANAGER AND THE LANDER MAY SPAWN A SESSION"*. This seat was not on that list. |
+| Why it is recorded rather than reconciled | That file is not in korus, so this change could not touch it. A reader meeting the narrower grant there should meet this row here. |
+| The first Watchdog flagged exactly this | Twice, and it was right to. It said the spawn power needed the Owner rather than a playbook edit, and declined to relay either way. |
+| What settles it | The Owner's own instruction, 2026-09-19, first-hand in the drafting session's chat. A peer could not have supplied it, and none did. |
 
 ### 0b. Wake your partner with CCD messaging, because mail cannot
 
@@ -87,10 +91,45 @@ session.**
 | Channel | What it does | Can it wake? |
 | --- | --- | --- |
 | `ccd_session_mgmt` `send_message` | Arrives as a user turn in the peer's session | **Yes**, for a peer inside your CCD instance |
+| Built-in `SendMessage` | **Enqueues.** The send reports success either way | **NOT ESTABLISHED, and measured failing once** |
 | `scripts/coord/mail.ps1` | Queues a file the peer's own hook drains | **No.** It delivers at the peer's next `SessionStart` or `Stop` |
 
-[COMMON.md](COMMON.md), *What mail does not promise*, is the source: the recipient's drain hook
-delivers, and it runs at their next `SessionStart` or `Stop`.
+**Use the CCD transport. Not the built-in.** Measured 2026-09-19 by the first Watchdog, and it is
+that seat's own account of holding the better channel all night and reaching for the other one.
+
+Four `SendMessage` sends, at 03:18:29.479Z, 03:43:03.253Z, 04:02:43.262Z and 04:21:24.337Z. Every
+one returned success, and every one enqueued. The next queue REMOVE was 13:56:42.800Z, 9h35m later.
+
+**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, lists the two as equivalent.** For
+addressing they are. For waking they are not, and that table is uncorrected.
+
+**That seat then published the wrong conclusion from it**, telling a peer a keep-awake duty was
+unimplementable. It was the channel, not the duty. Section 4's shape again: the reading was sound
+and the sentence it was attached to was not.
+
+[COMMON.md](COMMON.md), *What mail does not promise*, is the source for the mail row: the
+recipient's drain hook delivers, and it runs at their next `SessionStart` or `Stop`.
+
+#### Verify a wake by the REMOVE record, never by the partner's next merge
+
+The recipient's own transcript is the instrument:
+
+    .claude-account-<n>/projects/<encoded-cwd>/<session-id>.jsonl
+
+**A wake worked only if a queue REMOVE follows your ENQUEUE within minutes, there.** It is checkable
+after the fact, on any session, without that session's cooperation.
+
+**Do NOT verify on "did the partner push, enqueue or merge within N minutes".** A partner already
+busy does those anyway, and hands you a false pass.
+
+That is section 4's shape exactly: a filter that does not match what the reading claims to check.
+
+The `fleet-message-a-peer` skill records a seat running within a minute of a cross-session re-send,
+and reads that as a wake. **A seat that was ALREADY RUNNING looks identical from outside.**
+
+Treat that claim as unestablished until someone re-runs it against the REMOVE record. The
+discriminator above is what separates the two cases, and it survived the retraction that took the
+conclusion with it.
 
 **A session that never restarts never reads its mail.** Mail therefore cannot be the keep-awake
 channel, however reliably it queues.
@@ -122,8 +161,23 @@ and its output alone cannot separate them.
 **A blocked Lander and a working one look identical from the outside.** Neither is merging. Only the
 transcript separates them, which makes output alone the wrong instrument for this reading.
 
-**Carrying its question is not answering it.** You put the question in your own end-of-turn table to
-the Owner and keep it there. You do not decide it, and you do not tell the Lander what to do.
+**Tell the Owner in the SAME TURN you find it, in those words: the Lander is blocked on a
+question.** Then keep it in your end-of-turn table until it clears.
+
+**Measured 2026-09-19, from the Lander's own JSONL.** It called AskUserQuestion at 03:19:31.701Z and
+its transcript carried no rows at all through hours 05 to 12.
+
+The Owner answered at 13:56:42.790Z. **10h37m suspended, with green work waiting**, and the first
+Watchdog reported on it throughout without once saying it was blocked.
+
+**A suspended session does not drain its message queue.** Those four queued messages removed at
+13:56:42.800Z, ten milliseconds after the Owner's turn, all at once.
+
+**So it is invisible and unreachable at once.** You cannot wake it: the channel that wakes runs on
+the turn it is not taking. Only the Owner ends it, and only if told.
+
+**Carrying its question is not answering it.** You do not decide it, and you do not tell the Lander
+what to do.
 
 That boundary is section 1a's, unchanged. A Watchdog that answers a blocked seat's question has
 issued a verdict and taken a retired seat's grant.

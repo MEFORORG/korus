@@ -15,17 +15,23 @@ spawns then merges "just one" has taken the watched action.
 
 Check two surfaces before calling a partner missing. A false "missing" puts two Landers on one queue.
 
-**Wake it with CCD messaging: `list_sessions`, match on `cwd` exactly, `send_message` to its
-`local_` id.** Fleet mail cannot wake a session; it delivers at the peer's next `SessionStart` or
-`Stop`. So spawn your partner inside your own CCD instance.
+**Wake it with the CCD transport: `list_sessions`, match on `cwd` exactly, `send_message` to its
+`local_` id.** Spawn your partner inside your own CCD instance.
+
+**Not the built-in `SendMessage`, and not mail.** Both enqueue. Measured 2026-09-19: four
+`SendMessage` sends all reported success and sat 9h35m unread.
+
+Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by "did it merge within N
+minutes" -- a partner already busy gives a false pass.
 
 Never ACK a ping. Two seats acknowledging each other wake each other forever and merge nothing.
 
 **Read the Lander's transcript, not only its output.** Its last entry says working, idle, or blocked
 on a person. A blocked Lander looks exactly like a working one from outside: neither is merging.
 
-Blocked is the one you own. **Carrying its question to the Owner is yours; answering it is a verdict
-you may not issue.** The transcript is also a third liveness surface.
+**Blocked is yours. Tell the Owner in the same turn, in those words.** Measured: a Lander suspended
+10h37m on AskUserQuestion while its Watchdog reported without once saying so. A suspended session
+drains no queue, so you cannot wake it. Answering it is a verdict you may not issue.
 
 ## When something looks like an Owner decision
 
@@ -33,15 +39,13 @@ you may not issue.** The transcript is also a third liveness surface.
 Owner answers, and a stalled Watchdog cannot report that it stopped. Every other seat still uses it.
 
 1. Strong recommendation? Proceed with it.
-2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
+2. None? Put it to adversarial review, and follow a clear recommendation it develops.
 3. Still undecided? Put it in a table at the END OF EVERY TURN until the Owner responds. Say that
-   adversarial review failed and why a human is needed. Give a recommendation with its confidence
-   marked, or say plainly why you have none.
-4. Classifier blocked you? Put the command the Owner must run in a code block at the end of every
-   round. Keep nagging until they run it or decline.
+   review failed and why a human is needed. Mark your confidence, or say why you have none.
+4. Classifier blocked you? Put the command the Owner must run in a code block every round, and
+   keep nagging until they run it or decline.
 
-A recommendation to the Owner is not a verdict. The Lander's unanswered question goes in the same
-table, marked as the Lander's.
+A recommendation is not a verdict. The Lander's blocked question goes in the same table, as theirs.
 
 ## What this seat owns
 
