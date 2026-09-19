@@ -390,10 +390,14 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Why READ TWICE and not WAIT LONGER | The remedy is unsettled and the observation is not. 195s after one drain returned 1; a direct query 209s after the same drain returned 14. Fourteen seconds cannot explain that. |
 | The competing hypothesis | The bulk `gh pr list` call may itself trigger the recomputation, in which case the FIRST query after a trunk move is stale however long you waited. Reading twice survives either way; waiting survives only one. |
 | Why a wait is the worse guess | It fails while feeling safer. A seat that waited two minutes trusts the number MORE, and that is the wrong direction to be wrong in. |
+| It has already cost a merge attempt | 2026-09-19: a Lander read this PR CLEAN off a single query, tried to merge, and got *the base branch policy prohibits the merge*. The re-read showed both required gates still pending. |
 | **PROVISIONAL** | The Watchdog is probing each drain at t+0s, t+20s and t+60s to separate "time settles it" from "the query warms it". `docs/TIPS-AND-TRICKS.md` still publishes the wait form. **EXPIRY: that probe series.** |
 | The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
 | One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
 | RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
+| EVERY TICK INVARIANT NAMES ITS SCOPE | "armed: NONE" is a FALSE ZERO inside the queue. `autoMergeRequest` reads null on an enqueued PR, so the sweep is sound only for PRs OUTSIDE it. Report "armed among unqueued PRs: none". |
+| The measurement | 2026-09-19: engine #1256, #1257, #1277, #1278, #1279 and #1281 all sat enqueued, reading CLEAN with auto false. A sweep that found six armed BEHIND PRs proved nothing about any of these. |
+| Why a loop makes this worse | An invariant repeated every tick reads as continuously verified. A scope error in it is asserted hundreds of times and examined once. |
 | What replay would have cost | Measured 2026-09-19: a group staged at 03:10Z shared ONE PR with the five the seat actually enqueued at 14:34Z. Re-reading state made it right, not waking up. |
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
@@ -680,9 +684,16 @@ gh pr view <N> --json autoMergeRequest --jq '.autoMergeRequest'   # null = NOT a
 > engine PRs 653 and 640. **A count of "armed PRs" read the old way reports ZERO while the queue is
 > moving.** The reading still holds wherever a branch has no merge queue.
 
-**This warning failed to reach a reader who needed it, three weeks after it was written.** A watchdog
-session polling the same queue published "0 armed" over six enqueued PRs on 2026-09-19, having never
-opened this section. It is not a Lander, and it read sections 1 to 3 and the heading list.
+**This warning failed to reach TWO readers who needed it, three weeks after it was written.** On
+2026-09-19 a watchdog session published "0 armed" over six enqueued PRs, never having opened this
+section. It is not a Lander and it read sections 1 to 3 and the heading list.
+
+**The second reader WAS the Lander.** The same night, a live Lander seat armed classic auto-merge on
+engine #1279 by accident, re-derived this section's finding from the damage, and relayed it to three
+sessions as new. It holds this playbook. It had not opened this section either.
+
+So reach is not about which seat owns the file. **A section this long is opened by heading, and a
+heading nobody is searching for is not read.**
 
 So the cause is reach, not attention. `docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only
 the seat that opens the file it sits in*, landed in korus PR 130 at `df6d1ce`.
