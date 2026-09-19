@@ -27,6 +27,12 @@ it. Section 0 carries that boundary and the rest of the mechanics.
 open, and what you have filed belong in a dated note. A document that mixes the role with the
 episode rots, and the wrongness then hides behind the half that stayed right.
 
+**End every dated note by telling a later reader to delete it once stale.** The first Watchdog's
+rule, written into its own note at handoff, 2026-09-19.
+
+**A dated note nobody retires becomes the thing a later session trusts.** It keeps its date and
+loses its expiry, and a stale note reads exactly like a current one to a seat that was not there.
+
 **Added 2026-09-19 by Owner instruction.** Seventh live seat. *How this playbook was written* names
 its sources.
 
@@ -195,6 +201,21 @@ issued a verdict and taken a retired seat's grant.
 
 The transcript is also a third liveness surface. Section 3 asks for two. A last entry that has not
 moved across your own ticks is evidence the seat is gone, not merely quiet.
+
+**There is a script for this check, and it is NOT on `main` yet.** `scripts/board/seatstate.py`,
+written by the first Watchdog from this section, prints one of the three states with an age:
+
+    python scripts/board/seatstate.py <transcript.jsonl>
+
+| Item | Reading |
+| --- | --- |
+| Where it is | korus PR **136**, branch `claude/watchdog-board-clock`. Measured 2026-09-19: **ABSENT from `origin/main`**, along with `refresh.sh` and that session's episode note. |
+| So check before you reach for it | `git cat-file -e origin/main:scripts/board/seatstate.py`. If 136 has not landed, do the check by hand from this section. |
+| Why it can be trusted when it lands | It pairs an `AskUserQuestion` `tool_use` against its `tool_result` BY ID. A first draft matched the string anywhere and fired on a session merely DISCUSSING the tool. |
+| Its control | A slice of the real 04:30Z window, cut before the Owner's answer. It still reports BLOCKED, at 20h11m. |
+
+**A rule with no instrument gets re-derived by every seat that reads it.** This row exists so the
+next Watchdog inherits the check rather than the instruction to invent one.
 
 ### 0d. Never use AskUserQuestion. Put the decision in a table and nag
 
@@ -414,6 +435,30 @@ check.**
 
 So name the question, name what the tool returns, and check they are the same sentence.
 
+#### When a gate and your own check disagree, the gate's parser decides
+
+**Import the gate's parser rather than writing a second one.** A later failure of the same family,
+found by the first Watchdog while writing its handoff note.
+
+The heading above says seven because seven is what that shift produced. **It is not a cap, and it
+keeps its number so the citations to it keep resolving.**
+
+It wrote its own fat-paragraph check. That one split on blank lines and skipped any line starting
+with a digit. `tests/test_prose_rules_hold.py` does neither: it treats a list item as its own unit
+and rejoins wrapped prose.
+
+Three paragraphs passed its check and failed the gate. **It "fixed" them twice against its own wrong
+instrument** before measuring with the gate's parser directly.
+
+Confirmed first-hand while this section was written. The same probe, hand-rolled here, over-reported
+long sentences in `roles/`, and the count only settled after importing `paragraphs` from that test
+module and reading through it.
+
+    python -c "import sys; sys.path.insert(0,'tests'); import test_prose_rules_hold as T; ..."
+
+**A gate you cannot reproduce is a gate you will argue with.** Reach for its own code, which is
+readable, rather than for an approximation that agrees most of the time.
+
 #### The three whose false readings reached the Owner
 
 **Four of the seven were caught by controls before they left the session. These three were not.**
@@ -604,6 +649,9 @@ a mutation, and correct yourself faster than you correct others.
 | 8 | `roles/STEWARD.md` section 6d, plus inference |
 | 0 through 0e | The Owner's 2026-09-19 pairing, transcript and escalation instructions, plus `roles/COMMON.md` on the channels. **Reviewed by the sitting Watchdog**, which changed section 0a. |
 | 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
+| 4, the gate's parser decides | That seat's handoff, plus a first-hand repeat of the same error while this file was written. |
+| 0c, the `seatstate.py` rows | Read from korus PR 136's branch, not relayed. Its absence from `origin/main` was measured, not assumed. |
+| The dated-note expiry rule | That seat's own note, which ends by telling a later reader to delete it. |
 
 ### The spawn section changed the reviewer's own published recommendation
 
