@@ -40,7 +40,12 @@ AGREEMENT = t.REPO_ROOT / "CLAUDE.md"
 MARKER_RELPATH = ".claude/seat.local.txt"
 ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 
-#: The seat table in the working agreement governs the roster. SIX seats since 2026-09-16, when the
+#: The seat table in the working agreement governs the roster. SEVEN seats since 2026-09-19,
+#: when the owner added `watchdog`: a seat that watches another seat work and files findings,
+#: and does not do the work it watches. It is not a renamed Regulator -- that seat attributes
+#: ONE red check and exits.
+#:
+#: SIX from 2026-09-16, when the
 #: owner added `special`: a seat for work outside the other five, which reads COMMON.md and stands by
 #: rather than announcing on arrival.
 #:
@@ -51,7 +56,9 @@ ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 #: SIX before that, from 2026-09-10, when the Console retired and the Manager took its work. The
 #: Manager arrived 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is
 #: now the only seat that writes a brief.
-EXPECTED_SEATS = frozenset({"manager", "builder", "regulator", "steward", "lander", "special"})
+EXPECTED_SEATS = frozenset(
+    {"manager", "builder", "regulator", "steward", "lander", "special", "watchdog"}
+)
 
 #: Retired seats whose card page an ARCHIVE still links to. The page stays and becomes a tombstone.
 #:

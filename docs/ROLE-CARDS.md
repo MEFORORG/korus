@@ -16,6 +16,17 @@ Set the marker once in each worktree:
 Set-Content .claude\seat.local.txt 'builder'
 ```
 
+**Since 2026-09-19 you rarely need that command.** Two things now set the marker for you, and both
+load the card in the same turn.
+
+```
+/seat builder          the command. Declares, loads the card, then verifies all three grades.
+builder                a prompt that is EXACTLY a roster label. The hook treats it as a declaration.
+```
+
+*Two ways a seat gets set* explains why the second one is a declaration rather than the guess this
+page spends most of its length refusing.
+
 ---
 
 ## The four pieces
@@ -26,6 +37,14 @@ Set-Content .claude\seat.local.txt 'builder'
 | The cards | `docs/roles/<seat>.card.md` | One per live seat. Capped at 150 lines and 6 KB. |
 | The roster | `docs/roles/seats.json` | Live seats, the alias map, and the retired seats with reasons. |
 | The hook | `scripts/hooks/role-card-inject.ps1` | Resolves the seat, injects that card, writes a re-readable copy. |
+
+**Two more arrived 2026-09-19**, and the heading above keeps its old number because a frozen archive
+cites it.
+
+| Piece | Where | What it does |
+|---|---|---|
+| The command | `.claude/skills/seat/SKILL.md` | `/seat <name>` declares, loads the card, then verifies. |
+| The prompt hook | `scripts/hooks/seat-declare.ps1` | Turns a prompt that is exactly a roster label into a declaration. |
 
 The marker stays with the worktree through a crash, compaction, account switch, or respawn. A
 replacement session can use the same seat.
@@ -74,6 +93,71 @@ remaining uncertainty about injection weight.
 One test runs the hook under `claude/lander-x` and requires no card. Another rejects hook source
 containing `rev-parse`, `symbolic-ref`, or `git branch`.
 
+## Two ways a seat gets set
+
+Until 2026-09-19 nothing wrote the marker on its own. The card hook loaded a card when a marker
+already existed, `scripts/coord/seat.ps1 -Declare` wrote one, and nothing ran either.
+
+So a harness-created worktree was born seatless. The seat arrived as an ordinary chat turn, and the
+card never loaded for the session that had actually been told its seat.
+
+Measured here on 2026-09-19: a session was told `special`, held that seat for its whole run, and no
+card was ever injected.
+
+| Route | Trigger | What it writes |
+|---|---|---|
+| `/seat <name>` | You type it | The registry record, the marker, the card, and the three grades |
+| `seat-declare.ps1` | A prompt that is exactly a roster label | The marker and the card |
+| `seat.ps1 -Declare` | You run it | The registry record and the marker |
+| The card hook | Every `SessionStart` | The card, from a marker that already exists |
+
+**The command is the fuller route, because it writes a goal.** A machine can write the role. No
+machine can write why this session exists.
+
+### Why a bare prompt is a declaration and a branch name is not
+
+Owner ruling, 2026-09-19. The rule is exactness, and nothing else.
+
+| Prompt | Result |
+|---|---|
+| `special` | Declares the Special seat |
+| `/seat special` | Declares it, and says so if the label matches nothing |
+| `SPECIAL` | Declares it. Case and surrounding whitespace do not matter |
+| `adhoc` | Declares it, through the alias map |
+| `special seat` | Nothing |
+| `claude/special-d4c4b4` | Nothing |
+| `I think the special seat should handle this` | Nothing |
+| `console` | Refuses, and prints why the seat was retired |
+
+A branch name is a creation-time label that nothing keeps current. A prompt is different in the one
+way that matters: the user typed it this turn, on purpose, as the whole of their message.
+
+The hook therefore reads no ref. `TheHookReadsNoRef` fails on source containing `rev-parse`,
+`symbolic-ref`, `git branch` or `--show-current`, which is the same ban the card hook carries.
+
+**Refusals outnumber acceptances in `tests/test_seat_declaration.py` on purpose.** The distance
+between a declaration and a guess is one exactness test, so that test is what most of the file
+measures.
+
+## The three verification grades
+
+`/seat` reports all three. They fail independently, and only the third says whether the session
+holds the rules.
+
+| Grade | Question it answers | Instrument |
+|---|---|---|
+| Marker set | Will the seat survive a restart? | `.claude/seat.local.txt` equals the canonical seat |
+| Card emitted | Did the bytes reach the transcript? | The injector exited 0 and printed a card, not a refusal |
+| Context set | Does the session hold it? | The readback |
+
+**The readback is the only grade that can fail while the other two pass.** The session states its
+seat, what that seat owns, and its hardest prohibition, without reopening the file.
+
+A file on disk is not context. The first two grades pass for a card nobody read.
+
+**The card-emitted grade is paired with a planted control that must fail.** A check that cannot go
+red measures nothing, and this tree has twice published a zero from a detector that was not armed.
+
 ## The hook never fails a turn
 
 Every path exits 0, like the other hooks here. A missing roster, unknown label, oversized card, or
@@ -83,7 +167,14 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The six registered labels are Manager, Builder, Regulator, Steward, Lander, and Special.
+The seven registered labels are Manager, Builder, Regulator, Steward, Lander, Special, and
+Watchdog.
+
+Watchdog was added on 2026-09-19. It watches another seat work and files what it learns, and it
+does not do the work it watches.
+
+It is not a renamed Regulator. A Regulator attributes one red check and exits; a Watchdog
+observes a seat over time and writes about the method rather than the check.
 
 Special was added on 2026-09-16 for work outside the other five. Its card tells the session to read
 `roles/COMMON.md` and stand by, without announcing itself.
@@ -150,11 +241,18 @@ That separately filed gap is now covered in [the leak gate's detector history](L
 
 ## Rollout
 
-`.claude/settings.example.json` includes the hook, but the harness loads only `settings.json` and
+`.claude/settings.example.json` includes both hooks, but the harness loads only `settings.json` and
 `settings.local.json`. The example alone does nothing.
 
-Copy the example entry into a real settings file to enable it. There is no automatic update to
+Copy the example entries into a real settings file to enable them. There is no automatic update to
 existing worktrees; unwired ones keep their prior behavior.
+
+**The `UserPromptSubmit` key in that example was created, not edited.** PR 130 removed the key
+entirely on 2026-09-19 when `context-budget.ps1` went, because that hook was its only entry.
+
+**`/seat` needs no wiring at all.** A skill is loaded by the harness from `.claude/skills/`, so the
+command works in a checkout where neither hook is installed. That is the route to reach for when a
+copier's settings are not set up yet.
 
 ## The one thing still unproven
 
@@ -177,6 +275,12 @@ role-card hook uses plain stdout, the output already exercised at `SessionStart`
 
 Test it with one hook, a distinctive token, and a fresh session.
 
+**`/seat` sidesteps the question rather than answering it.** A skill's output is already inside the
+turn, so the card does not depend on what a hook may emit.
+
+The readback is what turns that from an assumption into a reading. The probe above stays open for
+the two hooks, which still emit plain stdout.
+
 ## Verification actually run
 
 Before implementation, the tests produced 23 failures and 16 passes. The passing tests checked
@@ -189,6 +293,23 @@ Those checks correctly passed before the new code and must keep passing.
 | `pytest tests/test_role_cards.py` | 39 passed, 12 subtests passed |
 | ASCII gate, CI invocation | exit 0 |
 | Hook run by hand, marker set | exit 0, card injected |
+
+**The 2026-09-19 additions, measured at `9a215ff` plus the change:**
+
+| Check | Result |
+|---|---|
+| `pytest tests/test_seat_declaration.py`, before the hook existed | 50 failed, 6 passed |
+| `pytest tests/test_seat_declaration.py`, after | 31 passed, 35 subtests passed |
+| `pytest tests/` | 673 passed, 2 skipped, 586 subtests passed |
+
+The red run is quoted because it is the control. The 6 that passed first were the planted controls
+and the checks against the existing injector, which is what should pass before any new code.
+
+**The first draft of `seat-declare.ps1` did not parse.** It piped `< $null` into the injector, a
+bash redirect, and `<` is a reserved operator in PowerShell. The hook exited 1 on every turn.
+
+That is recorded because the hook's own promise is that it never fails a turn, and a parse error
+breaks that promise before any of its logic runs.
 
 The prose gate scans only `docs/`, `README*`, and `INSTALL*`. It excludes `CLAUDE.md` and `roles/`.
 

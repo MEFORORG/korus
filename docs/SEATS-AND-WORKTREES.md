@@ -15,6 +15,12 @@ pwsh -NoProfile -File scripts/worktree/new.ps1 -Name <short-name>
 Set-Content .claude\seat.local.txt 'builder'
 ```
 
+**Since 2026-09-19 the second line is rarely needed.** Type `/seat builder` in the new session, or
+send a prompt that is exactly `builder`. Both write the marker and load the card in the same turn.
+
+The command also writes the fleet registry record, which the bare prompt cannot, because that
+record needs a goal. See [Role cards](ROLE-CARDS.md), *Two ways a seat gets set*.
+
 This setup applies when more than one session works in a repository.
 
 ---
@@ -70,6 +76,12 @@ next session recover the role.
 1. `.claude/seat.local.txt` in the worktree root.
 2. `$env:KORUS_SEAT`.
 3. Nothing. No card, and one printed line naming the command that sets a marker.
+
+A prompt can now set that marker, and it is not an exception to this rule. `seat-declare.ps1` reads
+the text the user typed this turn, never a name attached to the checkout.
+
+The test that bans `rev-parse`, `symbolic-ref` and `git branch` from the card hook's source applies
+to that hook too.
 
 Do not infer a seat from a worktree name. That creation-time label can become stale; one worktree
 here still names a question answered in its first two minutes.

@@ -5,7 +5,7 @@ role; CLAUDE.md's seat table governs.
 
 Read `roles/COMMON.md` before `roles/SPECIAL.md`, the full playbook.
 
-The Owner assigns this seat work that falls outside the five standing seats. Your instruction is
+The Owner assigns this seat work that falls outside the six standing seats. Your instruction is
 your scope, and this card gives you no other.
 
 ## What this seat owns
