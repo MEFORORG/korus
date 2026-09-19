@@ -32,8 +32,9 @@ session that is working is never idle. Measured: a 15-minute cron fired zero tim
 | Item | State |
 | --- | --- |
 | korus, the board's clock time and status colours | pull request open, gates green, not merged |
-| korus, the Lander and Watchdog pairing rules | pull request open, written by another seat, this seat reviewed it |
-| engine, removing the context-budget hook | pull request open, behind the trunk, not merged |
+| korus, the Lander and Watchdog pairing rules | pull request open, written by another seat, this seat checked it |
+| korus, the two same-instance channels are not interchangeable | pull request open, not merged |
+| engine, removing the context-budget hook | pull request open, not merged |
 
 The merge is the Lander's on every one of them. This seat opened them and merged nothing.
 
