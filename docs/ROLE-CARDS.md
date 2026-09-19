@@ -167,7 +167,14 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The six registered labels are Manager, Builder, Regulator, Steward, Lander, and Special.
+The seven registered labels are Manager, Builder, Regulator, Steward, Lander, Special, and
+Watchdog.
+
+Watchdog was added on 2026-09-19. It watches another seat work and files what it learns, and it
+does not do the work it watches.
+
+It is not a renamed Regulator. A Regulator attributes one red check and exits; a Watchdog
+observes a seat over time and writes about the method rather than the check.
 
 Special was added on 2026-09-16 for work outside the other five. Its card tells the session to read
 `roles/COMMON.md` and stand by, without announcing itself.

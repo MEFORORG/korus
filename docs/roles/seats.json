@@ -5,6 +5,10 @@
     "fails if the two drift apart. roles/README.md holds a third copy and is not a source for",
     "this file. The claim that its live table listed seven retired seats as live was retracted",
     "in CLAUDE.md on 2026-09-10; that table named one retired seat, in a Replaces clause.",
+    "SEVEN seats are live since 2026-09-19, when the Owner added the WATCHDOG seat. It watches",
+    "another seat work and files findings; it does not do the work it watches, and it is NOT a",
+    "renamed Regulator -- a Regulator attributes ONE red check and exits, while a Watchdog",
+    "observes a seat over time and writes about the method rather than the check.",
     "SIX seats are live since 2026-09-16, when the Owner added the SPECIAL seat. It holds work",
     "that falls outside the five standing seats, and it is the only seat that does NOT announce or",
     "declare on arrival: it reads COMMON.md and stands by until the Owner instructs it.",
@@ -17,7 +21,8 @@
     "regulator",
     "steward",
     "lander",
-    "special"
+    "special",
+    "watchdog"
   ],
 
   "_aliases_comment": [
@@ -54,7 +59,14 @@
     "special-2": "special",
     "specials": "special",
     "adhoc": "special",
-    "ad-hoc": "special"
+    "ad-hoc": "special",
+    "watchdog1": "watchdog",
+    "watchdog2": "watchdog",
+    "watchdog-1": "watchdog",
+    "watchdog-2": "watchdog",
+    "watch": "watchdog",
+    "watcher": "watchdog",
+    "wd": "watchdog"
   },
 
   "_retired_comment": [
