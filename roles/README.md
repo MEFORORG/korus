@@ -55,7 +55,7 @@ stands by, and announces only when its instruction makes the message worth sendi
 | Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
 | Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other six.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
-| Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Watches another seat work and files what it learns.** Added 2026-09-19. It does not do the work it watches, take its claim, or drive its lane. |
+| Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Added 2026-09-19. It reads instruments, raises a stall, and never drains the queue, takes the claim, or drives the lane. |
 | | | **It did not inherit the Regulator**, retired the same day. That seat returned a binding verdict on one red check; this one returns evidence and decides nothing. No seat attributes a red now. |
 | | | Drafted from the record of the first Watchdog session, and not reviewed by a Watchdog. The playbook's last section separates what was measured from what was inferred. |
 | Not a seat | [COMMON-STAGED.md](COMMON-STAGED.md) | **Staging, not a playbook.** Sections split out of COMMON.md on 2026-09-05 that belong to one seat or fire never. Unedited, awaiting a destination. |

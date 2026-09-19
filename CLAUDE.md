@@ -41,7 +41,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
 | Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
-| Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | Watches another seat work and files what it learns where the affected seats read. Added 2026-09-19. **It does not do the work it watches**, and it did not inherit the Regulator. |
+| Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
 whichever seat you hold.
@@ -103,7 +103,7 @@ one is stale.
 ## The constitution governs
 
 [The KORUS Constitution](.specify/memory/constitution.md) holds the rules a session, a seat, a gate
-or a later spec may not break. Thirteen articles at v1.16.0. Every article names the evidence behind
+or a later spec may not break. Thirteen articles at v1.17.0. Every article names the evidence behind
 it, so a reader can check rather than trust.
 
 **That line read "Twelve articles at v1.10.0" until 2026-09-10, and both numbers were wrong.**

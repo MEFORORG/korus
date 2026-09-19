@@ -245,5 +245,5 @@ labelling setup.
 - [CI for leaders](CI-FOR-LEADERS.md) -- what done means when the author cannot vouch for the change
 - [Every script](SCRIPTS.md) -- the full inventory, including this one
 
-The [handoff diagram](KORUS-BUILD.md#g04) still shows a Regulator receiving a failed check. That
-seat retired on 2026-09-19 and the diagram has not been redrawn.
+The [handoff diagram](KORUS-BUILD.md#g04) shows where a failed check goes now that no seat
+attributes one: the Lander triages and routes it, and the rest is the Owner's to rule on.
