@@ -277,12 +277,34 @@ signed into one account.** Measured here: five, `~/.claude-account-1` through `-
 
 A peer is either inside your instance or outside it, and that one fact picks the channel.
 
-| The peer sits | Channel | Addressed by |
-| --- | --- | --- |
-| In your CCD instance | `ccd_session_mgmt` MCP, or built-in `SendMessage` | a session id, or a session name |
-| In another CCD instance | `scripts/coord/mail.ps1` | the peer's worktree path |
+| The peer sits | Channel | Addressed by | Wakes a sleeping peer |
+| --- | --- | --- | --- |
+| In your CCD instance | `ccd_session_mgmt` MCP | a `local_` session id | **Yes.** It arrives as a user turn |
+| In your CCD instance | built-in `SendMessage` | a session name | **Not established.** Measured failing once |
+| In another CCD instance | `scripts/coord/mail.ps1` | the peer's worktree path | **No.** It waits for the peer's own drain hook |
 
 Neither is a superset of the other, so "I could not reach them" has to name which one you tried.
+
+**The first two were one row until 2026-09-19, joined by an "or", and they are not interchangeable.**
+
+Measured that day against a peer's own transcript. Four `SendMessage` sends were accepted and
+enqueued, at 03:18:29Z, 03:43:03Z, 04:02:43Z and 04:21:24Z. The matching queue `remove` came at
+13:56:42.800Z, **9h 35m later**, 10 milliseconds after a user turn reached that session.
+
+The peer had been suspended on its own `AskUserQuestion` since 03:19:31Z, and a suspended session
+does not drain its queue. Its transcript has no rows at all for the hours 05 through 12.
+
+**A send returning success proves the queue accepted it, never that anybody read it.** The seat that
+sent those four reported a capacity stall to the owner for ten hours while its four messages sat
+unread.
+
+### Testing whether a wake worked
+
+A wake worked only if a queue `remove` follows the `enqueue` within minutes, in the RECIPIENT's
+transcript. That is checkable after the fact, on any session, without the recipient's cooperation.
+
+**Do not test it on "did the peer push, merge or enqueue within N minutes".** A peer that was
+already busy does those things anyway and hands you a false pass.
 
 ### Same instance: the MCP method
 
