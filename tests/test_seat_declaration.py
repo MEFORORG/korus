@@ -261,6 +261,49 @@ class TheHookReadsNoRef(unittest.TestCase):
         self.assertIn("rev-parse", hits)
 
 
+class NoSeatResolvingHookReadsARef(unittest.TestCase):
+    """The ban, generalised from a named file to every hook that resolves a seat.
+
+    RAISED BY THE LANDER SEAT, 2026-09-19, while this change was in flight: a whole-prompt roster
+    match is a NEW RUNG, and the silence of a new rung has to be proven rather than asserted.
+
+    Measured on that caution: two hooks read the marker, and each was pinned by a constant in a
+    different file -- `role-card-inject.ps1` in `test_role_cards.py`, `seat-declare.ps1` in the
+    class above. Both were covered. A THIRD hook would have been covered by neither, because both
+    pins name their subject instead of discovering it.
+
+    This class discovers the subject. Adding a seat-resolving hook now brings its own ban with it.
+    """
+
+    FORBIDDEN = ("rev-parse", "symbolic-ref", "git branch", "--show-current")
+
+    #: A hook that resolves a seat is one that reads the marker. That is the shared property, and
+    #: it is what makes discovery possible at all.
+    MARKER = "seat.local.txt"
+
+    def seat_hooks(self) -> list[Path]:
+        hooks = t.REPO_ROOT / "scripts" / "hooks"
+        return sorted(p for p in hooks.glob("*.ps1") if self.MARKER in p.read_text(encoding="utf-8"))
+
+    def test_the_sweep_finds_both_known_hooks(self):
+        """The control. A glob that matched nothing would pass every assertion below in silence."""
+        found = {p.name for p in self.seat_hooks()}
+        self.assertIn("role-card-inject.ps1", found)
+        self.assertIn("seat-declare.ps1", found)
+
+    def test_no_seat_resolving_hook_reads_a_branch_or_ref(self):
+        for hook in self.seat_hooks():
+            src = t.ps_source(hook)
+            for needle in self.FORBIDDEN:
+                with self.subTest(hook=hook.name, needle=needle):
+                    self.assertNotIn(
+                        needle, src,
+                        f"{hook.name} reads a ref. A worktree or branch name is a creation-time "
+                        "label that nothing keeps current, and a wrong card outranks the document "
+                        "the session should be reading.",
+                    )
+
+
 class TheSeatSkillIsInstalledAndShaped(unittest.TestCase):
     """The `/seat` command itself. It is the explicit half of the same feature."""
 
