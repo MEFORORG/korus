@@ -160,8 +160,16 @@ Rules that are not negotiable:
 
 | Naming | Meaning |
 |---|---|
-| `.example.` in the name | Tracked, and inert by construction. The harness loads `settings.json` and `settings.local.json` only, so an example file can never become a control that looks installed. |
+| `.example.` in the name | Required of a tracked **settings** file. Inert by construction: the harness loads `settings.json` and `settings.local.json` only, so an example can never become a control that looks installed. |
 | `.local.` in the name | Machine-local, and ignored by `*.local.*`. |
+| A skill, at `skills/<name>/SKILL.md` | Tracked, with no marker. It loads by directory name, so `.example.` would break it rather than make it inert. |
+
+**The `.example.` rule was stated as covering everything under `.claude/` until 2026-09-19, and
+the tree broke it 29 times.** Measured with `git ls-files .claude`: 29 tracked files carry no
+`.example.`, every one a `SKILL.md`, against a control of exactly 1 that does.
+
+The wording predated the fleet skills and was never narrowed, so it forbade what this repository
+had just started doing. `.gitignore` now says settings.
 
 **Run `git check-ignore -v <path>` before choosing a path for a generated file.** The `*.local.*`
 pattern needs a segment after `.local.`, so `seat.local` is tracked and `seat.local.txt` is not.
