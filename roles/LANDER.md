@@ -328,6 +328,8 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | What that window cost | Measured 2026-09-19: 1 CLEAN non-draft ready at 14:23:19Z, and 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
 | The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
 | One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
+| RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
+| What replay would have cost | Measured 2026-09-19: a group staged at 03:10Z shared ONE PR with the five the seat actually enqueued at 14:34Z. Re-reading state made it right, not waking up. |
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
 | Do NOT stop it on an empty queue | Empty is the state it exists to catch. Load `lander-empty-queue` and keep looping. |
@@ -361,9 +363,25 @@ instances.
 At 03:03Z the seat was already enqueuing on its own gate, having queued six PRs at 02:25Z. At
 14:24:32Z ninety seconds is a gap between turns, not a failure.
 
-**What bounds the mechanism is how long that state PERSISTS**, and no instant can say. The Watchdog
-is timestamping the drain and printing idle-to-enqueue minutes on the next enqueue.
-**EXPIRY: those numbers. Replace both rows with a distribution when they arrive.**
+**What bounds the mechanism is how long that state PERSISTS**, and the first figure is in.
+
+| Reading | Value |
+| --- | --- |
+| Drain | 14:22:54Z, #1224 merged, queue empty |
+| Next enqueue | 14:34:25Z, five PRs, all AWAITING_CHECKS |
+| Idle | **11m 31s**, n=1 |
+
+**Eleven minutes on a live, funded seat is a turn boundary, not a stall.** A loop shaves minutes off
+that, not hours, and the two long stalls stay outside its reach. **The honest claim is that small**,
+and the Watchdog sent the figure knowing it cuts against this section.
+
+**Treat it as the weakest of the series.** The poller printed 9m, anchoring its clock to its own
+restart rather than to the merge. 11m 31s was repaired by hand from #1224's timestamp.
+
+**EXPIRY: a distribution with n above one.** Rewrite this block around it, whichever way it points.
+
+**The loop is owner-set, and a small measured benefit does not reopen that.** Owner ruling
+2026-09-19. What the figures govern is what this section may CLAIM, not whether the seat loops.
 
 **That first row read "It enqueued only after a peer sent it a reading" until the Watchdog retracted
 it, the same day, before this landed.** The two events fall in the same eight minutes and cannot be
@@ -582,6 +600,15 @@ gh pr view <N> --json autoMergeRequest --jq '.autoMergeRequest'   # null = NOT a
 > engine PRs 653 and 640. **A count of "armed PRs" read the old way reports ZERO while the queue is
 > moving.** The reading still holds wherever a branch has no merge queue.
 
+**This warning failed to reach a reader who needed it, three weeks after it was written.** A watchdog
+session polling the same queue published "0 armed" over six enqueued PRs on 2026-09-19, having never
+opened this section. It is not a Lander, and it read sections 1 to 3 and the heading list.
+
+So the cause is reach, not attention. `docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only
+the seat that opens the file it sits in*, which lands in korus PR 130 and is not on `main` yet. A
+reader who cannot find that heading should look for the PR.
+
+
 The instrument that answers it under a merge queue:
 
 ```
@@ -596,6 +623,7 @@ gh api graphql -f query='query{repository(owner:"MEFORORG",name:"MessageFoundry"
 | Nothing ever reports `BEHIND` | **RETIRED 2026-09-02.** This row read *"`strict` is FALSE, so staleness is not a merge blocker"*. `strict` measured FALSE on 2026-08-28 and TRUE on 2026-09-02. |
 | So the BEHIND sections DO describe this repo | Read `strict` live from the protection call every time. Do not carry either reading forward. |
 | A PR is open, mergeable, nothing red, and simply not merging | THE QUEUE DEQUEUES SILENTLY. PR 640 was evicted when 653 merged, stayed OPEN and MERGEABLE, and nothing reported it. |
+| Why a silent eviction has never blocked the queue | Because it is automatic, and no lever would help if it were not: neither `--disable-auto` nor the `dequeuePullRequest` mutation removes an entry on the engine repo. Three cases, 2026-09-19. Same PR as above. |
 
 | Item | Rule |
 | --- | --- |
