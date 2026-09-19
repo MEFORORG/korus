@@ -20,6 +20,7 @@ on another machine is still invisible to both.
 
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -106,13 +107,34 @@ class TheRuleIsWrittenWhereASeatReadsIt(unittest.TestCase):
 
 
 class TheRosterRunsAndAgreesWithItself(unittest.TestCase):
-    """An end-to-end pass. It asserts shape, never a session count, which moves minute to minute."""
+    """An end-to-end pass. It asserts shape, never a session count, which moves minute to minute.
+
+    THE PRECONDITION IS PART OF THE TEST, and leaving it out is what reddened CI on the first
+    attempt. `presence.ps1` renders a roster only where a Claude Code config root exists. A CI
+    runner has none, so the script correctly refuses and prints "Roster UNAVAILABLE" instead of the
+    scope line these tests look for.
+
+    The first version asserted the scope line unconditionally. It passed on the author's machine,
+    which has a registry, and failed on `gates (windows-latest)`, which does not -- the same shape
+    as every finding in `roles/WATCHDOG.md` section 4: a reading whose filter did not match what it
+    claimed to check.
+
+    So the environment is established first and the run is skipped with a reason where no roster can
+    exist. `TheRosterRefusesRatherThanReportingNobody` below then covers the refusal path, and it
+    runs everywhere, so this file is not silently vacuous on the machines that skip.
+    """
 
     def setUp(self):
         pwsh = t.find_pwsh()
         if not pwsh:
             self.skipTest("pwsh is not on PATH, so the roster cannot be executed here")
         self.pwsh: str = pwsh
+        if "Roster UNAVAILABLE" in self.run_presence().stdout:
+            self.skipTest(
+                "no Claude Code config root on this machine, so presence.ps1 refuses to render a "
+                "roster at all -- the refusal path is covered by "
+                "TheRosterRefusesRatherThanReportingNobody"
+            )
 
     def run_presence(self, *args: str):
         return subprocess.run(
@@ -142,6 +164,43 @@ class TheRosterRunsAndAgreesWithItself(unittest.TestCase):
         m = re.search(r"FLEET \((\d+) repositor", r.stdout)
         self.assertIsNotNone(m, f"no fleet count in output: {r.stdout[:300]}")
         self.assertGreaterEqual(int(m.group(1)), 1)
+
+
+class TheRosterRefusesRatherThanReportingNobody(unittest.TestCase):
+    """The path a CI runner actually takes, and the reason the skip above is not a hole.
+
+    An empty roster and an unexamined one are the same two bytes to a consumer. `presence.ps1`
+    already argues this for itself; this pins it, and it runs on every machine because it supplies
+    its own empty config root rather than depending on the one the host happens to have.
+    """
+
+    def setUp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the roster cannot be executed here")
+        self.pwsh: str = pwsh
+
+    def run_with_no_registry(self, *args: str):
+        """Point the script at an empty directory, so no config root can be found."""
+        with tempfile.TemporaryDirectory(prefix="ccx-noroster-") as tmp:
+            return subprocess.run(
+                [self.pwsh, "-NoProfile", "-File", str(PRESENCE), "-ConfigRoot", tmp, *args],
+                capture_output=True, text=True, cwd=str(t.REPO_ROOT), timeout=TIMEOUT_SECONDS,
+            )
+
+    def test_an_absent_registry_says_so_rather_than_listing_nobody(self):
+        r = self.run_with_no_registry()
+        self.assertIn("UNAVAILABLE", r.stdout + r.stderr)
+
+    def test_it_says_the_empty_result_is_not_an_all_clear(self):
+        """The whole point. A consumer must not read 'nothing found' as 'nobody is live'."""
+        r = self.run_with_no_registry()
+        self.assertIn("NOT", r.stdout + r.stderr)
+
+    def test_it_does_not_exit_zero_on_an_unexamined_roster(self):
+        """Exit 0 beside an empty list is the reading that cannot be told from a real all-clear."""
+        r = self.run_with_no_registry()
+        self.assertNotEqual(0, r.returncode)
 
 
 if __name__ == "__main__":
