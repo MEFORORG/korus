@@ -780,9 +780,16 @@ time and the pull request caught up.
 Read the entry for anything queue-related, and treat `UNMERGEABLE` there as an early conflict
 warning rather than a quirk.
 
-An entry in that state evicts itself. Measured three times in one day, on `#1279`, `#1201` and
-`#1227`, with nothing behind them blocked and no lever pulled. Neither `gh pr merge --disable-auto`
-nor the `dequeuePullRequest` mutation removes an entry from that repository.
+**An entry in that state resolves itself, one of two ways, and neither needs a lever.** Measured six
+times on 2026-09-19. Four evicted: `#1279`, `#1201`, `#1227`, `#1229`. Two recovered to
+`AWAITING_CHECKS` in place, `#1232` and `#1233`, when the entries ahead of them left the queue.
+
+So `UNMERGEABLE` is not terminal and it is not a verdict on the pull request. It is a statement
+about the entry against its predecessors' stacked state, and it changes when they do.
+
+Do not reach for a lever either way. A queued entry is frozen until it resolves on its own: neither
+`gh pr merge --disable-auto` nor `dequeuePullRequest` removes one, and `update-branch` returns 422
+while a pull request is queued. That 422 was measured by the Lander seat, which holds that grant.
 
 `roles/LANDER.md` section *4d-bis* logs the same eviction as a hazard: the row *A PR is open,
 mergeable, nothing red, and simply not merging*. One mechanism, both readings true. **Automatic
@@ -793,11 +800,22 @@ eviction is also why a stuck entry never blocks the queue**, and no lever would 
 GitHub recomputes mergeability lazily once the trunk moves, so every open pull request reads
 `UNKNOWN` until it settles.
 
-Measured 2026-09-19: a poll 77 seconds after a merge reported **0 CLEAN**. A re-read 15 seconds
-later returned **20**.
+Measured 2026-09-19, twice on one afternoon. A poll 77 seconds after a merge reported **0 CLEAN**,
+and a re-read 15 seconds later returned **20**. A later poll **195 seconds** after a merge reported
+**1**, and a direct query 14 seconds after that returned **14**.
 
-A filter counting one bucket folds `UNKNOWN` into not-ready and publishes that zero. Wait two
-minutes, or report the whole distribution so the `UNKNOWN` bucket stays visible.
+**Read twice and use the second.** A filter counting one bucket folds `UNKNOWN` into not-ready and
+publishes that zero, so also report the whole distribution and keep the `UNKNOWN` bucket visible.
+
+**This page said "wait two minutes" until 2026-09-19, and the 195-second reading refutes it.**
+Fourteen seconds cannot settle what 195 could not.
+
+Two mechanisms fit. Either the value settles on its own clock, or the bulk query is itself what
+triggers the recomputation and the first caller pays for it. Reading twice survives both: under the
+first the second read is later, under the second it is warm.
+
+A wait does not, and it fails in the worse direction -- a seat that waited trusts the number more.
+**Prefer the remedy that does not depend on which mechanism is true.**
 
 The same shape had already fired that night on `autoMergeRequest`, which reads null for a queued
 pull request. Five non-null values proved the field was readable and proved nothing about whether it
