@@ -15,8 +15,16 @@ disable-model-invocation: false
 **Two steps since 2026-09-12.** Push your own branch and open your own pull request, which needs no
 approval. The Lander merges it once the two required checks are green.
 
+**NARROWED 2026-09-18, by owner ruling: a Builder under a Manager does not open the pull request.**
+It pushes, reports and exits.
+
+The Manager checks the branch reached the remote, opens the pull request, and hands it to the
+Lander with five fields. Every other seat still opens its own.
+
 | Item | Rule |
 | --- | --- |
+| Whose step 2 this is | Yours, unless you are a Builder working to a Manager's brief. Then it is the Manager's. |
+| What the 2026-08-29 ruling covered | *"Sessions push their own."* The push. It never named the pull request. |
 | RETIRED 2026-09-12, the middle step | The 2026-08-29 route had three: create the pull request, a review seat posts findings or approves, then it passes the work to the Lander. The owner retired that seat and nothing replaced it. |
 | Nothing reads your diff before the merge | Your own pass is the only one it gets. Say in the pull request what you ran and what you did not vary. |
 | Findings on a pull request are still worth posting | Any seat may write them, and the pull request outlives the session that did. Nobody waits for them. *Your pull request has to survive your own exit* covers what it must carry. |
@@ -40,6 +48,9 @@ Reviewer, have any other running seat read the diff and label it."*
 
 **Neither one is a route now.** The gate went on 2026-09-04, the seat on 2026-09-12, and the fallback
 became the whole path: push, open the pull request, and the Lander merges.
+
+**The 2026-09-18 ruling changed only who performs the second step for a Builder.** The path itself is
+unchanged, and no review step came back.
 
 ## A new test file is unlandable until the manifest classifies it
 

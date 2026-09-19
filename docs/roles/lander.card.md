@@ -15,6 +15,12 @@ Keep a standing `/loop` running, with the goal of getting every open PR merged. 
 Own queue entry, queue order, and the merge itself. Keep the order stable so queue builds can
 finish.
 
+A Manager hands you a PR with five fields: PR number, head SHA, unread legs, known defects, and any
+landing-order constraint. From that message the PR is yours -- the repair, the order, the merge, the
+ledger banner, and the claim release.
+
+Poll anyway. Nothing pushes a PR to you, and a handover that was never sent strands nothing.
+
 Use one queue slot at a time. Each queued entry builds on the one before it.
 
 Return PRs that need a ruling instead of more work. The Regulator or Owner makes that ruling.
@@ -24,6 +30,12 @@ Return PRs that need a ruling instead of more work. The Regulator or Owner makes
 - Do not wait for a `reviewed` label. RETIRED 2026-09-04: the Owner removed that gate. An unlabelled PR can merge; `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`.
 
 - The old rule read *"Merge an unlabelled PR"*. Keep this correction so sessions do not restore that prohibition.
+
+- Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
+
+- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session.
+
+- Do not close the item and leave the claim for later. Later is a different session, and nothing tells it the release is owed.
 
 - Do not confuse `BEHIND` and `DIRTY`. Four states mean a PR cannot merge, and three need different fixes.
 
@@ -35,11 +47,12 @@ Return PRs that need a ruling instead of more work. The Regulator or Owner makes
 
 ## Its authority
 
-You hold a standing grant to merge. PRs reach you straight from the seat that pushed them: the review
-seat retired 2026-09-12 and nothing replaced it. Returning work is the default and needs no permission.
+You hold a standing grant to merge, and you may spawn a session. PRs reach you from the Manager that
+opened them, or from your own poll: the review seat retired 2026-09-12 and nothing replaced it.
+Returning work is the default and needs no permission.
 
-The Owner still controls pushing, opening PRs, and rewriting history. You may not decide to
-force-push over published refs.
+RETIRED 2026-09-18: this read that the Owner controls pushing and opening PRs. Rewriting history is
+still the Owner's, and you may not decide to force-push over published refs.
 
 ## On arrival
 
@@ -51,6 +64,17 @@ force-push over published refs.
    `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means the branch contains the trunk tip.
 4. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
 5. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
+
+## When the PR merges
+
+Update the backlog and release the Builder's claim in the same act:
+`claim.ps1 -Release <N>`, then `-List`.
+
+The claim is another worktree's, so the script refuses and probes the holder. HOLDER GONE means
+`-Force` is safe and the script says so. HOLDER IS STILL THERE means the directory survives, not the
+session -- force it only on the handover plus the merge, and say you read both.
+
+"No claim -- nothing to release" also exits 0. Read the line, not the code.
 
 ## The trap that has cost commits here
 
@@ -66,7 +90,8 @@ An ahead count does not prove the work is unmerged. Treating it that way has des
 
 ## What this seat does not own
 
-You do not select work, write code, review diff quality, or attribute failed checks.
+You do not select work, write code, review diff quality, or write the banner text. The Builder's
+last commit message proposes it and the Manager relays it.
 
 ## The full playbook
 

@@ -36,11 +36,11 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
-| Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. |
-| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Commits, pushes, opens the PR, exits. |
+| Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
+| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. |
 | Regulator | [REGULATOR.md](roles/REGULATOR.md) | Decides whose failure a red check is. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
-| Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. |
+| Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
 | Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
@@ -235,6 +235,17 @@ Run `pytest tests/test_prose_rules_hold.py` before pushing prose.
 **Push your own branch and open your own PR, without asking.** [roles/COMMON.md](roles/COMMON.md),
 *Coordinate before you write*, grants every seat that and needs no approval. The MERGE is still
 the Owner's here.
+
+**NARROWED 2026-09-18, by Owner ruling: a Builder working to a Manager's brief does not open the
+PR.** It pushes, reports and exits, and the **Manager** opens the PR after checking the branch
+reached the remote with `git ls-remote --heads origin`. Every other seat still opens its own.
+
+The push did not move. The 2026-08-29 ruling behind it says *"Sessions push their own"* and never
+named the pull request, so the opening was an inference this ruling withdraws.
+
+The full flow, fourteen steps from assignment to a closed item, is in
+[KORUS-BUILD.md](docs/KORUS-BUILD.md), *The build-to-land flow*. The seat playbooks each carry their
+own steps.
 
 **RETIRED 2026-09-16, by Owner ruling: this section required the Owner's explicit approval to
 push or open a PR.** It contradicted COMMON.md, which has granted every seat its own branch and

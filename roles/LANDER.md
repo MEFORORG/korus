@@ -83,7 +83,9 @@ Two halves of it survive because that section restates them. The routing itself 
 
 | Item | Rule |
 | --- | --- |
-| Who pushes -- SURVIVES | **Every seat pushes its own branch and opens its own PR, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. |
+| Who pushes -- SURVIVES | **Every seat pushes its own branch, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. |
+| Who OPENS -- NARROWED 2026-09-18 | That row read *"and opens its own PR"*. It still holds for every seat except a **Builder working to a Manager's brief**: that Builder pushes and reports, and **the Manager opens the pull request**. |
+| What the 2026-08-29 ruling covered | The push, and never the pull request. |
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
 | Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **Nothing reads a diff before the merge, and you do not wait for one.** |
@@ -96,9 +98,11 @@ Two halves of it survive because that section restates them. The routing itself 
 | Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). |
 | What does report, and what it misses | `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron. `failure-signal.yml` writes a `ci-red` label that no workflow reads back. |
 | What that means for you | A green PR nobody has taken is waiting on your own poll, not on a broken route. Say that, and do not infer that the route changed. |
-| Notification -- RETIRED | There is none. Every notice is POLLED and nothing is pushed. **A seat that waits to be notified waits forever.** |
-| Return-to-author -- RETIRED | There is no author to return to. A Builder's process exits when its PR opens. Findings go ON THE PR, for whichever Builder the Manager runs next. |
-| Hand-off to the Lander -- RETIRED | Nothing is passed. You poll. |
+| Notification -- STILL RETIRED as a guarantee | Nothing in the system pushes you a pull request. **A seat that waits to be notified waits forever**, and the 2026-09-18 handover does not change that. |
+| The three ways a handover fails | It is never sent, it reaches another Lander, or it names a pull request nobody opened. |
+| Hand-off to the Lander -- RESTORED 2026-09-18, as a COURTESY | A Manager messages you at step 10 with five fields. It tells you things the queue cannot: unread legs, shipped findings, landing order. **Poll anyway.** The row below held until then. |
+| What that row read | *"Nothing is passed. You poll."* True for every pull request that reaches you any other way, and still the floor. |
+| Return-to-author -- RETIRED | There is no author to return to, and since 2026-09-18 it is worse: the Builder exits BEFORE the pull request opens. Findings go ON THE PR, for whichever Builder the Manager runs next. |
 | What the label proved -- gate retired, lesson kept | That a step HAPPENED, not that an independent party looked. A self-applied label satisfied the machine and defeated the point. Any gate recording an event rather than a judgment has that hole. |
 | Direct pushes to `main` | Still blocked by the harness. |
 | Being correct is not being authorised | This seat once inferred the push rule and published it to eleven files without asking. |
@@ -110,9 +114,11 @@ Two halves of it survive because that section restates them. The routing itself 
 
 | Duty | Rule |
 | --- | --- |
+| **Own a handed-over PR from the handover on** | Added 2026-09-18. A Manager opens the pull request and hands it to you with five fields. From that message the repair, the order, the merge, the ledger and the claim are yours. |
 | Drive the merge queue | Keep armed PRs moving to `main`, one at a time, without idling. |
 | Keep the loop running | Nothing wakes this seat. A standing `/loop` is what makes "without idling" true. See *Keep a standing `/loop` running*. |
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
+| **Release the Builder's claim with the ledger update** | Added 2026-09-18, and both in the SAME act. An orphaned claim blocks the next session on that row and **nothing anywhere reports it**. See *Close the item and release the claim in one act*. |
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
 | File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. |
 | What they hand you | The item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
@@ -185,6 +191,58 @@ standing rule.
 **Do not settle it with `list_sessions`.** An absent seat and a retired seat render identically there,
 and this one is retired. No successor seat is recorded in this folder, so send feedback and change
 requests through the Manager, especially what broke when you *ran* this playbook.
+
+### A handed-over PR is yours from the handover on
+
+Owner-set 2026-09-18, with the build-to-land flow. The Manager opens the pull request at step 9 and
+hands it to you at step 10.
+
+Five fields come with it: pull request number, head SHA, unread legs, known defects, and any
+landing-order constraint.
+
+**From that message the pull request is yours.** The Manager does not fix it, does not enqueue it and
+does not chase it. Steps 11 to 14 are this seat's.
+
+| Step | Yours |
+| --- | --- |
+| 11 | Triage a red check, and dispatch a repair for a genuine failure. |
+| 12 | Enqueue as you judge best. |
+| 13 | GitHub merges. |
+| 14 | Update the backlog and release the claim, in one act. |
+
+**The handover does not replace your poll.** A message that was never sent, or that went to another
+Lander, leaves a pull request sitting in a queue you can still see.
+
+*The PR route* holds the rule: every trigger here is a poll and nothing is pushed. **A seat that waits
+to be notified waits forever.** A courtesy message for some pull requests did not change that.
+
+**What the handover gives you that the poll cannot** is the other four fields. An unread leg, a
+shipped round-two finding and a landing-order constraint exist in no API you can query. Read them
+from the message, and treat them as claims to check rather than facts to inherit.
+
+#### On a red check, rule out a capacity artifact before you call it a failure
+
+| Item | Rule |
+| --- | --- |
+| The artifact to rule out FIRST | A rollup that **completed while its own children were still queued**. It reports a result for legs that never ran. That is not a finding, and repairing it wastes a session on a branch that is fine. |
+| How to tell | Read the child runs, not the rollup's conclusion. A child in `queued` or `in_progress` means the rollup answered early. |
+| The neighbouring case | A rollup still reporting the PREVIOUS attempt's failure after you re-ran it. The `lander-triage-a-red-check` skill carries it under *Distinguish "retry in flight" from "suppressed"*. |
+| Failure direction | An unreadable run status is a **wake**, never a pass. |
+| What you say either way | Name which of the two you read, and the command you read it with. A red you dismissed and a red nobody looked at are indistinguishable in the record otherwise. |
+
+#### Prefer a SPAWNED SESSION over a subagent when you dispatch a repair
+
+Section 2 carries the grant: a Manager and the Lander may spawn a session.
+
+| Item | Rule |
+| --- | --- |
+| The default for a non-trivial fix | **Spawn a session.** |
+| Why, and it is the whole argument | **Your subagents die with you.** This is someone else's branch, and a subagent that dies mid-repair leaves a half-fixed tree nobody can find, on work you did not author. |
+| When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
+| Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
+| Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
+
+---
 
 ## 2. Authority model -- know exactly what you may do unasked
 
@@ -605,8 +663,7 @@ session polling the same queue published "0 armed" over six enqueued PRs on 2026
 opened this section. It is not a Lander, and it read sections 1 to 3 and the heading list.
 
 So the cause is reach, not attention. `docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only
-the seat that opens the file it sits in*, which lands in korus PR 130 and is not on `main` yet. A
-reader who cannot find that heading should look for the PR.
+the seat that opens the file it sits in*, landed in korus PR 130 at `df6d1ce`.
 
 
 The instrument that answers it under a merge queue:
@@ -623,7 +680,7 @@ gh api graphql -f query='query{repository(owner:"MEFORORG",name:"MessageFoundry"
 | Nothing ever reports `BEHIND` | **RETIRED 2026-09-02.** This row read *"`strict` is FALSE, so staleness is not a merge blocker"*. `strict` measured FALSE on 2026-08-28 and TRUE on 2026-09-02. |
 | So the BEHIND sections DO describe this repo | Read `strict` live from the protection call every time. Do not carry either reading forward. |
 | A PR is open, mergeable, nothing red, and simply not merging | THE QUEUE DEQUEUES SILENTLY. PR 640 was evicted when 653 merged, stayed OPEN and MERGEABLE, and nothing reported it. |
-| Why a silent eviction has never blocked the queue | Because it is automatic, and no lever would help if it were not: neither `--disable-auto` nor the `dequeuePullRequest` mutation removes an entry on the engine repo. Three cases, 2026-09-19. Same PR as above. |
+| Why a silent eviction has never blocked the queue | Because it is automatic, and no lever would help if it were not: neither `--disable-auto` nor the `dequeuePullRequest` mutation removes an entry on the engine repo. Three cases, 2026-09-19, in `docs/TIPS-AND-TRICKS.md`. |
 
 | Item | Rule |
 | --- | --- |
@@ -944,6 +1001,37 @@ git -C <repo> fetch origin
 git show origin/main:docs/BACKLOG.md | grep -c '^## <N>\.'   # 1 = heading present
 gh pr view <PR> --json state --jq .state                      # MERGED = obligation is live
 ```
+
+### 7d-quater. Close the item and release the claim in one act
+
+Owner-set 2026-09-18, step 14 of the build-to-land flow. The ledger update and the claim release are
+**one act**, not two things to do in the same session.
+
+**An orphaned claim blocks the next session on that row, and nothing anywhere reports it.** No
+workflow reads the claim registry, no check fails, and the only surface that would tell you is
+`claim.ps1 -List`, which nobody runs until they are already stopped.
+
+```powershell
+pwsh -NoProfile -File scripts/coord/claim.ps1 -Release <N>
+pwsh -NoProfile -File scripts/coord/claim.ps1 -List
+```
+
+| Item | Rule |
+| --- | --- |
+| **The release is worktree-scoped, and the claim is not yours** | The Builder took it in ITS worktree. `-Release` from yours refuses with exit 1 and probes the holder. Expect the refusal; it is the script working. |
+| Read the probe line, do not skip to `-Force` | **HOLDER GONE** means the worktree is off disk, and the script itself recommends `-Release <N> -Force`. **HOLDER IS STILL THERE** means the directory survives. |
+| What "still there" means in THIS flow, and it is not what the script assumes | The Builder's session ended at step 7. The script cannot know that, so it warns about a live session on the strength of a directory. |
+| So force it only on evidence you can name | The Manager's handover for that branch, plus the merge. Both say the author is gone. Say which two you read. |
+| Without both, ask the Manager | Releasing a live claim is how two sessions build one thing. That is the failure the registry exists to prevent, and forcing past a warning is how you reach it. |
+| **A release of a claim nobody took also exits 0** | It prints *"No claim on 'N' -- nothing to release."* Read the line. Exit 0 here does not mean you released anything. |
+| Claim keys are flat | `adr #12` and `backlog #12` are one file. Releasing a backlog number can free an ADR claim. |
+
+**The cheapest fix is upstream.** A Manager that removes its Builders' worktrees after the pull
+requests open leaves every claim reading HOLDER GONE, and step 14 becomes one command with the
+script's own blessing. [MANAGER.md](MANAGER.md), *Always clean up after your team*, carries it.
+
+**Do not close the item and leave the release for later.** Later is a different session, and it has no
+way to learn the release is owed.
 
 ### 7d-bis. An item whose own body declares any part of itself still open is PARTIAL, never closed
 
