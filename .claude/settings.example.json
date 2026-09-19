@@ -45,18 +45,6 @@
         ]
       }
     ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/context-budget.ps1\"",
-            "timeout": 15,
-            "statusMessage": "Reading this session's context budget"
-          }
-        ]
-      }
-    ],
     "PreCompact": [
       {
         "hooks": [
