@@ -382,8 +382,11 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* already binds this. Send no ACK, and invent no work to fill a quiet tick. |
 | Mark a quiet tick quiet | `noop: true` when you looked and nothing moved. `noop: false` on a landing, a filed item or a finding. |
-| SETTLE BEFORE YOU COUNT | A count taken inside two minutes of a merge sits in the post-merge recomputation window and reads LOW. Wait 150 seconds after a drain, and label the reading. |
-| What that window cost | Measured 2026-09-19: 1 CLEAN non-draft ready at 14:23:19Z, and 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
+| NEVER TRUST THE FIRST COUNT AFTER A MERGE | Read twice and use the second. Measured 2026-09-19: 1 CLEAN non-draft at 14:23:19Z, 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
+| Why READ TWICE and not WAIT LONGER | The remedy is unsettled and the observation is not. 195s after one drain returned 1; a direct query 209s after the same drain returned 14. Fourteen seconds cannot explain that. |
+| The competing hypothesis | The bulk `gh pr list` call may itself trigger the recomputation, in which case the FIRST query after a trunk move is stale however long you waited. Reading twice survives either way; waiting survives only one. |
+| Why a wait is the worse guess | It fails while feeling safer. A seat that waited two minutes trusts the number MORE, and that is the wrong direction to be wrong in. |
+| **PROVISIONAL** | The Watchdog is probing each drain at t+0s, t+20s and t+60s to separate "time settles it" from "the query warms it". `docs/TIPS-AND-TRICKS.md` still publishes the wait form. **EXPIRY: that probe series.** |
 | The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
 | One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
 | RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
@@ -423,20 +426,26 @@ At 03:03Z the seat was already enqueuing on its own gate, having queued six PRs 
 
 **What bounds the mechanism is how long that state PERSISTS**, and the first figure is in.
 
-| Reading | Value |
-| --- | --- |
-| Drain | 14:22:54Z, #1224 merged, queue empty |
-| Next enqueue | 14:34:25Z, five PRs, all AWAITING_CHECKS |
-| Idle | **11m 31s**, n=1 |
+| Drain | Next enqueue | Idle |
+| --- | --- | --- |
+| 14:22:54Z, #1224 merged | 14:34:25Z, five PRs | **11m 31s** |
+| 14:57:12Z | by 15:07:34Z | **between 8m52s and 10m22s** |
 
-**Eleven minutes on a live, funded seat is a turn boundary, not a stall.** A loop shaves minutes off
-that, not hours, and the two long stalls stay outside its reach. **The honest claim is that small**,
-and the Watchdog sent the figure knowing it cuts against this section.
+The range on the second is the watchdog's 90-second poll interval: it saw the queue populated, not
+the moment it was populated. **Quote the range, never a midpoint.**
 
-**Treat it as the weakest of the series.** The poller printed 9m, anchoring its clock to its own
-restart rather than to the merge. 11m 31s was repaired by hand from #1224's timestamp.
+**Both gaps sit near ten minutes on a live, funded seat with work waiting.** That is a turn boundary,
+not a stall. **A standing loop converts a ten-minute gap into a shorter one. That is the whole claim**
+-- real, and small. The two long stalls stay explicitly outside the mechanism's reach.
 
-**EXPIRY: a distribution with n above one.** Rewrite this block around it, whichever way it points.
+The Watchdog sent both figures knowing they cut against this section, and wrote the ten-minute framing
+before this landed.
+
+**Both figures are hand-computed from merge timestamps, and neither is the poller's own.** It printed
+9m, then 6m, anchoring its clock to its own restart rather than to the drain, twice, an hour apart.
+**Ignore any "Nm idle" string until its anchor is the last merge.**
+
+**EXPIRY: n above two.** Rewrite this block around it, whichever way it points.
 
 **The loop is owner-set, and a small measured benefit does not reopen that.** Owner ruling
 2026-09-19. What the figures govern is what this section may CLAIM, not whether the seat loops.
@@ -477,6 +486,7 @@ A PR can be un-mergeable by design, and a goal phrased as a count reads that as 
 | --- | --- | --- |
 | Jointly gated on a sibling | Two PRs share one ledger row and one of them is red. | #1279 reads BEHIND/MERGEABLE and gates row 1656 with #1276, which is separately red. |
 | Abandoned branch | No live session holds the branch, so nothing resolves its conflict. | #1201 sat DIRTY with no session on its branch for ten hours. |
+| Neither case is permanent | An unreachable row is unreachable until someone acts, so re-read it each pass instead of carrying it forward. | A seat pushed to #1201 at 14:04Z. It was enqueued within the hour. |
 
 So read the goal as **nothing merge-ready is waiting on you**. Count what is eligible, name what is
 not, and put the unreachable ones in the blocker table under *Table 2 -- the blockers*.
