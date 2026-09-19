@@ -82,8 +82,8 @@ the seat's job", and every later reading is contaminated.
 
 You cannot undo that. There is no re-measurement that recovers the distinction.
 
-Measured shape, from the first Watchdog: it watched a queue sit full of merge-ready work for hours
-while holding a command that would have drained it, and did not run it.
+Measured shape, from the first Watchdog. It held a command that would have drained a queue, and
+watched that queue sit full of merge-ready work for hours instead.
 
 **That restraint is the deliverable.** A Watchdog that intervenes has produced one merge and
 destroyed the only reading nobody else could take.
