@@ -59,6 +59,14 @@ knows who to talk to.
 The pill carries `last merge <clock time> CT` in small type beside it. The label alone is a bucket;
 the time behind it is the reading.
 
+**Resolve every repository slug at collection time.** A transfer leaves the old slug redirecting for
+`gh repo view` while every `--search` under it returns zero. Measured 2026-09-19: korus and the
+vault moved to `MEFORORG`, and 24 and 57 merges went invisible on a board that read healthy.
+
+The collector refuses rather than guessing when a slug will not resolve, and flags any repository
+with open pull requests and no merges in the window. That shape is a failed query, not a quiet
+repository.
+
 **Give the pill a clock time, not an elapsed one.** Owner ruling 2026-09-19. A board is read hours
 after it was built, and `3m ago` is true only at the instant of the build. A clock time stays true,
 and a reader can subtract.
@@ -269,6 +277,26 @@ without relearning it.
 
 **Status colours are separate from the series colours** and never reused for data. Good, warning and
 critical belong to the pill, the accent rails and the queue chips.
+
+**The PR Status card needs one hue per merge state, and six will not all separate.** Validated
+2026-09-19 with the `dataviz` validator over all pairs:
+
+| State | Dark | Light |
+| --- | --- | --- |
+| CLEAN | `#55C98C` | `#1F9459` |
+| BEHIND | `#3F86CE` | `#2A6FB4` |
+| UNKNOWN | `#7E8B99` | `#8A96A4` |
+| UNSTABLE | `#E8C455` | `#AD8A0C` |
+| BLOCKED | `#CE5BAE` | `#963396` |
+| DIRTY | `#C2382F` | `#B53E1E` |
+
+Normal-vision separation and contrast pass on both. BLOCKED against BEHIND stays under the
+colour-blind floor, so BLOCKED carries a diagonal hatch as well as a hue. UNKNOWN is deliberately
+grey: an absent reading should not compete with a real state for attention.
+
+Three warm hues cannot be told apart. An earlier attempt put UNSTABLE, BLOCKED and DIRTY in
+yellow, orange and red, and the worst pair scored 7.1 where 15 is the floor. Moving BLOCKED to
+magenta is what made six states readable.
 
 **Type.** Saira Condensed for headings, IBM Plex Sans for prose, IBM Plex Mono for every number.
 Tabular figures everywhere digits line up.

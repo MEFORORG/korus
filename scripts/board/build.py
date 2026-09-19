@@ -21,9 +21,13 @@ def ago(iso):
 
 
 def clock_ct(iso):
-    """Absolute Central time, e.g. '5:48 PM CT'. Windows strftime rejects %-I."""
+    """Absolute Central time, e.g. '5:48 PM CT'. Windows strftime rejects %-I.
+
+    The pill carries a CLOCK time, not an elapsed one: a board is read hours
+    after it was built, and "3m ago" is true only at the instant of the build.
+    """
     if not iso:
-        return "never"
+        return "no merge in the window"
     t = P(iso).astimezone(CT)
     return "%d:%02d %s CT" % ((t.hour % 12) or 12, t.minute,
                               "AM" if t.hour < 12 else "PM")
@@ -31,7 +35,7 @@ def clock_ct(iso):
 
 def dur(mins):
     if mins is None:
-        return "never"
+        return "none in window"
     if mins < 60:
         return "%dm" % int(mins)
     if mins < 1440:
@@ -44,14 +48,14 @@ for k in order:
     r, m = by[k], s["repos"][k]
     rows.append({
         "key": k, "name": NAMES[k],
-        "open": r["open"], "clean": r["clean"], "draft": r["draft"],
-        "enq": r["enqueued"],
+        "open": r["open"], "clean": r["clean"], "draft": r["draft"], "enq": r["enqueued"],
         "entries": r["entries"], "m60": m["merged_60m"], "m24": m["merged_24h"],
         "rate": m["merged_24h"] / 24.0, "since": ago(m["last_merge"]),
-        "buckets": r["buckets"], "ready": r["ready"], "notready": r["notready"],
+        "buckets": r["buckets"], "ready": r["ready"], "ci": r["ci"], "person": r["person"],
     })
 
-tot = {k: sum(x[k] for x in rows) for k in ("open", "clean", "notready", "ready", "enq", "m60", "m24")}
+tot = {k: sum(x[k] for x in rows)
+       for k in ("open", "clean", "ready", "ci", "person", "enq", "m60", "m24")}
 tot["rate"] = tot["m24"] / 24.0
 sinces = [x["since"] for x in rows if x["since"] is not None]
 last_any = min(sinces) if sinces else None
@@ -117,19 +121,19 @@ while i < n:
         i += 1
 
 # ---------------------------------------------------------------- cards ----
-def card(label, accent, hero, unit, val, say):
+def card(label, accent, hero, unit, val, say, wide=False):
     """One data card: hero number, per-repo strip, one interpreting sentence."""
     strip = "".join(
         '<div class="sp"><span class="k">%s</span><span class="v%s">%s</span></div>'
         % (esc(r["name"]), " is-zero" if val(r) in ("0", "0.0", "0m") else "", val(r))
         for r in rows) if val else ""
-    return ('<article class="card ac-%s">'
+    return ('<article class="card ac-%s%s">'
             '<h3>%s</h3>'
             '<p class="hero"><b>%s</b><span>%s</span></p>'
             '%s'
             '<p class="say">%s</p>'
             '</article>'
-            % (accent, esc(label), esc(hero), esc(unit),
+            % (accent, " card-wide" if wide else "", esc(label), esc(hero), esc(unit),
                ('<div class="split">%s</div>' % strip) if strip else "",
                say))
 
@@ -140,9 +144,13 @@ open_say = ("The vault is <b>clear</b>." if vault_clear
 enq_say = ("<b>Nothing is enqueued.</b> Ready work is not moving."
            if tot["enq"] == 0 else
            "Entries the queue is working through now.")
-ready_say = ("Nothing wrong with them. <b>Queue throughput is the only thing "
+ready_say = ("Every required check is green. <b>Queue throughput is the only thing "
              "between these and main.</b>")
-nr_say = "Draft, conflicted, or failing a required check. <b>Each needs a person.</b>"
+ci_say = "No required check is red, and one or more is still running. <b>Nobody acts yet.</b>"
+# Most reds measured on 2026-09-19 were STALE: the check ran against an older main and a branch
+# refresh cleared it. "Each needs a person" sent readers looking for work that did not exist.
+nr_say = ("Draft, conflicted, or a red required check. <b>Refresh the branch before reading a "
+          "red as broken.</b> Only a red that survives the refresh needs code.")
 m60_say = "Best hour in the window landed <b>%d</b>." % s["best_hour"]
 rate_say = ("Over the last 24 hours. <b>%d</b> landed across the full %d."
             % (s["merged_window"], s["window_h"]))
@@ -154,13 +162,15 @@ since_say = ("Last merge anywhere at <b>%s</b>, %s ago."
 cards = [
     card("PRs open", "amber", tot["open"], "total", lambda r: str(r["open"]), open_say),
     card("Ready and waiting", "teal", tot["ready"], "PRs", lambda r: str(r["ready"]), ready_say),
-    card("Not ready to merge", "warn", tot["notready"], "PRs", lambda r: str(r["notready"]), nr_say),
+    card("Waiting on CI", "amber", tot["ci"], "PRs", lambda r: str(r["ci"]), ci_say),
+    card("Needs a person", "warn", tot["person"], "PRs", lambda r: str(r["person"]), nr_say),
     card("Enqueued now", "teal", tot["enq"], "entries", lambda r: str(r["enq"]), enq_say),
     card("Merged, last 60 min", "teal", tot["m60"], "PRs", lambda r: str(r["m60"]), m60_say),
     card("Avg merged per hour", "teal", "%.1f" % tot["rate"], "/ h",
          lambda r: "%.1f" % r["rate"], rate_say),
     card("Idle periods", "crit", s["idle_runs"], "runs", None, idle_say),
-    card("Time since last merge", vclass, dur(last_any), "", lambda r: dur(r["since"]), since_say),
+    card("Time since last merge", vclass, dur(last_any), "", lambda r: dur(r["since"]), since_say,
+         wide=True),
 ]
 
 since_rows = "".join(
@@ -179,8 +189,10 @@ def chips(entries):
                    for e in sorted(entries, key=lambda z: z["pos"]))
 
 
-ORD = [("CLEAN", "good"), ("BEHIND", "wait"), ("UNKNOWN", "wait"),
-       ("UNSTABLE", "warn"), ("BLOCKED", "warn"), ("DIRTY", "crit")]
+# One class per status. BEHIND and UNKNOWN shared a grey and UNSTABLE shared an
+# amber with BLOCKED, so four states rendered as two. Owner ruling 2026-09-19.
+ORD = [("CLEAN", "clean"), ("BEHIND", "behind"), ("UNKNOWN", "unknown"),
+       ("UNSTABLE", "unstable"), ("BLOCKED", "blocked"), ("DIRTY", "dirty")]
 
 
 def bbar(b, total):

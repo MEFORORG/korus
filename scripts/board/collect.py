@@ -12,9 +12,14 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
-REPOS = [("MEFORORG/MessageFoundry", "engine"),
-         ("wshallwshall/korus", "korus"),
-         ("wshallwshall/MessageFoundry-vault", "vault")]
+# SEEDS, not facts. A repository transfer leaves the old slug redirecting for
+# `gh repo view` while every `--search` query under it silently returns zero.
+# The board then renders that as "never" and "0.0" per repo. Measured
+# 2026-09-19: korus and the vault moved to MEFORORG, and 24 + 57 merges went
+# invisible on a board that looked healthy. Resolve at collection time.
+REPO_SEEDS = [("MEFORORG/MessageFoundry", "engine"),
+              ("MEFORORG/korus", "korus"),
+              ("MEFORORG/MessageFoundry-vault", "vault")]
 
 def sh(args):
     r = subprocess.run(args, capture_output=True, text=True)
@@ -29,6 +34,15 @@ def j(args, default):
 
 def refuse(msg):
     sys.exit("collect.py: REFUSING to write data.json. " + msg)
+
+def resolve(slug):
+    """Follow a repository transfer. Refuses rather than guessing."""
+    out = sh(["gh", "repo", "view", slug, "--json", "nameWithOwner",
+              "--jq", ".nameWithOwner"]).strip()
+    if "/" not in out:
+        refuse("Could not resolve %s. A slug that does not resolve reads as a "
+               "repo with no merges, which is indistinguishable from a quiet one." % slug)
+    return out
 
 def required_contexts(full):
     """The required set from branch protection, read live. The count moves; never pin it."""
@@ -135,7 +149,10 @@ def main():
     since_day = (now - dt.timedelta(days=3)).strftime("%Y-%m-%d")
 
     repos = []
-    for full, short in REPOS:
+    for seed, short in REPO_SEEDS:
+        full = resolve(seed)
+        if full != seed:
+            print("  slug moved: %s -> %s" % (seed, full))
         owner, name = full.split("/")
         required = required_contexts(full)
         openprs = open_prs(owner, name)
@@ -180,9 +197,12 @@ def main():
     with open(os.path.join(OUT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     for r in repos:
-        print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d"
-              % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
-                 r["enqueued"], len(r["merged"])))
+        # Open pull requests but no merges in the whole window is not a quiet
+        # repo, it is a failed query. Name it rather than render a clean zero.
+        suspect = "  <- SUSPECT: open PRs, zero merges" if (r["open"] and not r["merged"]) else ""
+        print("%-10s %-30s open=%-4d ready=%-3d ci=%-3d person=%-3d enq=%-3d merged3d=%-4d%s"
+              % (r["short"], r["repo"], r["open"], r["ready"], r["ci"], r["person"],
+                 r["enqueued"], len(r["merged"]), suspect))
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@
   --teal:#00968A; --amber:#B05C18;
   --good:#1F7A4D; --warn:#9A6210; --crit:#A8382B;
   --good-bg:#E2F0E7; --warn-bg:#F6EBD8; --crit-bg:#F6E2DE; --wait-bg:#E3E7EC;
+  --st-clean:#1F9459; --st-behind:#2A6FB4; --st-unknown:#8A96A4;
+  --st-unstable:#AD8A0C; --st-blocked:#963396; --st-dirty:#B53E1E;
   --shadow:0 1px 2px rgba(26,35,44,.07), 0 6px 18px rgba(26,35,44,.05);
 }
 @media (prefers-color-scheme:dark){
@@ -17,6 +19,8 @@
     --teal:#2FA89E; --amber:#D4772E;
     --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
     --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
+    --st-clean:#55C98C; --st-behind:#3F86CE; --st-unknown:#7E8B99;
+    --st-unstable:#E8C455; --st-blocked:#CE5BAE; --st-dirty:#C2382F;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
   }
 }
@@ -26,6 +30,8 @@
   --teal:#2FA89E; --amber:#D4772E;
   --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
   --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
+  --st-clean:#55C98C; --st-behind:#3F86CE; --st-unknown:#7E8B99;
+  --st-unstable:#E8C455; --st-blocked:#CE5BAE; --st-dirty:#C2382F;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
 }
 *{box-sizing:border-box}
@@ -66,6 +72,7 @@ h1{
   border-radius:4px; padding:11px 12px 10px 14px; box-shadow:var(--shadow);
   display:flex; flex-direction:column; gap:7px; overflow:hidden;
 }
+.card-wide{grid-column:1/-1}
 .card::before{content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--ink-3)}
 .ac-teal::before{background:var(--teal)}
 .ac-amber::before{background:var(--amber)}
@@ -115,12 +122,26 @@ h1{
 .bbar{display:flex; flex:1; height:11px; border-radius:2px; overflow:hidden; gap:2px; background:transparent}
 .bbar-empty{border:1px dashed var(--rule); height:11px; flex:1; border-radius:2px}
 .seg{display:block; min-width:3px}
-.seg-good{background:var(--good)} .seg-wait{background:var(--ink-3)}
-.seg-warn{background:var(--warn)} .seg-crit{background:var(--crit)}
+/* One hue per status. Six categorical colours cannot all separate under
+   colour blindness at one lightness, so BLOCKED -- the pair that collides with
+   BEHIND under deutan -- carries a hatch as well as a hue. */
+.seg-clean{background:var(--st-clean)}
+.seg-behind{background:var(--st-behind)}
+.seg-unknown{background:var(--st-unknown)}
+.seg-unstable{background:var(--st-unstable)}
+.seg-dirty{background:var(--st-dirty)}
+.seg-blocked{
+  background:repeating-linear-gradient(45deg,
+    var(--st-blocked) 0 4px, color-mix(in srgb, var(--st-blocked) 72%, #000) 4px 8px);
+}
+.sw.seg-blocked{background:var(--st-blocked)}
 .mixn{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:14px; color:var(--ink-2); min-width:26px; text-align:right}
 .lgrow{display:flex; flex-wrap:wrap; gap:4px 13px; margin-top:8px; padding-top:9px; border-top:1px solid var(--rule)}
 .lg{display:inline-flex; align-items:center; gap:5px; font-size:11px; letter-spacing:.05em; color:var(--ink-3)}
 .sw{width:9px; height:9px; border-radius:2px; display:inline-block}
+/* Queue-entry states are a different vocabulary from merge states, so they get
+   their own swatches rather than borrowing the status hues. */
+.q-ok{background:var(--good)} .q-wait{background:var(--ink-3)} .q-bad{background:var(--crit)}
 
 /* failure strip -------------------------------------------------------- */
 .fails{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px}
@@ -183,14 +204,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
       <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>
       <div class="mrows">{{QUEUE_ROWS}}</div>
       <div class="lgrow">
-        <span class="lg"><i class="sw seg-good"></i>MERGEABLE</span>
-        <span class="lg"><i class="sw seg-wait"></i>AWAITING CHECKS</span>
-        <span class="lg"><i class="sw seg-crit"></i>UNMERGEABLE</span>
+        <span class="lg"><i class="sw q-ok"></i>MERGEABLE</span>
+        <span class="lg"><i class="sw q-wait"></i>AWAITING CHECKS</span>
+        <span class="lg"><i class="sw q-bad"></i>UNMERGEABLE</span>
       </div>
     </article>
     <article class="card">
-      <h3>What the open PRs are doing</h3>
-      <p class="note">Every open pull request by merge state. The green share is what could land now.</p>
+      <h3>PR Status</h3>
+      <p class="note">Every open pull request by merge state, as GitHub reports it. BEHIND hides a red required check underneath it, so read readiness from the cards above.</p>
       <div class="mrows">{{MIX_ROWS}}</div>
       <div class="lgrow">{{LEGEND_MIX}}</div>
     </article>
