@@ -328,6 +328,48 @@ was reading rather than dead, so the zero is the boundary and not a broken probe
 **No retry crosses it.** *The seat registry is how you find a peer in another instance* reaches the
 same conclusion from a separate reading, taken four days earlier on the engine clone.
 
+### The repo axis, and why "there is no Lander" keeps getting written
+
+**There are TWO boundaries, not one, and they cut across each other.** The section above measures
+the account boundary. This one is the other axis, and it is the one that produces the sentence.
+
+| Instrument | Sees | Blind to |
+| --- | --- | --- |
+| `list_sessions`, `ListAgents` | Your account, every repo | Every other account |
+| `presence.ps1` (default) | This repo, every account | Every other repo |
+| `presence.ps1 -Fleet` | Every repo, every account | Another machine |
+
+**Neither of the first two is a superset of the other.** A seat can be missing from one and present
+in the other, and both readings are correct.
+
+**Measured 2026-09-19 on this machine.** From a korus worktree, `presence.ps1` listed 2 live
+sessions and no Lander. A live Lander was working `MessageFoundry` that same minute, on branch
+`claude/lander-bbc430`.
+
+`presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
+default run placed every record it read, so the 2 was a scope, not a failure.
+
+**So a repo-scoped roster cannot support a fleet-wide negative.** The roster answered the question
+it was asked. The reader asked a wider one.
+
+### You cannot write "there is no <seat>" from one roster
+
+It is the same shape as *You cannot support the sentence "the owner never said X"*.
+
+It costs more. A seat that believes a lane is empty starts doing that lane's work.
+
+| Before you write it | Run |
+| --- | --- |
+| Any claim that a seat is absent | `presence.ps1 -Fleet`, and say so |
+| Any claim about who can be MESSAGED | `list_sessions`, which is the other axis |
+| Either one, alone | Then say which axis you did not vary |
+
+**Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
+Lander" is a claim about a fleet you did not read.
+
+**And a roster is a snapshot.** A seat that ended between your read and your sentence was live when
+you looked, which is the same trap one level down.
+
 ### Another instance: the mail method
 
     pwsh -NoProfile -File scripts/coord/mail.ps1 -Send -To "<peer worktree path>" -Kind note -Body "..."
