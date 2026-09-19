@@ -403,6 +403,24 @@ check.**
 
 So name the question, name what the tool returns, and check they are the same sentence.
 
+#### The three whose false readings reached the Owner
+
+**Four of the seven were caught by controls before they left the session. These three were not.**
+The first Watchdog named them, and asked for them on the card as well as here.
+
+| Instrument | What it actually returns |
+| --- | --- |
+| `autoMergeRequest` | **Null for a pull request that IS enqueued.** A count of armed PRs reports zero while the queue works. |
+| A mergeability count inside about two minutes of a merge | A recomputation, not a state. Read twice and use the second. |
+| `gh pr list --limit N`, `gh run list --limit N` | **A PAGE, not a population.** A date filter over that page truncates silently. Use `--search`, or the server-side `total_count`. |
+
+The first two are also in [LANDER.md](LANDER.md), which is the seat that owns those surfaces. They
+are here because this seat published the false readings, and section 5 explains why a warning in
+another seat's playbook did not reach it.
+
+**The page-size row is new here, and it is the mildest of the three.** It announces itself as soon
+as anyone re-runs the query. The other two do not, which is the argument for keeping them first.
+
 ### 4a. Why this seat specifically
 
 A watched seat's bad reading costs it one wasted run.
@@ -573,7 +591,32 @@ a mutation, and correct yourself faster than you correct others.
 | 6, findings on the shared page | The Watchdog's own finding in that same page |
 | 7, the bounced message | The Watchdog reporting its own error, unprompted |
 | 8 | `roles/STEWARD.md` section 6d, plus inference |
-| 0 through 0e | The Owner's 2026-09-19 pairing, transcript and escalation instructions, plus `roles/COMMON.md` on the channels. **Not reviewed by a sitting Watchdog.** |
+| 0 through 0e | The Owner's 2026-09-19 pairing, transcript and escalation instructions, plus `roles/COMMON.md` on the channels. **Reviewed by the sitting Watchdog**, which changed section 0a. |
+| 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
+
+### The spawn section changed the reviewer's own published recommendation
+
+**The sitting Watchdog had recommended to the Owner that this seat NOT hold a spawn power.** The
+Owner ruled the other way. The seat then read section 0a and withdrew its own recommendation, in
+writing, unprompted.
+
+Its two reasons, and what it said about each:
+
+| Its reason | Its retraction |
+| --- | --- |
+| Spawning destroys the instrument, as merging does | Wrong, and 0a says why in one line. A spawn restores the actor; a merge replaces it. Nothing is contaminated by creating a seat where none exists. |
+| Respawn would not have helped the stall it had just watched | Weak. The 37-hour flat line WAS "no Lander alive", and it had already told the Owner that seat continuity was the real problem. |
+
+Its own summary: *"I named the disease and then argued against the cure."*
+
+**It also named the part it would have missed: the guard rows.** Check both surfaces before
+concluding no partner is live, because a false missing spawns two Landers racing one queue.
+
+That is section 4's shape turned on this seat, and the reviewer said it belongs there.
+
+**Recorded because a reviewer that only agrees has measured nothing.** This one had published the
+opposite recommendation and changed it against its own record, which is the review being worth
+having.
 
 ### The Regulator boundary was checked, and the checker was wrong once
 
