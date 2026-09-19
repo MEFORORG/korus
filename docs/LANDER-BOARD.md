@@ -56,13 +56,20 @@ knows who to talk to.
 | over 180 | `STALLED` | critical |
 | no merge on record | `NO DATA` | warning |
 
-The pill carries `last merge <duration> ago` in small type beside it. The label alone is a bucket;
-the duration is the reading behind it.
+The pill carries `last merge <clock time> CT` in small type beside it. The label alone is a bucket;
+the time behind it is the reading.
+
+**Give the pill a clock time, not an elapsed one.** Owner ruling 2026-09-19. A board is read hours
+after it was built, and `3m ago` is true only at the instant of the build. A clock time stays true,
+and a reader can subtract.
+
+Keep the elapsed figure on the *Time since last merge* card, where it sits beside the clock time.
+The two answer different questions: how long the drain has been quiet, and when it last ran.
 
 **A timestamp in Central time**, with the UTC instant under it and the refresh cadence.
 
 Central is UTC-5 in daylight saving and UTC-6 outside it. Windows `strftime` rejects `%-I`, so
-format the hour by arithmetic rather than a format string. See
+format the hour by arithmetic. That binds the masthead, the chart ticks and the pill alike. See
 [Six traps](#7-six-traps-that-cost-the-first-build-time).
 
 ---
@@ -82,7 +89,7 @@ means. The sentence is the part a reader acts on.
 | Merged, last 60 min | merges in the hour | the best hour in the window, for contrast |
 | Avg merged per hour | mean over 24h | the total landed across the full window |
 | Idle periods | runs of 3h or more | the longest run |
-| Time since last merge | duration | the same figure the pill buckets |
+| Time since last merge | duration | the clock time the pill shows, and how long ago that was |
 
 The three readiness cards partition the open set, so they always sum to the first card.
 
