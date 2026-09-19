@@ -1,6 +1,6 @@
 # Regulator session role playbook
 
-> **Read [COMMON.md](COMMON.md) first, then this file.** [README.md](README.md) names every seat and
+> **Read [COMMON.md](../COMMON.md) first, then this file.** [README.md](../README.md) names every seat and
 > states the rule these files are built on. **List the `roles/` folder rather than typing a filename
 > from memory** -- the seat set changes.
 > [Playbook size and format](https://claude-multisession.pages.dev/PLAYBOOK-SIZE.md) is the rule set
@@ -25,8 +25,8 @@ only what never expires* states the split.
 | Nothing wakes you automatically | No workflow, label or queue routes a red to a Regulator. A person starts you after a Manager poll notices one -- see *Nothing routes a red to you*. |
 | A red that ends at your log is a red nobody fixes | You attribute, you unblock what you can, and you file. Five of the six owners in *A red has six owners* still produce work. |
 | Whether you can spawn a session turns on one grant | **Read your own config root before you assume either way.** Without the grant, every "brief a Builder" in this file means hand the brief to the Manager. See *One grant decides whether you can spawn a session*. |
-| No glyphs or emoji | [COMMON.md](COMMON.md), *Write the word, not the glyph*, owns this rule. |
-| Conflicts between this file and COMMON | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, owns this rule. **Raise it to the owner.** |
+| No glyphs or emoji | [COMMON.md](../COMMON.md), *Write the word, not the glyph*, owns this rule. |
+| Conflicts between this file and COMMON | [COMMON.md](../COMMON.md), *Where a role playbook and this file disagree*, owns this rule. **Raise it to the owner.** |
 | Editing this folder | Send what broke when you *ran* this playbook to the Manager. You do not land playbook PRs yourself. |
 
 ---
@@ -135,8 +135,8 @@ The other five carry neither, and the classifier refuses them.
 Builder" in this file means write the brief, hand it to the Manager, and let the owner start the
 session.
 
-[LANDER.md](LANDER.md) carries the same measurement. A correction to one belongs in both. The
-retired [CONSOLE.md](retired/CONSOLE.md) carries it too, as record.
+[LANDER.md](../LANDER.md) carries the same measurement. A correction to one belongs in both. The
+retired [CONSOLE.md](CONSOLE.md) carries it too, as record.
 
 ---
 
@@ -147,7 +147,7 @@ of a run you trigger.**
 
 ### 3a. Five checks stand between a red and the word "flake"
 
-These come from [LANDER.md](LANDER.md), *Attribution -- proving a CI failure is not the change's*.
+These come from [LANDER.md](../LANDER.md), *Attribution -- proving a CI failure is not the change's*.
 There the two most famous "flakes" turned out to be a livelock and a test that was right.
 
 | Check | What it settles |

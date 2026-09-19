@@ -49,7 +49,6 @@ stands by, and announces only when its instruction makes the message worth sendi
 | | | Added 2026-09-04. Owner-spawned and bound to ONE account. Its workers are subagents or separate sessions. Several Managers run at once, sharing only the repository. |
 | Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent over its own diff, commits, pushes, reports, then exits. **It no longer opens the PR**, changed 2026-09-18. |
 | | | It never guesses at what the brief left open and never waits: it writes the question to the Manager, which carries it onto the PR, then stops. |
-| Regulator | [REGULATOR.md](REGULATOR.md) | Decides whose failure a red is: the PR's, `main`'s, a flake, or the queue's. Only the PR's own failure becomes work. **It starts with no memory, so its log is not optional.** |
 | Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. |
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | | | **It runs a standing `/loop` whose goal is every open PR merged.** Owner-set 2026-09-19. Nothing here tells it a PR is waiting, so its own poll is the trigger. |
@@ -57,7 +56,7 @@ stands by, and announces only when its instruction makes the message worth sendi
 | Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other six.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
 | Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Watches another seat work and files what it learns.** Added 2026-09-19. It does not do the work it watches, take its claim, or drive its lane. |
-| | | **Not a renamed Regulator.** That seat attributes one red check and exits; this one observes over time and writes about the method. Its output is a finding on a shared page. |
+| | | **It did not inherit the Regulator**, retired the same day. That seat returned a binding verdict on one red check; this one returns evidence and decides nothing. No seat attributes a red now. |
 | | | Drafted from the record of the first Watchdog session, and not reviewed by a Watchdog. The playbook's last section separates what was measured from what was inferred. |
 | Not a seat | [COMMON-STAGED.md](COMMON-STAGED.md) | **Staging, not a playbook.** Sections split out of COMMON.md on 2026-09-05 that belong to one seat or fire never. Unedited, awaiting a destination. |
 | Not a seat | [LANDER-ROUTED-OUT.md](LANDER-ROUTED-OUT.md) | **Staging, not a playbook.** Sections split out of LANDER.md on 2026-09-05 that belong to another seat. Unedited, and awaiting a destination. Do not read it as rules for any seat. |
@@ -67,11 +66,12 @@ stands by, and announces only when its instruction makes the message worth sendi
 
 | Item | Rule |
 | --- | --- |
-| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). Nine seats, nine files. |
+| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md), [retired/REGULATOR.md](retired/REGULATOR.md). Ten seats, ten files. |
 | **RETRACTED 2026-09-04** | This table once called `ASVS-TRACKER.md` **absent from this edition**, on a `find . -iname '*asvs*'` returning zero files. True when measured. The file was then imported, and that command now returns the path above. |
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
 | Who answers an owner question now | The Manager. It is the only seat the owner talks to. |
+| **Who attributes a red now** | **Nobody.** The Regulator retired 2026-09-19 and nothing replaced it. A red is the Lander's to triage and route, or the owner's to rule on. The Watchdog measures whether reds are being cleared; it never says whose one is. |
 
 ### 1c. `INSTRUMENTS 4.x` and `COMMON 4.x` citations resolve to a blob, not a file
 

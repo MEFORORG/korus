@@ -167,14 +167,16 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The seven registered labels are Manager, Builder, Regulator, Steward, Lander, Special, and
-Watchdog.
+The six registered labels are Manager, Builder, Steward, Lander, Special, and Watchdog.
+
+Regulator retired on 2026-09-19 by Owner instruction, and nothing replaced it. Its label now
+resolves to no card and the hook says it was retired.
 
 Watchdog was added on 2026-09-19. It watches another seat work and files what it learns, and it
 does not do the work it watches.
 
-It is not a renamed Regulator. A Regulator attributes one red check and exits; a Watchdog
-observes a seat over time and writes about the method rather than the check.
+It did not inherit the Regulator, retired hours later the same day. That seat returned a
+binding verdict on one red check; a Watchdog returns evidence and decides nothing.
 
 Special was added on 2026-09-16 for work outside the other five. Its card tells the session to read
 `roles/COMMON.md` and stand by, without announcing itself.
@@ -236,7 +238,7 @@ That separately filed gap is now covered in [the leak gate's detector history](L
 - It does not replace a seat declaration. The marker carries the role, which a machine can
   write. It does not carry the goal, which no machine can.
 - It does not compete with a nested `CLAUDE.md`. Those scope by directory. A Builder and a
-  Regulator editing one folder need different rules, so directory scoping cannot carry a seat.
+  Watchdog editing one folder need different rules, so directory scoping cannot carry a seat.
 - It changes no section of `CLAUDE.md`.
 
 ## Rollout

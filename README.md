@@ -87,7 +87,6 @@ Work is divided among **seats**, each a session with one job:
 |---|---|---|
 | Manager | Plans, runs workers, holds the owner's attention | long-lived |
 | Builder | Takes one brief, does the work, opens a pull request | one turn |
-| Regulator | Attributes a failing build | woken on a red |
 | Steward | Writes files other seats read | cron, no model calls |
 | Lander | Decides merge order | long-lived |
 

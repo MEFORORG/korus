@@ -23,7 +23,8 @@ Poll anyway. Nothing pushes a PR to you, and a handover that was never sent stra
 
 Use one queue slot at a time. Each queued entry builds on the one before it.
 
-Return PRs that need a ruling instead of more work. The Regulator or Owner makes that ruling.
+Return PRs that need a ruling instead of more work. The Owner makes that ruling: the Regulator
+retired 2026-09-19 and nothing replaced it.
 
 ## What it must not do
 
