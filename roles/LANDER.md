@@ -362,8 +362,12 @@ on 2026-09-02 is the direct proof.
 
 ## 3b. Keep a standing `/loop` running, with the goal of getting every open PR merged
 
-**Owner-set 2026-09-19, in their words: "update the Lander role to have it always have a /loop
-running with a /goal of getting all PRs merged."**
+**Owner-set 2026-09-19, in this session's own chat, in their words: "update the Lander role to have
+it always have a /loop running with a /goal of getting all PRs merged."**
+
+Cited with its date and channel because that is what makes it checkable. This file records the
+opposite case under *The role file holds only what never expires*: a freeze recorded as an owner
+directive, cited back twice as authority, and never issued.
 
 Start it in your first turn, before you read a pull request. Type it verbatim:
 
@@ -478,9 +482,17 @@ where a fixed interval would have cost about forty.
 changed, and a reader learns to skim it. That is the argument for the self-paced form over
 `/loop 20m`, and for raising a poller beside the loop rather than shortening the interval.
 
-### 3b-ter. "Every open PR merged" is a direction, not a count you will reach
+### 3b-ter. The goal stays whole. The seat is not scored on the open count at an instant
 
-A PR can be un-mergeable by design, and a goal phrased as a count reads that as failure forever.
+**The goal is every open PR merged, unsoftened, and it is the owner's.** Two things are separate:
+
+| | |
+| --- | --- |
+| The GOAL | Every open PR merged. It does not bend around a hard case. |
+| The SCORING | Not the open count at any instant, because a PR can be un-mergeable by design and no poll can clear it. |
+
+An earlier draft of this section read *"read the goal as nothing merge-ready is waiting on you"*. That
+softened the GOAL to fit the hard cases, which is the wrong half to move.
 
 | Case | Why the count cannot clear | Measured 2026-09-19 14:05:24Z |
 | --- | --- | --- |
@@ -488,10 +500,13 @@ A PR can be un-mergeable by design, and a goal phrased as a count reads that as 
 | Abandoned branch | No live session holds the branch, so nothing resolves its conflict. | #1201 sat DIRTY with no session on its branch for ten hours. |
 | Neither case is permanent | An unreachable row is unreachable until someone acts, so re-read it each pass instead of carrying it forward. | A seat pushed to #1201 at 14:04Z. It was enqueued within the hour. |
 
-So read the goal as **nothing merge-ready is waiting on you**. Count what is eligible, name what is
-not, and put the unreachable ones in the blocker table under *Table 2 -- the blockers*.
+So count what is eligible, name what is not, and put the hard cases in the blocker table under
+*Table 2 -- the blockers*. Do not report a non-zero open count as your own failure, and do not treat
+it as satisfied either.
 
-Do not report a non-zero open count as your own failure.
+**Write that table so it names who must act, never so it reads as excused.** #1201 is the case: a row
+reading "abandoned" writes it off, and a row reading "needs a push, nobody holds the branch" is what
+got a seat to push at 14:04Z. It enqueued within the hour.
 
 ---
 
