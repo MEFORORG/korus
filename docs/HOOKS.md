@@ -91,7 +91,7 @@ Use these three locations:
 
 | Control | Where it goes |
 |---|---|
-| Blanket-stage guard, API-burn guard, role-card injector, context budget, precompact reprime, mail drain | Copy their tracked rows out of `.claude/settings.example.json` into a real `settings.json`, and replace every loud placeholder path |
+| Blanket-stage guard, API-burn guard, role-card injector, precompact reprime, mail drain | Copy their tracked rows out of `.claude/settings.example.json` into a real `settings.json`, and replace every loud placeholder path |
 | Steering injector | A `settings.local.json` row, per worktree. [Steering](STEERING.md) has it |
 | Sequence gate | **Not a settings row at all** -- a `pre-commit` hook you own. [Wiring the pre-commit hook](SEQUENCE-ALLOC.md#wiring-the-pre-commit-hook) has the snippet |
 
