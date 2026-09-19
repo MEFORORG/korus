@@ -337,6 +337,30 @@ A session cron also dies with the session. For a board anyone relies on, use a c
 
 State the cadence on the board itself, so a stale page is visible as stale.
 
+### 9b. Resuming the board in a new session
+
+Everything the board needs is in the repository. The working files are not: they live in the
+session's scratchpad and die with it, and they are all regenerable.
+
+```bash
+scripts/board/refresh.sh            # collect, derive, render, beside the scripts
+LANDER_BOARD_OUT=<dir> scripts/board/refresh.sh    # or into a directory you choose
+```
+
+Then publish the rendered `board.html` to the board's existing artifact URL, so the link the owner
+holds keeps working. Publishing without that URL makes a second board.
+
+**Run the clock in a background monitor, not a cron.** A monitor does not need the session idle, so
+it fires while the session is working. Have it call `refresh.sh`, then say that a board is waiting
+to be published.
+
+**Have it check the publish, not only the build.** Write a stamp when a board is rendered and
+another when it is published, and alarm when the first outruns the second. A board that builds and
+never publishes fails exactly like one that never builds, and looks healthier.
+
+`scripts/board/seatstate.py` belongs in the same monitor. It separates a working seat from an idle
+one from a seat suspended on its own question, and only the third has an owner who is not the seat.
+
 ---
 
 ## Related
