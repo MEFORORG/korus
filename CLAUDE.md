@@ -32,7 +32,7 @@ lies between what is convenient here and what a copier needs, the copier wins.
 
 ## The seats
 
-Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
+Seven seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
@@ -41,10 +41,15 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Regulator | [REGULATOR.md](roles/REGULATOR.md) | Decides whose failure a red check is. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
-| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
+| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
+| Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | Watches another seat work and files what it learns where the affected seats read. Added 2026-09-19. **It does not do the work it watches**, and it is not a renamed Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
 whichever seat you hold.
+
+**The Watchdog arrived 2026-09-19, and the Regulator is the seat it is most often confused with.** A Regulator attributes ONE red check and exits. A Watchdog observes a seat over time and writes about the method rather than the check.
+
+Its playbook and card were drafted from the record of the first Watchdog session rather than from a standing practice, and neither was reviewed by a Watchdog. `roles/WATCHDOG.md`, *How this playbook was written*, names which claims rest on measurement and which on inference.
 
 **This table governs the roster.** `roles/README.md` and `docs/roles/seats.json` each hold a second
 copy of it. Where any of them disagrees with this table, this table wins.

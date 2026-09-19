@@ -33,6 +33,18 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/seat-declare.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Checking whether this prompt declares a seat"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

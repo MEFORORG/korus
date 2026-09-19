@@ -33,7 +33,7 @@ questions all arrive at the same seat they did before, held by a smaller one.
 question, and this is the answer to it.
 
 **The owner added the Special seat on 2026-09-16, and it is the first addition rather than a
-replacement.** It holds work that falls outside the other five, so no retirement made room for it.
+replacement.** It holds work that falls outside the other six, so no retirement made room for it.
 
 It is also the only seat that stays silent on arrival. Owner-set: it reads [COMMON.md](COMMON.md),
 stands by, and announces only when its instruction makes the message worth sending.
@@ -54,8 +54,11 @@ stands by, and announces only when its instruction makes the message worth sendi
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | | | **It runs a standing `/loop` whose goal is every open PR merged.** Owner-set 2026-09-19. Nothing here tells it a PR is waiting, so its own poll is the trigger. |
 | Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
-| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
+| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other six.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
+| Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Watches another seat work and files what it learns.** Added 2026-09-19. It does not do the work it watches, take its claim, or drive its lane. |
+| | | **Not a renamed Regulator.** That seat attributes one red check and exits; this one observes over time and writes about the method. Its output is a finding on a shared page. |
+| | | Drafted from the record of the first Watchdog session, and not reviewed by a Watchdog. The playbook's last section separates what was measured from what was inferred. |
 | Not a seat | [COMMON-STAGED.md](COMMON-STAGED.md) | **Staging, not a playbook.** Sections split out of COMMON.md on 2026-09-05 that belong to one seat or fire never. Unedited, awaiting a destination. |
 | Not a seat | [LANDER-ROUTED-OUT.md](LANDER-ROUTED-OUT.md) | **Staging, not a playbook.** Sections split out of LANDER.md on 2026-09-05 that belong to another seat. Unedited, and awaiting a destination. Do not read it as rules for any seat. |
 | Every seat | [COMMON.md](COMMON.md) | The rules and instrument failures that belong to no single seat. **Read this first, whichever seat you hold.** |
