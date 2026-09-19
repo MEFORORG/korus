@@ -99,8 +99,8 @@ from the Lander's own session JSONL rather than from either seat's report.
 Four `SendMessage` sends, at 03:18:29.479Z, 03:43:03.253Z, 04:02:43.262Z and 04:21:24.337Z. Every
 one returned success, and every one enqueued. The next queue REMOVE was 13:56:42.800Z, 9h35m later.
 
-**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, lists the two same-instance transports as
-equivalent.** For addressing they are. For waking they are not, and that table is uncorrected.
+**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, listed the two same-instance transports
+as equivalent.** For addressing they are. For waking they are not, and that table now says so.
 
 [COMMON.md](COMMON.md), *What mail does not promise*, carries the mail half: the recipient's drain
 hook delivers, and it runs at their next `SessionStart` or `Stop`.

@@ -78,10 +78,21 @@ seat's work from yours.
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
-| **It EXTENDS a narrower grant, and that is deliberate** | `docs/METHOD.md:24`, in the ENGINE repo, reads *"A MANAGER AND THE LANDER MAY SPAWN A SESSION"*. This seat was not on that list. |
-| Why it is recorded rather than reconciled | That file is not in korus, so this change could not touch it. A reader meeting the narrower grant there should meet this row here. |
+| **`METHOD.md` already provided for this, and needs no edit** | Read at `origin/main` `a4f05452a`, line 24: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first (owner ruling 2026-09-16)."* |
+| So this is the permission, not an exception to it | That clause is a route, not a wall. This seat took the route. |
 | The first Watchdog flagged exactly this | Twice, and it was right to. It said the spawn power needed the Owner rather than a playbook edit, and declined to relay either way. |
 | What settles it | The Owner's own instruction, 2026-09-19, first-hand in the drafting session's chat. A peer could not have supplied it, and none did. |
+
+**A CORRECTION MADE IN THE ACT OF WRITING THIS ROW.** The row first read that this grant EXTENDS a
+narrower one, and that the engine file needed an edit nobody here could make.
+
+That came from reading `docs/METHOD.md` in the engine's WORKING TREE, where the sentence is absent
+and line 24 is blank. That checkout is behind: its `origin/main` carries the sentence at line 24
+exactly as `LANDER.md` cites it.
+
+**The same trap [COMMON.md](COMMON.md) records for the vault's `roles/`.** A stale checkout answers
+in the shape of a real reading, and "the line is not there" and "my copy is old" are the same
+output. Read the ref, not the tree.
 
 ### 0b. Wake your partner with CCD messaging, because mail cannot
 
@@ -100,8 +111,8 @@ that seat's own account of holding the better channel all night and reaching for
 Four `SendMessage` sends, at 03:18:29.479Z, 03:43:03.253Z, 04:02:43.262Z and 04:21:24.337Z. Every
 one returned success, and every one enqueued. The next queue REMOVE was 13:56:42.800Z, 9h35m later.
 
-**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, lists the two as equivalent.** For
-addressing they are. For waking they are not, and that table is uncorrected.
+**[COMMON.md](COMMON.md), *The fleet spans CCD instances*, listed the two as equivalent.** For
+addressing they are. For waking they are not, and that table now says so.
 
 **That seat then published the wrong conclusion from it**, telling a peer a keep-awake duty was
 unimplementable. It was the channel, not the duty. Section 4's shape again: the reading was sound
