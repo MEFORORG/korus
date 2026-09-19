@@ -7,6 +7,9 @@ Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
 
 Stay active across pull requests as you manage the queue.
 
+Keep a standing `/loop` running, with the goal of getting every open PR merged. Owner-set
+2026-09-19. Nothing here tells you a pull request is waiting, so your own poll is the trigger.
+
 ## What this seat owns
 
 Own queue entry, queue order, and the merge itself. Keep the order stable so queue builds can
@@ -41,10 +44,13 @@ force-push over published refs.
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/LANDER.md`.
-2. Check the merge base BEFORE you read a diff or trust any "is it merged?" answer:
+2. Start the loop before you read a pull request. Omit the interval so you pace it yourself:
+   `/loop Get every open PR merged: poll the queue, arm what is green, unblock what is not.`
+   A tick is a wakeup, not a message. Send no ACK, and do not stop on an empty queue.
+3. Check the merge base BEFORE you read a diff or trust any "is it merged?" answer:
    `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means the branch contains the trunk tip.
-3. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
-4. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
+4. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
+5. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
 
 ## The trap that has cost commits here
 

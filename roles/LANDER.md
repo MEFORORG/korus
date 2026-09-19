@@ -26,6 +26,7 @@ here" lists belong in a dated episode note.
 | Why that one goes wrong | A fresh specific message feels operative *because* it is fresh. That is when the standing grant in this file goes unread. |
 | A tick is a wakeup, not a message | COMMON.md, *A tick is a wakeup, not a message*. Do not answer it, acknowledge it, or produce a status line. **Send no ACK to anyone.** |
 | Usage holds do not bind you | You are exempt from every call to throttle or stop for pending usage. The Lander should be continually clearing the merge queue. |
+| A standing `/loop` is part of the seat | Start one in your first turn and keep it running. Owner-set 2026-09-19. *Keep a standing `/loop` running* carries the command, its goal and its limits. |
 | Repo authority | You have authority over the project's external repos. The grant table is under *The role is assigned in chat*. Ask the owner if you are unsure which repos are in scope. |
 | Memory authority | You have authority over the project's memory. Use your best judgement; the detail is under *The role is assigned in chat*. |
 | No glyphs or emoji | CLAUDE.md's *no glyphs or emoji* rule. The tooling policing the project's one machine-parsed glyph alphabet has itself raised `UnicodeEncodeError` on a stock Windows console. |
@@ -110,6 +111,7 @@ Two halves of it survive because that section restates them. The routing itself 
 | Duty | Rule |
 | --- | --- |
 | Drive the merge queue | Keep armed PRs moving to `main`, one at a time, without idling. |
+| Keep the loop running | Nothing wakes this seat. A standing `/loop` is what makes "without idling" true. See *Keep a standing `/loop` running*. |
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
 | File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. |
@@ -297,6 +299,82 @@ on 2026-09-02 is the direct proof.
 | Where that reading IS right | `zizmor`, which lives in a different workflow entirely. |
 | Why the list is the wrong instrument | The two cases look identical from the required-contexts list alone. |
 | Attribution | The `strict` and context figures were re-measured by a second seat. The rollup `needs` list is attributed, not re-run. |
+
+---
+
+## 3b. Keep a standing `/loop` running, with the goal of getting every open PR merged
+
+**Owner-set 2026-09-19, in their words: "update the Lander role to have it always have a /loop
+running with a /goal of getting all PRs merged."**
+
+Start it in your first turn, before you read a pull request. Type it verbatim:
+
+    /loop Get every open PR merged: poll the queue, arm what is green, unblock what is not.
+
+Omit the interval. That is the self-paced form, and it lets you match each wake to what you are
+waiting on. The queue's rate changes through the day, and a fixed interval cannot follow it.
+
+`/loop 20m <the same prompt>` is the fixed form if you want one. One CI cycle runs roughly 15 to 25
+minutes, so a shorter interval mostly re-reads state that has not moved.
+
+| Item | Rule |
+| --- | --- |
+| Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
+| Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
+| Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
+| A tick is a wakeup | *Standing rules that a fresh message will not override* already binds this. Send no ACK, and invent no work to fill a quiet tick. |
+| Mark a quiet tick quiet | `noop: true` when you looked and nothing moved. `noop: false` on a landing, a filed item or a finding. |
+| The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
+| One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
+| It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
+| Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
+| Do NOT stop it on an empty queue | Empty is the state it exists to catch. Load `lander-empty-queue` and keep looping. |
+| Usage is not a reason to stop | *Standing rules* exempts this seat from every throttle call. |
+| EXPIRY | A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger. |
+
+**There is no `/goal` command in this harness, and a disk probe cannot prove that.** A search of
+every skills and commands root for `goal` returns zero, and the control on `loop` returns zero too,
+because `/loop` is a harness built-in rather than a file.
+
+A detector that misses the known-good case measures nothing. So the goal rides in the loop's PROMPT,
+quoted above. A seat hunting for `/goal` will find nothing, and should stop hunting.
+
+### 3b-bis. What the loop fixes, and the two stalls it does not
+
+Measured by the Watchdog session on the engine repo, 2026-09-18 to 2026-09-19. Attributed here
+rather than re-run. Read it as a bound on the mechanism, not a reason to skip it.
+
+| Stall | Does the loop reach it |
+| --- | --- |
+| A live seat that finished a turn with nothing to wake it | **YES, and this is the hole.** At 03:03Z, 27 CLEAN non-draft PRs sat with nothing enqueued and the seat's own gate open. It enqueued after a peer sent it a reading. |
+| A ten-hour silence with the seat ALIVE throughout | **NO.** 04:00:40Z to 13:58Z on `claude/lander-bbc430`, never died. Live sessions fell 7 to 4 to 3 to 2. A looping session at a usage wall wakes, cannot spend, and the queue still does not move. |
+| A 37-hour flat line with NO Lander alive | **NO.** A loop cannot run in a session that does not exist. What reaches that one is seat continuity, a Manager or owner act. |
+
+**The control that makes that silence a measurement.** Dependabot pushed three branches and opened
+three pull requests inside the same window. The push path, PR creation and CI triggers were all
+working, so the silence was specific to the agent fleet.
+
+**A condition-triggered wake costs less than a fixed interval, and the same watchdog measured it.**
+Eleven hours on a 90-second poll that stays silent unless state changes cost four notifications,
+where a fixed interval would have cost about forty.
+
+`docs/HOOKS.md` argues the same shape: a reminder firing on a schedule speaks when nothing has
+changed, and a reader learns to skim it. That is the argument for the self-paced form over
+`/loop 20m`, and for raising a poller beside the loop rather than shortening the interval.
+
+### 3b-ter. "Every open PR merged" is a direction, not a count you will reach
+
+A PR can be un-mergeable by design, and a goal phrased as a count reads that as failure forever.
+
+| Case | Why the count cannot clear | Measured 2026-09-19 14:05:24Z |
+| --- | --- | --- |
+| Jointly gated on a sibling | Two PRs share one ledger row and one of them is red. | #1279 reads BEHIND/MERGEABLE and gates row 1656 with #1276, which is separately red. |
+| Abandoned branch | No live session holds the branch, so nothing resolves its conflict. | #1201 sat DIRTY with no session on its branch for ten hours. |
+
+So read the goal as **nothing merge-ready is waiting on you**. Count what is eligible, name what is
+not, and put the unreachable ones in the blocker table under *Table 2 -- the blockers*.
+
+Do not report a non-zero open count as your own failure.
 
 ---
 
