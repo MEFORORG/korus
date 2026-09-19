@@ -101,6 +101,9 @@ their failure criteria and the run's stopping point.
 
 | Script | Does | Doc |
 |---|---|---|
+| `scripts/board/collect.py` | Reads open pull requests, the merge queue and the create/merge/close timestamps for all three repositories into `data.json`. Needs `gh`; no standalone `jq` | [The Lander Board](LANDER-BOARD.md) |
+| `scripts/board/series.py` | Derives the hourly merge and open-count series, the idle runs and the per-repository rates from `data.json` into `series.json` | [The Lander Board](LANDER-BOARD.md) |
+| `scripts/board/build.py` | Renders `board.html` from `series.json` and `template.html`. Writes beside the scripts, or into `LANDER_BOARD_OUT` | [The Lander Board](LANDER-BOARD.md) |
 | `scripts/validation/run-checks.ps1` | Proves every instrument against a planted broken corpus and a planted clean one, then runs the same checks against this machine. Exits 3 without measuring anything when a control misbehaves | [What broken looks like](https://claude-multisession.pages.dev/scripts/validation/README.md) |
 | `scripts/validation/check-message-delivery.ps1` | Messages written against messages rendered. Fires when a message sat past the settle window with no receipt naming it | [Session mail](SESSION-MAIL.md) |
 | `scripts/validation/check-message-expiry.ps1` | Receipts against deadlines. Fires when a message passed the ttl its sender set, unshown | [Session mail](SESSION-MAIL.md) |

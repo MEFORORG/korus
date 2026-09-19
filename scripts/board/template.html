@@ -1,0 +1,247 @@
+<title>Lander Board</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#FBF8F3; --panel:#FFFFFF; --panel-2:#F4EFE7; --rule:#DFD6C8;
+  --ink:#1A232C; --ink-2:#4E5B68; --ink-3:#7E8B99;
+  --teal:#00968A; --amber:#B05C18;
+  --good:#1F7A4D; --warn:#9A6210; --crit:#A8382B;
+  --good-bg:#E2F0E7; --warn-bg:#F6EBD8; --crit-bg:#F6E2DE; --wait-bg:#E3E7EC;
+  --shadow:0 1px 2px rgba(26,35,44,.07), 0 6px 18px rgba(26,35,44,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#121A23; --panel:#16202B; --panel-2:#1C2835; --rule:#2B3947;
+    --ink:#E7EEF4; --ink-2:#A7B7C6; --ink-3:#74879A;
+    --teal:#2FA89E; --amber:#D4772E;
+    --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
+    --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#121A23; --panel:#16202B; --panel-2:#1C2835; --rule:#2B3947;
+  --ink:#E7EEF4; --ink-2:#A7B7C6; --ink-3:#74879A;
+  --teal:#2FA89E; --amber:#D4772E;
+  --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
+  --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font:400 15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1240px; margin:0 auto; padding:24px 22px 48px; display:flex; flex-direction:column; gap:16px}
+
+/* masthead ------------------------------------------------------------- */
+.head{display:flex; flex-wrap:wrap; align-items:flex-end; gap:18px 26px; border-bottom:2px solid var(--rule); padding-bottom:16px}
+.brand{display:flex; flex-direction:column; gap:2px; margin-right:auto}
+h1{
+  margin:0; font-family:"Saira Condensed",Impact,sans-serif; font-weight:700;
+  font-size:clamp(30px,4.4vw,44px); letter-spacing:.015em; line-height:1; text-transform:uppercase;
+  text-wrap:balance;
+}
+.sub{font-size:13px; color:var(--ink-2)}
+.stamp{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12.5px; color:var(--ink-2); text-align:right; line-height:1.5}
+.stamp b{display:block; font-weight:600; font-size:14px; color:var(--ink)}
+.stamp span{color:var(--ink-3)}
+.verdict{
+  display:flex; align-items:center; gap:10px; padding:9px 15px; border-radius:3px;
+  font-family:"Saira Condensed",sans-serif; font-weight:700; font-size:20px;
+  letter-spacing:.09em; text-transform:uppercase; border:1px solid;
+}
+.verdict .dot{width:9px; height:9px; border-radius:50%; background:currentColor; flex:none}
+.verdict small{font-family:"IBM Plex Mono",monospace; font-weight:400; font-size:11.5px; letter-spacing:.02em; text-transform:none; color:var(--ink-2)}
+.verdict.good{color:var(--good); background:var(--good-bg); border-color:var(--good)}
+.verdict.warn{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
+.verdict.crit{color:var(--crit); background:var(--crit-bg); border-color:var(--crit)}
+
+/* cards ---------------------------------------------------------------- */
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(252px,1fr)); gap:10px}
+.card{
+  position:relative; background:var(--panel); border:1px solid var(--rule);
+  border-radius:4px; padding:11px 12px 10px 14px; box-shadow:var(--shadow);
+  display:flex; flex-direction:column; gap:7px; overflow:hidden;
+}
+.card::before{content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--ink-3)}
+.ac-teal::before{background:var(--teal)}
+.ac-amber::before{background:var(--amber)}
+.ac-warn::before{background:var(--warn)}
+.ac-crit::before{background:var(--crit)}
+.ac-good::before{background:var(--good)}
+.card h3{
+  margin:0; font-family:"Saira Condensed",sans-serif; font-weight:600; font-size:12.5px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2);
+}
+.hero{
+  margin:-3px 0 0; display:flex; align-items:baseline; gap:6px;
+  font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+}
+.hero b{font-size:29px; font-weight:600; line-height:1; letter-spacing:-.02em; color:var(--ink)}
+.hero span{font-size:11px; color:var(--ink-3); font-family:"IBM Plex Sans",sans-serif}
+.split{
+  display:flex; gap:15px; padding-top:7px; border-top:1px solid var(--rule); flex-wrap:wrap;
+}
+.sp{display:flex; flex-direction:column; gap:1px}
+.sp .k{font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+.sp .v{
+  font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:15px; font-weight:600; color:var(--ink); line-height:1.2;
+}
+.sp .v.is-zero{color:var(--ink-3); font-weight:400}
+.say{margin:0; margin-top:auto; padding-top:2px; font-size:11px; line-height:1.42; color:var(--ink-3)}
+.say b{color:var(--ink-2); font-weight:600}
+.mrows{display:flex; flex-direction:column; gap:1px}
+.mrow{display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:3px 0}
+.mname{font-size:13px; color:var(--ink-2)}
+.note{margin:-5px 0 2px; font-size:12px; line-height:1.45; color:var(--ink-3)}
+
+/* wide panels ---------------------------------------------------------- */
+.wide{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+.qrow{display:flex; align-items:center; gap:11px; padding:5px 0; min-height:30px}
+.qrow .mname{min-width:58px; flex:none}
+.chips{display:flex; flex-wrap:wrap; gap:4px}
+.chip{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500;
+  padding:2px 7px; border-radius:3px; background:var(--wait-bg); color:var(--ink-2);
+  border:1px solid transparent;
+}
+.chip-good{background:var(--good-bg); color:var(--good); border-color:var(--good)}
+.chip-crit{background:var(--crit-bg); color:var(--crit); border-color:var(--crit)}
+.chip-empty{background:transparent; color:var(--ink-3); border:1px dashed var(--rule)}
+.bbar{display:flex; flex:1; height:11px; border-radius:2px; overflow:hidden; gap:2px; background:transparent}
+.bbar-empty{border:1px dashed var(--rule); height:11px; flex:1; border-radius:2px}
+.seg{display:block; min-width:3px}
+.seg-good{background:var(--good)} .seg-wait{background:var(--ink-3)}
+.seg-warn{background:var(--warn)} .seg-crit{background:var(--crit)}
+.mixn{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:14px; color:var(--ink-2); min-width:26px; text-align:right}
+.lgrow{display:flex; flex-wrap:wrap; gap:4px 13px; margin-top:8px; padding-top:9px; border-top:1px solid var(--rule)}
+.lg{display:inline-flex; align-items:center; gap:5px; font-size:11px; letter-spacing:.05em; color:var(--ink-3)}
+.sw{width:9px; height:9px; border-radius:2px; display:inline-block}
+
+/* failure strip -------------------------------------------------------- */
+.fails{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px}
+.fail{background:var(--panel); border:1px solid var(--rule); border-left:3px solid var(--crit); border-radius:5px; padding:13px 15px; box-shadow:var(--shadow)}
+.fail .k{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3)}
+.fail .v{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:27px; font-weight:600; line-height:1.15}
+.fail .d{font-size:12px; color:var(--ink-3); line-height:1.4}
+
+/* chart ---------------------------------------------------------------- */
+.chart{background:var(--panel); border:1px solid var(--rule); border-radius:5px; padding:16px 16px 6px; box-shadow:var(--shadow)}
+.chead{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 18px; margin-bottom:6px}
+.chead h2{margin:0; font-family:"Saira Condensed",sans-serif; font-weight:600; font-size:19px; letter-spacing:.05em; text-transform:uppercase}
+.clegend{display:flex; gap:15px; margin-left:auto; flex-wrap:wrap}
+.clegend span{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2)}
+.clegend i{width:12px; height:12px; border-radius:2px; display:inline-block}
+.i-bar{background:var(--teal)}
+.i-line{height:0; border-top:2px solid var(--amber); border-radius:0; width:15px}
+.i-idle{background:var(--crit); opacity:.14; border:1px solid var(--crit)}
+.scroll{overflow-x:auto}
+svg{display:block; min-width:760px; width:100%; height:auto}
+.gl{stroke:var(--rule); stroke-width:1}
+.idle{fill:var(--crit); opacity:.11}
+.bar{fill:var(--teal)}
+.bar.is-zero{fill:var(--ink-3); opacity:.34}
+.bar:hover{fill:var(--ink)}
+.oline{fill:none; stroke:var(--amber); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.odot{fill:var(--amber); stroke:var(--panel); stroke-width:1.5}
+.ax{font-family:"IBM Plex Mono",monospace; font-size:11px; fill:var(--ink-3)}
+.lyl{text-anchor:end; fill:var(--teal)}
+.ryl{text-anchor:start; fill:var(--amber)}
+.xtk{text-anchor:middle}
+.cfoot{font-size:11.5px; color:var(--ink-3); padding:2px 2px 10px; line-height:1.5}
+foot{display:block; font-size:12px; color:var(--ink-3); border-top:1px solid var(--rule); padding-top:14px; line-height:1.6}
+foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:var(--panel-2); padding:1px 5px; border-radius:3px}
+@media (prefers-reduced-motion:no-preference){ .bar,.odot{transition:fill .12s ease} }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <div class="brand">
+      <h1>Lander Board</h1>
+      <p class="sub">Merge queue drain across three repositories, watched by the Watchdog seat.</p>
+    </div>
+    <div class="verdict {{VCLASS}}">
+      <span class="dot"></span>{{VERDICT}}
+      <small>last merge {{SINCE_ANY}} ago</small>
+    </div>
+    <div class="stamp">
+      <b>{{CT}}</b>
+      <span>{{UTC}} &middot; refreshes every 15 min</span>
+    </div>
+  </header>
+
+  <section class="grid">{{CARDS}}</section>
+
+  <section class="wide">
+    <article class="card">
+      <h3>In the queue right now</h3>
+      <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>
+      <div class="mrows">{{QUEUE_ROWS}}</div>
+      <div class="lgrow">
+        <span class="lg"><i class="sw seg-good"></i>MERGEABLE</span>
+        <span class="lg"><i class="sw seg-wait"></i>AWAITING CHECKS</span>
+        <span class="lg"><i class="sw seg-crit"></i>UNMERGEABLE</span>
+      </div>
+    </article>
+    <article class="card">
+      <h3>What the open PRs are doing</h3>
+      <p class="note">Every open pull request by merge state. The green share is what could land now.</p>
+      <div class="mrows">{{MIX_ROWS}}</div>
+      <div class="lgrow">{{LEGEND_MIX}}</div>
+    </article>
+  </section>
+
+  <section class="chart">
+    <div class="chead">
+      <h2>Merges against backlog, last {{WINDOW}} hours</h2>
+      <div class="clegend">
+        <span><i class="i-bar"></i>Merges per hour</span>
+        <span><i class="i-line"></i>Pull requests open</span>
+        <span><i class="i-idle"></i>Idle stretch</span>
+      </div>
+    </div>
+    <div class="scroll">
+      <svg viewBox="0 0 {{SVGW}} {{SVGH}}" role="img" aria-label="Merges per hour as bars against open pull requests as a line, over the last {{WINDOW}} hours, Central time.">
+        {{BANDS}}{{GRID}}
+        {{BARS}}
+        <polyline class="oline" points="{{LINE}}"/>
+        {{DOTS}}
+        {{LYL}}{{RYL}}{{XTK}}
+      </svg>
+    </div>
+    <p class="cfoot">Hours are Central. Bars read against the left scale, the line against the right. Two scales on one frame exaggerate any crossing point, so read each series against its own axis rather than against the other. The line is the open count at the top of each hour, so its last point sits slightly behind the live figure above.</p>
+  </section>
+
+  <foot>
+    Built from <code>gh</code> against MEFORORG/MessageFoundry, wshallwshall/korus and
+    wshallwshall/MessageFoundry-vault. Open counts per hour are reconstructed backwards from the
+    live count using created and closed timestamps, so they are exact at each hour boundary rather
+    than sampled. A count taken within two minutes of a merge is unreliable; every figure here is
+    read twice and the second value used.
+  </foot>
+</div>
+
+<script>
+(function () {
+  var rows = document.querySelectorAll(".card h3");
+  var clean = null, enq = null;
+  rows.forEach(function (h) {
+    var t = h.textContent.trim();
+    var b = h.parentElement.querySelector(".mtot b");
+    if (!b) return;
+    if (t === "Ready and waiting") clean = parseInt(b.textContent, 10);
+    if (t === "Enqueued now") enq = parseInt(b.textContent, 10);
+  });
+  var el = document.getElementById("readywait");
+  if (el && clean !== null && enq !== null) {
+    var v = Math.max(0, clean - enq);
+    el.textContent = v;
+    if (v === 0) el.style.color = "var(--good)";
+  }
+})();
+</script>

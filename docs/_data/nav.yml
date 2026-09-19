@@ -164,6 +164,9 @@
     - label: Watching for a red
       title: Noticing a red without a session watching for it
       path: /CI-RED-WATCH.html
+    - label: The Lander Board
+      title: The Lander Board
+      path: /LANDER-BOARD.html
 
 - group: Reference
   items:
