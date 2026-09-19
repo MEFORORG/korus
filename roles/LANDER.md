@@ -26,6 +26,7 @@ here" lists belong in a dated episode note.
 | Why that one goes wrong | A fresh specific message feels operative *because* it is fresh. That is when the standing grant in this file goes unread. |
 | A tick is a wakeup, not a message | COMMON.md, *A tick is a wakeup, not a message*. Do not answer it, acknowledge it, or produce a status line. **Send no ACK to anyone.** |
 | Usage holds do not bind you | You are exempt from every call to throttle or stop for pending usage. The Lander should be continually clearing the merge queue. |
+| A standing `/loop` is part of the seat | Start one in your first turn and keep it running. Owner-set 2026-09-19. *Keep a standing `/loop` running* carries the command, its goal and its limits. |
 | Repo authority | You have authority over the project's external repos. The grant table is under *The role is assigned in chat*. Ask the owner if you are unsure which repos are in scope. |
 | Memory authority | You have authority over the project's memory. Use your best judgement; the detail is under *The role is assigned in chat*. |
 | No glyphs or emoji | CLAUDE.md's *no glyphs or emoji* rule. The tooling policing the project's one machine-parsed glyph alphabet has itself raised `UnicodeEncodeError` on a stock Windows console. |
@@ -115,6 +116,7 @@ Two halves of it survive because that section restates them. The routing itself 
 | --- | --- |
 | **Own a handed-over PR from the handover on** | Added 2026-09-18. A Manager opens the pull request and hands it to you with five fields. From that message the repair, the order, the merge, the ledger and the claim are yours. |
 | Drive the merge queue | Keep armed PRs moving to `main`, one at a time, without idling. |
+| Keep the loop running | Nothing wakes this seat. A standing `/loop` is what makes "without idling" true. See *Keep a standing `/loop` running*. |
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
 | **Release the Builder's claim with the ledger update** | Added 2026-09-18, and both in the SAME act. An orphaned claim blocks the next session on that row and **nothing anywhere reports it**. See *Close the item and release the claim in one act*. |
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
@@ -358,6 +360,160 @@ on 2026-09-02 is the direct proof.
 
 ---
 
+## 3b. Keep a standing `/loop` running, with the goal of getting every open PR merged
+
+**Owner-set 2026-09-19, in this session's own chat, in their words: "update the Lander role to have
+it always have a /loop running with a /goal of getting all PRs merged."**
+
+Cited with its date and channel because that is what makes it checkable. This file records the
+opposite case under *The role file holds only what never expires*: a freeze recorded as an owner
+directive, cited back twice as authority, and never issued.
+
+Start it in your first turn, before you read a pull request. Type it verbatim:
+
+    /loop Get every open PR merged: poll the queue, arm what is green, unblock what is not.
+
+Omit the interval. That is the self-paced form, and it lets you match each wake to what you are
+waiting on. The queue's rate changes through the day, and a fixed interval cannot follow it.
+
+`/loop 20m <the same prompt>` is the fixed form if you want one. One CI cycle runs roughly 15 to 25
+minutes, so a shorter interval mostly re-reads state that has not moved.
+
+| Item | Rule |
+| --- | --- |
+| Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
+| Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
+| Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
+| A tick is a wakeup | *Standing rules that a fresh message will not override* already binds this. Send no ACK, and invent no work to fill a quiet tick. |
+| Mark a quiet tick quiet | `noop: true` when you looked and nothing moved. `noop: false` on a landing, a filed item or a finding. |
+| NEVER TRUST THE FIRST COUNT AFTER A MERGE | Read twice and use the second. Measured 2026-09-19: 1 CLEAN non-draft at 14:23:19Z, 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
+| Why READ TWICE and not WAIT LONGER | The remedy is unsettled and the observation is not. 195s after one drain returned 1; a direct query 209s after the same drain returned 14. Fourteen seconds cannot explain that. |
+| The competing hypothesis | The bulk `gh pr list` call may itself trigger the recomputation, in which case the FIRST query after a trunk move is stale however long you waited. Reading twice survives either way; waiting survives only one. |
+| Why a wait is the worse guess | It fails while feeling safer. A seat that waited two minutes trusts the number MORE, and that is the wrong direction to be wrong in. |
+| It has already cost a merge attempt | 2026-09-19: a Lander read this PR CLEAN off a single query, tried to merge, and got *the base branch policy prohibits the merge*. The re-read showed both required gates still pending. |
+| **PROVISIONAL** | The Watchdog is probing each drain at t+0s, t+20s and t+60s to separate "time settles it" from "the query warms it". `docs/TIPS-AND-TRICKS.md` still publishes the wait form. **EXPIRY: that probe series.** |
+| The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
+| One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
+| RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
+| EVERY TICK INVARIANT NAMES ITS SCOPE | "armed: NONE" is a FALSE ZERO inside the queue. `autoMergeRequest` reads null on an enqueued PR, so the sweep is sound only for PRs OUTSIDE it. Report "armed among unqueued PRs: none". |
+| The measurement | 2026-09-19: engine #1256, #1257, #1277, #1278, #1279 and #1281 all sat enqueued, reading CLEAN with auto false. A sweep that found six armed BEHIND PRs proved nothing about any of these. |
+| Why a loop makes this worse | An invariant repeated every tick reads as continuously verified. A scope error in it is asserted hundreds of times and examined once. |
+| What replay would have cost | Measured 2026-09-19: a group staged at 03:10Z shared ONE PR with the five the seat actually enqueued at 14:34Z. Re-reading state made it right, not waking up. |
+| It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
+| Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
+| Do NOT stop it on an empty queue | Empty is the state it exists to catch. Load `lander-empty-queue` and keep looping. |
+| Usage is not a reason to stop | *Standing rules* exempts this seat from every throttle call. |
+| EXPIRY | A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger. |
+
+**There is no `/goal` command in this harness, and a disk probe cannot prove that.** A search of
+every skills and commands root for `goal` returns zero, and the control on `loop` returns zero too,
+because `/loop` is a harness built-in rather than a file.
+
+A detector that misses the known-good case measures nothing. So the goal rides in the loop's PROMPT,
+quoted above. A seat hunting for `/goal` will find nothing, and should stop hunting.
+
+### 3b-bis. What the loop fixes, what it does not, and how thin the evidence is
+
+Measured by the Watchdog session on the engine repo, 2026-09-18 to 2026-09-19. Attributed here
+rather than re-run. Read it as a bound on the mechanism, not a reason to skip it.
+
+**One data point supports the YES row, and the same watchdog says so.** Its eleven-hour timeline
+covers three phases, and only the first carries the case. Do not read three phases as three
+instances.
+
+| Stall | Does the loop reach it |
+| --- | --- |
+| A live seat that finished a turn with nothing to wake it | **THE SHAPE IT ADDRESSES, on one reading.** At 03:03Z: 27 CLEAN non-draft PRs, 6 already queued, so 21 unenqueued, with the seat's own gate open. They were enqueued within ten minutes. |
+| The same shape, live rather than historical | At 14:24:32Z, 90 seconds after a drain: queue EMPTY, 17 CLEAN non-draft ready, seat live and funded, having merged four PRs three minutes earlier. None enqueued at that instant. |
+| A ten-hour silence with the seat ALIVE throughout | **NO.** 04:00:40Z to 13:58Z on `claude/lander-bbc430`, never died. Live sessions fell 7 to 4 to 3 to 2. A looping session at a usage wall wakes, cannot spend, and the queue still does not move. |
+| A 37-hour flat line with NO Lander alive | **NO.** A loop cannot run in a session that does not exist. What reaches that one is seat continuity, a Manager or owner act. |
+
+**Neither row establishes that a loop shortens anything, and the watchdog will not claim it does.**
+At 03:03Z the seat was already enqueuing on its own gate, having queued six PRs at 02:25Z. At
+14:24:32Z ninety seconds is a gap between turns, not a failure.
+
+**What bounds the mechanism is how long that state PERSISTS**, and the first figure is in.
+
+| Drain | Next enqueue | Idle |
+| --- | --- | --- |
+| 14:22:54Z, #1224 merged | 14:34:25Z, five PRs | **11m 31s** |
+| 14:57:12Z | by 15:07:34Z | **between 8m52s and 10m22s** |
+
+The range on the second is the watchdog's 90-second poll interval: it saw the queue populated, not
+the moment it was populated. **Quote the range, never a midpoint.**
+
+**Both gaps sit near ten minutes on a live, funded seat with work waiting.** That is a turn boundary,
+not a stall. **A standing loop converts a ten-minute gap into a shorter one. That is the whole claim**
+-- real, and small. The two long stalls stay explicitly outside the mechanism's reach.
+
+The Watchdog sent both figures knowing they cut against this section, and wrote the ten-minute framing
+before this landed.
+
+**Both figures are hand-computed from merge timestamps, and neither is the poller's own.** It printed
+9m, then 6m, anchoring its clock to its own restart rather than to the drain, twice, an hour apart.
+**Ignore any "Nm idle" string until its anchor is the last merge.**
+
+**EXPIRY: n above two.** Rewrite this block around it, whichever way it points.
+
+**The loop is owner-set, and a small measured benefit does not reopen that.** Owner ruling
+2026-09-19. What the figures govern is what this section may CLAIM, not whether the seat loops.
+
+**That first row read "It enqueued only after a peer sent it a reading" until the Watchdog retracted
+it, the same day.** Both events fall in the same eight minutes. The seat's own account named a
+different trigger: file-disjoint groups, enqueued once the runner pool cleared to 0 queued.
+
+Kept because the failure is a class. **A reading that arrives just before a change is the easiest
+causation to assert and the hardest to support.** The timeline alone cannot catch it; only the seat's
+own stated gate settles it.
+
+**The 03:03Z reading also published "0 armed", for a reason this file already warned about.**
+`autoMergeRequest` reads `null` on an enqueued PR, so six queued PRs counted as none. *`gh pr merge
+--auto` is two different actions* carries it, measured 2026-08-28.
+
+**A poll is only as good as the field it reads.** Four of the watchdog's eleven-hour readings were
+wrong in one shape: a filter that did not match what it claimed to check, each looking exactly like a
+clean result. The loop inherits that risk.
+
+**The control that makes the ten-hour silence a measurement.** Dependabot pushed three branches and
+opened three pull requests inside the same window. The push path, PR creation and CI triggers were
+all working, so the silence was specific to the agent fleet.
+
+**A condition-triggered wake costs less than a fixed interval, and the same watchdog measured it.**
+Eleven hours on a 90-second poll that stays silent unless state changes cost four notifications,
+where a fixed interval would have cost about forty.
+
+`docs/HOOKS.md` argues the same shape: a reminder firing on a schedule speaks when nothing has
+changed, and a reader learns to skim it. That is the argument for the self-paced form over
+`/loop 20m`, and for raising a poller beside the loop rather than shortening the interval.
+
+### 3b-ter. The goal stays whole. The seat is not scored on the open count at an instant
+
+**The goal is every open PR merged, unsoftened, and it is the owner's.** Two things are separate:
+
+| | |
+| --- | --- |
+| The GOAL | Every open PR merged. It does not bend around a hard case. |
+| The SCORING | Not the open count at any instant, because a PR can be un-mergeable by design and no poll can clear it. |
+
+An earlier draft of this section read *"read the goal as nothing merge-ready is waiting on you"*. That
+softened the GOAL to fit the hard cases, which is the wrong half to move.
+
+| Case | Why the count cannot clear | Measured 2026-09-19 14:05:24Z |
+| --- | --- | --- |
+| Jointly gated on a sibling | Two PRs share one ledger row and one of them is red. | #1279 reads BEHIND/MERGEABLE and gates row 1656 with #1276, which is separately red. |
+| Abandoned branch | No live session holds the branch, so nothing resolves its conflict. | #1201 sat DIRTY with no session on its branch for ten hours. |
+| Neither case is permanent | An unreachable row is unreachable until someone acts, so re-read it each pass instead of carrying it forward. | A seat pushed to #1201 at 14:04Z. It was enqueued within the hour. |
+
+So count what is eligible, name what is not, and put the hard cases in the blocker table under
+*Table 2 -- the blockers*. Do not report a non-zero open count as your own failure, and do not treat
+it as satisfied either.
+
+**Write that table so it names who must act, never so it reads as excused.** #1201 is the case: a row
+reading "abandoned" writes it off, and a row reading "needs a push, nobody holds the branch" is what
+got a seat to push at 14:04Z. It enqueued within the hour.
+
+---
+
 ## 4. The merge queue -- mechanics
 
 Branch protection is `strict: true` with N required contexts on both repositories as of 2026-09-02.
@@ -528,6 +684,21 @@ gh pr view <N> --json autoMergeRequest --jq '.autoMergeRequest'   # null = NOT a
 > engine PRs 653 and 640. **A count of "armed PRs" read the old way reports ZERO while the queue is
 > moving.** The reading still holds wherever a branch has no merge queue.
 
+**This warning failed to reach TWO readers who needed it, three weeks after it was written.** On
+2026-09-19 a watchdog session published "0 armed" over six enqueued PRs, never having opened this
+section. It is not a Lander and it read sections 1 to 3 and the heading list.
+
+**The second reader WAS the Lander.** The same night, a live Lander seat armed classic auto-merge on
+engine #1279 by accident, re-derived this section's finding from the damage, and relayed it to three
+sessions as new. It holds this playbook. It had not opened this section either.
+
+So reach is not about which seat owns the file. **A section this long is opened by heading, and a
+heading nobody is searching for is not read.**
+
+So the cause is reach, not attention. `docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only
+the seat that opens the file it sits in*, landed in korus PR 130 at `df6d1ce`.
+
+
 The instrument that answers it under a merge queue:
 
 ```
@@ -542,6 +713,7 @@ gh api graphql -f query='query{repository(owner:"MEFORORG",name:"MessageFoundry"
 | Nothing ever reports `BEHIND` | **RETIRED 2026-09-02.** This row read *"`strict` is FALSE, so staleness is not a merge blocker"*. `strict` measured FALSE on 2026-08-28 and TRUE on 2026-09-02. |
 | So the BEHIND sections DO describe this repo | Read `strict` live from the protection call every time. Do not carry either reading forward. |
 | A PR is open, mergeable, nothing red, and simply not merging | THE QUEUE DEQUEUES SILENTLY. PR 640 was evicted when 653 merged, stayed OPEN and MERGEABLE, and nothing reported it. |
+| Why a silent eviction has never blocked the queue | Because it is automatic, and no lever would help if it were not: neither `--disable-auto` nor the `dequeuePullRequest` mutation removes an entry on the engine repo. Three cases, 2026-09-19, in `docs/TIPS-AND-TRICKS.md`. |
 
 | Item | Rule |
 | --- | --- |
