@@ -780,9 +780,16 @@ time and the pull request caught up.
 Read the entry for anything queue-related, and treat `UNMERGEABLE` there as an early conflict
 warning rather than a quirk.
 
-An entry in that state evicts itself. Measured three times in one day, on `#1279`, `#1201` and
-`#1227`, with nothing behind them blocked and no lever pulled. Neither `gh pr merge --disable-auto`
-nor the `dequeuePullRequest` mutation removes an entry from that repository.
+**An entry in that state resolves itself, one of two ways, and neither needs a lever.** Measured six
+times on 2026-09-19. Four evicted: `#1279`, `#1201`, `#1227`, `#1229`. Two recovered to
+`AWAITING_CHECKS` in place, `#1232` and `#1233`, when the entries ahead of them left the queue.
+
+So `UNMERGEABLE` is not terminal and it is not a verdict on the pull request. It is a statement
+about the entry against its predecessors' stacked state, and it changes when they do.
+
+Do not reach for a lever either way. A queued entry is frozen until it resolves on its own: neither
+`gh pr merge --disable-auto` nor `dequeuePullRequest` removes one, and `update-branch` returns 422
+while a pull request is queued. That 422 was measured by the Lander seat, which holds that grant.
 
 `roles/LANDER.md` section *4d-bis* logs the same eviction as a hazard: the row *A PR is open,
 mergeable, nothing red, and simply not merging*. One mechanism, both readings true. **Automatic
