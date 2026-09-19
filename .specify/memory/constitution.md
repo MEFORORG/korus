@@ -347,7 +347,7 @@ that recorded the decision:
 
 **Evidence.** Seven seats were retired on 2026-09-01 and six kept. Every retained seat had
 an artefact: the Console wrote briefs, the Builder writes a pull request, another seat wrote
-a label, the Regulator writes an attribution log, the Steward writes files other
+a label, the Regulator wrote an attribution log, the Steward writes files other
 seats read, the Lander writes a merge order. Every retired seat existed to relay, route or
 represent, and produced nothing a later reader could open.
 
@@ -364,6 +364,22 @@ and findings on a pull request, so writing something down did not save it.
 a message is not a seat. A seat whose product is an artefact nobody is required to read can
 still be retired for that, which is what happened here: the gate that made the label binding
 went on 2026-09-04 and the seat followed eight days later.
+
+**It moved a fourth time on 2026-09-19, and this is the second instance of that same case,
+not a new one.** The Owner retired the Regulator and nothing replaced it.
+
+That seat wrote an artefact and its verdict bound, so it sat further inside this article than
+the 2026-09-12 seat did. It was retired anyway.
+
+**No reason was stated to the session recording this**, so nothing here explains the
+retirement, and inventing one would be the failure Article V names.
+
+What the article can say is narrower and still useful: writing something down did not save a
+second seat, so the necessary-and-not-sufficient reading above is now carried by two cases
+rather than one.
+
+**The Watchdog arrived the same day and is consistent with the rule.** Its product is a
+finding on a shared page, which a later reader can open. The article would have kept it in.
 
 **Why this is constitutional and not merely tidy.** A seat whose output is a message
 disappears when its session ends, so its work cannot be checked by Article I, cannot be
@@ -708,10 +724,31 @@ contradicts one, the article changes and the old text stays with the reason, bec
 reader who remembers the old rule needs to see it named as retired rather than find it
 silently absent.
 
-**Version**: 1.16.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-12
+**Version**: 1.17.0 | **Ratified**: 2026-09-02 | **Last Amended**: 2026-09-19
 
 <!--
 Amendment log. Kept because Governance requires retired text to stay with its reason.
+
+1.17.0 2026-09-19  The Owner retired the REGULATOR and nothing replaced it. ARTICLE XI named
+       that seat in its evidence, in the present tense, as one of the six kept on 2026-09-01.
+
+       The tense is corrected the way the Console's already was, and a fourth roster move is
+       recorded beside the third. It is the SECOND INSTANCE of the case the article already
+       covers rather than a new counterexample: a seat that wrote an artefact was retired
+       anyway, so necessary-and-not-sufficient now rests on two cases instead of one.
+
+       The Regulator sat further inside the article than the 2026-09-12 seat did, because its
+       verdict BOUND where that seat's label had stopped binding on 2026-09-04. That makes the
+       instance stronger, not weaker.
+
+       NO REASON WAS STATED to the session recording this, so none is given. Article V forbids
+       manufacturing the evidence a rule would need, and a plausible reason invented here would
+       read as the Owner's.
+
+       The Watchdog, added the same day, is consistent with the article: its product is a
+       finding on a shared page, which a later reader can open.
+
+       No article text is retired and no rule changes. This is evidence, a tense, and a count.
 
 1.16.0 2026-09-12  The Owner retired a seat, deliberately unnamed here, and nothing replaced
        it. Two articles described that seat in the present tense.

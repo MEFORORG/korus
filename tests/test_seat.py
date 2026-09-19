@@ -218,14 +218,14 @@ class OneRecordPerWorktreeAndSession(_SeatCase):
 
     def test_two_worktrees_keep_separate_records_under_one_session_id(self):
         self.declare(self.primary, "builder", "port the role cards")
-        self.declare(self.peer, "regulator", "attribute the red")
+        self.declare(self.peer, "steward", "attribute the red")
         self.assertEqual("builder", self.record(self.primary)["seat"])
-        self.assertEqual("regulator", self.record(self.peer)["seat"])
+        self.assertEqual("steward", self.record(self.peer)["seat"])
         self.assertEqual(2, len(self.records()))
 
     def test_two_sessions_in_one_worktree_keep_separate_records(self):
         self.declare(self.primary, "builder", "the first goal", session="s1")
-        self.declare(self.primary, "regulator", "the second goal", session="s2")
+        self.declare(self.primary, "steward", "the second goal", session="s2")
         self.assertEqual("the first goal", self.record(self.primary, "s1")["goal"])
         self.assertEqual("the second goal", self.record(self.primary, "s2")["goal"])
 
@@ -296,9 +296,9 @@ class TheMarkerIsCollapsedIntoTheDeclaration(_SeatCase):
 
     def test_the_marker_belongs_to_its_own_worktree(self):
         self.declare(self.primary, "builder", "a goal")
-        self.declare(self.peer, "regulator", "another goal")
+        self.declare(self.peer, "steward", "another goal")
         self.assertEqual("builder", self.marker(self.primary).read_text(encoding="ascii").strip())
-        self.assertEqual("regulator", self.marker(self.peer).read_text(encoding="ascii").strip())
+        self.assertEqual("steward", self.marker(self.peer).read_text(encoding="ascii").strip())
 
 
 class ClosingSaysTheEpisodeEndedNotThatItNeverHappened(_SeatCase):
@@ -338,7 +338,7 @@ class TheStateLivesInsideGitAndCannotBeCommitted(_SeatCase):
         )
 
     def test_the_declaration_from_a_peer_worktree_shares_one_state_root(self):
-        self.declare(self.peer, "regulator", "a goal")
+        self.declare(self.peer, "steward", "a goal")
         self.assertTrue(self.records(), "the peer wrote outside the shared state root")
 
     def test_no_temporary_file_survives_a_write(self):
@@ -361,12 +361,12 @@ class TheListingHidesNothing(_SeatCase):
         self.assertIn("no records yet", result.stdout)
 
     def test_a_record_whose_worktree_is_gone_is_flagged_rather_than_dropped(self):
-        self.declare(self.peer, "regulator", "attribute the red")
+        self.declare(self.peer, "steward", "attribute the red")
         self.git(self.primary, "worktree", "remove", "--force", str(self.peer))
         result = self.seat(self.primary, "-List")
         self.assertIn("WORKTREE GONE", result.stdout)
         self.assertIn(
-            "regulator",
+            "steward",
             result.stdout,
             "the record is the only remaining evidence of what that seat was doing.",
         )

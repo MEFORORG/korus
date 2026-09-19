@@ -34,7 +34,7 @@ My setup combined these choices:
 - Worktrees and hooks to enforce the rules that prompts alone did not hold.
 - The Kynet method for communication between sessions, described in section 8.
 
-The regulator role adds a check around the builders' work. One further role, deliberately unnamed here, did too until it retired on 2026-09-12. The sections below explain the choices and their
+The regulator role added a check around the builders' work until it retired on 2026-09-19. One further role, deliberately unnamed here, did too until it retired on 2026-09-12. The sections below explain the choices and their
 limits.
 
 ## 1. Use Claude Code with Ultracode Mode and Opus 5
@@ -179,13 +179,16 @@ The label-based merge gate it fed was retired on 2026-09-04. Eight days later th
 a pull request now merges on its repository checks alone. The [Reviewer card](roles/reviewer.card.md)
 is a tombstone.
 
-### 6.5 Regulator session
+### 6.5 Regulator session, retired 2026-09-19
 
-Start a regulator when a required check fails. It determines whether the cause belongs to the
-pull request, trunk, an intermittent test failure, or the queue.
+A regulator started when a required check failed and decided whether the cause belonged to the
+pull request, trunk, an intermittent failure, or the queue.
 
-Only a failure caused by the pull request goes back to its builder. The regulator keeps a log
-because it does not retain memory of earlier failed runs.
+The Owner retired it and nothing replaced it. **No seat attributes a red now.** A red is the
+lander's to triage and route, or the Owner's to rule on.
+
+`roles/retired/REGULATOR.md` keeps the method. The watchdog is not a substitute: it measures
+whether reds are being cleared at all, and never says whose one is.
 
 The steward is a scheduled script, not an AI session. It reads account usage and identifies an
 account with room left. It makes no model calls and cannot interrupt a running session.

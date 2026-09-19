@@ -34,7 +34,7 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 |---|---|---|
 | `scripts/worktree/new.ps1` | Create an isolated worktree on its own branch, off the fetched remote tip, serialised against concurrent adds | [Worktrees](WORKTREES.md) |
 | `scripts/worktree/spawn.ps1` | `new.ps1` plus an editor window (`-Editor`, else `CCX_EDITOR`, else `EDITOR`, else `code`) | [Worktrees](WORKTREES.md) |
-| `scripts/coord/presence.ps1` | Who is actually live in this repo right now, across every surface. Read-only | [Coordination](COORDINATION.md) |
+| `scripts/coord/presence.ps1` | Who is live right now, across every surface. **Scoped to one repo by default**; `-Fleet` covers every repo the registry knows. Read-only | [Coordination](COORDINATION.md) |
 | `scripts/coord/overlap.ps1` | What everyone else is changing -- files and stated work. `-File <path>`, `-Json`; cached, so the gate's common case is a cache read | [Coordination](COORDINATION.md) |
 | `scripts/coord/claim.ps1` | Take, release or list an atomic claim on a piece of work, so a session finds out before the work rather than at merge. Advisory for free-text keys, enforced at `commit-msg` for numbered ones. Claims do not expire and releasing is manual, on purpose | [Coordination](COORDINATION.md) |
 | `scripts/coord/alloc.ps1` | Allocate the next number in a shared sequence atomically, so two sessions can never be handed the same one; `-ShowFloor` inspects without spending one. `seq_check.py` is the other half -- neither is sufficient alone | [Sequence allocation](SEQUENCE-ALLOC.md) |

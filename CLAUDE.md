@@ -32,24 +32,31 @@ lies between what is convenient here and what a copier needs, the copier wins.
 
 ## The seats
 
-Seven seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
+Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. |
-| Regulator | [REGULATOR.md](roles/REGULATOR.md) | Decides whose failure a red check is. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
 | Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
-| Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | Watches another seat work and files what it learns where the affected seats read. Added 2026-09-19. **It does not do the work it watches**, and it is not a renamed Regulator. |
+| Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
 whichever seat you hold.
 
-**The Watchdog arrived 2026-09-19, and the Regulator is the seat it is most often confused with.** A Regulator attributes ONE red check and exits. A Watchdog observes a seat over time and writes about the method rather than the check.
+**The Watchdog arrived 2026-09-19, hours before the Regulator retired, and it did not inherit that seat.** A Regulator was event-triggered and returned a binding verdict on ONE red check. A Watchdog runs continuously, measures a seat's work, and returns evidence that decides nothing.
 
 Its playbook and card were drafted from the record of the first Watchdog session rather than from a standing practice, and neither was reviewed by a Watchdog. `roles/WATCHDOG.md`, *How this playbook was written*, names which claims rest on measurement and which on inference.
+
+**The Regulator retired 2026-09-19, by Owner instruction, and nothing replaced it.** The Watchdog
+is not a substitute: that seat measures whether a seat is clearing reds at all, and returns
+evidence rather than a verdict.
+
+**So no seat attributes a red check now.** A red is the Lander's to triage and route, or the
+Owner's to rule on. Do not route a red to a seat, and do not hold a pull request waiting for an
+attribution. `roles/retired/REGULATOR.md` is the record of what the seat did.
 
 **This table governs the roster.** `roles/README.md` and `docs/roles/seats.json` each hold a second
 copy of it. Where any of them disagrees with this table, this table wins.
@@ -96,7 +103,7 @@ one is stale.
 ## The constitution governs
 
 [The KORUS Constitution](.specify/memory/constitution.md) holds the rules a session, a seat, a gate
-or a later spec may not break. Thirteen articles at v1.16.0. Every article names the evidence behind
+or a later spec may not break. Thirteen articles at v1.17.0. Every article names the evidence behind
 it, so a reader can check rather than trust.
 
 **That line read "Twelve articles at v1.10.0" until 2026-09-10, and both numbers were wrong.**
@@ -153,8 +160,16 @@ Rules that are not negotiable:
 
 | Naming | Meaning |
 |---|---|
-| `.example.` in the name | Tracked, and inert by construction. The harness loads `settings.json` and `settings.local.json` only, so an example file can never become a control that looks installed. |
+| `.example.` in the name | Required of a tracked **settings** file. Inert by construction: the harness loads `settings.json` and `settings.local.json` only, so an example can never become a control that looks installed. |
 | `.local.` in the name | Machine-local, and ignored by `*.local.*`. |
+| A skill, at `skills/<name>/SKILL.md` | Tracked, with no marker. It loads by directory name, so `.example.` would break it rather than make it inert. |
+
+**The `.example.` rule was stated as covering everything under `.claude/` until 2026-09-19, and
+the tree broke it 29 times.** Measured with `git ls-files .claude`: 29 tracked files carry no
+`.example.`, every one a `SKILL.md`, against a control of exactly 1 that does.
+
+The wording predated the fleet skills and was never narrowed, so it forbade what this repository
+had just started doing. `.gitignore` now says settings.
 
 **Run `git check-ignore -v <path>` before choosing a path for a generated file.** The `*.local.*`
 pattern needs a segment after `.local.`, so `seat.local` is tracked and `seat.local.txt` is not.

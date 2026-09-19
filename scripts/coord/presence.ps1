@@ -75,6 +75,12 @@ param(
     [switch]$Json,
     # Repo to scope to. Defaults to the current worktree's repo family (all worktrees sharing one .git).
     [string]$Repo,
+    # Scan EVERY repository the registry knows about, not just this one. The default roster is
+    # scoped to one repo family, and a seat that works a DIFFERENT repo is absent from it -- which
+    # reads as 'that seat is not running'. Measured 2026-09-19: the korus roster showed 2 sessions
+    # and no Lander while a live Lander was working MessageFoundry, in the same fleet, on the same
+    # machine. Use this before writing that any seat is absent.
+    [switch]$Fleet,
     # Treat this pid as "me" so the roster can mark the calling session. Defaults to auto-detection by
     # ancestry (see Get-SelfPids) -- 0 means "work it out", which is what every real invocation wants.
     [int]$SelfPid = 0,
@@ -169,7 +175,48 @@ function Get-SelfPids([int]$Override) {
 }
 
 # --- Collect ------------------------------------------------------------------------------------
-$occ = Get-WorktreeOccupancy -Repo $Repo -ConfigRoot $ConfigRoot -StartSkewMinutes $StartSkewMinutes
+# EVERY REPO, OR ONE. The fence is the same either way: -Fleet finds the distinct repositories the
+# registry's own records point at, then scopes occupancy to each in turn and concatenates. Reusing
+# Get-WorktreeOccupancy per repo rather than filtering records by hand keeps ONE definition of
+# 'live', which is the property sessions.ps1 and prune-merged.ps1 also depend on.
+$scopeLabel = 'this repo'
+if ($Fleet) {
+    $seen = @{}
+    $repoHints = @()
+    foreach ($rec in @(Get-SessionRecords -ConfigRoot $ConfigRoot)) {
+        # Get-SessionRecords returns a WRAPPER -- Root, File, Record, Unreadable, Error -- so the
+        # session's own fields live under .Record. Reading $rec.cwd yields null on every record,
+        # which collapsed the hint list to empty and made -Fleet silently scope to one repo.
+        $cwd = $rec.Record.cwd
+        if (-not $cwd -or -not (Test-Path -LiteralPath $cwd)) { continue }
+        $common = (& git -C $cwd rev-parse --path-format=absolute --git-common-dir 2>$null)
+        if ($LASTEXITCODE -ne 0 -or -not $common) { continue }
+        $key = ConvertTo-Norm $common.Trim()
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        $repoHints += $cwd
+    }
+    if ($repoHints.Count -eq 0) { $repoHints = @($Repo) }
+    $merged = @()
+    $available = $true
+    $details = @()
+    foreach ($hint in $repoHints) {
+        $one = Get-WorktreeOccupancy -Repo $hint -ConfigRoot $ConfigRoot -StartSkewMinutes $StartSkewMinutes
+        if (-not $one.RepoFound) { continue }
+        if (-not $one.Available) { $available = $false; $details += $one.Detail }
+        $merged += @($one.Sessions)
+    }
+    $byId = @{}
+    foreach ($s in $merged) { $byId[[string]$s.SessionId] = $s }
+    $occ = [pscustomobject]@{
+        RepoFound = ($repoHints.Count -gt 0); Available = $available
+        Detail = ($details -join '; '); Sessions = @($byId.Values)
+    }
+    $scopeLabel = "the FLEET ($($repoHints.Count) repositories)"
+}
+else {
+    $occ = Get-WorktreeOccupancy -Repo $Repo -ConfigRoot $ConfigRoot -StartSkewMinutes $StartSkewMinutes
+}
 if (-not $occ.RepoFound) {
     if ($Json) {
         # A RECEIPT, for the same reason the roster-UNAVAILABLE one below exists -- and this was the
@@ -287,7 +334,7 @@ if (-not $occ.Available) {
     Write-Host "Roster INCOMPLETE -- $($occ.Detail)." -ForegroundColor Yellow
     Write-Host "  What follows is what could be placed. There may be sessions it does not show." -ForegroundColor Yellow
 }
-Write-Host "Live Claude sessions in this repo ($($rows.Count)):"
+Write-Host "Live Claude sessions in $scopeLabel ($($rows.Count)):"
 foreach ($r in $rows) {
     $me = if ($r.IsSelf) { "  <-- THIS session" } else { "" }
     $warn = if ($r.IsPrimary -and -not $r.IsSelf) { "  [in the SHARED PRIMARY]" } else { "" }
@@ -298,6 +345,14 @@ foreach ($r in $rows) {
 Write-Host ""
 Write-Host "  See what they are building:  pwsh -NoProfile -File scripts/coord/claim.ps1 -List"
 Write-Host "  See what they are touching:  pwsh -NoProfile -File scripts/coord/overlap.ps1"
+if (-not $Fleet) {
+    # THE COUNT ABOVE IS SCOPED TO ONE REPOSITORY. A seat working a different repo in the same fleet
+    # is absent from it, and that absence reads as "that seat is not running". Say so here rather
+    # than trusting a reader to remember the parameter block.
+    Write-Host ""
+    Write-Host "  SCOPED TO THIS REPOSITORY. A seat working another repo is not listed above." -ForegroundColor Yellow
+    Write-Host "  Before writing that any seat is absent:  pwsh -NoProfile -File scripts/coord/presence.ps1 -Fleet" -ForegroundColor Yellow
+}
 Write-Host ""
 if (-not $occ.Available) { exit 2 }
 exit 0

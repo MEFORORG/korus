@@ -40,10 +40,13 @@ AGREEMENT = t.REPO_ROOT / "CLAUDE.md"
 MARKER_RELPATH = ".claude/seat.local.txt"
 ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 
-#: The seat table in the working agreement governs the roster. SEVEN seats since 2026-09-19,
+#: The seat table in the working agreement governs the roster. SIX seats since 2026-09-19, when
+#: the owner retired the REGULATOR and nothing replaced it. No seat now attributes a red check.
+#:
+#: SEVEN earlier the same day,
 #: when the owner added `watchdog`: a seat that watches another seat work and files findings,
-#: and does not do the work it watches. It is not a renamed Regulator -- that seat attributes
-#: ONE red check and exits.
+#: and does not do the work it watches. It did NOT inherit the Regulator, retired the same day:
+#: no seat attributes a red check now.
 #:
 #: SIX from 2026-09-16, when the
 #: owner added `special`: a seat for work outside the other five, which reads COMMON.md and stands by
@@ -57,7 +60,7 @@ ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 #: Manager arrived 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is
 #: now the only seat that writes a brief.
 EXPECTED_SEATS = frozenset(
-    {"manager", "builder", "regulator", "steward", "lander", "special", "watchdog"}
+    {"manager", "builder", "steward", "lander", "special", "watchdog"}
 )
 
 #: Retired seats whose card page an ARCHIVE still links to. The page stays and becomes a tombstone.
@@ -81,7 +84,7 @@ EXPECTED_SEATS = frozenset(
 #: IT IS A NAMED SET, NOT A PATTERN, for the reason `AUTHORED_VERBATIM` is: adding to it has to be a
 #: visible diff somebody approves. A tombstone still carries every required section, stays inside
 #: both budgets, and is read by the leak and ASCII scans -- it leaves only the two roster tests.
-TOMBSTONE_SEATS = frozenset({"console", "reviewer"})
+TOMBSTONE_SEATS = frozenset({"console", "reviewer", "regulator"})
 
 #: Each card carries all five. A card missing one is a card that answers a question by omission.
 REQUIRED_SECTIONS = (
@@ -518,14 +521,14 @@ class TheHookResolvesInOrder(unittest.TestCase):
         )
 
     def test_a_marker_injects_that_seats_card(self):
-        r = self.run_hook(marker="regulator")
+        r = self.run_hook(marker="steward")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("What this seat owns", r.stdout)
-        self.assertIn("Regulator", r.stdout)
+        self.assertIn("Steward", r.stdout)
 
     def test_a_marker_is_case_and_space_insensitive(self):
-        r = self.run_hook(marker="  Regulator\n")
-        self.assertIn("Regulator", r.stdout)
+        r = self.run_hook(marker="  Steward\n")
+        self.assertIn("Steward", r.stdout)
 
     def test_an_alias_injects_the_canonical_card(self):
         r = self.run_hook(marker="builder2")
@@ -536,12 +539,12 @@ class TheHookResolvesInOrder(unittest.TestCase):
         self.assertIn("Lander", r.stdout)
 
     def test_the_marker_outranks_the_env_var(self):
-        r = self.run_hook(marker="regulator", env_seat="lander")
-        self.assertIn("Regulator", r.stdout)
+        r = self.run_hook(marker="steward", env_seat="lander")
+        self.assertIn("Steward", r.stdout)
         self.assertNotIn("| Lander --", r.stdout)
 
     def test_the_card_is_written_where_a_compacted_session_can_re_read_it(self):
-        self.run_hook(marker="regulator")
+        self.run_hook(marker="steward")
         copy = self.root / ".claude" / "ROLE.local.md"
         self.assertTrue(copy.is_file(), "the hook did not write the re-readable copy")
         self.assertIn("What this seat owns", copy.read_text(encoding="utf-8"))

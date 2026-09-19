@@ -28,9 +28,9 @@ opening prompts and `CLAUDE.md`.
 <figure class="explain-figure">
 <picture>
 <source media="(max-width: 1100px)" srcset="/assets/diagrams/g04-build-handoffs-mobile.svg">
-<img src="/assets/diagrams/g04-build-handoffs.svg" alt="A Manager runs one or more Builders as subagents or separate sessions. Pull requests go to the authorized Lander; failed checks reach Regulator." loading="lazy" width="797" height="887">
+<img src="/assets/diagrams/g04-build-handoffs.svg" alt="A Manager runs one or more Builders as subagents or separate sessions. Pull requests go to the authorized Lander, then the merge queue. A Watchdog reads the drain without acting on it. No seat attributes a failed check: the Lander triages and routes it, and everything else is the Owner's to rule on." loading="lazy" width="797" height="887">
 </picture>
-<figcaption>The Manager runs one or more Builders, with one brief per task. Each Builder can be a subagent or a separate session. The authorized Lander sets queue order; the queue merges. Failed checks take the separate Regulator path. <a href="/assets/diagrams/g04-build-handoffs.drawio">Editable diagram</a>.</figcaption>
+<figcaption>The Manager runs one or more Builders, with one brief per task. Each Builder can be a subagent or a separate session. The authorized Lander sets queue order; the queue merges. The Watchdog reads the drain and never drains. A failed check goes to no seat: the Lander triages and routes it, and the rest is the Owner's. <a href="/assets/diagrams/g04-build-handoffs.drawio">Editable diagram</a>.</figcaption>
 </figure>
 
 The Builder uses its own worktree and branch, with the collision gate checking covered edits.
@@ -46,7 +46,6 @@ A role name grants no merge permission. The operator must give the Lander author
 |---|---|---|
 | **Manager** | Its builders, their briefs, their results, and the pull request it opens for each | Write application code, or check the pool before opening |
 | **Builder** | The change, the review, the commit, and the push for one brief | Guess at what the brief left open, wait for an answer, or open the pull request |
-| **Regulator** | Deciding whose failure a red is: the pull request's, the trunk's, a flake's, or the queue's | Assume it remembers an earlier red |
 | **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review step that no longer exists |
 
 The review seat retired on 2026-09-12 and nothing replaced it. The owner had already removed the

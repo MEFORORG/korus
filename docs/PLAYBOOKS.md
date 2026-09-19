@@ -24,11 +24,10 @@ Read `roles/COMMON.md` before your seat's playbook. It holds the rules shared by
 |---|---|---|---|
 | Manager | Runs one or more Builders as subagents or separate sessions. Writes their briefs, reads their results, opens the pull request, and hands it to the Lander. | [Manager](roles/manager.card.md) | `roles/MANAGER.md` |
 | Builder | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. | [Builder](roles/builder.card.md) | `roles/BUILDER.md` |
-| Regulator | Decides whose failure a red check is. | [Regulator](roles/regulator.card.md) | `roles/REGULATOR.md` |
 | Steward | A cron rather than a seat. Reads usage and names the account with headroom. | [Steward](roles/steward.card.md) | `roles/STEWARD.md` |
 | Lander | What enters the merge queue, and in what order. It owns a handed-over pull request from the handover on. | [Lander](roles/lander.card.md) | `roles/LANDER.md` |
 | Special | Work the Owner wants done outside the other six. It stands by silently until instructed. | [Special](roles/special.card.md) | `roles/SPECIAL.md` |
-| Watchdog | Watches another seat work and files what it learns where the affected seats read. It does not do the work it watches. | [Watchdog](roles/watchdog.card.md) | `roles/WATCHDOG.md` |
+| Watchdog | Monitors the Lander and keeps it draining. Reads instruments, raises a stall, and never drains the queue itself. | [Watchdog](roles/watchdog.card.md) | `roles/WATCHDOG.md` |
 
 Cards live under `docs/`, which Jekyll builds into this site. Playbooks live at the repository root,
 outside Jekyll's source directory, so this host has no page for them.

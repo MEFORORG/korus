@@ -7,10 +7,22 @@
 # .claude/settings.example.json, which shows the hand-wiring for the blanket-stage guard -- one of
 # the controls no installer covers (see docs/HOOKS.md and INSTALL.md).
 #
-# THE RULE, not a census: anything tracked under .claude/ MUST carry `.example.` in its name. The
-# harness loads settings.json and settings.local.json only, so an `.example.` file is inert by
-# construction and cannot become a control that looks installed. The machine-local files are ignored
-# below.
+# THE RULE, not a census: any tracked SETTINGS file under .claude/ MUST carry `.example.` in its
+# name. The harness loads settings.json and settings.local.json only, so an `.example.` file is
+# inert by construction and cannot become a control that looks installed. The machine-local files
+# are ignored below.
+#
+# SKILLS ARE TRACKED AND CARRY NO SUCH MARKER, deliberately. .claude/skills/<name>/SKILL.md is
+# loaded by directory name, so an `.example.` in it would stop the skill working rather than make
+# it inert. A skill is not a control that could look installed: it is either in the folder or it is
+# not, and nothing about it can read as wired when it is not.
+#
+# CORRECTED 2026-09-19. The rule read "anything tracked under .claude/", and the tree broke it 29
+# times. Measured with `git ls-files .claude`: 29 tracked files carry no `.example.`, every one of
+# them a SKILL.md, against a control of exactly 1 that does -- settings.example.json.
+#
+# The old wording was written when .claude/ held settings and nothing else. It was not narrowed
+# when the fleet skills landed, so it forbade the thing this repository had just started doing.
 # -------------------------------------------------------------------------------------------------
 
 # Machine-local overrides. The convention throughout: anything with `.local.` in its name belongs to
