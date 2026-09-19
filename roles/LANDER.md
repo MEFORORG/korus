@@ -324,6 +324,8 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* already binds this. Send no ACK, and invent no work to fill a quiet tick. |
 | Mark a quiet tick quiet | `noop: true` when you looked and nothing moved. `noop: false` on a landing, a filed item or a finding. |
+| SETTLE BEFORE YOU COUNT | A count taken inside two minutes of a merge sits in the post-merge recomputation window and reads LOW. Wait 150 seconds after a drain, and label the reading. |
+| What that window cost | Measured 2026-09-19: 1 CLEAN non-draft ready at 14:23:19Z, and 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
 | The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
 | One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
@@ -339,20 +341,52 @@ because `/loop` is a harness built-in rather than a file.
 A detector that misses the known-good case measures nothing. So the goal rides in the loop's PROMPT,
 quoted above. A seat hunting for `/goal` will find nothing, and should stop hunting.
 
-### 3b-bis. What the loop fixes, and the two stalls it does not
+### 3b-bis. What the loop fixes, what it does not, and how thin the evidence is
 
 Measured by the Watchdog session on the engine repo, 2026-09-18 to 2026-09-19. Attributed here
 rather than re-run. Read it as a bound on the mechanism, not a reason to skip it.
 
+**One data point supports the YES row, and the same watchdog says so.** Its eleven-hour timeline
+covers three phases, and only the first carries the case. Do not read three phases as three
+instances.
+
 | Stall | Does the loop reach it |
 | --- | --- |
-| A live seat that finished a turn with nothing to wake it | **YES, and this is the hole.** At 03:03Z, 27 CLEAN non-draft PRs sat with nothing enqueued and the seat's own gate open. It enqueued after a peer sent it a reading. |
+| A live seat that finished a turn with nothing to wake it | **THE SHAPE IT ADDRESSES, on one reading.** At 03:03Z: 27 CLEAN non-draft PRs, 6 already queued, so 21 unenqueued, with the seat's own gate open. They were enqueued within ten minutes. |
+| The same shape, live rather than historical | At 14:24:32Z, 90 seconds after a drain: queue EMPTY, 17 CLEAN non-draft ready, seat live and funded, having merged four PRs three minutes earlier. None enqueued at that instant. |
 | A ten-hour silence with the seat ALIVE throughout | **NO.** 04:00:40Z to 13:58Z on `claude/lander-bbc430`, never died. Live sessions fell 7 to 4 to 3 to 2. A looping session at a usage wall wakes, cannot spend, and the queue still does not move. |
 | A 37-hour flat line with NO Lander alive | **NO.** A loop cannot run in a session that does not exist. What reaches that one is seat continuity, a Manager or owner act. |
 
-**The control that makes that silence a measurement.** Dependabot pushed three branches and opened
-three pull requests inside the same window. The push path, PR creation and CI triggers were all
-working, so the silence was specific to the agent fleet.
+**Neither row establishes that a loop shortens anything, and the watchdog will not claim it does.**
+At 03:03Z the seat was already enqueuing on its own gate, having queued six PRs at 02:25Z. At
+14:24:32Z ninety seconds is a gap between turns, not a failure.
+
+**What bounds the mechanism is how long that state PERSISTS**, and no instant can say. The Watchdog
+is timestamping the drain and printing idle-to-enqueue minutes on the next enqueue.
+**EXPIRY: those numbers. Replace both rows with a distribution when they arrive.**
+
+**That first row read "It enqueued only after a peer sent it a reading" until the Watchdog retracted
+it, the same day, before this landed.** The two events fall in the same eight minutes and cannot be
+separated. The seat's own account named a different trigger: file-disjoint groups, enqueued once the
+runner pool cleared to 0 queued.
+
+Kept because the failure is a class. **A reading that arrives just before a change is the easiest
+causation to assert and the hardest to support.** The timeline alone cannot catch it; only the seat's
+own stated gate settles it.
+
+**The 03:03Z reading also published "0 armed", and that was wrong for a reason this file already
+warned about.** `autoMergeRequest` reads `null` on a genuinely enqueued PR, so six queued PRs
+counted as none. *`gh pr merge --auto` is two different actions depending on when you run it* carries
+it, measured 2026-08-28.
+
+**A poll is only as good as the field it reads.** Four of the watchdog's eleven-hour readings were
+wrong, every one in the same shape: a filter that did not match what it claimed to have checked, and
+each looked exactly like a clean result. That is the risk the loop inherits, not an argument against
+polling.
+
+**The control that makes the ten-hour silence a measurement.** Dependabot pushed three branches and
+opened three pull requests inside the same window. The push path, PR creation and CI triggers were
+all working, so the silence was specific to the agent fleet.
 
 **A condition-triggered wake costs less than a fixed interval, and the same watchdog measured it.**
 Eleven hours on a 90-second poll that stays silent unless state changes cost four notifications,
