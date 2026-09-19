@@ -442,23 +442,20 @@ restart rather than to the merge. 11m 31s was repaired by hand from #1224's time
 2026-09-19. What the figures govern is what this section may CLAIM, not whether the seat loops.
 
 **That first row read "It enqueued only after a peer sent it a reading" until the Watchdog retracted
-it, the same day, before this landed.** The two events fall in the same eight minutes and cannot be
-separated. The seat's own account named a different trigger: file-disjoint groups, enqueued once the
-runner pool cleared to 0 queued.
+it, the same day.** Both events fall in the same eight minutes. The seat's own account named a
+different trigger: file-disjoint groups, enqueued once the runner pool cleared to 0 queued.
 
 Kept because the failure is a class. **A reading that arrives just before a change is the easiest
 causation to assert and the hardest to support.** The timeline alone cannot catch it; only the seat's
 own stated gate settles it.
 
-**The 03:03Z reading also published "0 armed", and that was wrong for a reason this file already
-warned about.** `autoMergeRequest` reads `null` on a genuinely enqueued PR, so six queued PRs
-counted as none. *`gh pr merge --auto` is two different actions depending on when you run it* carries
-it, measured 2026-08-28.
+**The 03:03Z reading also published "0 armed", for a reason this file already warned about.**
+`autoMergeRequest` reads `null` on an enqueued PR, so six queued PRs counted as none. *`gh pr merge
+--auto` is two different actions* carries it, measured 2026-08-28.
 
 **A poll is only as good as the field it reads.** Four of the watchdog's eleven-hour readings were
-wrong, every one in the same shape: a filter that did not match what it claimed to have checked, and
-each looked exactly like a clean result. That is the risk the loop inherits, not an argument against
-polling.
+wrong in one shape: a filter that did not match what it claimed to check, each looking exactly like a
+clean result. The loop inherits that risk.
 
 **The control that makes the ten-hour silence a measurement.** Dependabot pushed three branches and
 opened three pull requests inside the same window. The push path, PR creation and CI triggers were
