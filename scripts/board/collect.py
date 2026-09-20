@@ -16,19 +16,47 @@ REPOS = [("MEFORORG/MessageFoundry", "engine"),
          ("wshallwshall/korus", "korus"),
          ("wshallwshall/MessageFoundry-vault", "vault")]
 
-def sh(args):
-    r = subprocess.run(args, capture_output=True, text=True)
-    return r.stdout if r.returncode == 0 else ""
-
-def j(args, default):
-    out = sh(args)
-    try:
-        return json.loads(out) if out.strip() else default
-    except Exception:
-        return default
-
 def refuse(msg):
     sys.exit("collect.py: REFUSING to write data.json. " + msg)
+
+# The search API cannot see wshallwshall/korus or wshallwshall/MessageFoundry-vault: it answers
+# HTTP 422 "cannot be searched", and `gh pr list --search` reports that as an empty list with
+# exit 0. Every merged, created and closed figure for those two repositories therefore read as
+# zero while both were merging. Measured 2026-09-19. So the window is read off the REST pulls
+# list, which is not indexed and works on all three. LANDER-BOARD.md section 7 carries the trap.
+def closed_window(full, since):
+    """Merged, created and closed timestamps in the window, from repos/{full}/pulls.
+
+    Pages `state=closed` newest-updated first until a page predates the window. Open pull
+    requests carry the creates, so they are added by the caller. Refuses on any failed page
+    rather than defaulting, because a default here is a silent false clean."""
+    merged, created, closed, page = [], [], [], 1
+    while page <= 20:
+        r = subprocess.run(
+            ["gh", "api", "-X", "GET", "repos/%s/pulls" % full, "-f", "state=closed",
+             "-f", "sort=updated", "-f", "direction=desc", "-f", "per_page=100",
+             "-f", "page=%d" % page, "--jq",
+             '.[] | [(.merged_at // "-"), (.closed_at // "-"), .created_at, .updated_at]'
+             ' | join(" ")'],
+            capture_output=True, encoding="utf-8", errors="replace")
+        if r.returncode:
+            refuse("The closed pull request read for %s failed on page %d: %s"
+                   % (full, page, (r.stderr or "").strip()[:300]))
+        rows = [ln.split() for ln in r.stdout.splitlines() if ln.strip()]
+        if not rows:
+            return merged, created, closed, True
+        for m, c, cr, _u in rows:
+            if m != "-" and m >= since:
+                merged.append(m)
+            if c != "-" and c >= since:
+                closed.append(c)
+            if cr >= since:
+                created.append(cr)
+        if min(x[3] for x in rows) < since:
+            return merged, created, closed, True
+        page += 1
+    refuse("The closed pull request read for %s hit the page cap before reaching %s."
+           % (full, since))
 
 def required_contexts(full):
     """The required set from branch protection, read live. The count moves; never pin it."""
@@ -132,7 +160,8 @@ def classify(p, required):
 
 def main():
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-    since_day = (now - dt.timedelta(days=3)).strftime("%Y-%m-%d")
+    # The series is 48 hours wide and the collector must cover it with room for the hour edges.
+    since_iso = (now - dt.timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     repos = []
     for full, short in REPOS:
@@ -142,17 +171,23 @@ def main():
         prs = [classify(p, required) for p in openprs]
         gq = ('{repository(owner:"%s",name:"%s"){mergeQueue(branch:"main")'
               '{entries(first:50){nodes{position state pullRequest{number}}}}}}' % (owner, name))
-        qd = j(["gh","api","graphql","-f","query="+gq], {})
-        try:
-            nodes = qd["data"]["repository"]["mergeQueue"]["entries"]["nodes"] or []
-        except Exception:
-            nodes = []
-        merged = j(["gh","pr","list","--repo",full,"--state","merged","--search",
-                    "merged:>=%s" % since_day,"--limit","400","--json","number,mergedAt"], [])
-        created = j(["gh","pr","list","--repo",full,"--state","all","--search",
-                     "created:>=%s" % since_day,"--limit","400","--json","number,createdAt"], [])
-        closed = j(["gh","pr","list","--repo",full,"--state","closed","--search",
-                    "closed:>=%s" % since_day,"--limit","400","--json","number,closedAt"], [])
+        # A null mergeQueue is a real answer -- KORUS and the vault have no queue. A FAILED call
+        # is not, and defaulting it to zero would publish "nothing is enqueued" while the queue
+        # runs. Only the second is refused.
+        qr = subprocess.run(["gh","api","graphql","-f","query="+gq],
+                            capture_output=True, encoding="utf-8", errors="replace")
+        if qr.returncode:
+            refuse("The merge queue read for %s failed: %s" % (full, (qr.stderr or "").strip()[:300]))
+        qd = json.loads(qr.stdout)
+        if qd.get("errors"):
+            refuse("The merge queue read for %s returned errors: %s" % (full, str(qd["errors"])[:300]))
+        mq = ((qd.get("data") or {}).get("repository") or {}).get("mergeQueue")
+        nodes = (mq or {}).get("entries", {}).get("nodes") or []
+        merged, created, closed, _done = closed_window(full, since_iso)
+        # The closed list cannot carry a still-open pull request, so its creates come from the
+        # open read already in hand. Without this the reconstructed open line in section 5b
+        # loses every arrival that has not closed yet, which is most of a busy window.
+        created += [p["createdAt"] for p in openprs if p["createdAt"] >= since_iso]
         buckets = {}
         for p in openprs:
             buckets[p["mergeStateStatus"]] = buckets.get(p["mergeStateStatus"], 0) + 1
@@ -171,9 +206,9 @@ def main():
             "enqueued": len(nodes),
             "entries": [{"n": e["pullRequest"]["number"], "state": e["state"],
                          "pos": e["position"]} for e in nodes],
-            "merged": [m["mergedAt"] for m in merged if m.get("mergedAt")],
-            "created": [c["createdAt"] for c in created if c.get("createdAt")],
-            "closed": [c["closedAt"] for c in closed if c.get("closedAt")],
+            "merged": merged,
+            "created": created,
+            "closed": closed,
         })
 
     out = {"generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "repos": repos}

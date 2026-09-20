@@ -67,3 +67,6 @@ _redirect/
 *~
 .DS_Store
 Thumbs.db
+
+# The Lander Board writes its working files here when refresh.ps1 is run without -OutDir.
+scripts/board/.board/
