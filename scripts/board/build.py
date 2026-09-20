@@ -73,7 +73,10 @@ else:
     verdict, vclass = "STALLED", "crit"
 
 # ---------------------------------------------------------------- chart ----
-W, H = 1160, 302
+# viewBox units, not pixels: the SVG scales to its panel, so this is the ASPECT the chart is
+# drawn at. Narrower means relatively wider bars and larger type after scaling, which is what a
+# 24-bar chart in a half-width panel wants. It was 1160 when the chart carried 48 bars.
+W, H = 900, 300
 PADL, PADR, PADT, PADB = 54, 54, 24, 36
 mer, opn, labels = s["total_merged_per_hour"], s["total_open_per_hour"], s["hours_ct"]
 n = len(mer)
@@ -161,6 +164,10 @@ last_any_at = min((x for x in rows if x["since"] is not None),
                   key=lambda x: x["since"], default=None)
 last_any_clock = last_any_at["last_at"] if last_any_at else "never"
 since_say = ("The last merge anywhere landed at <b>%s</b>." % last_any_clock)
+# An age, anchored. The anchor is the whole point: an unanchored age freezes at render and a
+# reader an hour later cannot tell. `dur` is already a span formatter, so it is reused as-is.
+since_any_pill = ("%s ago as of %s" % (dur(last_any), clock(d["generated_utc"]))
+                  if last_any is not None else "never")
 
 cards = [
     card("PRs open", "amber", tot["open"], "total", lambda r: str(r["open"]), open_say),
@@ -234,7 +241,7 @@ out = (tpl
        .replace("{{CT}}", esc(s["generated_ct"]))
        .replace("{{UTC}}", esc(d["generated_utc"]))
        .replace("{{VERDICT}}", verdict).replace("{{VCLASS}}", vclass)
-       .replace("{{SINCE_ANY}}", last_any_clock)
+       .replace("{{SINCE_ANY}}", since_any_pill)
        .replace("{{CARDS}}", "".join(cards))
        .replace("{{WINDOW}}", str(s.get("chart_hours", s["window_h"])))
        .replace("{{QUEUE_ROWS}}", queue_rows)
@@ -245,6 +252,6 @@ out = (tpl
        .replace("{{BARS}}", "".join(bars)).replace("{{LINE}}", line).replace("{{DOTS}}", dots)
        .replace("{{LYL}}", lyl).replace("{{RYL}}", ryl).replace("{{XTK}}", xtk))
 open(os.path.join(OUT, "board.html"), "w", encoding="utf-8", newline="\n").write(out)
-print("board.html %d bytes | %s | last merge at %s | %d idle runs >=%dh, longest %dh"
-      % (len(out), verdict, last_any_clock, s["idle_runs"], s["idle_run_min_h"],
+print("board.html %d bytes | %s | last merge %s | %d idle runs >=%dh, longest %dh"
+      % (len(out), verdict, since_any_pill, s["idle_runs"], s["idle_run_min_h"],
          s["longest_idle_run_h"]))

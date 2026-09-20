@@ -61,12 +61,15 @@ knows who to talk to.
 | over 180 | `STALLED` | critical |
 | no merge on record | `NO DATA` | warning |
 
-The pill carries the **Central clock time of that merge** in small type beside it. The label alone
-is a bucket; the clock time is the reading behind it.
+The pill carries **an age with its anchor** in small type beside it -- `last merge 23m ago as of
+7:50 PM CT`. The label alone is a bucket; the age is the reading behind it, and the anchor is what
+keeps the age honest.
 
-**Never a relative age anywhere on the board.** Owner instruction, 2026-09-19. An age freezes at
-render, so a page read an hour later still says `8m ago` and nothing contradicts it. A clock time
-cannot rot unseen. The exception is an idle run, which is a **span** and stays true as the page sits.
+**Never an UNANCHORED relative age.** Owner instruction 2026-09-19, revised the same day. A bare
+age freezes at render, so a page read an hour later still says `8m ago` and nothing contradicts
+it. Render the instant, or the age with the instant it was taken at.
+
+A **span** -- how long an idle run lasted -- needs no anchor. It does not age as the page sits.
 
 **A timestamp in Central time**, with the UTC instant under it and the refresh cadence.
 
@@ -93,7 +96,7 @@ Below the cards sits the **PR Statuses** strip; section 8a specifies it.
 | Merged, last 60 min | merges in the hour | the best hour on the chart, for contrast |
 | Avg merged per hour | mean over 24h | the total landed across the full window |
 | Idle periods | runs of 3h or more | the longest run |
-| Last merge | Central clock time | the same instant the pill buckets |
+| Last merge | Central clock time | the same instant the pill ages from |
 
 The three readiness cards partition the open set, so they always sum to the first card.
 
@@ -188,6 +191,10 @@ One frame, two series, **24 hours** (owner-set 2026-09-19):
 the chart draws the last 24. Section 4c measured why: over 24 hours the longest idle run read 9
 against 14, the worst stall falling half outside. Narrowing both would shrink that figure silently.
 
+**The chart must not need a horizontal scrollbar.** Give the SVG a `viewBox` and `width:100%`
+with no `min-width`, so it scales to its panel. A floor sized for 48 bars is what put a scrollbar
+under 24. `W` is viewBox units, so it sets the aspect: narrower means wider bars after scaling.
+
 ### 5a. This is a dual-axis chart, which is normally a mistake
 
 Two y-scales exaggerate every crossing point, and the crossings mean nothing. The `dataviz` guidance
@@ -252,7 +259,7 @@ Every one returned something that looked like a clean result.
 
 | Trap | What happens | What to do |
 | --- | --- | --- |
-| A count read just after a merge | GitHub recomputes mergeability lazily. A poll 195 seconds after a merge reported 1 CLEAN; a re-read 14 seconds later returned 14 | Read twice, use the second. See [TIPS-AND-TRICKS.md](TIPS-AND-TRICKS.md) |
+| A count read just after a merge | GitHub recomputes mergeability lazily. A poll 195 seconds after a merge reported 1 CLEAN; a re-read 14 seconds later returned 14. The same trap printed UNKNOWN for all 7 vault rows on 2026-09-19 | Read twice, use the second -- `resolve_unknown` in `collect.py` now does. See [TIPS-AND-TRICKS.md](TIPS-AND-TRICKS.md) |
 | `autoMergeRequest` as "armed" | Reads null for a genuinely enqueued pull request, so an armed count reports zero while the queue works | Read the queue entry, never the pull request |
 | `refs/remotes/origin` for seat activity | Includes `origin/HEAD` and `origin/main`, which track the trunk and sort first after any merge | Exclude those two, and `dependabot`, and `gh-readonly-queue` |
 | `gh pr list --limit N` with a date filter | Sorts by number, so recent merges fall outside the page and the filter returns nothing | Use `--search` with a date qualifier |
@@ -311,10 +318,18 @@ the series. So each state carries a hue **and** a fill, and the pair is unique:
 | --- | --- | --- | --- |
 | CLEAN | good | solid | every required check green |
 | BEHIND | neutral | solid | behind main; the queue rebases it |
-| UNKNOWN | neutral | diagonal hatch | mergeability not computed yet |
+| UNKNOWN | neutral | diagonal hatch | mergeability not computed yet, and a re-read did not settle it |
 | UNSTABLE | warning | diagonal hatch | a non-required check is red, which blocks no merge |
 | BLOCKED | warning | solid | a required check is red or missing |
 | DIRTY | critical | horizontal bars | conflicts with main |
+
+**UNKNOWN is a fact about the READ, not the pull request.** Mergeability is computed lazily, and
+every merge to main invalidates it for every open pull request, so one pass at a busy moment
+returns UNKNOWN for a whole repository.
+
+Measured 2026-09-19: the board showed all 7 vault rows UNKNOWN while a live re-read returned
+BEHIND, DIRTY, CLEAN and UNSTABLE. `resolve_unknown` re-reads each such row up to three times, and
+`data.json` carries an `unresolved` count, so a surviving band is a real one.
 
 **The fill is not decoration.** It is the channel that still reads in greyscale and under a
 colour-vision deficiency, and it is why adding two more hues was the wrong fix.

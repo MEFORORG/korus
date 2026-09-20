@@ -157,8 +157,11 @@ h1{
 .i-bar{background:var(--teal)}
 .i-line{height:0; border-top:2px solid var(--amber); border-radius:0; width:15px}
 .i-idle{background:var(--crit); opacity:.14; border:1px solid var(--crit)}
+/* .scroll stays as a safety net for a very narrow phone, but the SVG no longer forces it:
+   the viewBox scales to whatever the panel gives it. A min-width here sized for the old 48-bar
+   chart is what put a scrollbar under a 24-bar one. */
 .scroll{overflow-x:auto}
-svg{display:block; min-width:760px; width:100%; height:auto}
+svg{display:block; width:100%; height:auto}
 .gl{stroke:var(--rule); stroke-width:1}
 .idle{fill:var(--crit); opacity:.11}
 .bar{fill:var(--teal)}

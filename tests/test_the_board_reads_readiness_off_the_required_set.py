@@ -329,5 +329,91 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
         self.assertEqual(got["repos"][0]["created"], ["2026-09-19T12:00:00Z"])
 
 
+class UnknownIsAFactAboutTheReadNotThePullRequest(unittest.TestCase):
+    """UNKNOWN means GitHub has not computed mergeability, so the collector re-reads it.
+
+    Every merge to main invalidates mergeability for every open pull request, and it is recomputed
+    lazily. Measured 2026-09-19: the board printed UNKNOWN for all 7 vault rows while a live
+    re-read returned BEHIND, DIRTY, CLEAN and UNSTABLE, with not one UNKNOWN among them. Section 7
+    had carried "read twice, use the second" since the board was specified; the collector did not
+    do it.
+    """
+
+    @staticmethod
+    def answer(state):
+        return done(json.dumps(
+            {"data": {"repository": {"pullRequest": {"mergeStateStatus": state}}}}))
+
+    def test_an_unknown_row_is_re_read_and_replaced(self):
+        prs = [{"number": 1, "mergeStateStatus": "UNKNOWN"},
+               {"number": 2, "mergeStateStatus": "CLEAN"}]
+        replies = iter([self.answer("BEHIND")])
+        with mock.patch.object(collect, "subprocess",
+                               types.SimpleNamespace(run=lambda a, **_: next(replies))):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(left, 0)
+        self.assertEqual([p["mergeStateStatus"] for p in prs], ["BEHIND", "CLEAN"])
+
+    def test_a_settled_row_is_never_re_read(self):
+        # The control on the test above: if the collector re-read everything, the call count here
+        # would be non-zero and the first test would pass for the wrong reason.
+        prs = [{"number": 1, "mergeStateStatus": "CLEAN"},
+               {"number": 2, "mergeStateStatus": "DIRTY"}]
+        calls = []
+
+        def run_(args, **_):
+            calls.append(args)
+            return self.answer("BEHIND")
+
+        with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(calls, [])
+        self.assertEqual(left, 0)
+        self.assertEqual([p["mergeStateStatus"] for p in prs], ["CLEAN", "DIRTY"])
+
+    def test_a_row_that_never_settles_stays_unknown_and_is_counted(self):
+        # The honest outcome. What is NOT honest is reporting the first read as though it were a
+        # state, which is what the board did.
+        prs = [{"number": 1, "mergeStateStatus": "UNKNOWN"}]
+        with mock.patch.object(
+                collect, "subprocess",
+                types.SimpleNamespace(run=lambda a, **_: self.answer("UNKNOWN"))):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(left, 1)
+        self.assertEqual(prs[0]["mergeStateStatus"], "UNKNOWN")
+
+    def test_it_retries_more_than_once_before_giving_up(self):
+        # A single retry would have settled far fewer rows. Third attempt succeeds here.
+        prs = [{"number": 1, "mergeStateStatus": "UNKNOWN"}]
+        replies = iter([self.answer("UNKNOWN"), self.answer("UNKNOWN"), self.answer("CLEAN")])
+        with mock.patch.object(collect, "subprocess",
+                               types.SimpleNamespace(run=lambda a, **_: next(replies))):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(left, 0)
+        self.assertEqual(prs[0]["mergeStateStatus"], "CLEAN")
+
+    def test_a_failed_re_read_leaves_the_row_alone_rather_than_refusing(self):
+        # Deliberately unlike the other readers in this module. A stale UNKNOWN on one row is a
+        # far smaller wrong than no board, and `unresolved` reports how many there were.
+        prs = [{"number": 1, "mergeStateStatus": "UNKNOWN"}]
+        with mock.patch.object(
+                collect, "subprocess",
+                types.SimpleNamespace(run=lambda a, **_: done(code=1, stderr="HTTP 502"))):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(left, 1)
+        self.assertEqual(prs[0]["mergeStateStatus"], "UNKNOWN")
+
+    def test_partial_graphql_data_does_not_overwrite_the_row(self):
+        prs = [{"number": 1, "mergeStateStatus": "UNKNOWN"}]
+        body = {"data": {"repository": {"pullRequest": {"mergeStateStatus": "CLEAN"}}},
+                "errors": [{"message": "timeout"}]}
+        with mock.patch.object(
+                collect, "subprocess",
+                types.SimpleNamespace(run=lambda a, **_: done(json.dumps(body)))):
+            left = collect.resolve_unknown("o", "r", prs, sleep=lambda _s: None)
+        self.assertEqual(left, 1)
+        self.assertEqual(prs[0]["mergeStateStatus"], "UNKNOWN")
+
+
 if __name__ == "__main__":
     unittest.main()

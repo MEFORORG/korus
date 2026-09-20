@@ -7,7 +7,7 @@ check reads BEHIND and would be counted ready. LANDER-BOARD.md section 4a has th
 A read this file cannot trust stops the run BEFORE data.json is written, so a failed collect
 leaves the last good file in place (section 9). A default here would be a silent false clean.
 """
-import json, subprocess, sys, datetime as dt
+import json, subprocess, sys, time, datetime as dt
 import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
@@ -134,6 +134,53 @@ def open_prs(owner, name):
                    % (owner, name, p["number"]))
     return prs
 
+# One re-read per pass, a few passes, a short wait between. The recompute is quick; what it is
+# not is instant, and a board that prints UNKNOWN for a whole repository is reporting the read
+# rather than the repository.
+UNKNOWN_RETRIES = 3
+UNKNOWN_WAIT_S = 2.0
+
+RESOLVE_Q = """query($owner:String!,$name:String!,$n:Int!){
+ repository(owner:$owner,name:$name){pullRequest(number:$n){mergeStateStatus}}}"""
+
+
+def resolve_unknown(owner, name, prs, sleep=time.sleep):
+    """Re-read any pull request whose mergeability GitHub had not computed yet.
+
+    Mutates `prs` in place and returns how many were STILL unknown when the retries ran out.
+    A row that never resolves keeps UNKNOWN, which is the honest answer; what is not honest is
+    reporting the first read as though it were a state. A failed re-read leaves the row alone
+    rather than refusing the whole collect: a stale UNKNOWN on one row is a far smaller wrong
+    than no board at all, and the count below says how many there were.
+    """
+    pending = [p for p in prs if p.get("mergeStateStatus") == "UNKNOWN"]
+    for attempt in range(UNKNOWN_RETRIES):
+        if not pending:
+            return 0
+        sleep(UNKNOWN_WAIT_S)
+        still = []
+        for p in pending:
+            r = subprocess.run(
+                ["gh", "api", "graphql", "-f", "query=" + RESOLVE_Q, "-F", "owner=" + owner,
+                 "-F", "name=" + name, "-F", "n=%d" % p["number"]],
+                capture_output=True, encoding="utf-8", errors="replace")
+            state = None
+            if not r.returncode:
+                try:
+                    d = json.loads(r.stdout)
+                    if not d.get("errors"):
+                        state = (((d.get("data") or {}).get("repository") or {})
+                                 .get("pullRequest") or {}).get("mergeStateStatus")
+                except ValueError:
+                    state = None
+            if state and state != "UNKNOWN":
+                p["mergeStateStatus"] = state
+            else:
+                still.append(p)
+        pending = still
+    return len(pending)
+
+
 PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 
 def check_state(c):
@@ -179,6 +226,9 @@ def main():
         owner, name = full.split("/")
         required = required_contexts(full)
         openprs = open_prs(owner, name)
+        # Before anything is classified or counted. UNKNOWN means "not computed yet", and every
+        # merge to main invalidates it for every open pull request.
+        unresolved = resolve_unknown(owner, name, openprs)
         prs = [classify(p, required) for p in openprs]
         gq = ('{repository(owner:"%s",name:"%s"){mergeQueue(branch:"main")'
               '{entries(first:50){nodes{position state pullRequest{number}}}}}}' % (owner, name))
@@ -206,6 +256,9 @@ def main():
         repos.append({
             "repo": full, "short": short,
             "open": len(openprs),
+            # How many rows GitHub still had not computed when the retries ran out. A non-zero
+            # value here is why a strip shows UNKNOWN, and it is a fact about the read.
+            "unresolved": unresolved,
             "draft": sum(1 for p in openprs if p["isDraft"]),
             "clean": sum(1 for p in openprs if p["mergeStateStatus"]=="CLEAN" and not p["isDraft"]),
             "buckets": buckets,
@@ -226,9 +279,10 @@ def main():
     with open(os.path.join(OUT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     for r in repos:
-        print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d"
+        print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d%s"
               % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
-                 r["enqueued"], len(r["merged"])))
+                 r["enqueued"], len(r["merged"]),
+                 "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else ""))
 
 
 if __name__ == "__main__":
