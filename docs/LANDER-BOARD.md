@@ -265,6 +265,7 @@ Every one returned something that looked like a clean result.
 | `gh pr list --limit N` with a date filter | Sorts by number, so recent merges fall outside the page and the filter returns nothing | Use `--search` with a date qualifier |
 | `%-I` in `strftime` | Raises `ValueError` on Windows | Compute the 12-hour value with arithmetic |
 | A pytest path typo | Prints `no tests ran` and runs none of the other files named | Read the pass count, never the absence of failures |
+| An artifact link in a tracked file | The leak gate blocks it as a capability, fail-closed, and the branch is already pushed by then. It is access, not a name | Say how to FIND the artifact -- list by title -- and never write the link down |
 | The search API after a repository transfer | korus and the vault moved to MEFORORG. REST followed the rename, so every other call worked; search answered HTTP 422, which `gh pr list --search` reported as `[]` with **exit 0**. Both read as zero merges for three days | Address the canonical pair, and page REST as section 6 does |
 
 **Publish no zero without a control that fired.** Every trap above produced a plausible zero or a
@@ -374,21 +375,27 @@ pwsh -NoProfile -File scripts/board/refresh.ps1 -OutDir <scratch dir>
 ```
 
 It deliberately does not publish. Publishing needs a Claude session, so it prints the file and
-points at the URL below.
+leaves that step to the session.
 
-### 9b. The artifact, and how a successor restarts the refresh
+### 9b. Finding the artifact, and restarting the refresh
 
-**The board is https://claude.ai/code/artifact/ddb36372-8336-4253-b7fa-da25cf0ba5b0**, published
-2026-09-19 from the account that owns it. Publish to that URL, not to a new one: a second board is
-worse than one stale board, because nothing tells a reader which of the two is current.
+**Publish to the board that already exists, never to a new one.** A second board is worse than one
+stale board, because nothing on either tells a reader which is current.
+
+**The link is not written here, and must not be.** An artifact URL is a capability, not a name:
+holding it is holding access, so the leak gate blocks one in a tracked file. It blocked this
+section's first draft.
+
+Find it instead. The Artifact tool's `list` action returns the account's artifacts by title, and
+the board is titled **Lander Board**. Ask the owner if the listing does not show it.
 
 A Watchdog taking the seat restarts the refresh in four steps:
 
 1. Extract the five scripts if the working tree does not carry them, with
    `git -C <korus> show origin/main:scripts/board/<file>`.
 2. Run `refresh.ps1` with an `-OutDir` in your own scratchpad.
-3. Publish `board.html` with the Artifact tool, passing `url` as the link above. Read the artifact
-   first if this session has not published it, or the publish is refused.
+3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
+   passing its `url`. Read it first if this session has not published it, or the publish is refused.
 4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
    cadence nothing enforces.
