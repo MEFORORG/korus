@@ -20,7 +20,22 @@ def ago(iso):
     return None if not iso else (now - P(iso)).total_seconds() / 60.0
 
 
+def clock(iso):
+    """The Central clock time of an instant, e.g. `7:29 PM CT`, with the day when it is not today.
+
+    Owner instruction 2026-09-19: never a relative age. An age is computed once and then frozen,
+    so a board read an hour later still says "8m" and nothing on the page contradicts it. A clock
+    time cannot rot without the reader seeing it against the stamp in the masthead.
+    """
+    if not iso:
+        return "never"
+    t = P(iso).astimezone(CT)
+    hhmm = "%d:%02d %s CT" % ((t.hour % 12) or 12, t.minute, "AM" if t.hour < 12 else "PM")
+    return hhmm if t.date() == now.astimezone(CT).date() else t.strftime("%a ") + hhmm
+
+
 def dur(mins):
+    """A SPAN, not an age: how long an idle run lasted. Spans stay true as the page ages."""
     if mins is None:
         return "never"
     if mins < 60:
@@ -38,6 +53,7 @@ for k in order:
         "open": r["open"], "clean": r["clean"], "draft": r["draft"], "enq": r["enqueued"],
         "entries": r["entries"], "m60": m["merged_60m"], "m24": m["merged_24h"],
         "rate": m["merged_24h"] / 24.0, "since": ago(m["last_merge"]),
+        "last_at": clock(m["last_merge"]),
         "buckets": r["buckets"], "ready": r["ready"], "ci": r["ci"], "person": r["person"],
     })
 
@@ -57,7 +73,10 @@ else:
     verdict, vclass = "STALLED", "crit"
 
 # ---------------------------------------------------------------- chart ----
-W, H = 1160, 302
+# viewBox units, not pixels: the SVG scales to its panel, so this is the ASPECT the chart is
+# drawn at. Narrower means relatively wider bars and larger type after scaling, which is what a
+# 24-bar chart in a half-width panel wants. It was 1160 when the chart carried 48 bars.
+W, H = 900, 300
 PADL, PADR, PADT, PADB = 54, 54, 24, 36
 mer, opn, labels = s["total_merged_per_hour"], s["total_open_per_hour"], s["hours_ct"]
 n = len(mer)
@@ -136,12 +155,19 @@ ci_say = "No required check is red, and one or more is still running. <b>Nobody 
 # refresh cleared it. "Each needs a person" sent readers looking for work that did not exist.
 nr_say = ("Draft, conflicted, or a red required check. <b>Refresh the branch before reading a "
           "red as broken.</b> Only a red that survives the refresh needs code.")
-m60_say = "Best hour in the window landed <b>%d</b>." % s["best_hour"]
+m60_say = "Best hour on the chart landed <b>%d</b>." % s["best_hour"]
 rate_say = ("Over the last 24 hours. <b>%d</b> landed across the full %d."
             % (s["merged_window"], s["window_h"]))
 idle_say = ("Stretches of <b>%dh or more</b> with no merge anywhere. Longest ran <b>%dh</b>."
             % (s["idle_run_min_h"], s["longest_idle_run_h"]))
-since_say = ("<b>%s</b> since anything landed anywhere." % dur(last_any))
+last_any_at = min((x for x in rows if x["since"] is not None),
+                  key=lambda x: x["since"], default=None)
+last_any_clock = last_any_at["last_at"] if last_any_at else "never"
+since_say = ("The last merge anywhere landed at <b>%s</b>." % last_any_clock)
+# An age, anchored. The anchor is the whole point: an unanchored age freezes at render and a
+# reader an hour later cannot tell. `dur` is already a span formatter, so it is reused as-is.
+since_any_pill = ("%s ago as of %s" % (dur(last_any), clock(d["generated_utc"]))
+                  if last_any is not None else "never")
 
 cards = [
     card("PRs open", "amber", tot["open"], "total", lambda r: str(r["open"]), open_say),
@@ -153,7 +179,7 @@ cards = [
     card("Avg merged per hour", "teal", "%.1f" % tot["rate"], "/ h",
          lambda r: "%.1f" % r["rate"], rate_say),
     card("Idle periods", "crit", s["idle_runs"], "runs", None, idle_say),
-    card("Time since last merge", vclass, dur(last_any), "", lambda r: dur(r["since"]), since_say,
+    card("Last merge", vclass, last_any_clock, "", lambda r: r["last_at"], since_say,
          wide=True),
 ]
 
@@ -161,7 +187,7 @@ since_rows = "".join(
     '<div class="mrow"><span class="mname">%s</span><span class="mval %s">%s</span></div>'
     % (esc(r["name"]),
        "crit" if (r["since"] or 0) > 180 else ("warn" if (r["since"] or 0) > 60 else "good"),
-       dur(r["since"])) for r in rows)
+       r["last_at"]) for r in rows)
 
 
 def chips(entries):
@@ -173,15 +199,30 @@ def chips(entries):
                    for e in sorted(entries, key=lambda z: z["pos"]))
 
 
-ORD = [("CLEAN", "good"), ("BEHIND", "wait"), ("UNKNOWN", "wait"),
-       ("UNSTABLE", "warn"), ("BLOCKED", "warn"), ("DIRTY", "crit")]
+# One class per state -- never two states sharing one. The pair of (hue, fill) is what makes six
+# readable out of four hues, and the fill is what survives greyscale and a colour-vision
+# deficiency. `st-` rather than `seg-` so the chart's own segment classes cannot drift into this.
+ORD = [("CLEAN", "st-clean"), ("BEHIND", "st-behind"), ("UNKNOWN", "st-unknown"),
+       ("UNSTABLE", "st-unstable"), ("BLOCKED", "st-blocked"), ("DIRTY", "st-dirty")]
+
+# What each state MEANS, shown on hover and read out to a screen reader. The strip is the one
+# place a reader meets these words, and "UNKNOWN" tells nobody anything on its own.
+STATE_SAY = {
+    "CLEAN": "every required check green, nothing in the way",
+    "BEHIND": "behind main; the queue rebases it, but this can hide a red required check",
+    "UNKNOWN": "GitHub has not computed mergeability yet",
+    "UNSTABLE": "a non-required check is red, which blocks no merge",
+    "BLOCKED": "a required check is red or missing",
+    "DIRTY": "conflicts with main; needs a person",
+}
 
 
 def bbar(b, total):
     if not total:
         return '<div class="bbar bbar-empty"></div>'
     return '<div class="bbar">%s</div>' % "".join(
-        '<span class="seg seg-%s" style="flex:%d" title="%s: %d"></span>' % (c, b[k], k, b[k])
+        '<span class="seg %s" style="flex:%d" title="%s: %d -- %s"></span>'
+        % (c, b[k], k, b[k], STATE_SAY[k])
         for k, c in ORD if b.get(k))
 
 
@@ -192,17 +233,17 @@ mix_rows = "".join(
     '<div class="qrow qmix"><span class="mname">%s</span>%s<span class="mixn">%d</span></div>'
     % (esc(r["name"]), bbar(r["buckets"], r["open"]), r["open"]) for r in rows)
 
-legend_mix = "".join('<span class="lg"><i class="sw seg-%s"></i>%s</span>' % (c, k)
-                     for k, c in ORD)
+legend_mix = "".join('<span class="lg" title="%s: %s"><i class="sw %s"></i>%s</span>'
+                     % (k, STATE_SAY[k], c, k) for k, c in ORD)
 
 tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
 out = (tpl
        .replace("{{CT}}", esc(s["generated_ct"]))
        .replace("{{UTC}}", esc(d["generated_utc"]))
        .replace("{{VERDICT}}", verdict).replace("{{VCLASS}}", vclass)
-       .replace("{{SINCE_ANY}}", dur(last_any))
+       .replace("{{SINCE_ANY}}", since_any_pill)
        .replace("{{CARDS}}", "".join(cards))
-       .replace("{{WINDOW}}", str(s["window_h"]))
+       .replace("{{WINDOW}}", str(s.get("chart_hours", s["window_h"])))
        .replace("{{QUEUE_ROWS}}", queue_rows)
        .replace("{{MIX_ROWS}}", mix_rows)
        .replace("{{LEGEND_MIX}}", legend_mix)
@@ -212,5 +253,5 @@ out = (tpl
        .replace("{{LYL}}", lyl).replace("{{RYL}}", ryl).replace("{{XTK}}", xtk))
 open(os.path.join(OUT, "board.html"), "w", encoding="utf-8", newline="\n").write(out)
 print("board.html %d bytes | %s | last merge %s | %d idle runs >=%dh, longest %dh"
-      % (len(out), verdict, dur(last_any), s["idle_runs"], s["idle_run_min_h"],
+      % (len(out), verdict, since_any_pill, s["idle_runs"], s["idle_run_min_h"],
          s["longest_idle_run_h"]))

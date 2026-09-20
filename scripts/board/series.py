@@ -5,7 +5,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
 CT = dt.timezone(dt.timedelta(hours=-5), "CDT")   # Sept 2026 is CDT
-HOURS = 48
+HOURS = 48          # the MEASUREMENT window: idle runs and the window rate are read over this
+CHART_HOURS = 24    # the CHART window, owner-set 2026-09-19. A slice of the above, never a re-read
 IDLE_RUN_MIN = 3
 
 def parse(s):
@@ -63,22 +64,25 @@ for v in tot_merge + [1]:
 out = {
     "generated_utc": d["generated_utc"],
     "generated_ct": fmt_ct(parse(d["generated_utc"])),
-    "hours_ct": [hr_ct(h) for h in hours],
-    "hours_iso": [h.isoformat() for h in hours],
-    "total_merged_per_hour": tot_merge,
-    "total_open_per_hour": tot_open,
+    # The chart keys are SLICED to the chart window. Everything below them -- idle runs, the
+    # longest run, merged_window -- is still computed over the full HOURS above.
+    "hours_ct": [hr_ct(h) for h in hours][-CHART_HOURS:],
+    "hours_iso": [h.isoformat() for h in hours][-CHART_HOURS:],
+    "total_merged_per_hour": tot_merge[-CHART_HOURS:],
+    "total_open_per_hour": tot_open[-CHART_HOURS:],
+    "chart_hours": CHART_HOURS,
     "idle_hours": idle,
     "window_h": HOURS,
     "idle_runs": len(runs),
     "idle_run_min_h": IDLE_RUN_MIN,
     "longest_idle_run_h": best,
     "merged_window": sum(tot_merge),
-    "best_hour": max(tot_merge) if tot_merge else 0,
+    "best_hour": max(tot_merge[-CHART_HOURS:]) if tot_merge else 0,
     "repos": repo_metrics,
 }
 json.dump(out, open(os.path.join(OUT, "series.json"), "w", encoding="utf-8"), indent=1)
 print("hours:", out["hours_ct"][0], "->", out["hours_ct"][-1])
 print("merges/h:", tot_merge)
 print("open/h  :", tot_open)
-print("window %dh | idle hours %d | runs>=%dh: %d | longest %dh | merged %d | best hour %d"
-      % (HOURS, idle, IDLE_RUN_MIN, len(runs), best, sum(tot_merge), max(tot_merge) if tot_merge else 0))
+print("measured %dh | charted %dh | idle hours %d | runs>=%dh: %d | longest %dh | merged %d"
+      % (HOURS, CHART_HOURS, idle, IDLE_RUN_MIN, len(runs), best, sum(tot_merge)))
