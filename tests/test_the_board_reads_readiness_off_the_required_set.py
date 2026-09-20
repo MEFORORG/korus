@@ -12,10 +12,11 @@ THE TWO TRAPS, each pinned below rather than described:
   b. The rollup read over 60+ pull requests returned HTTP 504, and a default then yielded zero
      failures for every row. That reads exactly like a clean repository. The collector must stop
      before writing data.json, so the last good file survives.
-  c. The SEARCH API cannot see wshallwshall/korus or wshallwshall/MessageFoundry-vault. It answers
-     HTTP 422, and `gh pr list --search` reports that as an empty list with exit 0. Measured
-     2026-09-19: both repositories read as zero merges while both were merging, and the board
-     under-reported total throughput by 24 percent. The window is read off the REST pulls list.
+  c. The SEARCH API does not follow a repository rename. korus and the vault were transferred to
+     MEFORORG; REST kept resolving the old owner, so every other call worked, while search answered
+     HTTP 422. `gh pr list --search` reports that as an empty list with exit 0. Measured 2026-09-19:
+     both read as zero merges while both were merging, and the board under-reported total throughput
+     by 24 percent. The window is read off the REST pulls list, which survives a transfer.
 
 Nothing here calls GitHub. `subprocess` is replaced inside the module under test only.
 """
@@ -196,12 +197,19 @@ class AReadItCannotTrustStopsTheRun(unittest.TestCase):
 
 
 class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
-    """The search API is invisible to two of the three repositories, and says so with a 422.
+    """Search does not follow a repository rename, and says so with a 422.
 
     `gh pr list --search` turns that into `[]` with exit 0, which is indistinguishable from a
-    repository that merged nothing. These pin the REST reader that replaced it, and the refusal
-    that replaced the default.
+    repository that merged nothing. These pin the REST reader that replaced it, the refusal that
+    replaced the default, and the canonical repository names.
     """
+
+    def test_every_repo_is_addressed_by_its_canonical_owner(self):
+        # The stale owner is why this whole class exists: REST followed the transfer to MEFORORG
+        # and search did not. A name that only resolves through a redirect is a reading waiting to
+        # break, so none of the three may carry the pre-transfer owner.
+        owners = {full.split("/")[0] for full, _short in collect.REPOS}
+        self.assertEqual(owners, {"MEFORORG"})
 
     def rest(self, *pages):
         """Fake `gh api repos/X/pulls`, one answer per page, in the reader's own shape."""

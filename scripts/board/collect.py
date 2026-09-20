@@ -12,18 +12,29 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
+# CANONICAL owner/name, not the pre-transfer one. korus and the vault moved to MEFORORG; REST,
+# GraphQL and `gh pr` all follow the rename silently, so a stale owner here works everywhere except
+# the search index, which answers HTTP 422 for a repository that is not at that owner. Addressing a
+# repository by a name that only resolves through a redirect is a reading waiting to break.
+#   gh api repos/<owner>/<name> --jq .full_name    tells you the canonical pair.
 REPOS = [("MEFORORG/MessageFoundry", "engine"),
-         ("wshallwshall/korus", "korus"),
-         ("wshallwshall/MessageFoundry-vault", "vault")]
+         ("MEFORORG/korus", "korus"),
+         ("MEFORORG/MessageFoundry-vault", "vault")]
 
 def refuse(msg):
     sys.exit("collect.py: REFUSING to write data.json. " + msg)
 
-# The search API cannot see wshallwshall/korus or wshallwshall/MessageFoundry-vault: it answers
-# HTTP 422 "cannot be searched", and `gh pr list --search` reports that as an empty list with
-# exit 0. Every merged, created and closed figure for those two repositories therefore read as
-# zero while both were merging. Measured 2026-09-19. So the window is read off the REST pulls
-# list, which is not indexed and works on all three. LANDER-BOARD.md section 7 carries the trap.
+# Read off REST rather than the search API, for two independent reasons.
+#
+# 1. SEARCH DOES NOT FOLLOW A REPOSITORY RENAME. korus and the vault moved to MEFORORG. REST still
+#    resolved the old owner, so every other call kept working, while search answered HTTP 422 for
+#    a repository that was not at that owner. Both read as zero merges for three days while both
+#    were merging. The REPOS list above is canonical now, but REST is the instrument that would
+#    have survived the transfer either way.
+# 2. `gh pr list --search` REPORTS A 422 AS `[]` WITH EXIT 0, so the failure arrived looking like
+#    a clean repository. That half is true of any search failure, rename or not.
+#
+# Measured 2026-09-19. LANDER-BOARD.md section 7 carries the trap and the numbers.
 def closed_window(full, since):
     """Merged, created and closed timestamps in the window, from repos/{full}/pulls.
 

@@ -33,8 +33,12 @@ Three, and the board totals across them:
 | Name on the board | Repository |
 | --- | --- |
 | Engine | `MEFORORG/MessageFoundry` |
-| KORUS | `wshallwshall/korus` |
-| Vault | `wshallwshall/MessageFoundry-vault` |
+| KORUS | `MEFORORG/korus` |
+| Vault | `MEFORORG/MessageFoundry-vault` |
+
+**Address them by the canonical pair, never a pre-transfer one.** korus and the vault moved to
+MEFORORG. REST, GraphQL and `gh pr` follow a rename, so a stale owner works everywhere but the
+search index. Section 7 has the cost. `gh api repos/<o>/<n> --jq .full_name` gives the pair.
 
 **Order them Engine, Vault, KORUS in every strip.** The vault is usually empty, so putting it second
 makes a clear vault visible without reading numbers.
@@ -226,8 +230,8 @@ gh api graphql -f query='{repository(owner:"<owner>",name:"<name>"){mergeQueue(b
 {entries(first:50){nodes{position state pullRequest{number}}}}}}'
 ```
 
-Merges, creates and closes across the window. **Not from the search API** -- it cannot see two of
-the three repositories, and section 7 carries the measurement. Page the REST pulls list instead,
+Merges, creates and closes across the window. **Not from the search API** -- it does not follow a
+repository rename, and section 7 carries the measurement. Page the REST pulls list instead,
 newest-updated first, until a page predates the window:
 
 ```bash
@@ -254,7 +258,7 @@ Every one returned something that looked like a clean result.
 | `gh pr list --limit N` with a date filter | Sorts by number, so recent merges fall outside the page and the filter returns nothing | Use `--search` with a date qualifier |
 | `%-I` in `strftime` | Raises `ValueError` on Windows | Compute the 12-hour value with arithmetic |
 | A pytest path typo | Prints `no tests ran` and runs none of the other files named | Read the pass count, never the absence of failures |
-| The search API on a `wshallwshall` repository | It answers HTTP 422 `cannot be searched`, and `gh pr list --search` reports that as `[]` with **exit 0**. KORUS and the vault read as zero merges for three days while both were merging | Page the REST pulls list, as section 6 now does |
+| The search API after a repository transfer | korus and the vault moved to MEFORORG. REST followed the rename, so every other call worked; search answered HTTP 422, which `gh pr list --search` reported as `[]` with **exit 0**. Both read as zero merges for three days | Address the canonical pair, and page REST as section 6 does |
 
 **Publish no zero without a control that fired.** Every trap above produced a plausible zero or a
 plausible small number. A control is the only thing that separates them from a real reading.
@@ -262,6 +266,10 @@ plausible small number. A control is the only thing that separates them from a r
 **What the seventh one cost, measured 2026-09-19 at 23:37 UTC.** The board read 86 merges, and 0
 for both KORUS and the vault. REST over the same 72 hours found 56, 22 and 35 -- **113 merges, a
 24 percent under-report** -- and one of the two it showed as dead had merged seven minutes earlier.
+
+**The mechanism was mis-read first.** It said search "cannot see" those repositories, as if access
+were missing. The cause is a stale owner: `repos/wshallwshall/korus` resolves because REST follows
+the transfer and search does not. The wrong version sends a reader hunting a permissions bug.
 
 The control, which returned five merges from that same day:
 
