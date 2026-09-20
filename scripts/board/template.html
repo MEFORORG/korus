@@ -8,8 +8,6 @@
   --teal:#00968A; --amber:#B05C18;
   --good:#1F7A4D; --warn:#9A6210; --crit:#A8382B;
   --good-bg:#E2F0E7; --warn-bg:#F6EBD8; --crit-bg:#F6E2DE; --wait-bg:#E3E7EC;
-  --st-clean:#1F9459; --st-behind:#2A6FB4; --st-unknown:#8A96A4;
-  --st-unstable:#AD8A0C; --st-blocked:#963396; --st-dirty:#B53E1E;
   --shadow:0 1px 2px rgba(26,35,44,.07), 0 6px 18px rgba(26,35,44,.05);
 }
 @media (prefers-color-scheme:dark){
@@ -19,8 +17,6 @@
     --teal:#2FA89E; --amber:#D4772E;
     --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
     --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
-    --st-clean:#55C98C; --st-behind:#3F86CE; --st-unknown:#7E8B99;
-    --st-unstable:#E8C455; --st-blocked:#CE5BAE; --st-dirty:#C2382F;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
   }
 }
@@ -30,8 +26,6 @@
   --teal:#2FA89E; --amber:#D4772E;
   --good:#5CC48C; --warn:#E0A94A; --crit:#E2705E;
   --good-bg:#1A3428; --warn-bg:#362B15; --crit-bg:#3A231F; --wait-bg:#22303E;
-  --st-clean:#55C98C; --st-behind:#3F86CE; --st-unknown:#7E8B99;
-  --st-unstable:#E8C455; --st-blocked:#CE5BAE; --st-dirty:#C2382F;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
 }
 *{box-sizing:border-box}
@@ -121,27 +115,30 @@ h1{
 .chip-empty{background:transparent; color:var(--ink-3); border:1px dashed var(--rule)}
 .bbar{display:flex; flex:1; height:11px; border-radius:2px; overflow:hidden; gap:2px; background:transparent}
 .bbar-empty{border:1px dashed var(--rule); height:11px; flex:1; border-radius:2px}
-.seg{display:block; min-width:3px}
-/* One hue per status. Six categorical colours cannot all separate under
-   colour blindness at one lightness, so BLOCKED -- the pair that collides with
-   BEHIND under deutan -- carries a hatch as well as a hue. */
-.seg-clean{background:var(--st-clean)}
-.seg-behind{background:var(--st-behind)}
-.seg-unknown{background:var(--st-unknown)}
-.seg-unstable{background:var(--st-unstable)}
-.seg-dirty{background:var(--st-dirty)}
-.seg-blocked{
-  background:repeating-linear-gradient(45deg,
-    var(--st-blocked) 0 4px, color-mix(in srgb, var(--st-blocked) 72%, #000) 4px 8px);
-}
-.sw.seg-blocked{background:var(--st-blocked)}
+.seg{display:block; min-width:4px}
+/* chart segments keep their own classes; PR statuses use st-* below. */
+.seg-good{background:var(--good)} .seg-wait{background:var(--ink-3)}
+.seg-warn{background:var(--warn)} .seg-crit{background:var(--crit)}
+
+/* PR statuses: one class per state, hue PLUS fill, so no two read alike.
+   Four status hues have to carry six states -- the series colours are not available -- so the
+   fill is doing real work here rather than decorating. It is also what survives greyscale. */
+.st-clean   {background:var(--good)}
+.st-behind  {background:var(--ink-3)}
+/* 3px period, because the legend swatch is 11px square: a coarser hatch shows one stripe
+   there and reads as a solid block, which is the defect this whole section exists to fix. */
+.st-unknown {background:repeating-linear-gradient(135deg,
+             var(--ink-3) 0 3px, var(--panel-2) 3px 6px)}
+.st-unstable{background:repeating-linear-gradient(135deg,
+             var(--warn) 0 3px, var(--panel-2) 3px 6px)}
+.st-blocked {background:var(--warn)}
+.st-dirty   {background:repeating-linear-gradient(90deg,
+             var(--crit) 0 3px, var(--panel-2) 3px 5px)}
+.lg[title]{cursor:help}
 .mixn{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:14px; color:var(--ink-2); min-width:26px; text-align:right}
 .lgrow{display:flex; flex-wrap:wrap; gap:4px 13px; margin-top:8px; padding-top:9px; border-top:1px solid var(--rule)}
 .lg{display:inline-flex; align-items:center; gap:5px; font-size:11px; letter-spacing:.05em; color:var(--ink-3)}
-.sw{width:9px; height:9px; border-radius:2px; display:inline-block}
-/* Queue-entry states are a different vocabulary from merge states, so they get
-   their own swatches rather than borrowing the status hues. */
-.q-ok{background:var(--good)} .q-wait{background:var(--ink-3)} .q-bad{background:var(--crit)}
+.sw{width:11px; height:11px; border-radius:2px; display:inline-block}
 
 /* failure strip -------------------------------------------------------- */
 .fails{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px}
@@ -160,8 +157,11 @@ h1{
 .i-bar{background:var(--teal)}
 .i-line{height:0; border-top:2px solid var(--amber); border-radius:0; width:15px}
 .i-idle{background:var(--crit); opacity:.14; border:1px solid var(--crit)}
+/* .scroll stays as a safety net for a very narrow phone, but the SVG no longer forces it:
+   the viewBox scales to whatever the panel gives it. A min-width here sized for the old 48-bar
+   chart is what put a scrollbar under a 24-bar one. */
 .scroll{overflow-x:auto}
-svg{display:block; min-width:760px; width:100%; height:auto}
+svg{display:block; width:100%; height:auto}
 .gl{stroke:var(--rule); stroke-width:1}
 .idle{fill:var(--crit); opacity:.11}
 .bar{fill:var(--teal)}
@@ -192,7 +192,7 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
     </div>
     <div class="stamp">
       <b>{{CT}}</b>
-      <span>{{UTC}} &middot; refreshes every 15 min</span>
+      <span>{{UTC}} &middot; refreshed by the Watchdog session, target every 15 min</span>
     </div>
   </header>
 
@@ -204,14 +204,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
       <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>
       <div class="mrows">{{QUEUE_ROWS}}</div>
       <div class="lgrow">
-        <span class="lg"><i class="sw q-ok"></i>MERGEABLE</span>
-        <span class="lg"><i class="sw q-wait"></i>AWAITING CHECKS</span>
-        <span class="lg"><i class="sw q-bad"></i>UNMERGEABLE</span>
+        <span class="lg"><i class="sw seg-good"></i>MERGEABLE</span>
+        <span class="lg"><i class="sw seg-wait"></i>AWAITING CHECKS</span>
+        <span class="lg"><i class="sw seg-crit"></i>UNMERGEABLE</span>
       </div>
     </article>
     <article class="card">
-      <h3>PR Status</h3>
-      <p class="note">Every open pull request by merge state, as GitHub reports it. BEHIND hides a red required check underneath it, so read readiness from the cards above.</p>
+      <h3>PR Statuses</h3>
+      <p class="note">Every open pull request by merge state, as GitHub reports it. Hover any band for what its state means. BEHIND hides a red required check underneath it, so read readiness from the cards above, not from this strip.</p>
       <div class="mrows">{{MIX_ROWS}}</div>
       <div class="lgrow">{{LEGEND_MIX}}</div>
     </article>
