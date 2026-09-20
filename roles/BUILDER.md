@@ -796,8 +796,14 @@ git -C <vault> show HEAD:roles/BUILDER.md | grep -nE '^11\.'
 git -C <vault> show HEAD:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'
 ```
 
-The first returns that retired step. The second returns 0, against 5 for the same pattern here, so
-the subsection scheme this line cites does not exist there at all.
+The first returns that retired step. The second returns 0.
+
+**The control needs its ref, and this passage got it wrong once.** The pattern returns **4** on
+`origin/main`, 4a to 4d, and **5** here, where 4e is the section you are reading. An earlier draft
+published the 5 with no ref, in the paragraph arguing a citation must name where it resolves.
+
+Either number beats the vault's 0, so the conclusion holds: the subsection scheme this line cites
+does not exist there at all. Article VI is about the reading, not only the verdict.
 
 **So a bare `BUILDER.md step 11` lands on the opposite rule** -- an instruction to open your own
 pull request, retired 2026-09-18. A citation that resolves to the rule it contradicts is worse than
