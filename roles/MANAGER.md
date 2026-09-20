@@ -137,7 +137,7 @@ gh pr comment <N> --body "<the Builder's QA line, verbatim>"
 | The word "review" appears in neither | Owner ruling. The line cites `BUILDER.md step 11` instead, which names exactly one skill. |
 | **No line, no label** | A `qa` label with no comment under it is the retired gate rebuilt: a mark that records nothing. Ask the Builder's successor, or post the label only once you hold the text. |
 | It blocks nothing | `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and nothing else. Do not hold the hand-off to the Lander for it. |
-| A degraded run still gets posted | `inline pass` in the Mode field is the honest reading, and hiding it is what makes the next one invisible. |
+| A thin run still gets posted | Whatever the Tag field says, post it. Hiding a weak shape is what makes the next one invisible. |
 
 **A Builder that reports no QA line has not told you the step ran.** `BUILDER.md` section 4c permits
 an empty result and requires it be reported, so "nothing found" and "nothing said" are different
@@ -382,7 +382,8 @@ disk you can find later: nothing that survives the moment you close the instance
 
 | Item | Rule |
 | --- | --- |
-| How every brief ends | **Run the code-review subagent. Push the branch. Report, with the QA line of `BUILDER.md` 4e. Exit.** Not negotiable. |
+| How every brief ends | **Run the `code-review` skill. Push the branch. Report, with the QA line of `BUILDER.md` 4e. Exit.** Not negotiable. |
+| **CORRECTED 2026-09-20** | This row said *"the code-review subagent"*. The word names a shape the skill does not always take: one measured `xhigh` run was inline by instruction. `BUILDER.md` 4c holds the tags. Brief the level, and require the tag back. |
 | Why the review is in this row | A Manager briefing from the seat table alone omits it. Reported 2026-09-18 and not re-measured here: eight Builders briefed that way, none told to review, none reviewed. |
 | **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
 | The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |
