@@ -513,8 +513,8 @@ check is the only reason the seat that hit this caught its own.**
     confirm, commit, re-anchor, run it once more. **If round two still reports findings, ship
     anyway** and hand the notes to the Manager. Section 4c has the traps.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
-    the proposed ledger banner text. Section 4d says what the report must hold. **You do not open
-    the pull request. The Manager does**, and there is no next item.
+    the proposed ledger banner text. Sections 4d and 4e say what the report must hold. **You do not
+    open the pull request. The Manager does**, and there is no next item.
 
 **On step 3:** refresh the claim note when the work changes.
 
@@ -672,6 +672,7 @@ defect. `code-review` does, and it ships in the harness with nothing to install.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
 **Why two and not "until clean".** Adversarial repair is not monotonic. A second round can introduce
 what the first round accepted, so an unbounded loop oscillates instead of converging, and each lap
@@ -723,6 +724,58 @@ Say the branch is pushed anyway. A check with nothing to compare against is not 
 
 **The exit-report table in section 4b rides in the same report.** One is the owner's dashboard row;
 this one is the Manager's handover. Send both.
+
+---
+
+### 4e. The QA line: you write it, the Manager posts it
+
+Owner ruling 2026-09-20. Step 11 left no trace anyone downstream could see. A Lander reading the
+pull request could not tell a diff that had been worked from one that had not.
+
+**Write this line in your report. The Manager posts it at step 9, on the pull request it opens.**
+
+```
+QA -- BUILDER.md step 11
+Mode: subagent fan-out. Level: xhigh. Rounds: 2.
+Findings: 3 confirmed and fixed, 1 rejected (wrong about the null path), 0 open.
+```
+
+| Field | What it must hold |
+| --- | --- |
+| The citation | `BUILDER.md step 11`, which names exactly one skill. |
+| Mode | `subagent fan-out` or `inline pass`. Section 4c: the skill announces the DEGRADED pass and nothing announces the other, so silence means fan-out. |
+| Level | The level you RAN, not the level your brief named, where the two differ. |
+| Rounds | 1 or 2. Say 1 only if round one came back empty. |
+| Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**Neither the label nor the line uses the word "review".** Owner ruling. The retired `reviewed`
+label recorded that a step happened and got read as a verdict on the diff, and that label is still
+in this repository's label list.
+
+The citation is what keeps the instrument named. Article VI asks a number to name what produced it,
+and this skill's own name is the word the line may not carry.
+
+**The `qa` label gates nothing, and saying so is part of the rule.** Measured 2026-09-20:
+
+```bash
+gh api repos/:owner/:repo/branches/main/protection --jq '.required_status_checks.contexts'
+```
+
+It returns `["gates (ubuntu-latest)","gates (windows-latest)"]`. A label is not a check and cannot
+enter that list by existing. Do not hold a pull request waiting for `qa`.
+
+**A missing `qa` label is not evidence the step was skipped.** The Manager applies it, so an absent
+label means the Builder's line never reached it, or the Manager died first. Read the line, not the
+label.
+
+**Whoever opened the pull request applies both halves, and that is never you.** The rule is about
+the check rather than about the Manager, so a `qa` that only ever means "a Manager opened this"
+records the wrong thing.
+
+**You do not post it yourself, with one exception.** For a NEW branch the pull request does not
+exist until you have exited. Where your brief names an ALREADY-OPEN one, comment the line there
+too. *The Dispatcher, the Liaison and the Console are retired* carries the same exception for a
+question.
 
 ---
 

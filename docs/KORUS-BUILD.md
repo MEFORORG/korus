@@ -64,7 +64,8 @@ hundred requirements; separate sessions need common rules to keep their verdicts
 
 ## The build-to-land flow
 
-Fourteen steps run from the owner's assignment to a closed item. Owner-set 2026-09-18.
+Fourteen steps run from the owner's assignment to a closed item. Owner-set 2026-09-18. Steps 8
+and 9 gained the QA line on 2026-09-20; the fourteen and their order did not change.
 
 | # | Seat | Step |
 |---|---|---|
@@ -75,8 +76,8 @@ Fourteen steps run from the owner's assignment to a closed item. Owner-set 2026-
 | 5 | Builder | Runs a `/code-review` subagent at xhigh effort. |
 | 6 | Builder | Applies confirmed fixes and reviews again. Two rounds maximum. |
 | 7 | Builder | Commits, pushes its branch, exits. |
-| 8 | Builder | Reports to the manager. |
-| 9 | Manager | Checks the branch is on the remote, then opens the pull request. |
+| 8 | Builder | Reports to the manager, and writes the QA line for the manager to post. |
+| 9 | Manager | Checks the branch is on the remote, opens the pull request, applies the `qa` label and posts the QA line. |
 | 10 | Manager | Messages or mails the lander. |
 | 11 | Lander | Owns the pull request. Triages a red check and dispatches any repair. |
 | 12 | Lander | Enqueues as it judges best. |
@@ -151,7 +152,8 @@ Read the backlog. Produce a build plan that breaks it into tasks sized for one s
 and write an ADR for any decision that outlives the task that made it.
 
 Write one complete brief per task. Name the backlog number, the worktree, and the code-review
-effort level. State whether the builder is a subagent or a separate session. For a subagent,
+effort level. Tell the builder to end its report with the QA line you will post.
+State whether the builder is a subagent or a separate session. For a subagent,
 receive its result directly. For a separate session, name a working message route.
 Give each builder its own worktree and branch. Check for overlapping paths before dispatch.
 When a builder reports a blocker, read it, update the backlog, and revise the brief.
@@ -163,6 +165,12 @@ shared pool sees "clear" at the same moment, and they all open together.
 
 Put the builder's report in the pull request body. It cannot post there itself. Read the
 builder's last commit message for the proposed title and the proposed ledger banner text.
+
+Label the pull request qa and post the builder's QA line on it, verbatim:
+  gh pr edit <N> --add-label qa
+  gh pr comment <N> --body "<the builder's QA line>"
+The label records that the builder's check ran. It gates nothing: main requires only
+gates (ubuntu-latest) and gates (windows-latest). No line means no label.
 
 Message the lander with five fields: pull request number, head SHA, unread legs, known defects,
 and any landing-order constraint. The pull request is the lander's from that message on.
@@ -218,7 +226,13 @@ the proposed ledger banner text. That is mandatory: it is what makes the branch 
 manager dies before it opens the pull request.
 
 Push your own branch, then report: branch name, head SHA, review level and outcome, what you
-ran, and what you did NOT run. Name every hosted-only leg. Then exit.
+ran, and what you did NOT run. Name every hosted-only leg.
+
+End the report with the QA line your manager posts for you, in this shape:
+  QA -- BUILDER.md step 11
+  Mode: subagent fan-out. Level: xhigh. Rounds: 2.
+  Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
+The QA line never uses the word "review". Then exit.
 
 Do not open the pull request; your manager does. Do not merge; the lander does.
 ```

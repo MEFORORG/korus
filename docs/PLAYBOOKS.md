@@ -23,7 +23,7 @@ Read `roles/COMMON.md` before your seat's playbook. It holds the rules shared by
 | Seat | What it owns | Card | Playbook |
 |---|---|---|---|
 | Manager | Runs one or more Builders as subagents or separate sessions. Writes their briefs, reads their results, opens the pull request, and hands it to the Lander. | [Manager](roles/manager.card.md) | `roles/MANAGER.md` |
-| Builder | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. | [Builder](roles/builder.card.md) | `roles/BUILDER.md` |
+| Builder | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports with its QA line, exits. | [Builder](roles/builder.card.md) | `roles/BUILDER.md` |
 | Steward | A cron rather than a seat. Reads usage and names the account with headroom. | [Steward](roles/steward.card.md) | `roles/STEWARD.md` |
 | Lander | What enters the merge queue, and in what order. It owns a handed-over pull request from the handover on. | [Lander](roles/lander.card.md) | `roles/LANDER.md` |
 | Special | Work the Owner wants done outside the other six. It stands by silently until instructed. | [Special](roles/special.card.md) | `roles/SPECIAL.md` |

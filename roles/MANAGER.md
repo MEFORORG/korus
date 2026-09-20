@@ -23,6 +23,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | You may be one of several managers and you share only the repository | Everything here follows from that one fact. |
 | What the Manager seat does | You decide what your workers build next, you write their briefs, and you read what comes back. You do other things as assigned by the owner. |
 | What it gained 2026-09-18 | **You open the pull request**, once you have checked the branch is on the remote, and you hand it to the Lander. |
+| What it gained 2026-09-20 | **You post the Builder's QA line** on the pull request you open, and label it `qa`. *Apply the `qa` label and post the Builder's line* holds the shape. |
 | What the Manager seat does not do | You do not build, you do not enqueue, and you do not merge. This stands until the owner moves one of the three to this seat. See *Never Do These*. |
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
@@ -43,7 +44,7 @@ flow*, holds all fourteen. Four of them are this seat's.
 | --- | --- |
 | 1 | **Receive the assignment** from the owner. |
 | 2 | **Brief the Builder or Builders.** Each brief names the backlog number, the worktree, and the code-review effort level. |
-| 9 | **Check the branch reached the remote, then open the pull request** when your own work is ready. |
+| 9 | **Check the branch reached the remote, then open the pull request** when your own work is ready. **Apply the `qa` label and post the Builder's QA line on it.** |
 | 10 | **Tell the Lander**, by message or mail, and hand the pull request over. |
 
 Steps 3 to 8 are the Builder's, and 11 to 14 are the Lander's. Do not perform one of theirs because
@@ -116,6 +117,31 @@ at all all read identically in a report.
 Pair the zero with a control if the grep comes back empty: run the same command without the filter
 and confirm it returns heads at all. An empty result from a failed `ls-remote` looks exactly like a
 branch that is not there.
+
+### Apply the `qa` label and post the Builder's line
+
+Owner ruling 2026-09-20. The Builder runs its `code-review` subagent at step 11 and then exits, so
+the pull request does not exist while the one seat that ran the check is still alive.
+
+**You are the seat that can post it.** `BUILDER.md` section 4e holds the shape, and the Builder
+writes the text. Post it as given rather than summarising it.
+
+```bash
+gh pr edit <N> --add-label qa
+gh pr comment <N> --body "<the Builder's QA line, verbatim>"
+```
+
+| Item | Rule |
+| --- | --- |
+| The label is `qa` | Not `reviewed`, which retired 2026-09-04 and still sits in the label list. |
+| The word "review" appears in neither | Owner ruling. The line cites `BUILDER.md step 11` instead, which names exactly one skill. |
+| **No line, no label** | A `qa` label with no comment under it is the retired gate rebuilt: a mark that records nothing. Ask the Builder's successor, or post the label only once you hold the text. |
+| It blocks nothing | `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and nothing else. Do not hold the hand-off to the Lander for it. |
+| A degraded run still gets posted | `inline pass` in the Mode field is the honest reading, and hiding it is what makes the next one invisible. |
+
+**A Builder that reports no QA line has not told you the step ran.** `BUILDER.md` section 4c permits
+an empty result and requires it be reported, so "nothing found" and "nothing said" are different
+answers.
 
 ### Do not check the pool before you open
 
@@ -356,7 +382,7 @@ disk you can find later: nothing that survives the moment you close the instance
 
 | Item | Rule |
 | --- | --- |
-| How every brief ends | **Run the code-review subagent. Push the branch. Report. Exit.** Not negotiable. |
+| How every brief ends | **Run the code-review subagent. Push the branch. Report, with the QA line of `BUILDER.md` 4e. Exit.** Not negotiable. |
 | Why the review is in this row | A Manager briefing from the seat table alone omits it. Reported 2026-09-18 and not re-measured here: eight Builders briefed that way, none told to review, none reviewed. |
 | **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
 | The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |

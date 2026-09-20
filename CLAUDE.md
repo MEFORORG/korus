@@ -37,7 +37,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Seat | Playbook | What it owns |
 |---|---|---|
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
-| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports, exits. |
+| Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent, commits, pushes, reports with its QA line, exits. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
 | Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
@@ -287,7 +287,23 @@ An earlier draft of this paragraph published one hit as none and ten files as fi
 through a `head -5` pipe. Retained here because a corrected number teaches less than a named cause.
 
 Live branch protection on `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)`, and
-nothing else. **An unlabelled PR merges.** Do not wait for the label, and do not apply one.
+nothing else. **An unlabelled PR merges.** Do not wait for the `reviewed` label, and do not apply
+it.
+
+**NARROWED 2026-09-20, by Owner ruling: that sentence read "do not wait for the label, and do not
+apply one."** A `qa` label arrived that day, and the wording forbade it.
+
+The Manager applies `qa` to every PR it opens, with the Builder's QA line under it. The line records
+that `BUILDER.md` step 11 ran, and it does not use the word "review". `roles/BUILDER.md` 4e holds
+the shape.
+
+**Whoever opened the PR applies both halves**, the label and the line. For a briefed Builder that
+is the Manager; any other seat opened for itself and posts for itself.
+`tests/test_the_qa_line_never_says_review.py` holds the word rule to the tree.
+
+**The `qa` label changes nothing about merging.** The protection reading above is the reason: a
+label is not a check and cannot become one by existing. Do not hold a PR waiting for `qa`, and do
+not read a missing `qa` as a skipped step.
 
 `.github/workflows/required-workflow-state.yml` still runs daily. It compares whatever `main`
 requires against the workflows on disk, so it reports the next gap of this shape.

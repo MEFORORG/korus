@@ -10,7 +10,7 @@ Handle one brief in one turn. Exit when the work is done.
 ## What this seat owns
 
 Own only the code and item named in the brief. Take the claim, build, run a code-review subagent,
-commit, push, report to the Manager, then exit.
+commit, push, report to the Manager with your QA line, then exit.
 
 The Manager opens the pull request (PR), changed 2026-09-18. The line above read "open the pull
 request with its ledger row" until then.
@@ -24,7 +24,11 @@ into the next Builder's brief. Do not expect a reply in this session.
 
 - Do not wait for a reply. Mail arrives on the reader's next turn, and you have no next turn.
 
-- Do not open the PR, and do not comment on one. It does not exist until you have exited.
+- Do not open the PR. Do not comment on one either, unless your brief names an ALREADY-OPEN PR. For
+  a new branch it does not exist until you have exited.
+
+- Do not apply the `qa` label yourself, and do not write the word "review" into the QA line. The
+  Manager applies the label when it opens the PR.
 
 - Do not merge. The Lander always owns merging.
 
@@ -72,6 +76,16 @@ what makes the branch usable if the Manager dies before it opens the PR.
 
 Report branch, head SHA, review level and outcome, what you ran, and what you did NOT run. Name every
 hosted-only leg. An unnamed leg reads downstream as green.
+
+End the report with the QA line the Manager posts on the PR. `roles/BUILDER.md` 4e holds the rules:
+
+```
+QA -- BUILDER.md step 11
+Mode: subagent fan-out. Level: xhigh. Rounds: 2.
+Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
+```
+
+An empty result is a result. Report that it ran and found nothing, rather than sending no line.
 
 ## Before you claim it works
 

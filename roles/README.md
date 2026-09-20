@@ -47,7 +47,7 @@ stands by, and announces only when its instruction makes the message worth sendi
 | Manager | [MANAGER.md](MANAGER.md) | The plan and the brief. Reads the ledger, picks the row, writes a brief that holds for one turn, and reads what comes back. **Replaces the Dispatcher, the Liaison and the Console.** |
 | | | **Opens the pull request and hands it to the Lander**, added 2026-09-18. Does not build, enqueue or merge. |
 | | | Added 2026-09-04. Owner-spawned and bound to ONE account. Its workers are subagents or separate sessions. Several Managers run at once, sharing only the repository. |
-| Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent over its own diff, commits, pushes, reports, then exits. **It no longer opens the PR**, changed 2026-09-18. |
+| Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Takes the claim, builds, runs a code-review subagent over its own diff, commits, pushes, reports with its QA line, then exits. **It no longer opens the PR**, changed 2026-09-18. |
 | | | It never guesses at what the brief left open and never waits: it writes the question to the Manager, which carries it onto the PR, then stops. |
 | Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. |
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |

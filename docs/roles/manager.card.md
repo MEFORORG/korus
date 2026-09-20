@@ -10,7 +10,7 @@ Stay active within one desktop instance.
 ## What this seat owns
 
 Own your workers' plan and briefs. Choose their work, write each brief, read the results, open the
-pull request (PR), and hand it to the Lander.
+pull request (PR), label it `qa` with the Builder's QA line under it, and hand it to the Lander.
 
 Each brief names the backlog number, the worktree, and the code-review effort level.
 
@@ -73,6 +73,17 @@ result with an unfiltered run.
 
 Read the Builder's LAST commit message. It carries the proposed PR title and the proposed ledger
 banner text. Put the Builder's report in the PR body; it cannot post there itself.
+
+Label the PR and post the Builder's QA line on it, verbatim. It ran the check and then exited, so
+you are the seat that can record it:
+
+```bash
+gh pr edit <N> --add-label qa
+gh pr comment <N> --body "<the Builder's QA line>"
+```
+
+The label gates nothing. `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and
+nothing else, so never hold the hand-off for it. No line means no label.
 
 Then message the Lander with five fields: PR number, head SHA, unread legs, known defects, and any
 landing-order constraint.
