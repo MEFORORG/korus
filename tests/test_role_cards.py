@@ -96,7 +96,19 @@ REQUIRED_SECTIONS = (
 )
 
 CARD_MAX_LINES = 150
-CARD_MAX_BYTES = 6 * 1024
+
+#: RAISED 2026-09-19 from 6 KB, by the Owner's pairing ruling, and the raise is recorded rather
+#: than silent. That ruling gave the Lander and the Watchdog five standing blocks the other cards
+#: do not carry: spawn in a pair, spawn the missing partner, wake by CCD messaging and never by
+#: mail, read the partner's transcript, and a four-step escalation that replaces AskUserQuestion.
+#: Measured after that edit: lander 7,176 bytes and watchdog 7,528, against a next-largest card of
+#: 4,248. The old cap could only be met by deleting measured rules from the two seats the ruling
+#: was about.
+#:
+#: CARD_MAX_LINES did NOT move, and it is now the binding cap for both: 142 and 146 of 150. The
+#: budget's argument is unchanged -- one card is injected per session, so the cost is one card --
+#: and a cap raised to fit whatever was just written is not a cap. Cut before raising this again.
+CARD_MAX_BYTES = 8 * 1024
 
 
 def seats() -> dict:
@@ -242,6 +254,29 @@ class EveryCardStaysWithinItsBudget(unittest.TestCase):
     def test_no_card_exceeds_the_byte_cap(self):
         over = [f"{p.name}: {p.stat().st_size} bytes" for p in card_paths() if p.stat().st_size > CARD_MAX_BYTES]
         self.assertEqual([], over, f"cards over {CARD_MAX_BYTES} bytes: {over}")
+
+    def test_the_two_copies_of_the_byte_cap_agree(self):
+        """The hook's cap DECIDES; this constant only reports. Nothing bound them until 2026-09-19.
+
+        A card between the two numbers passes the suite and is then refused by the hook, so the
+        seat runs with no card and the only notice is one line in a SessionStart banner. Found by
+        raising this constant to 8 KB and watching a 7,176-byte card go uninjected against the
+        hook's 6 KB.
+        """
+        import re
+
+        m = re.search(r"^\s*\$maxBytes\s*=\s*(\d+)\s*\*\s*(\d+)\s*$", t.read(HOOK), re.M)
+        self.assertIsNotNone(
+            m,
+            "no `$maxBytes = <n> * <n>` line in role-card-inject.ps1. If the hook stopped "
+            "enforcing a cap, this test measures nothing and must be rewritten, not deleted.",
+        )
+        self.assertEqual(
+            int(m.group(1)) * int(m.group(2)),
+            CARD_MAX_BYTES,
+            "role-card-inject.ps1 and CARD_MAX_BYTES disagree. The HOOK is the one that decides "
+            "whether a card loads, so change it first and follow with this constant.",
+        )
 
     def test_every_card_carries_every_required_section(self):
         offenders = []
