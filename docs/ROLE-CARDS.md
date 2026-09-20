@@ -34,7 +34,7 @@ page spends most of its length refusing.
 | Piece | Where | What it does |
 |---|---|---|
 | The marker | `.claude/seat.local.txt` | Holds one lowercase word. Git-ignored. |
-| The cards | `docs/roles/<seat>.card.md` | One per live seat. Capped at 150 lines and 6 KB. |
+| The cards | `docs/roles/<seat>.card.md` | One per live seat. Capped at 150 lines and 8 KB. |
 | The roster | `docs/roles/seats.json` | Live seats, the alias map, and the retired seats with reasons. |
 | The hook | `scripts/hooks/role-card-inject.ps1` | Resolves the seat, injects that card, writes a re-readable copy. |
 
@@ -216,8 +216,20 @@ Keep expiring information out of cards. Put open queues, item numbers, and block
 A seat folder elsewhere had two failures from stale instructions. A "do not install" rule became
 wrong after a fix merged, and sessions twice cited an expired freeze.
 
-Tests enforce the 150-line and 6 KB caps, and the hook checks them again. Oversized cards cannot
+Tests enforce the 150-line and 8 KB caps, and the hook checks them again. Oversized cards cannot
 load merely because a worktree skipped its tests.
+
+**The byte cap rose from 6 KB on 2026-09-19**, by the Owner's Lander-and-Watchdog pairing ruling,
+which gave those two seats five standing blocks the other cards do not carry. The line cap did not
+move, and it now binds both: 142 and 146 of 150.
+
+**The hook's `$maxBytes` is the copy that decides**, because it is what refuses to inject. Raising
+the test alone ships a card that silently never loads. `test_the_two_copies_of_the_byte_cap_agree`
+now binds them, and was proven by desyncing them and watching it fail.
+
+The number lived in five places when it moved: the hook, the test, this page twice, and
+`PLAYBOOKS.md`. The two `.old.md` archives keep the 6 KB reading, correctly, as the record of what
+was true when they were frozen.
 
 ## The leak half is not decoration
 

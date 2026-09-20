@@ -37,7 +37,8 @@ outside Jekyll's source directory, so this host has no page for them.
 ## The card is a summary and the playbook governs
 
 A card holds the seat's scope, prohibitions, authority, arrival checks, and playbook path. Each card
-has a 150-line and 6 KB cap.
+has a 150-line and 8 KB cap. The byte half rose from 6 KB on 2026-09-19; `ROLE-CARDS.md` carries the
+reason and names the copy that decides.
 
 Put open queues, item numbers, and blockers in dated notes. Keep them out of both cards and
 playbooks.

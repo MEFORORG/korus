@@ -155,7 +155,15 @@ If '$label' is a spelling of one of those, add it to the aliases map in docs/rol
 
     # The cap is enforced by the test suite as well. It is re-checked here so a card edited in a
     # worktree that has not run the tests cannot quietly cost every session on the machine.
-    $maxBytes = 6 * 1024
+    #
+    # THIS LINE IS THE CAP THAT DECIDES. The test constant is a second copy, and
+    # test_the_two_copies_of_the_byte_cap_agree reads this line to keep them together. Raising the
+    # test alone ships a card that silently never loads: the seat runs with no card and the only
+    # notice is one line in a SessionStart banner.
+    #
+    # RAISED 2026-09-19 from 6 KB, by the Owner's pairing ruling. tests/test_role_cards.py carries
+    # the reason and the measurement.
+    $maxBytes = 8 * 1024
     if ([System.Text.Encoding]::UTF8.GetByteCount($card) -gt $maxBytes) {
         Write-Note "[role-card] docs/roles/$canonical.card.md is over the $maxBytes-byte cap, so it was NOT injected. Trim it, or the seat runs without its card."
         exit 0
