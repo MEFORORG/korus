@@ -229,7 +229,7 @@ Push your own branch, then report: branch name, head SHA, review level and outco
 ran, and what you did NOT run. Name every hosted-only leg.
 
 End the report with the QA line your manager posts for you, in this shape:
-  QA -- BUILDER.md step 11
+  QA -- korus roles/BUILDER.md step 11
   Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
   Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 The QA line never uses the word "review". Then exit.

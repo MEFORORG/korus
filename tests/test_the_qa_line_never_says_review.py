@@ -28,7 +28,7 @@ import _ccxtest as t
 
 # The first line of the QA line, in every file that carries a copy of it. `BUILDER.md` 4e is the
 # authority on the shape; the other two carry the same three lines for a reader who never opens it.
-MARKER = "QA -- BUILDER.md step 11"
+MARKER = "QA -- korus roles/BUILDER.md step 11"
 
 # The line plus the two under it: Mode/Level/Rounds, then Findings.
 BLOCK_LINES = 3
@@ -96,7 +96,7 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
         planted = 0
         for relpath in CARRIERS:
             for block in _blocks(t.read(t.REPO_ROOT / relpath)):
-                control = block.replace(MARKER, "QA -- code-review at step 11")
+                control = block.replace(MARKER, "QA -- korus code-review at step 11")
                 self.assertNotEqual(control, block, "the plant changed nothing")
                 planted += 1
                 with self.subTest(file=relpath):

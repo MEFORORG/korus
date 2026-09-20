@@ -81,7 +81,7 @@ hosted-only leg. An unnamed leg reads downstream as green.
 End the report with the QA line the Manager posts on the PR. `roles/BUILDER.md` 4e holds the rules:
 
 ```
-QA -- BUILDER.md step 11
+QA -- korus roles/BUILDER.md step 11
 Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 ```

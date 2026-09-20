@@ -772,17 +772,40 @@ pull request could not tell a diff that had been worked from one that had not.
 **Write this line in your report. The Manager posts it at step 9, on the pull request it opens.**
 
 ```
-QA -- BUILDER.md step 11
+QA -- korus roles/BUILDER.md step 11
 Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
 | Field | What it must hold |
 | --- | --- |
-| The citation | `BUILDER.md step 11`, which names exactly one skill. |
+| The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
 | Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the three shapes and why you may not infer one. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**The citation names the REPOSITORY, and that is not decoration.** Measured 2026-09-20:
+`roles/BUILDER.md` exists in korus AND in the `MessageFoundry-vault` checkout, and the two are
+different documents.
+
+The vault copy has NO section 4c or 4e, and its step 11 reads *"Conclude, open the PR, write the
+exit report, and exit."*
+
+```bash
+git -C <vault> show HEAD:roles/BUILDER.md | grep -nE '^11\.'
+git -C <vault> show HEAD:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'
+```
+
+The first returns that retired step. The second returns 0, against 5 for the same pattern here, so
+the subsection scheme this line cites does not exist there at all.
+
+**So a bare `BUILDER.md step 11` lands on the opposite rule** -- an instruction to open your own
+pull request, retired 2026-09-18. A citation that resolves to the rule it contradicts is worse than
+no citation.
+
+**MessageFoundry itself has no `roles/` directory**, only `docs/roles/*.card.md`. A Builder working
+there cannot read this playbook at all, and its card is what reaches it. Found by a Manager seat
+2026-09-20, after seven briefs cited a path that resolves in neither repo it was sent to.
 
 **Neither the label nor the line uses the word "review".** Owner ruling. The retired `reviewed`
 label recorded that a step happened and got read as a verdict on the diff, and that label is still
