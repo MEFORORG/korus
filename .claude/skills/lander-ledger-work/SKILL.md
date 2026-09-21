@@ -106,17 +106,25 @@ census.
 | Measured at `fdd89b49` | Of 236 open items, **96 build, 21 demand, 94 research**. Of the 13 closed in the prior window, **12 build and 1 demand, zero research**. |
 | And across all archived items | `Verdict: research` appears **zero** times. |
 | A research item closes in TWO acts | The vault ASVS cell is re-scored first, and the banner flips second. The second act is yours. |
-| Who performs the first | **YOU.** Corrected 2026-09-15; this cell used to read *"No live seat."* |
-| The citation that carries it | The wide, older grant, not the narrow ruling: engine `CLAUDE.md` section 5's Lander row, *"Standing authority on the engine repo and the vault, with no per-action owner approval."* Present since `f0e1365bc`, 2026-09-02. |
-| And the ruling that names the act | `7c673513f`, 2026-09-05, changes that row by exactly one line: *"Merging."* becomes *"Merging, and the vault scorecard re-score (owner ruling 2026-09-05)."* |
-| Read that ruling's own context line | It shows the standing-authority sentence already present, so the ruling adds specificity to a grant it did not create. |
-| So both acts are yours | The re-score first, the banner second. There is no third act and no other seat in the loop. |
+| Who performs the first | **UNASSIGNED. This cell names no seat.** Corrected 2026-09-21. |
+| What it read before | *"No live seat."* until 2026-09-15, then **YOU** from 2026-09-15 to 2026-09-21. Both are superseded, and this cell re-adopts neither. |
+| The owner's correction, 2026-09-21 | They did not intend the Lander to always handle re-scoring, and they named nobody in its place. So neither does this cell. |
+| What the standing-authority grant does | Engine `CLAUDE.md` section 5's Lander row reads *"Standing authority on the engine repo and the vault, with no per-action owner approval."* Present since `f0e1365bc`, 2026-09-02. |
+| And what it does not do | It is authority to act in the vault without asking first. It is not an assignment of the re-score. Reading it as one is how this cell reached **YOU** on 2026-09-15. |
+| What commit `7c673513f` did, as a record | On 2026-09-05 it changed that engine row by exactly one line: *"Merging."* became *"Merging, and the vault scorecard re-score (owner ruling 2026-09-05)."* |
+| And what it is no longer | Authority for this seat performing the re-score. Do not cite it as that. The engine's own row has since been corrected in engine PR 1402. |
+| Why that record does not settle it | Its context line shows the standing-authority sentence already present, so the ruling added specificity to a grant it did not create. |
+| What the owner corrected | The SCOPE they intended by that specificity. The 2026-09-05 ruling is neither wrong nor withdrawn, and do not write that it is. |
+| So one act is yours, not both | The banner flip after the items merge is yours, affirmed by the owner on 2026-09-21. The re-score before it is unassigned. |
+| Unassigned is not forbidden | The owner removed the re-score as a standing duty of this seat, not as something you may never do. One you are specifically asked to run, you may run. |
 | Still read the scorecard commits yourself | Nothing sends a notice, and now there is no one to send it. |
-| Why the old cell said otherwise | It was **carried, not authored**, and already false when carried. A refactor moves text without re-reading it. |
+| Why the 2026-09-15 correction was made | The *"No live seat."* text was **carried, not authored**: a refactor moved it without re-reading it, and a seat reading `7c673513f` concluded it was false. |
+| Which half of that survives | The carried-without-re-reading half. The *"already false when carried"* half rested on the scope the 2026-09-21 correction removed, so this cell no longer asserts it. |
 | The grant and the retirement are one commit | `f0e1365bc`, 2026-09-02T02:56:49Z, both retired the ASVS Tracker and granted the Lander standing authority. |
-| When this cell arrived | Three days later, at `0e44aba01` (2026-09-05T23:07:52Z), the refactor that split the playbooks into skills. |
+| When the carried text arrived | Three days later, at `0e44aba01` (2026-09-05T23:07:52Z), the refactor that split the playbooks into skills. |
 | The failure shape to carry forward | A pointer and the thing it points at are two edits, and **nothing fails when only the first is made**. |
-| What that cost here | Until 2026-09-15, the seat that must act read here that nobody performs the act it holds. |
+| What that cost here | For ten days this skill and the engine's seat row disagreed about who performs the re-score, and nothing failed. |
+| And how it was settled | Twice: on 2026-09-15 by a seat reading the commits, and on 2026-09-21 by the owner. No check surfaced it either time. |
 | You cannot learn a re-score happened | The scorecard is a vault file gitignored from every engine checkout. Nothing reports it. |
 | So | Both halves can be done correctly while the item still reads open, and nothing surfaces it. |
 | The discriminator for a stranded item | Compare the cell's `last_verified` against the banner's last touch. |
