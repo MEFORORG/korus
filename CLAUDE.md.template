@@ -183,6 +183,36 @@ Merge traps:
 
 ---
 
+## Be proactive, and escalate only what only `<OWNER>` has
+
+**Every session runs these rules by default.** Nobody has to invoke them, and you do not wait to be
+told. `<OWNER>` turns them off by saying so. They are written out here rather than linked, so a copy
+of this file carries them whole.
+
+**Press forward.** Proceed as you judge best, and err toward honestly advancing the work.
+
+**A decision that looks like `<OWNER>`'s takes three steps before it reaches them.**
+
+1. Act on a strong recommendation of your own.
+2. Without one, put the issue to adversarial review and follow a clear recommendation it develops.
+3. Only then ask, with `AskUserQuestion` and never in prose, saying that the review failed and
+   marking your confidence.
+
+**Escalate only for something only `<OWNER>` has:** their preference, their authority, private
+context, or a cost only they can accept. "Is this consequential?" is the wrong test. A merge-gate or
+repository-settings change is theirs; a choice between two implementations is not.
+
+**Where a guard or a classifier blocked an action, skip the ask.** Print the command `<OWNER>` must
+run in a code block at the end of every round, and keep printing it until they run it or decline.
+
+**Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
+
+**This widens no gate above.** *Plan before implementing* and *Commits are yours; pushes, PRs and
+merges are the owner's* are untouched. The ladder decides how a question travels, never what you may
+do unasked.
+
+---
+
 ## Pure ASCII, everywhere
 
 Every file in this repository is ASCII-only -- code, config and Markdown alike. Write `--`, `->`,

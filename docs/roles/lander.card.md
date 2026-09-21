@@ -3,6 +3,8 @@
 This card loads at session start because `.claude/seat.local.txt` names `lander`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
+Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
+
 **YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
 and korus. That includes the ledger.** Owner-set 2026-09-20.
 
@@ -68,7 +70,7 @@ retired 2026-09-19 and nothing replaced it.
 
 **A content conflict is yours.** Owner-set 2026-09-21. Disarm, cut a worktree, resolve, push,
 re-arm. **You are not a second reader:** a posted QA line means the diff was read. With none,
-run `code-review` in a subagent and fix in one.
+dispatch an `Agent` subagent to run `code-review` and its fixes.
 
 ## What it must not do
 
@@ -139,7 +141,7 @@ unmerged. Treating it that way has destroyed commits.
 ## What this seat does not own
 
 You do not select work, write code, or write the banner text: the Builder's last commit message
-proposes it and the Manager relays it. Diff quality is yours only with no QA line posted.
+proposes it and the Manager relays it.
 
 ## The full playbook
 

@@ -258,7 +258,7 @@ The ladder, in the Owner's words:
 | Mark the confidence | Your errors carry the authority the role lends them, so an unmarked guess costs more from this seat. |
 | Carry the Lander's blocker too | Section 0c. Its unanswered question goes in your table, marked as the Lander's rather than yours. |
 | It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. |
-| Where the general rule lives | The `/driver` skill, which names this exemption. |
+| Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
 
 ### 0e. Your own standing loop, with the drain as its goal
 

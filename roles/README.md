@@ -32,7 +32,7 @@ questions arrive at the same seat as before, held by a smaller one.
 **A ninth seat retired on 2026-09-12, and nothing replaced it.** Section 3 asked; this answers.
 
 **The owner added the Special seat on 2026-09-16, the first addition rather than a replacement.** It
-holds work falling outside the other six, so no retirement made room for it.
+holds work falling outside the other five, so no retirement made room for it.
 
 It is also the only seat that stays silent on arrival. Owner-set: it reads [COMMON.md](COMMON.md),
 stands by, and announces only when its instruction makes the message worth sending.
@@ -58,7 +58,7 @@ numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | | | **It runs a standing `/loop` whose goal is every open PR merged.** Owner-set 2026-09-19. Nothing here tells it a PR is waiting, so its own poll is the trigger. |
 | Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
-| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other six.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
+| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
 | Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Added 2026-09-19. It reads instruments, raises a stall, and never drains the queue, takes the claim, or drives the lane. |
 | | | **It did not inherit the Regulator**, retired the same day. That seat returned a binding verdict on one red check; this one returns evidence and decides nothing. No seat attributes a red now. |

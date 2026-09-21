@@ -68,8 +68,8 @@ here" lists belong in a dated episode note.
 | Proactive output style | COMMON.md, *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
 | Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
-| A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4g. A content conflict is YOURS to resolve* holds the route. |
-| You are NOT a second reader | Owner ruling 2026-09-21. A QA line on the pull request means the diff was read. No QA line means you run `code-review` in a subagent. *4a-quater* holds both halves. |
+| A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
+| You are NOT a second reader | Owner ruling 2026-09-21. A QA line on the pull request means the diff was read. No QA line means you dispatch an `Agent` subagent to run `code-review`. *4a-quinquies* holds both halves. |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -253,7 +253,7 @@ The ladder, in the Owner's words:
 | Carry your partner's blocker too | *Read your partner's TRANSCRIPT* has the trigger. Its unanswered question goes in your table beside yours. |
 | It widens nothing | The ladder decides how a question travels, never what you may do unasked. *Authority model* is unchanged. |
 | Step 1 is the one that works | If you would mark an option "(Recommended)", you already have the answer. Act on it. |
-| Where the general rule lives | The `/driver` skill, which names this exemption. |
+| Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
 
 ### You may bypass a required status check on your own judgement
 
@@ -722,7 +722,7 @@ Read `strict` and N fresh from the protection call under *Assess state on arriva
 | Only one PR can be up-to-date-with-base at a time | Each merge advances `main` and knocks every other open PR BEHIND. |
 | CI is roughly 15 to 25 minutes per cycle | The queue moves about one PR per cycle. Push and merge in the background; never sit idle waiting for green (owner rule). |
 | Never merge directly | Arm a PR with auto-merge and let it land on green. |
-| A DIRTY (true-conflict) PR | **Yours to resolve.** Owner ruling 2026-09-21. Disarm, resolve the content, push, re-arm. *4g. A content conflict is YOURS to resolve* carries the route and the text it replaced. |
+| A DIRTY (true-conflict) PR | **Yours to resolve.** Owner ruling 2026-09-21. Disarm, resolve the content, push, re-arm. *4c-quinquies. A content conflict is YOURS to resolve* carries the route and the text it replaced. |
 
 ### 4a. BEHIND is not a wake condition, but a queue of armed BEHIND PRs is a stall
 
@@ -808,7 +808,11 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | Measured 2026-08-22 | A seat published a conflict-hunk count from a check that could never have found anything, and corrected it on the PR as well as in the handoff. |
 | Keep a running list | Track the numeric claims you have put in PR bodies, so retiring an instrument hands you a bounded sweep set instead of a memory search. |
 
-### 4a-quater. You are NOT a second reader, and the Builder's QA line is what tells you
+### 4a-quinquies. You are NOT a second reader, and the Builder's QA line is what tells you
+
+**RENUMBERED from `4a-quater` on 2026-09-21.** That id already names a section in
+`lander-relay-or-correct-a-claim`. A section id is a repository-wide name, so census the whole
+tree before you pick one.
 
 **Owner ruling 2026-09-21:** you are not a second reader as long as the Builder ran its own code
 review. *4a-ter* retired the inspection on 2026-09-17 and gives the reason. This section names the
@@ -822,7 +826,9 @@ evidence, and says what to do when the evidence is absent.
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
 | QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
-| So what an absence buys you | Work, not a wait. Run the `code-review` skill yourself, in a SUBAGENT, at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
+| So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
+| Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and the tag on the skill's first line names the one that ran. |
+| So make the subagent report its tag | A tag naming inline angles means no subagent ran, whatever you dispatched. Read the tag, not the prose. |
 | Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |
@@ -870,7 +876,11 @@ into a definite answer in either direction.**
 | State its limit in the same breath | It cannot see unpushed work, which is exactly the case that bit twice. |
 | **EXPIRY** | None while a PR can be opened from a commit whose author keeps building past it. |
 
-### 4g. A content conflict is YOURS to resolve, and you do not hand it to a Builder
+### 4c-quinquies. A content conflict is YOURS to resolve, and you do not hand it to a Builder
+
+**RENUMBERED from `4g` on 2026-09-21.** That id already names a section in
+`lander-empty-queue`, and `4c-quater` is taken by `lander-resolve-a-conflict`. The new id also
+puts this section back in order.
 
 **Owner ruling 2026-09-21.** A DIRTY pull request is this seat's work. It is not a routing decision.
 
@@ -1131,7 +1141,7 @@ routing consequence of both, and it is invisible until a worker hits it.
 | The condition that keeps plumbing honest | State that you did so, and run by hand the checks pre-commit would have run. |
 | The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. |
 | Then hand it over STATED, not executed | Name the conflicting file, name the resolution, and say a seat with a working tree is needed. |
-| **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4g*. Hand over only where you genuinely cannot reach the branch. |
+| **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4c-quinquies*. Hand over only where you genuinely cannot reach the branch. |
 | Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. That is a routing act, not a refusal. |
 
 ### 7c. The BACKLOG tail is a serialization point, and so is the ADR index
