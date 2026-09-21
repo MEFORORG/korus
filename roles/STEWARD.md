@@ -184,7 +184,7 @@ that hit both within one hour. Both are measured, in opposite directions, hours 
 
 | | near the cap, decelerating | mid-range, fleet active |
 |---|---|---|
-| measured | `92% -> 96% -> 99%`, legs **+44, +28, +17.5** | `10% -> 20% -> 23% -> 39%`, legs **+67, +87, +117, +136** |
+| measured | `92% -> 96% -> 99%`, legs **+44, +28, +17.5**. The reading is below, with its times. | `10% -> 20% -> 23% -> 39%`, legs **+67, +87, +117, +136** |
 | a short window | runs COLD | runs HOT |
 | a linear projection | arrives EARLY | arrives LATE |
 | the long baseline | over-reads | **under-reads, and this is the dangerous one** |
@@ -205,8 +205,25 @@ The same arithmetic points in opposite directions, so say which one you are hand
 
 The reader cannot derive the direction from the number, so state the regime alongside it.
 
-Measured on a live pool, final approach: `00:13:04Z 92%`, `00:21:30Z 96%`, `00:31:48Z 99%` -- legs
-**+44, then +28, then +17.5 per hour. Monotonic decay.** Stated as measured percentages only.
+**The near-cap column above is this reading, not a second one.** Measured on a live pool, final
+approach: `00:13:04Z 92%`, `00:21:30Z 96%`, `00:31:48Z 99%` -- legs **+44, then +28, then +17.5 per
+hour. Monotonic decay.** Stated as measured percentages only.
+
+**CORRECTED 2026-09-21: the table and this paragraph printed one reading as though it were two.**
+Two readings agreeing would be corroboration. One printed twice is not, and nothing here said which
+of those a reader was looking at.
+
+The legs stay in both places, because the table's whole job is the contrast between them. What moved
+is that the table now points here, and the timestamps stay here: they are what makes the legs
+checkable. Article VI.
+
+**The mid-range column carries no times, so its legs cannot be checked the way these can.**
+Measured 2026-09-21: `+67`, `+87`, `+136` and `20% -> 23%` each appear on that row and nowhere else
+in this file. Recorded rather than repaired, because supplying times nobody measured would be worse.
+
+**Do not read section 3h as that column's instrument.** It shares one value, `+117`, and is a
+different reading: window rates over `03:02-03:35Z`, whose other legs are `+21`, `+58` and `+148`.
+The control for the check above is that `+117` returns three lines where the rest return one.
 
 The reporter declined to say what the cap does, still taking turns at 99 percent and never seeing
 the boundary. This entry supplies no mechanism. A cause you can name is not a cause you have tested.
