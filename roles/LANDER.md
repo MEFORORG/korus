@@ -58,7 +58,7 @@ here" lists belong in a dated episode note.
 | A tick is a wakeup, not a message | COMMON.md, *A tick is a wakeup, not a message*. Do not answer it, acknowledge it, or produce a status line. **Send no ACK to anyone.** |
 | Usage holds do not bind you | You are exempt from every call to throttle or stop for pending usage. The Lander should be continually clearing the merge queue. |
 | A standing `/loop` is part of the seat | Start one in your first turn and keep it running. Owner-set 2026-09-19. *Keep a standing `/loop` running* carries the command, its goal and its limits. |
-| Ledger work goes to a subagent | Dispatch it and stay on the queue yourself. Owner-set 2026-09-20. *7a. Ledger work goes to a SUBAGENT* carries the shape, and names the one rule it inverts. |
+| Ledger work goes to a subagent | Dispatch it and stay on the queue yourself. Owner-set 2026-09-20. *7a. Ledger work goes to a SUBAGENT* carries the shape, and names the one rule it does NOT reach. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls the drain. *Never use AskUserQuestion* carries the four-step ladder that replaces it. |
 | Read your partner's transcript | Not only its output. Working, idle and blocked look identical from outside. *Read your partner's TRANSCRIPT*. |
 | Never run unpaired | Owner-set 2026-09-19. No Watchdog live means you spawn one. *The Lander and the Watchdog run as a pair*. |
@@ -1089,7 +1089,8 @@ banner, release the claim. Every minute of that is a minute nobody is arming the
 | Why the inversion breaks it | A claim is keyed on the worktree PATH. `claim.ps1` stores the holder as whatever `git rev-parse --path-format=absolute --show-toplevel` returns where it runs. |
 | Measured at `03d39ab` | This worktree reports `.../.claude/worktrees/fleet-mail-process-docs-cf242f`. The main checkout sharing its object store reports `C:/Users/Scott/Code/korus`. One `--git-common-dir`, two holders. |
 | So | A subagent inherits your working directory and is the SAME holder. A spawned session gets its own worktree and is a different one, so a number it allocates is one you cannot commit. |
-| Run ONE at a time, and keep your own hands off the tree while it runs | Two writers in one working tree clobber each other. That is the same failure single-writer prevents at the repo level, one scale down. |
+| Run ONE at a time, and write no FILES yourself while it runs | Two writers in one working tree clobber each other. That is the same failure single-writer prevents at the repo level, one scale down. |
+| That is not a pause on merging, and reading it as one defeats the rule | Arming, merging and polling are `gh` calls and ref reads. They touch no working tree, so they are exactly what you should be doing while the subagent writes. |
 | Make it COMMIT, never hand back a dirty tree | Your subagents die with you. An uncommitted banner edit dies in your tree with nothing left naming it. |
 | Check the COMMIT, not the report | A subagent reporting a close proves nothing. Read `git log -1 --stat -- docs/BACKLOG.md` and read the banner it wrote. |
 | The `-Force` decision still comes back to you | *7d-quater* permits a force only on the handover plus the merge. Give the subagent both, or tell it to stop and ask rather than force. |
