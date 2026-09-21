@@ -214,6 +214,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
   <section class="grid">{{CARDS}}</section>
 
   <section class="wide">
+    <article class="card card-wide">
+      <h3>Why a person is needed</h3>
+      <p class="note">The card above is one number over three different problems. A pull request can be more than one at once, so each row counts only the FIRST reason that applies, in the order the collector tests them and the order a person acts in. The rows therefore sum to the card.</p>
+      {{PERSON_ROWS}}
+    </article>
+  </section>
+
+  <section class="wide">
     <article class="card">
       <h3>In the queue right now</h3>
       <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>
@@ -229,11 +237,6 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
       <p class="note">Every open pull request by merge state, as GitHub reports it. Hover any band for what its state means. BEHIND hides a red required check underneath it, so read readiness from the cards above, not from this strip.</p>
       <div class="mrows">{{MIX_ROWS}}</div>
       <div class="lgrow">{{LEGEND_MIX}}</div>
-    </article>
-    <article class="card card-wide">
-      <h3>Why a person is needed</h3>
-      <p class="note">The card above is one number over three different problems. A pull request can be more than one at once, so each row counts only the FIRST reason that applies, in the order the collector tests them and the order a person acts in. The rows therefore sum to the card.</p>
-      {{PERSON_ROWS}}
     </article>
   </section>
 
