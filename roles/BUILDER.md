@@ -1097,8 +1097,9 @@ issued it was retired.
 a command argument*, *Naming both test paths*, *Read `$LASTEXITCODE`*, and both hold sections.
 
 **A blocker recorded only in a handoff is lost when the handoff ages.** Put it in your report, and
-the Manager carries it onto the pull request. **CHANGED 2026-09-18:** this read *"Put it on the pull
-request"*, which this seat can no longer do.
+the Manager carries it onto the pull request. **The rule changed 2026-09-18**, when this seat stopped
+opening the pull request. This sentence read *"Put it on the pull request"* until 2026-09-21, because
+the change missed it.
 
 **Tone.** The useful handoff sentence is the measured one, not the alarming one. *"A silent
 corruption that passes its own gate"* is a better story than *"a loud failure you would catch"*.

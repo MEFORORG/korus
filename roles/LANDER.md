@@ -444,7 +444,7 @@ Pass `model: opus` on every `Agent` dispatch you make.
 | Item | Rule |
 | --- | --- |
 | What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
-| Why an omission is not the same | The parameter falls back to a configured default subagent model. You cannot read that default from inside the dispatch, so an omitted parameter buys an unknown model rather than Opus. |
+| Why an omission is not the same | Omitting it does not mean Opus. It falls to the agent definition's model, else a configured default, else the parent's. None is readable from the dispatch, so an omission buys an unknown model. |
 | The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
 | What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session picks its own model. Do not widen it. |
 
