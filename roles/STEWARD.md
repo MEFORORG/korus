@@ -350,8 +350,31 @@ endpoints. A cross-caller leg inherits the two callers' disagreement as slope.
 The section sat adjacent to this rule and did not state it. Measured by the reporting seat after it
 asserted the absence unmeasured.
 
-Over this section's 242 lines, `caller` **0** and `own reading` **0**, against controls of `rate`
-**27**, `regime` **9**, `projection` **22**. The two nonzero probes were read rather than counted.
+**As first published:** over this section's 242 lines, `caller` **0** and `own reading` **0**,
+against controls of `rate` **27**, `regime` **9**, `projection` **22**. The two zero probes were read
+rather than counted.
+
+**RE-MEASURED 2026-09-21, because writing 2h moved the subject.** This subsection put `caller` into
+section 2, so a probe over the whole of section 2 now swallows the text that answers it. The scope
+the finding holds in is section 2 EXCLUDING 2h.
+
+```bash
+sed -n '84,344p' roles/STEWARD.md | grep -o -i caller | wc -l   # then each control in turn
+```
+
+| Scope | lines | caller | own reading | rate | regime | projection |
+| --- | --- | --- | --- | --- | --- | --- |
+| Section 2, lines 84-388 | 305 | 8 | 2 | 46 | 8 | 21 |
+| Section 2 EXCLUDING 2h, lines 84-344 | 261 | **0** | 1 | 41 | 7 | 20 |
+| Section 2h alone, lines 345-388 | 44 | 8 | 1 | 5 | 1 | 1 |
+
+**The finding's shape survives in the narrow scope and its numbers do not.** `caller` is still 0
+outside 2h, so the original absence holds where it was taken. `own reading` is now 1 there, at line
+333, so that half no longer reproduces. Every control moved, and 242 matches no current range.
+
+The 2026-09-21 figures were taken twice, by two seats, at `6ee23c5` and again after it. They agree.
+The three controls all fire in the narrow scope, so the two zeros above sit beside an armed detector.
+
 Measured by one seat, on itself, the night it published two headline rates off mixed legs:
 
 | reading | caller | 5-hour |

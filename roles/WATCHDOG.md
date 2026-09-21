@@ -569,6 +569,10 @@ runs only while a session is idle.
 **A busy session and a dead one are indistinguishable from the inside.** Neither runs the
 self-check, and neither reports that it did not.
 
+The 2026-09-19 cron carries that half too. The seat learned its refresh had never fired when the
+Owner asked where the board was, and nothing inside the session could have told it. Section 1b
+records the same event from the Owner's side.
+
 **You can catch the errors you can think to test for, and that is the real boundary.** Most of the
 instrument errors in one measured shift were caught by the seat itself, by re-reading a count and by
 arming a control.

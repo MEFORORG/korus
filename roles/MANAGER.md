@@ -195,11 +195,22 @@ inherit a rule.
 | Who started it | it spawned itself, or the owner | **the owner, in a desktop instance** |
 | Its workers | separate `claude -p` sessions | **subagents, in your own process** |
 | Accounts it touched | several | **one: yours** |
-| Needed the spawn grant | yes, `Bash(claude:*)` on its root | **no** |
+| Needed the spawn grant | yes, `Bash(claude:*)` on its root | **AMENDED 2026-09-21, below** |
 | Peers running beside you | none, it was the only one | **several, usually one per account** |
 | Cross-session messaging | mail, cross-session messages | **none needed** |
 
 Your workers are subagents, so they run inside your process, spend from your account, and **die when you do**. You need no spawn grant and no account roster, and you cannot reach another Manager.
+
+**AMENDED 2026-09-21: the row and the sentence above read as though a subagent were your only
+worker.** Both predate 2026-09-16, when owner ruling engine PR 1193 granted this seat the spawn:
+*"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first."*
+
+`CLAUDE.md`'s seat table GOVERNS, and it says a Manager runs its Builders **"as subagents or as
+separate sessions"**. `roles/LANDER.md` section 2 carries the ruling in full.
+
+The rows stay, because they record what changed from the Console and the subagent is still your
+default. What is withdrawn is *no spawn grant*: you hold one. A subagent dies with you, so work whose
+output must outlive your exit is the case for spawning a session instead.
 
 **The shape dissolves the cross-account coordination problem instead of solving it.** Measured 2026-09-03: five Managers ran, one per account, and none needed to reach another.
 
@@ -287,7 +298,7 @@ carried here rather than re-derived by this seat.
 | And batching CORRELATES FAILURE | One red check or one conflict blocks every item in the wave, where a bad row today blocks only itself. At heavy oversubscription that is a real trade. |
 | The measurement | Two dispatch waves added 17 pull requests in about 35 minutes. Open non-draft went 35 to 54 in one hour, and **zero** merged in it. **24 of the 54 were DIRTY**, overwhelmingly on the ledger tail. |
 | What those seven actually were | 13 to 69 lines each, of `docs/BACKLOG.md` only. They could have been one pull request. |
-| If an item must be its own pull request | The ledger edit is a FINAL COMMIT, ALONE. This section already states that rule. |
+| If an item must be its own pull request | The ledger edit is a FINAL COMMIT, ALONE. Section 2 states that rule, under *put your ledger row in its OWN commit, LAST*. |
 | What that rule does not say | **The author is GONE.** A Builder's process exits when its pull request opens. |
 | So | A branch interleaving ledger and code commits can be rebased cleanly by nobody. |
 | The worked example | PR 832 spread its `docs/BACKLOG.md` edits through code commits and needed a hand-resolved merge. |

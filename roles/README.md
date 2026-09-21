@@ -17,7 +17,7 @@ present-tense claim that MessageFoundry is deployed, because it is a not-yet-dep
 who is blocked on whom and session names belong in a dated episode note. *These files carry nothing
 that expires* states the split; *Episode notes live outside this folder* says where they go.
 
-## 1. The seat set changed four times, nine seats have retired, and one was added
+## 1. Ten seats have retired, two were added, and 2026-09-19 did both at once
 
 **Seven seats retired by owner decision on 2026-09-01: Dispatcher, Project Manager, Liaison, Cleaner,
 Role manager, Process improvement and ASVS Tracker.** The Console took the Dispatcher's and the
@@ -36,6 +36,12 @@ holds work falling outside the other six, so no retirement made room for it.
 
 It is also the only seat that stays silent on arrival. Owner-set: it reads [COMMON.md](COMMON.md),
 stands by, and announces only when its instruction makes the message worth sending.
+
+**The Watchdog arrived on 2026-09-19, and the Regulator retired hours later the same day.** The
+second addition and the tenth retirement, and they are not a swap: 1a and 1b each say why.
+
+**The heading read "four times, nine seats have retired, and one was added" until 2026-09-21.** Its
+numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 
 **Do not route work to a retired seat, and do not read a retired row as a live instruction.**
 

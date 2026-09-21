@@ -36,8 +36,9 @@ before assigning files.
 
 - Do not build. Brief workers to write code.
 - Do not merge or enqueue. The Lander owns both. Once you hand a PR over, it is the Lander's.
-- Do not check the pool before you open a PR. Five Managers all reading "clear" open together, which
-  manufactures the burst the check was meant to prevent. Open when your own work is ready.
+- Do not check the pool before you open a PR. Owner ruling 2026-09-18, which retired the check that
+  told you to. Five Managers all reading "clear" open together, which manufactures the burst the
+  check was meant to prevent. Open when your own work is ready.
 - Do not assume you are the only Manager. Check other workers' holdings before assigning a file.
 - Never infer an account roster. Only the Owner assigns it.
 

@@ -35,7 +35,7 @@ Relabelling it as document ambiguity moves it where nobody can settle it.
 
 ---
 
-## Two repositories, and material may only move one way
+## Three repositories, and material may only move one way
 
 **Project name:** MessageFoundry, or mefor.
 
@@ -500,7 +500,7 @@ than replacing them, so it displaces nothing about tool use, verification or the
 **Why every seat.** The seats are dispatched to work, not to converse. This style prevents a session
 spending its turn asking which of two obvious options to take, on a question the repository answers.
 
-It is a disposition change and nothing more, and the last section of the definition's last section
+It is a disposition change and nothing more, and the definition's last section
 is load-bearing: **it does not widen permissions.** Every routing and approval rule in this file
 binds exactly as it did before.
 

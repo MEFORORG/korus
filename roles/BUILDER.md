@@ -703,7 +703,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Field | What it must hold |
 | --- | --- |
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
-| Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the three shapes and why you may not infer one. |
+| Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the shapes and why you may not infer one. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
 
@@ -1096,7 +1096,9 @@ issued it was retired.
 **The worked examples of retracting in place** are *Relocating restores fan-out*, *Content passed as
 a command argument*, *Naming both test paths*, *Read `$LASTEXITCODE`*, and both hold sections.
 
-**A blocker recorded only in a handoff is lost when the handoff ages.** Put it on the pull request.
+**A blocker recorded only in a handoff is lost when the handoff ages.** Put it in your report, and
+the Manager carries it onto the pull request. **CHANGED 2026-09-18:** this read *"Put it on the pull
+request"*, which this seat can no longer do.
 
 **Tone.** The useful handoff sentence is the measured one, not the alarming one. *"A silent
 corruption that passes its own gate"* is a better story than *"a loud failure you would catch"*.
