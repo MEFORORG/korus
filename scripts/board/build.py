@@ -55,6 +55,7 @@ for k in order:
         "rate": m["merged_24h"] / 24.0, "since": ago(m["last_merge"]),
         "last_at": clock(m["last_merge"]),
         "buckets": r["buckets"], "ready": r["ready"], "ci": r["ci"], "person": r["person"],
+        "prs": r["prs"],
     })
 
 tot = {k: sum(x[k] for x in rows)
@@ -233,6 +234,87 @@ mix_rows = "".join(
     '<div class="qrow qmix"><span class="mname">%s</span>%s<span class="mixn">%d</span></div>'
     % (esc(r["name"]), bbar(r["buckets"], r["open"]), r["open"]) for r in rows)
 
+# ------------------------------------------------ why a person is needed ----
+# classify() puts a pull request in the person bucket on `draft or DIRTY or failing`. Those three
+# arms OVERLAP -- a draft can also conflict and also be red -- so counting each arm independently
+# double-counts, and the rows would not sum to the card above them. A reader who adds them up and
+# gets more than the total learns nothing except that one of the two numbers is wrong.
+#
+# This walks the arms in the collector's OWN short-circuit order, so every row lands in exactly
+# one reason and the column total IS the card. That order is not an implementation detail: it is
+# also the order a person acts in. A draft is not asking for review yet, and a conflict has to be
+# resolved before any check result underneath it means anything.
+PERSON_REASONS = [
+    ("Draft", "not asking for review yet", lambda p: p["draft"]),
+    ("Conflicts with main", "rebase first; nothing under it reads true until then",
+     lambda p: p["merge"] == "DIRTY"),
+    ("Red required check", "the only arm that may need code",
+     lambda p: bool(p["failing"])),
+]
+
+
+def person_reason(p):
+    """The FIRST arm that fired, or None if the bucket and the arms disagree.
+
+    None cannot happen while this list matches classify(). It is returned rather than asserted
+    because the two live in different files: if they ever drift, a silent skip would quietly
+    shrink the table while the card stayed right, and nothing would say which was wrong. The
+    row below makes that loud instead.
+    """
+    for name, _why, test in PERSON_REASONS:
+        if test(p):
+            return name
+    return None
+
+
+def person_table():
+    counts = {name: {rw["key"]: 0 for rw in rows} for name, _w, _t in PERSON_REASONS}
+    unattributed = {rw["key"]: 0 for rw in rows}
+    reds = {}
+    for rw in rows:
+        for p in rw["prs"]:
+            if p["bucket"] != "person":
+                continue
+            nm = person_reason(p)
+            if nm is None:
+                unattributed[rw["key"]] += 1
+                continue
+            counts[nm][rw["key"]] += 1
+            if nm == "Red required check":
+                for c in p["failing"]:
+                    reds[c] = reds.get(c, 0) + 1
+
+    def num(v):
+        return '<td class="%s">%d</td>' % ("z" if not v else "", v)
+
+    body = ""
+    for name, why, _t in PERSON_REASONS:
+        per = counts[name]
+        body += ('<tr><td>%s<span class="why">%s</span></td>%s%s</tr>'
+                 % (esc(name), esc(why),
+                    "".join(num(per[rw["key"]]) for rw in rows),
+                    num(sum(per.values()))))
+    if sum(unattributed.values()):
+        body += ('<tr><td>Unattributed<span class="why">the table and the card disagree; '
+                 'one of the two is wrong</span></td>%s%s</tr>'
+                 % ("".join(num(unattributed[rw["key"]]) for rw in rows),
+                    num(sum(unattributed.values()))))
+
+    head = "".join("<th>%s</th>" % esc(rw["name"]) for rw in rows)
+    foot = ("".join(num(rw["person"]) for rw in rows)) + num(tot["person"])
+    top = sorted(reds.items(), key=lambda kv: (-kv[1], kv[0]))[:1]
+    red_note = ("Most common red context: <b>%s</b>, on <b>%d</b>."
+                % (esc(top[0][0]), top[0][1]) if top else
+                "No required check is red anywhere.")
+    return ('<div class="ptab-wrap"><table class="ptab">'
+            '<thead><tr><th>Reason</th>%s<th>All</th></tr></thead>'
+            '<tbody>%s</tbody>'
+            '<tfoot><tr><td>Needs a person</td>%s</tr></tfoot>'
+            '</table></div><p class="note">%s</p>' % (head, body, foot, red_note))
+
+
+person_rows = person_table()
+
 legend_mix = "".join('<span class="lg" title="%s: %s"><i class="sw %s"></i>%s</span>'
                      % (k, STATE_SAY[k], c, k) for k, c in ORD)
 
@@ -246,6 +328,7 @@ out = (tpl
        .replace("{{WINDOW}}", str(s.get("chart_hours", s["window_h"])))
        .replace("{{QUEUE_ROWS}}", queue_rows)
        .replace("{{MIX_ROWS}}", mix_rows)
+       .replace("{{PERSON_ROWS}}", person_rows)
        .replace("{{LEGEND_MIX}}", legend_mix)
        .replace("{{SVGW}}", str(W)).replace("{{SVGH}}", str(H))
        .replace("{{GRID}}", grid).replace("{{BANDS}}", bands)
