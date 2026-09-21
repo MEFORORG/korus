@@ -828,7 +828,7 @@ evidence, and says what to do when the evidence is absent.
 | QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
 | Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and the tag on the skill's first line names the one that ran. |
-| So make the subagent report its tag | A tag naming inline angles means no subagent ran, whatever you dispatched. Read the tag, not the prose. |
+| So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
 | Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |
