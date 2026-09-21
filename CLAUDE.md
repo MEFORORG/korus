@@ -38,7 +38,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill, commits, pushes, reports with its QA line, exits. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** **A content conflict on that PR is the Lander's to resolve, never a Builder's.** |
-| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
+| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 | Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
@@ -304,12 +304,15 @@ not read a missing `qa` as a skipped step.
 **The Lander is not a second reader.** Owner ruling 2026-09-21. Where the QA line is posted, the
 diff has been read. The Lander arms the PR without reading it again.
 
-**A missing QA line is unknown, not skipped, and the Lander waits on nobody.** It runs the
-`code-review` skill in a subagent, and sends any fix that raises to a subagent too. That is work
-rather than a hold, so it does not reopen the review step retired above.
+**A missing QA line is unknown, not skipped, and the Lander waits on nobody.** It dispatches an
+`Agent` subagent to run the `code-review` skill, and sends any fix that raises to a subagent too.
+That is work rather than a hold, so it does not reopen the review step retired above.
 
-`roles/LANDER.md` *4a-quater* holds both halves. Its *4g* holds the conflict rule named in the seat
-table above.
+**Invoking that skill is not by itself a subagent**, so make the subagent report the tag on the
+skill's first line. `roles/BUILDER.md` 4c holds the shapes it runs in, inline among them.
+
+`roles/LANDER.md` *4a-quinquies* holds both halves. Its *4c-quinquies* holds the conflict rule
+named in the seat table above.
 
 `.github/workflows/required-workflow-state.yml` still runs daily. It compares whatever `main`
 requires against the workflows on disk, so it reports the next gap of this shape.

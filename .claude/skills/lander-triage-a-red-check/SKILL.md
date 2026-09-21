@@ -25,7 +25,7 @@ the PR MEANT TO DO.**
 | Work | Who | Why |
 | --- | --- | --- |
 | Reruns, labels, enqueue and dequeue, pacing | **Lander, locally** | Mechanics plus global state. Queue depth and CI load exist in no other seat. |
-| `docs/BACKLOG.md` row conflicts | **Lander, locally** | Latency decides this one. See below. |
+| Content conflicts, `docs/BACKLOG.md` rows included | **Lander, locally** | Owner ruling 2026-09-21, widened from ledger rows alone. `LANDER.md` *4c-quinquies*. Latency decides the ledger rows. See below. |
 | Flake triage | **Lander, locally** | Needs the known-flake list and the job log, both of which sit with you. |
 | A code change beyond conflict resolution | **Route to the Manager** | You would be authoring on someone else's subject. |
 | A design decision on someone's PR | **Route to the Manager** | Same line, and this is the one that feels most like helping. |
@@ -53,8 +53,9 @@ process you supervise less closely. When you do the work, you sign it.
 authorship are the seat's own, so a subagent may write them. One is resolving a content conflict.
 The other is the `code-review` pass, and its fixes, on a pull request with no QA line.
 
-`roles/LANDER.md` *4g* and *4a-quater* hold both. A RED CHECK is not among them, and the rule above
-is unchanged for one. You still sign what the subagent writes, so read the commit, not its report.
+`roles/LANDER.md` *4c-quinquies* and *4a-quinquies* hold both. A RED CHECK is not among them, and
+the rule above is unchanged for one. You still sign what the subagent writes, so read the commit,
+not its report.
 
 **THE FAILURE MODE IS DOING IT WELL.** Measured 2026-09-04, and both were the lander's own.
 
