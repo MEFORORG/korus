@@ -283,6 +283,28 @@ A peer is either inside your instance or outside it, and that one fact picks the
 | In your CCD instance | built-in `SendMessage` | a session name | **Not established.** Measured failing once |
 | In another CCD instance | `scripts/coord/mail.ps1` | the peer's worktree path | **No.** It waits for the peer's own drain hook |
 
+**NARROWED 2026-09-19: that first row's two channels are equivalent for ADDRESSING, not for
+WAKING.** Use `ccd_session_mgmt` `send_message` when the peer may be idle. It arrives as a user
+turn.
+
+**The built-in `SendMessage` enqueues, and the send reports success either way.** Measured by a
+Watchdog from the recipient's own session JSONL: four sends at 03:18:29.479Z, 03:43:03.253Z,
+04:02:43.262Z and 04:21:24.337Z all enqueued, and the next queue REMOVE was 13:56:42.800Z.
+
+That is a gap of 9h35m, with the recipient holding green work the whole time.
+
+**Verify a wake by the REMOVE record**, in the recipient's transcript at
+`.claude-account-<n>/projects/<encoded-cwd>/<session-id>.jsonl`. A wake worked only if a REMOVE
+follows your ENQUEUE within minutes.
+
+**Do NOT verify on "did the peer act within N minutes".** A peer already busy does that anyway and
+hands you a false pass. [LANDER.md](LANDER.md), *Verify a wake by the REMOVE record*, carries the
+rule and the case it corrected.
+
+**And no channel reaches a peer suspended on `AskUserQuestion`.** It drains no queue at all, so
+delivery waits on the turn it is not taking. Tell the Owner it is blocked on a question, in those
+words.
+
 Neither is a superset of the other, so "I could not reach them" has to name which one you tried.
 
 **The first two were one row until 2026-09-19, joined by an "or", and they are not interchangeable.**

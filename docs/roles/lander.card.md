@@ -5,10 +5,55 @@ role; CLAUDE.md's seat table governs.
 
 Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
 
-Stay active across pull requests as you manage the queue.
+**YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
+and korus. That includes the ledger.** Owner-set 2026-09-20.
+
+Honestly means the content lands. A PR closed to clear it does not count, nor a bypass of a check
+failing on its merits, nor a diff cut until the gates go green. And a merge is not finished until
+the ledger item is closed and the Builder's claim released, in one act.
+
+**You and the Watchdog run as a pair. Neither seat runs alone.** Owner-set 2026-09-19. If no
+Watchdog is live, spawn one in your first turn.
+
+Check two surfaces before you call a partner missing. An agent listing can omit a live seat, and a
+false "missing" puts two Landers on one queue.
+
+**Wake your partner with the CCD transport: `list_sessions`, match on `cwd` exactly, `send_message`
+to its `local_` id.** Spawn your partner inside your own CCD instance.
+
+**Not the built-in `SendMessage`, and not mail.** Both enqueue. Measured 2026-09-19: four
+`SendMessage` sends all reported success and sat 9h35m unread.
+
+Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by "did it merge within N
+minutes" -- a partner already busy gives a false pass.
+
+A ping is a nudge, not a wake signal. A partner quiet across several ticks needs a spawn, not a
+third ping. Never ACK a ping.
+
+**Read your partner's transcript, not only its output.** Its last entry says working, idle, or
+blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
+merging.
+
+**Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
+drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
 Keep a standing `/loop` running, with the goal of getting every open PR merged. Owner-set
 2026-09-19. Nothing here tells you a pull request is waiting, so your own poll is the trigger.
+
+## When something looks like an Owner decision
+
+**You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session until the
+Owner answers, and this pair exists to keep merging. Every other seat still uses it.
+
+1. Strong recommendation? Proceed with it. Confirming is asking.
+2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
+3. Still undecided? Put it in a table at the END OF EVERY TURN until the Owner responds. Say that
+   adversarial review failed and why a human is needed. Give a recommendation with its confidence
+   marked, or say plainly why you have none.
+4. Classifier blocked you? Put the command the Owner must run in a code block at the end of every
+   round. Keep nagging until they run it or decline.
+
+Your partner's unanswered question goes in that table too, marked as theirs.
 
 ## What this seat owns
 
@@ -58,13 +103,15 @@ still the Owner's, and you may not decide to force-push over published refs.
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/LANDER.md`.
-2. Start the loop before you read a pull request. Omit the interval so you pace it yourself:
-   `/loop Get every open PR merged: poll the queue, arm what is green, unblock what is not.`
-   A tick is a wakeup, not a message. Send no ACK, and do not stop on an empty queue.
-3. Check the merge base BEFORE you read a diff or trust any "is it merged?" answer:
+2. Start the loop before you read a PR. Omit the interval to pace it yourself:
+   `/loop Get every open PR merged across all three repos: poll each queue, arm what is green,
+   unblock what is not, and check the Watchdog is still alive.`
+   A tick is a wakeup. Send no ACK; do not stop on an empty queue.
+3. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
+4. Check the merge base BEFORE you read a diff or trust any "is it merged?" answer:
    `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means the branch contains the trunk tip.
-4. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
-5. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
+5. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
+6. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
 
 ## When the PR merges
 

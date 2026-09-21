@@ -9,7 +9,7 @@
 You are the **builder** for MessageFoundry's parallel Claude Code sessions. You lead a sub-team of
 subagents and workflows. This is the durable playbook for the **role**.
 
-You take one brief, build what it cites, **run a code-review subagent**, push your own branch,
+You take one brief, build what it cites, **run the `code-review` skill**, push your own branch,
 report to the Manager, and exit. One turn. **The Manager opens the pull request**, by owner ruling
 2026-09-18.
 
@@ -23,9 +23,12 @@ this line, none was told to run the review, and none ran it.
 The rule was never missing from the playbook. It was missing from the part a Manager reads when it
 cuts a brief.
 
-**Say "subagent", and do not smooth it to "a review".** Section 4c records that `code-review`
-degrades to one inline pass without the `Agent` tool. Naming the subagent is what stops the degraded
-form reading as compliance.
+**Copy the skill's own first line into your report, and do not smooth it to "a review".** That line
+names the shape the run took. Copying it is what stops a thin run reading as compliance.
+
+**That paragraph said "say subagent" until 2026-09-20, and the word had stopped being a marker.**
+Section 4c carries the measurement: one `xhigh` run here, with `Agent` available, was inline by the
+skill's own instruction. That session held no seat. The marker moved to the tag.
 
 **Build honestly.** You want quality, secure code that really improves the application. Never cheat
 a gate, and never mislead a teammate or the owner about what you built.
@@ -509,12 +512,13 @@ check is the only reason the seat that hit this caught its own.**
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
 11. **Review the diff, and stop after two rounds.** Invoke the `Skill` tool with
-    `skill: "code-review"` at the level your brief names, `xhigh` by default. Apply what you
-    confirm, commit, re-anchor, run it once more. **If round two still reports findings, ship
-    anyway** and hand the notes to the Manager. Section 4c has the traps.
+    `skill: "code-review"` at the level your brief names, `xhigh` by default. **Keep its first
+    line: that is the tag, and it names the shape you got.** Apply what you confirm, commit,
+    re-anchor, run it once more. **If round two still reports findings, ship anyway** and hand the
+    notes to the Manager. Section 4c has the traps.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
-    the proposed ledger banner text. Section 4d says what the report must hold. **You do not open
-    the pull request. The Manager does**, and there is no next item.
+    the proposed ledger banner text. Sections 4d and 4e say what the report must hold. **You do not
+    open the pull request. The Manager does**, and there is no next item.
 
 **On step 3:** refresh the claim note when the work changes.
 
@@ -672,6 +676,7 @@ defect. `code-review` does, and it ships in the harness with nothing to install.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
 **Why two and not "until clean".** Adversarial repair is not monotonic. A second round can introduce
 what the first round accepted, so an unbounded loop oscillates instead of converging, and each lap
@@ -680,14 +685,47 @@ costs a full review at `xhigh`.
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
 
-**It degrades quietly without `Agent`, and it says so.** With fan-out it works several angles, then
-grades each candidate CONFIRMED, PLAUSIBLE or REFUTED.
+**It runs in more than two shapes, and its FIRST LINE names the one you got.** That line is the
+instrument. Read it and copy it, rather than inferring the shape from what you were granted.
 
-Without the tool it makes one inline pass, and it is instructed to report that it did. Section 2
-already grants you `Agent` with no permission, so fan-out is the path you normally get.
+**CORRECTED 2026-09-20.** This passage said there were two outcomes: fan-out with `Agent`, or one
+inline pass without it. There are at least three tags.
 
-**Name the level and the outcome in your exit report.** A review whose scope nobody can see is the
-gate that examined nothing.
+| The tag, as the skill writes it | What it is |
+| --- | --- |
+| `<level> effort -> 3+5 angles x 6 candidates -> 1-vote verify -> <=8 findings` | Fan-out, with a verify step. |
+| `<level> effort -> 5+5 angles x 8 candidates -> 1-vote verify -> sweep -> <=15 findings` | Fan-out, wider, with a sweep. |
+| `<level> effort -> Agent tool unavailable -> single-pass inline -> <=15 findings` | The degradation, naming its own cause. |
+| `medium effort -> 8 inline angles -> dedup (no verify) -> <=8 findings` | Inline by instruction, no verify step. |
+| `high effort -> 8 inline angles -> dedup (no verify) -> <=10 findings` | The same, one level up. |
+| `xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings` | The same again: *"do NOT spawn subagents for them."* |
+
+**CONFIRMED, PLAUSIBLE and REFUTED come from a verify step**, which only the `1-vote verify` rows
+have. The skill attaches a verdict *"when a verify pass produced one"*.
+
+**So a verdict word under a `dedup (no verify)` tag was not produced by a verify pass.** Measured
+here 2026-09-20: this repository's own session emitted CONFIRMED and PLAUSIBLE verdicts while
+holding the `10 inline angles -> dedup (no verify)` tag. Do not read one as graded.
+
+Measured 2026-09-20 against **CLI 2.1.272**, which is the ref for this reading. Another version is a
+different subject, so re-read it rather than trusting this table:
+
+```bash
+grep -a -o "[a-z]* effort .\{0,30\}angles.\{0,70\}" ~/.local/share/claude/versions/<version>
+```
+
+**The last row is what a session in this repository got at `xhigh`, with the `Agent` tool available.**
+So *"fan-out is the path you normally get"* is withdrawn. Availability does not settle the shape.
+
+**That session held NO SEAT, which is the condition nobody varied.** Section 2 grants a BUILDER
+`Agent` with no permission, and no Builder session was measured. A Builder may well get a fan-out
+tag. This table says which shapes exist, never which one you will get.
+
+**What selects between them was NOT determined.** The bundle is minified and the dispatcher was not
+traced.
+
+**Name the level, the tag and the outcome in your exit report.** A review whose scope nobody can see
+is the gate that examined nothing.
 
 ---
 
@@ -723,6 +761,86 @@ Say the branch is pushed anyway. A check with nothing to compare against is not 
 
 **The exit-report table in section 4b rides in the same report.** One is the owner's dashboard row;
 this one is the Manager's handover. Send both.
+
+---
+
+### 4e. The QA line: you write it, the Manager posts it
+
+Owner ruling 2026-09-20. Step 11 left no trace anyone downstream could see. A Lander reading the
+pull request could not tell a diff that had been worked from one that had not.
+
+**Write this line in your report. The Manager posts it at step 9, on the pull request it opens.**
+
+```
+QA -- korus roles/BUILDER.md step 11
+Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
+Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
+```
+
+| Field | What it must hold |
+| --- | --- |
+| The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
+| Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the three shapes and why you may not infer one. |
+| Rounds | 1 or 2. Say 1 only if round one came back empty. |
+| Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**The citation names the REPOSITORY, and that is not decoration.** Measured 2026-09-20:
+`roles/BUILDER.md` exists in korus AND in the `MessageFoundry-vault` checkout, and the two are
+different documents.
+
+The vault copy has NO section 4c or 4e, and its step 11 reads *"Conclude, open the PR, write the
+exit report, and exit."*
+
+```bash
+git -C <vault> show HEAD:roles/BUILDER.md | grep -nE '^11\.'
+git -C <vault> show HEAD:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'
+```
+
+The first returns that retired step. The second returns 0.
+
+**The control needs its ref, and this passage got it wrong once.** The pattern returns **4** on
+`origin/main`, 4a to 4d, and **5** here, where 4e is the section you are reading. An earlier draft
+published the 5 with no ref, in the paragraph arguing a citation must name where it resolves.
+
+Either number beats the vault's 0, so the conclusion holds: the subsection scheme this line cites
+does not exist there at all. Article VI is about the reading, not only the verdict.
+
+**So a bare `BUILDER.md step 11` lands on the opposite rule** -- an instruction to open your own
+pull request, retired 2026-09-18. A citation that resolves to the rule it contradicts is worse than
+no citation.
+
+**MessageFoundry itself has no `roles/` directory**, only `docs/roles/*.card.md`. A Builder working
+there cannot read this playbook at all, and its card is what reaches it. Found by a Manager seat
+2026-09-20, after seven briefs cited a path that resolves in neither repo it was sent to.
+
+**Neither the label nor the line uses the word "review".** Owner ruling. The retired `reviewed`
+label recorded that a step happened and got read as a verdict on the diff, and that label is still
+in this repository's label list.
+
+The citation is what keeps the instrument named. Article VI asks a number to name what produced it,
+and this skill's own name is the word the line may not carry.
+
+**The `qa` label gates nothing, and saying so is part of the rule.** Measured 2026-09-20:
+
+```bash
+gh api repos/:owner/:repo/branches/main/protection --jq '.required_status_checks.contexts'
+```
+
+It returns `["gates (ubuntu-latest)","gates (windows-latest)"]`. A label is not a check and cannot
+enter that list by existing. Do not hold a pull request waiting for `qa`.
+
+**A missing `qa` label is not evidence the step was skipped.** The Manager applies it, so an absent
+label means the Builder's line never reached it, or the Manager died first. Read the line, not the
+label.
+
+**Whoever opened the pull request applies both halves, and that is never you.** The rule is about
+the check rather than about the Manager, so a `qa` that only ever means "a Manager opened this"
+records the wrong thing.
+
+**You do not post it yourself, with one exception.** For a NEW branch the pull request does not
+exist until you have exited. Where your brief names an ALREADY-OPEN one, comment the line there
+too. *The Dispatcher, the Liaison and the Console are retired* carries the same exception for a
+question.
 
 ---
 

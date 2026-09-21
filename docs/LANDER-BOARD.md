@@ -9,7 +9,8 @@ merge queue, across every repository it lands. Enough to rebuild it from nothing
 one on 2026-09-19 and this page is its record.
 
 **The one thing to get right.** Every number on it is a reading, and several of the obvious
-instruments lie. [Six traps](#7-six-traps-that-cost-the-first-build-time) names each one.
+instruments lie. [Seven traps](#7-seven-traps-and-every-one-returned-something-that-looked-clean)
+names each one.
 
 ---
 
@@ -32,8 +33,12 @@ Three, and the board totals across them:
 | Name on the board | Repository |
 | --- | --- |
 | Engine | `MEFORORG/MessageFoundry` |
-| KORUS | `wshallwshall/korus` |
-| Vault | `wshallwshall/MessageFoundry-vault` |
+| KORUS | `MEFORORG/korus` |
+| Vault | `MEFORORG/MessageFoundry-vault` |
+
+**Address them by the canonical pair, never a pre-transfer one.** korus and the vault moved to
+MEFORORG. REST, GraphQL and `gh pr` follow a rename, so a stale owner works everywhere but the
+search index. Section 7 has the cost. `gh api repos/<o>/<n> --jq .full_name` gives the pair.
 
 **Order them Engine, Vault, KORUS in every strip.** The vault is usually empty, so putting it second
 makes a clear vault visible without reading numbers.
@@ -56,14 +61,21 @@ knows who to talk to.
 | over 180 | `STALLED` | critical |
 | no merge on record | `NO DATA` | warning |
 
-The pill carries `last merge <duration> ago` in small type beside it. The label alone is a bucket;
-the duration is the reading behind it.
+The pill carries **an age with its anchor** in small type beside it -- `last merge 23m ago as of
+7:50 PM CT`. The label alone is a bucket; the age is the reading behind it, and the anchor is what
+keeps the age honest.
+
+**Never an UNANCHORED relative age.** Owner instruction 2026-09-19, revised the same day. A bare
+age freezes at render, so a page read an hour later still says `8m ago` and nothing contradicts
+it. Render the instant, or the age with the instant it was taken at.
+
+A **span** -- how long an idle run lasted -- needs no anchor. It does not age as the page sits.
 
 **A timestamp in Central time**, with the UTC instant under it and the refresh cadence.
 
 Central is UTC-5 in daylight saving and UTC-6 outside it. Windows `strftime` rejects `%-I`, so
 format the hour by arithmetic rather than a format string. See
-[Six traps](#7-six-traps-that-cost-the-first-build-time).
+[Seven traps](#7-seven-traps-and-every-one-returned-something-that-looked-clean).
 
 ---
 
@@ -72,17 +84,19 @@ format the hour by arithmetic rather than a format string. See
 Each card carries a hero number, a per-repository strip, and one sentence saying what the number
 means. The sentence is the part a reader acts on.
 
+Below the cards sits the **PR Statuses** strip; section 8a specifies it.
+
 | Card | Hero | Sentence says |
 | --- | --- | --- |
 | PRs open | total open | whether the vault is clear |
 | Ready and waiting | every required check green | that queue throughput is the only thing in the way |
 | Waiting on CI | no required check red, one or more still running | that nobody acts yet |
-| Needs a person | draft, conflicted, or a red required check | refresh the branch before reading a red as broken |
+| Needs a fix | draft, conflicted, or a red required check | none of the three waits on a human; the table below it says what clears each |
 | Enqueued now | queue entries | whether anything is moving |
-| Merged, last 60 min | merges in the hour | the best hour in the window, for contrast |
+| Merged, last 60 min | merges in the hour | the best hour on the chart, for contrast |
 | Avg merged per hour | mean over 24h | the total landed across the full window |
 | Idle periods | runs of 3h or more | the longest run |
-| Time since last merge | duration | the same figure the pill buckets |
+| Last merge | Central clock time | the same instant the pill ages from |
 
 The three readiness cards partition the open set, so they always sum to the first card.
 
@@ -104,7 +118,7 @@ pull request's check rollup with it:
 
 | Bucket | Rule |
 | --- | --- |
-| Needs a person | draft, DIRTY, or a failing required context |
+| Needs a fix | draft, DIRTY, or a failing required context |
 | Waiting on CI | no failing required context, one or more still pending |
 | Ready | every required context green |
 
@@ -149,9 +163,12 @@ On 2026-09-19, 27 of the engine's 29 reds had run against an older `main`:
 - 16 were one pip-audit finding, three anyio CVEs. `main` already pinned `anyio==4.14.2`.
 - 11 were the CI gate roll-up on repo harness tests, which `main`'s latest run passed.
 
-A branch refresh clears both, and nobody writes code. So the "Needs a person" card says to refresh
-the branch before reading a red as broken. A card that said "each needs a person" sent readers
-looking for work that did not exist.
+A branch refresh clears both, and nobody writes code. So the red row of the "What needs fixing"
+table says to refresh the branch before reading a red as broken.
+
+The card used to say "needs a person", which sent readers looking for work that did not exist.
+None of the three needs one: a draft needs its author to finish it, a conflict needs a rebase, a
+red needs diagnosing. The Lander drives all three. Owner correction, 2026-09-20.
 
 ### 4c. Count idle RUNS, not idle hours
 
@@ -167,11 +184,19 @@ because the worst stall was half outside the window. Use 48.
 
 ## 5. The chart
 
-One frame, two series, 48 hours:
+One frame, two series, **24 hours** (owner-set 2026-09-19):
 
 - Bars, left axis: total merges per hour across all repositories.
 - Line, right axis: total pull requests open at the top of each hour.
 - Shaded bands behind both: stretches of two hours or more with no merge.
+
+**The chart and measurement windows differ, deliberately.** The series is derived over 48 hours;
+the chart draws the last 24. Section 4c measured why: over 24 hours the longest idle run read 9
+against 14, the worst stall falling half outside. Narrowing both would shrink that figure silently.
+
+**The chart must not need a horizontal scrollbar.** Give the SVG a `viewBox` and `width:100%`
+with no `min-width`, so it scales to its panel. A floor sized for 48 bars is what put a scrollbar
+under 24. `W` is viewBox units, so it sets the aspect: narrower means wider bars after scaling.
 
 ### 5a. This is a dual-axis chart, which is normally a mistake
 
@@ -215,35 +240,53 @@ gh api graphql -f query='{repository(owner:"<owner>",name:"<name>"){mergeQueue(b
 {entries(first:50){nodes{position state pullRequest{number}}}}}}'
 ```
 
-Merges, creates and closes across the window. Use the search filters, because `--limit` sorts by
-pull request number rather than date and truncates the wrong end:
+Merges, creates and closes across the window. **Not from the search API** -- it does not follow a
+repository rename, and section 7 carries the measurement. Page the REST pulls list instead,
+newest-updated first, until a page predates the window:
 
 ```bash
-gh pr list --repo <owner/name> --state merged --search "merged:>=<YYYY-MM-DD>" --limit 400 \
-  --json number,mergedAt
-gh pr list --repo <owner/name> --state all    --search "created:>=<YYYY-MM-DD>" --limit 400 \
-  --json number,createdAt
-gh pr list --repo <owner/name> --state closed --search "closed:>=<YYYY-MM-DD>" --limit 400 \
-  --json number,closedAt
+gh api -X GET repos/<owner/name>/pulls -f state=closed -f sort=updated -f direction=desc \
+  -f per_page=100 -f page=<n> \
+  --jq '.[] | [(.merged_at // "-"), (.closed_at // "-"), .created_at, .updated_at] | join(" ")'
 ```
+
+`closed_window` in `scripts/board/collect.py` does this, and refuses on any failed page. A closed
+list holds no open pull request, so the open read supplies those creates. Without them the
+section 5b open line drops every arrival still open, which is most of a busy window.
 
 ---
 
-## 7. Six traps that cost the first build time
+## 7. Seven traps, and every one returned something that looked clean
 
 Every one returned something that looked like a clean result.
 
 | Trap | What happens | What to do |
 | --- | --- | --- |
-| A count read just after a merge | GitHub recomputes mergeability lazily. A poll 195 seconds after a merge reported 1 CLEAN; a re-read 14 seconds later returned 14 | Read twice, use the second. See [TIPS-AND-TRICKS.md](TIPS-AND-TRICKS.md) |
+| A count read just after a merge | GitHub recomputes mergeability lazily. A poll 195 seconds after a merge reported 1 CLEAN; a re-read 14 seconds later returned 14. The same trap printed UNKNOWN for all 7 vault rows on 2026-09-19 | Read twice, use the second -- `resolve_unknown` in `collect.py` now does. See [TIPS-AND-TRICKS.md](TIPS-AND-TRICKS.md) |
 | `autoMergeRequest` as "armed" | Reads null for a genuinely enqueued pull request, so an armed count reports zero while the queue works | Read the queue entry, never the pull request |
 | `refs/remotes/origin` for seat activity | Includes `origin/HEAD` and `origin/main`, which track the trunk and sort first after any merge | Exclude those two, and `dependabot`, and `gh-readonly-queue` |
 | `gh pr list --limit N` with a date filter | Sorts by number, so recent merges fall outside the page and the filter returns nothing | Use `--search` with a date qualifier |
 | `%-I` in `strftime` | Raises `ValueError` on Windows | Compute the 12-hour value with arithmetic |
 | A pytest path typo | Prints `no tests ran` and runs none of the other files named | Read the pass count, never the absence of failures |
+| An artifact link in a tracked file | The leak gate blocks it as a capability, fail-closed, and the branch is already pushed by then. It is access, not a name | Say how to FIND the artifact -- list by title -- and never write the link down |
+| The search API after a repository transfer | korus and the vault moved to MEFORORG. REST followed the rename, so every other call worked; search answered HTTP 422, which `gh pr list --search` reported as `[]` with **exit 0**. Both read as zero merges for three days | Address the canonical pair, and page REST as section 6 does |
 
 **Publish no zero without a control that fired.** Every trap above produced a plausible zero or a
 plausible small number. A control is the only thing that separates them from a real reading.
+
+**What the seventh one cost, measured 2026-09-19 at 23:37 UTC.** The board read 86 merges, and 0
+for both KORUS and the vault. REST over the same 72 hours found 56, 22 and 35 -- **113 merges, a
+24 percent under-report** -- and one of the two it showed as dead had merged seven minutes earlier.
+
+**The mechanism was mis-read first.** It said search "cannot see" those repositories, as if access
+were missing. The cause is a stale owner: `repos/wshallwshall/korus` resolves because REST follows
+the transfer and search does not. The wrong version sends a reader hunting a permissions bug.
+
+The control, which returned five merges from that same day:
+
+```bash
+gh pr list --repo wshallwshall/korus --state merged --limit 5 --json number,mergedAt
+```
 
 ---
 
@@ -263,14 +306,49 @@ without relearning it.
 **Status colours are separate from the series colours** and never reused for data. Good, warning and
 critical belong to the pill, the accent rails and the queue chips.
 
+### 8a. PR Statuses: six states, and no two may render alike
+
+The strip is titled **PR Statuses** (owner-set 2026-09-19). It breaks each repository's open pull
+requests down by `mergeStateStatus`.
+
+**It shipped unreadable.** Six states shared four classes: BEHIND and UNKNOWN were both the wait
+colour, UNSTABLE and BLOCKED both the warning colour. Three legend pairs rendered identically, so a
+reader seeing slate could not tell "the queue will rebase it" from "GitHub has not computed it".
+
+Six states have to come out of four status hues, because the section above keeps teal and amber for
+the series. So each state carries a hue **and** a fill, and the pair is unique:
+
+| State | Hue | Fill | Means |
+| --- | --- | --- | --- |
+| CLEAN | good | solid | every required check green |
+| BEHIND | neutral | solid | behind main; the queue rebases it |
+| UNKNOWN | neutral | diagonal hatch | mergeability not computed yet, and a re-read did not settle it |
+| UNSTABLE | warning | diagonal hatch | a non-required check is red, which blocks no merge |
+| BLOCKED | warning | solid | a required check is red or missing |
+| DIRTY | critical | horizontal bars | conflicts with main |
+
+**UNKNOWN is a fact about the READ, not the pull request.** Mergeability is computed lazily, and
+every merge to main invalidates it for every open pull request, so one pass at a busy moment
+returns UNKNOWN for a whole repository.
+
+Measured 2026-09-19: the board showed all 7 vault rows UNKNOWN while a live re-read returned
+BEHIND, DIRTY, CLEAN and UNSTABLE. `resolve_unknown` re-reads each such row up to three times, and
+`data.json` carries an `unresolved` count, so a surviving band is a real one.
+
+**The fill is not decoration.** It is the channel that still reads in greyscale and under a
+colour-vision deficiency, and it is why adding two more hues was the wrong fix.
+
+Every band and every legend entry carries its meaning in a `title`, because `UNKNOWN` on its own
+tells a reader nothing.
+
 **Type.** Saira Condensed for headings, IBM Plex Sans for prose, IBM Plex Mono for every number.
 Tabular figures everywhere digits line up.
 
 **Cards.** A three-pixel accent rail coloured by meaning, not decoration: amber for backlog, teal for
-throughput, warning for work needing a person, critical for failures.
+throughput, warning for work needing a fix, critical for failures.
 
 **Layout.** Four cards across on a wide screen. Going from five across to four made each card
-shorter, because the sentence wraps to fewer lines. The ninth card, time since last merge, spans the
+shorter, because the sentence wraps to fewer lines. The ninth card, the last merge, spans the
 third row on its own.
 
 **Both themes.** Define the light palette on bare `:root`, redefine the tokens under
@@ -291,6 +369,42 @@ render   -> board.html    template plus computed values
 
 Keep them separate. A failed collect then leaves the last good `data.json` in place, and the render
 still produces a board rather than an error.
+
+`scripts/board/refresh.ps1` runs the three in order and stops at the first failure, so a
+half-rebuilt board is never published:
+
+```
+pwsh -NoProfile -File scripts/board/refresh.ps1 -OutDir <scratch dir>
+```
+
+It deliberately does not publish. Publishing needs a Claude session, so it prints the file and
+leaves that step to the session.
+
+### 9b. Finding the artifact, and restarting the refresh
+
+**Publish to the board that already exists, never to a new one.** A second board is worse than one
+stale board, because nothing on either tells a reader which is current.
+
+**The link is not written here, and must not be.** An artifact URL is a capability, not a name:
+holding it is holding access, so the leak gate blocks one in a tracked file. It blocked this
+section's first draft.
+
+Find it instead. The Artifact tool's `list` action returns the account's artifacts by title, and
+the board is titled **Lander Board**. Ask the owner if the listing does not show it.
+
+A Watchdog taking the seat restarts the refresh in four steps:
+
+1. Extract the five scripts if the working tree does not carry them, with
+   `git -C <korus> show origin/main:scripts/board/<file>`.
+2. Run `refresh.ps1` with an `-OutDir` in your own scratchpad.
+3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
+   passing its `url`. Read it first if this session has not published it, or the publish is refused.
+4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
+   "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
+   cadence nothing enforces.
+
+**This section exists because the first build left its driver in a session scratchpad.** The
+scripts were committed and the thing that ran them was not, so the refresh could not be handed on.
 
 ### 9a. A session cron does not fire while the session is busy
 
