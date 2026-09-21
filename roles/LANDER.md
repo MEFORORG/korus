@@ -69,6 +69,7 @@ here" lists belong in a dated episode note.
 | Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4g. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner ruling 2026-09-21. A QA line on the pull request means the diff was read. No QA line means you run `code-review` in a subagent. *4a-quater* holds both halves. |
+| Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
 it is still true and was never a decision procedure.
@@ -431,6 +432,23 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
 | Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
 | Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
+
+#### Every subagent spawns on Opus
+
+**Owner instruction, 2026-09-21:** *"all subagents should spawn with Opus as the model"*.
+
+Pass `model: opus` on every `Agent` dispatch you make.
+
+| Item | Rule |
+| --- | --- |
+| What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
+| Why an omission is not the same | The parameter falls back to a configured default subagent model. You cannot read that default from inside the dispatch, so an omitted parameter buys an unknown model rather than Opus. |
+| The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
+| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session picks its own model. Do not widen it. |
+
+**Read that last row before you widen this.** This repository narrowed a rule on 2026-09-18 for the
+same shape of inference: a grant to push was read as a grant to open the pull request, and the Owner
+withdrew the reading. An instruction about subagents governs subagents.
 
 ---
 
