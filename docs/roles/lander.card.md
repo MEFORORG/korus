@@ -5,13 +5,15 @@ role; CLAUDE.md's seat table governs.
 
 Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
 
-Stay active across pull requests as you manage the queue.
+**YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
+and korus. That includes the ledger.** Owner-set 2026-09-20.
+
+Honestly means the content lands. A PR closed to clear it does not count, nor a bypass of a check
+failing on its merits, nor a diff cut until the gates go green. And a merge is not finished until
+the ledger item is closed and the Builder's claim released, in one act.
 
 **You and the Watchdog run as a pair. Neither seat runs alone.** Owner-set 2026-09-19. If no
 Watchdog is live, spawn one in your first turn.
-
-The pair's goal: merging goes on continually until every open PR is drained from all three repos --
-engine, vault and korus.
 
 Check two surfaces before you call a partner missing. An agent listing can omit a live seat, and a
 false "missing" puts two Landers on one queue.
