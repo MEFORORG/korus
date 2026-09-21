@@ -25,7 +25,7 @@ and the release are one act.
 | Not an honest merge | What it costs |
 | --- | --- |
 | Closing a PR to clear it | The count falls and the work does not. Put it in the blocker table under *Table 2 -- the blockers* instead. |
-| Bypassing a check that fails on its MERITS | *You may bypass a required status check on your own judgement* grants the mechanical case. A `gitleaks` or CodeQL finding is the check working. |
+| Bypassing a check that fails on its MERITS | *You may bypass a required status check on your own judgement* holds the grant, and its mechanical-vs-merits split is SEAT PRACTICE. A `gitleaks` or CodeQL finding is the check working: a bypass discards it. |
 | Cutting the diff until the gates go green | A subset can be green because it is less. Section 4c-ter. |
 | Merging and leaving the ledger for later | Later is a different session, and nothing tells it the close is owed. |
 
