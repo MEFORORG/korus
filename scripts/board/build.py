@@ -84,7 +84,12 @@ n = len(mer)
 mmax = max(max(mer), 1)
 omin, omax = min(opn), max(opn)
 opad = max(1, round((omax - omin) * 0.15)) if omax > omin else 1
-olo, ohi = max(0, omin - opad), omax + opad
+# THE OPEN-PR AXIS STARTS AT ZERO, deliberately. It is a COUNT, and an axis floored at the
+# series minimum turns a 47-to-49 wobble into a full-height climb -- the reader sees a shape
+# the data does not have. `omin` is still computed above because `opad` is derived from the
+# spread; only the FLOOR is pinned. Headroom at the top is kept so the line never touches the
+# frame.
+olo, ohi = 0, omax + opad
 iw, ih = W - PADL - PADR, H - PADT - PADB
 bw = iw / n
 bx = lambda i: PADL + i * bw
