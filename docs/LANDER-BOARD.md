@@ -164,11 +164,11 @@ On 2026-09-19, 27 of the engine's 29 reds had run against an older `main`:
 - 11 were the CI gate roll-up on repo harness tests, which `main`'s latest run passed.
 
 A branch refresh clears both, and nobody writes code. So the red row of the "What needs fixing"
-table says to refresh the branch before reading a red as broken. A card that said "needs a person"
-named an actor none of the three requires -- a draft needs its author to finish it, a conflict
-needs a rebase, a red needs diagnosing, and all three are fixes the fleet does and the Lander
-drives. Owner correction, 2026-09-20. A card that said "each needs a person" sent readers
-looking for work that did not exist.
+table says to refresh the branch before reading a red as broken.
+
+The card used to say "needs a person", which sent readers looking for work that did not exist.
+None of the three needs one: a draft needs its author to finish it, a conflict needs a rebase, a
+red needs diagnosing. The Lander drives all three. Owner correction, 2026-09-20.
 
 ### 4c. Count idle RUNS, not idle hours
 
