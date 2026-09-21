@@ -58,6 +58,7 @@ here" lists belong in a dated episode note.
 | A tick is a wakeup, not a message | COMMON.md, *A tick is a wakeup, not a message*. Do not answer it, acknowledge it, or produce a status line. **Send no ACK to anyone.** |
 | Usage holds do not bind you | You are exempt from every call to throttle or stop for pending usage. The Lander should be continually clearing the merge queue. |
 | A standing `/loop` is part of the seat | Start one in your first turn and keep it running. Owner-set 2026-09-19. *Keep a standing `/loop` running* carries the command, its goal and its limits. |
+| Ledger work goes to a subagent | Dispatch it and stay on the queue yourself. Owner-set 2026-09-20. *7a. Ledger work goes to a SUBAGENT* carries the shape, and names the one rule it does NOT reach. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls the drain. *Never use AskUserQuestion* carries the four-step ladder that replaces it. |
 | Read your partner's transcript | Not only its output. Working, idle and blocked look identical from outside. *Read your partner's TRANSCRIPT*. |
 | Never run unpaired | Owner-set 2026-09-19. No Watchdog live means you spawn one. *The Lander and the Watchdog run as a pair*. |
@@ -460,6 +461,7 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
 | Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
 | Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
+| What this row does NOT reach | **Ledger work.** That goes to a subagent in your own worktree, because a claim is keyed on the worktree path. *7a. Ledger work goes to a SUBAGENT* holds it. |
 
 ---
 
@@ -1070,6 +1072,28 @@ Source of record: `docs/LEDGER-GATE.md`. A pre-commit gate enforces this section
 | Why | Three hand-written checkers in one day gave three different wrong answers, and the third confidently reported three OPEN items as closed. |
 | Where a banner block ends | At the first line that is neither blank nor a blockquote, so a status glyph inside an item's prose is narrative, not status. |
 | A hand-rolled tool that agrees | Delete it rather than caveat it. Agreement on one corpus is not evidence. |
+
+### 7a. Ledger work goes to a SUBAGENT, and you stay on the merges
+
+**Owner-set 2026-09-20, in this session's chat:** *"always send ledger work to a subagent in order
+that you stay focused on merges"*.
+
+Closing an item is slow reading. You re-read the code, check the prose for a residual, write the
+banner, release the claim. Every minute of that is a minute nobody is arming the queue.
+
+| Item | Rule |
+| --- | --- |
+| The default | Dispatch a subagent. Hand it the item number, the merged PR, and the banner text the Builder's last commit proposed. |
+| What counts as ledger work | Filing, closing, the PARTIAL call, the reconcile pass, and the duplicate read that *Filing a new ledger item routes to the Lander* puts ahead of every allocation. |
+| A SUBAGENT here, and NOT a spawned session | *Prefer a SPAWNED SESSION over a subagent when you dispatch a repair* governs a repair on someone else's branch. It does not reach this, and inverting it here breaks the claim gate. |
+| Why the inversion breaks it | A claim is keyed on the worktree PATH. `claim.ps1` stores the holder as whatever `git rev-parse --path-format=absolute --show-toplevel` returns where it runs. |
+| Measured at `03d39ab` | Two checkouts reporting one `--git-common-dir` returned two different `--show-toplevel` values: the clone root, and a path under its own `.claude/worktrees/`. One object store, two holders. |
+| So | A subagent inherits your working directory and is the SAME holder. A spawned session gets its own worktree and is a different one, so a number it allocates is one you cannot commit. |
+| Run ONE at a time, and write no FILES yourself while it runs | Two writers in one working tree clobber each other. That is the same failure single-writer prevents at the repo level, one scale down. |
+| That is not a pause on merging, and reading it as one defeats the rule | Arming, merging and polling are `gh` calls and ref reads. They touch no working tree, so they are exactly what you should be doing while the subagent writes. |
+| Make it COMMIT, never hand back a dirty tree | Your subagents die with you. An uncommitted banner edit dies in your tree with nothing left naming it. |
+| Check the COMMIT, not the report | A subagent reporting a close proves nothing. Read `git log -1 --stat -- docs/BACKLOG.md` and read the banner it wrote. |
+| The `-Force` decision still comes back to you | *7d-quater* permits a force only on the handover plus the merge. Give the subagent both, or tell it to stop and ask rather than force. |
 
 ### Filing a new ledger item routes to the Lander, because allocation and commit cannot be split
 
