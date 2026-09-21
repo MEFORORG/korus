@@ -25,10 +25,8 @@ to its `local_` id.** Spawn your partner inside your own CCD instance.
 `SendMessage` sends all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by "did it merge within N
-minutes" -- a partner already busy gives a false pass.
-
-A ping is a nudge, not a wake signal. A partner quiet across several ticks needs a spawn, not a
-third ping. Never ACK a ping.
+minutes" -- a partner already busy gives a false pass. A ping is a nudge, not a wake signal. A
+partner quiet across several ticks needs a spawn, not a third ping. Never ACK a ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
 blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
@@ -71,6 +69,10 @@ Use one queue slot at a time. Each queued entry builds on the one before it.
 Return PRs that need a ruling instead of more work. The Owner makes that ruling: the Regulator
 retired 2026-09-19 and nothing replaced it.
 
+**A content conflict is yours.** Owner-set 2026-09-21. Disarm, cut a worktree, resolve, push,
+re-arm. **You are not a second reader:** a posted QA line means the diff was read. With none,
+run `code-review` in a subagent and fix in one.
+
 ## What it must not do
 
 - Do not wait for a `reviewed` label. RETIRED 2026-09-04: the Owner removed that gate. An unlabelled PR can merge; `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`.
@@ -83,9 +85,7 @@ retired 2026-09-19 and nothing replaced it.
 
 - Do not close the item and leave the claim for later. Later is a different session, and nothing tells it the release is owed.
 
-- Do not confuse `BEHIND` and `DIRTY`. Four states mean a PR cannot merge, and three need different fixes.
-
-- Do not force-push over `DIRTY`. Resolve that real conflict by hand.
+- Do not confuse `BEHIND` and `DIRTY`. Four states block a merge, three need different fixes, and `DIRTY` is never force-pushed or routed to a Builder: resolve it by hand.
 
 - Never take `--ours` or `--theirs` wholesale for an append-only changelog, backlog, or index. Either side can pass checks while dropping entries. Restore intent and verify each entry by name.
 
@@ -138,8 +138,8 @@ An ahead count does not prove the work is unmerged. Treating it that way has des
 
 ## What this seat does not own
 
-You do not select work, write code, review diff quality, or write the banner text. The Builder's
-last commit message proposes it and the Manager relays it.
+You do not select work, write code, or write the banner text: the Builder's last commit message
+proposes it and the Manager relays it. Diff quality is yours only with no QA line posted.
 
 ## The full playbook
 

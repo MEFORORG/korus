@@ -69,6 +69,8 @@ here" lists belong in a dated episode note.
 | Proactive output style | COMMON.md, *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
 | Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
+| A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4g. A content conflict is YOURS to resolve* holds the route. |
+| You are NOT a second reader | Owner ruling 2026-09-21. A QA line on the pull request means the diff was read. No QA line means you run `code-review` in a subagent. *4a-quater* holds both halves. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
 it is still true and was never a decision procedure.
@@ -745,7 +747,7 @@ Read `strict` and N fresh from the protection call under *Assess state on arriva
 | Only one PR can be up-to-date-with-base at a time | Each merge advances `main` and knocks every other open PR BEHIND. |
 | CI is roughly 15 to 25 minutes per cycle | The queue moves about one PR per cycle. Push and merge in the background; never sit idle waiting for green (owner rule). |
 | Never merge directly | Arm a PR with auto-merge and let it land on green. |
-| A DIRTY (true-conflict) PR | Needs a human or a Builder. Surface it; do not force it. **AMENDED 2026-09-16: you can supply that Builder** -- section 2. Surface when a Manager is alive; spawn when none is. |
+| A DIRTY (true-conflict) PR | **Yours to resolve.** Owner ruling 2026-09-21. Disarm, resolve the content, push, re-arm. *4g. A content conflict is YOURS to resolve* carries the route and the text it replaced. |
 
 ### 4a. BEHIND is not a wake condition, but a queue of armed BEHIND PRs is a stall
 
@@ -839,6 +841,27 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | Measured 2026-08-22 | A seat published a conflict-hunk count from a check that could never have found anything, and corrected it on the PR as well as in the handoff. |
 | Keep a running list | Track the numeric claims you have put in PR bodies, so retiring an instrument hands you a bounded sweep set instead of a memory search. |
 
+### 4a-quater. You are NOT a second reader, and the Builder's QA line is what tells you
+
+**Owner ruling 2026-09-21:** you are not a second reader as long as the Builder ran its own code
+review. *4a-ter* retired the inspection on 2026-09-17 and gives the reason. This section names the
+evidence, and says what to do when the evidence is absent.
+
+| Item | Rule |
+| --- | --- |
+| The instrument | The QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
+| Read it with | `gh pr view <N> --json comments --jq '.comments[].body'`, and `gh pr view <N> --json labels` for the label. |
+| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level the brief named, and its findings are in the line. Arm the pull request. |
+| An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
+| Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
+| QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
+| So what an absence buys you | Work, not a wait. Run the `code-review` skill yourself, in a SUBAGENT, at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
+| Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
+| How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
+| Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |
+| Post what you ran, and do not dress it as a QA line | That line cites `BUILDER.md` step 11, a step you did not run. Say in your own words what you ran and what it found. |
+| What none of this licenses | A quality opinion on a diff that already carries a QA line. Article II: post the reading, not a second verdict. |
+
 ### 4b. UNKNOWN is not NOT-BEHIND
 
 GitHub computes mergeability asynchronously. For a while after `main` moves, `mergeStateStatus` is
@@ -882,6 +905,29 @@ into a definite answer in either direction.**
 | The partial mechanical check | Compare the PR head against the author's branch tip and any known worktree head, and treat a non-zero `rev-list` count as a question to raise. |
 | State its limit in the same breath | It cannot see unpushed work, which is exactly the case that bit twice. |
 | **EXPIRY** | None while a PR can be opened from a commit whose author keeps building past it. |
+
+### 4g. A content conflict is YOURS to resolve, and you do not hand it to a Builder
+
+**Owner ruling 2026-09-21.** A DIRTY pull request is this seat's work. It is not a routing decision.
+
+**NARROWED. The mechanics table row read** *"Needs a human or a Builder. Surface it; do not force
+it."*
+
+Surfacing leaves the queue stopped on a pull request nobody owns. This file measured that cost:
+#1201 sat DIRTY for ten hours with no session on its branch.
+
+| Item | Rule |
+| --- | --- |
+| The route | Disarm, cut a worktree, resolve the content, push, read the head back, re-arm. `lander-resolve-a-conflict` holds every step and the trap in each. |
+| Disarm FIRST, every time | On an armed pull request the conflict is the last gate, so resolving it merges. Same skill, *On an ARMED PR, resolving the conflict IS the merge*. |
+| Never in the primary checkout | The write gate denies it, and it is the collision worktrees exist to prevent. Section 11f. |
+| A subagent may do the work | It shares your worktree, so it is the same writer. Run one at a time, make it commit, and read the commit rather than the report. |
+| What is still NOT yours | Rewriting a pushed ref. *A force-push safe in CONTENT is still an AUTHORITY question* stands: push a fresh ref, or ask. |
+| Nor is an INTENT question | Resolving the text is yours. Deciding which of two deliberate changes survives belongs to the authors. |
+| So ask, then resolve | Ask a live author in one line. Resolve rather than wait where nobody holds the branch, which is the case this ruling exists for. |
+| The classification rule does not move | *Classify a conflicted row by WHO CHANGED it* still governs. Owning the work changes nothing about how a silent revert happens. |
+| Verify for INTENT, not cleanliness | A keep-both-sides merge can be marker-free, green, and still restore the defect the branch removed. Same skill, section 8b. |
+| Say what you resolved | Name the file, the hunks and the call you made, on the pull request. You are now an author of content you did not write. |
 
 ### 4d-bis. `gh pr merge --auto` is two different actions depending on when you run it
 
@@ -1117,6 +1163,7 @@ routing consequence of both, and it is invisible until a worker hits it.
 | The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them. |
 | What the same commands become there | Routing around a control. |
 | Then hand it over STATED, not executed | Name the conflicting file, name the resolution, and say a seat with a working tree is needed. |
+| **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4g*. Hand over only where you genuinely cannot reach the branch. |
 | Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. |
 | What that is | A routing act, not a refusal. |
 

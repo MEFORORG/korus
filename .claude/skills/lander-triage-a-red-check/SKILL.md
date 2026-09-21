@@ -49,6 +49,13 @@ under two numbers should be renumbered on the landed side or the unlanded one.
 not the author's, so it does not supply the missing understanding. It only moves your judgment into a
 process you supervise less closely. When you do the work, you sign it.
 
+**NARROWED 2026-09-21, by Owner ruling, and only where the work is already YOURS.** Two kinds of
+authorship are the seat's own, so a subagent may write them. One is resolving a content conflict.
+The other is the `code-review` pass, and its fixes, on a pull request with no QA line.
+
+`roles/LANDER.md` *4g* and *4a-quater* hold both. A RED CHECK is not among them, and the rule above
+is unchanged for one. You still sign what the subagent writes, so read the commit, not its report.
+
 **THE FAILURE MODE IS DOING IT WELL.** Measured 2026-09-04, and both were the lander's own.
 
 On one PR the merge pulled in a test from `main` whose control asserted the *opposite* of what that
