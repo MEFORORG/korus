@@ -213,7 +213,8 @@ hour. Monotonic decay.** Stated as measured percentages only.
 Two readings agreeing would be corroboration. One printed twice is not, and nothing here said which
 of those a reader was looking at.
 
-The legs stay in both places, because the table's whole job is the contrast between them. What moved
+The legs stay in both places, because the table's whole job is the contrast between the two
+regimes. What moved
 is that the table now points here, and the timestamps stay here: they are what makes the legs
 checkable. Article VI.
 
