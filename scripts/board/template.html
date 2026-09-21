@@ -134,6 +134,21 @@ h1{
 .st-blocked {background:var(--warn)}
 .st-dirty   {background:repeating-linear-gradient(90deg,
              var(--crit) 0 3px, var(--panel-2) 3px 5px)}
+.ptab-wrap{overflow-x:auto}
+.ptab{width:100%; border-collapse:collapse; font-size:13px}
+.ptab th,.ptab td{padding:5px 9px; text-align:right; border-bottom:1px solid var(--rule); white-space:nowrap}
+.ptab th:first-child,.ptab td:first-child{text-align:left; white-space:normal}
+.ptab thead th{
+  font-family:"Saira Condensed",sans-serif; font-weight:600; font-size:11.5px;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);
+}
+.ptab td{
+  font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; color:var(--ink);
+}
+.ptab td:first-child{font-family:"IBM Plex Sans",sans-serif; color:var(--ink-2); line-height:1.3}
+.ptab td.z{color:var(--ink-3)}
+.ptab .why{display:block; font-size:11px; color:var(--ink-3); margin-top:1px}
+.ptab tfoot td{font-weight:600; border-bottom:none; border-top:2px solid var(--rule)}
 .lg[title]{cursor:help}
 .mixn{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:14px; color:var(--ink-2); min-width:26px; text-align:right}
 .lgrow{display:flex; flex-wrap:wrap; gap:4px 13px; margin-top:8px; padding-top:9px; border-top:1px solid var(--rule)}
@@ -197,6 +212,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
   </header>
 
   <section class="grid">{{CARDS}}</section>
+
+  <section class="wide">
+    <article class="card card-wide">
+      <h3>What needs fixing</h3>
+      <p class="note">The card above is one number over three different fixes, and none of them waits on a human. A pull request can need more than one at once, so each row counts only the FIRST that applies, in the order the collector tests them and the order the work is done in: finish it, rebase it, then read the checks. The rows therefore sum to the total.</p>
+      {{PERSON_ROWS}}
+    </article>
+  </section>
 
   <section class="wide">
     <article class="card">
