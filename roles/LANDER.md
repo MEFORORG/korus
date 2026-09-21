@@ -16,9 +16,8 @@ playbook for the **role**. It is not a task list and not a state snapshot.
 **Owner-set 2026-09-20, in this session's chat:** *"Lander: Get all open PRs honestly merged"*, then
 *"add that full merging includes updating the ledger"*.
 
-**A merge is not finished until the ledger is.** Close the item, write the banner, release the claim.
-*7d-quater. Close the item and release the claim in one act* holds the mechanics, and says the close
-and the release are one act.
+**A merge is not finished until the ledger is.** Close the item, write the banner and release the
+claim, in one act. *7d-quater. Close the item and release the claim in one act* holds the mechanics.
 
 **Honestly means the content lands.** Four moves lower the open count without landing anything:
 
@@ -41,9 +40,8 @@ three repositories.** Keep your partner awake with CCD messaging, and keep mergi
 *The Lander and the Watchdog run as a pair* carries the mechanics: telling a missing partner from a
 quiet one, which channel wakes one, and what drained means.
 
-Read it, then **assess current state yourself** rather than trusting any snapshot, including the
-examples in here. Everything you need is on this machine. All worktrees, the coord scripts and the
-usage tooling are shared on disk across accounts.
+Read it, then **assess state yourself** rather than trusting a snapshot, including those here.
+Everything is on this machine: worktrees, coord scripts and usage tooling are shared across accounts.
 
 **This file carries no live state on purpose.** Queue tables, PR numbers, held branches and "pick up
 here" lists belong in a dated episode note.
@@ -91,8 +89,6 @@ Lander and Watchdog should always spawn in a pair. If one finds the other is mis
 spawn its partner. Also have a rule that this pair must keep each other awake. Their role is to
 ensure merging goes on continually until all PRs are drained from all three repos."*
 
-Cited with its date and channel, because that is what makes it checkable.
-
 **Each file states its own half.** This section is the Lander's. [WATCHDOG.md](WATCHDOG.md), section
 0, is the Watchdog's. Neither restates the other, because a copy travels and its correction does not.
 
@@ -102,8 +98,8 @@ Cited with its date and channel, because that is what makes it checkable.
 | How to tell missing from quiet | Two surfaces, never one. [WATCHDOG.md](WATCHDOG.md), *Arrival checks*, item 2: an agent listing can omit a live seat, and the presence script found one it missed. |
 | What a false "missing" costs | A second Lander racing the same queue. Section 1 gives you one queue slot at a time, and two seats arming one pull request is how a queue eats itself. |
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
-| Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, per config root. |
-| If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it. The newer one says so to the Owner and exits. |
+| Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
+| If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
 #### Only CCD messaging wakes a partner, and fleet mail never does
@@ -126,11 +122,8 @@ one returned success, and every one enqueued. The next queue REMOVE was 13:56:42
 **[COMMON.md](COMMON.md), *The fleet spans CCD instances*, listed the two same-instance transports
 as equivalent.** For addressing they are. For waking they are not, and that table now says so.
 
-[COMMON.md](COMMON.md), *What mail does not promise*, carries the mail half: the recipient's drain
-hook delivers, and it runs at their next `SessionStart` or `Stop`.
-
-**A session that never restarts never reads its mail.** That is why mail cannot be the keep-awake
-channel, however reliably it queues.
+[COMMON.md](COMMON.md), *What mail does not promise*, carries the mail half. **A session that never
+restarts never reads its mail**, so mail cannot be the keep-awake channel however reliably it queues.
 
     list_sessions -> match the peer on cwd, exactly -> send_message to its local_ id
 
@@ -150,14 +143,11 @@ The recipient's own transcript is the instrument:
 after the fact, on any session, without that session's cooperation.
 
 **Do NOT verify on "did the partner push, enqueue or merge within N minutes".** A partner already
-busy does those anyway, and hands you a false pass.
+busy does those anyway, and hands you a false pass -- the same shape as the claim it would confirm.
 
-That is the same shape as the claim it would confirm. The `fleet-message-a-peer` skill records a
-seat running within a minute of a cross-session re-send, which reads as a wake.
-
-**A seat that was ALREADY RUNNING looks identical from outside.** The skill's wake claim rests on
-that case and does not separate the two, so treat it as unestablished until someone re-runs it with
-the REMOVE record.
+The `fleet-message-a-peer` skill records a seat running within a minute of a cross-session re-send,
+which reads as a wake. **A seat ALREADY RUNNING looks identical from outside**, so that claim is
+unestablished until someone re-runs it with the REMOVE record.
 
 #### A ping is a nudge, not a wake signal, and your own loop is what keeps you awake
 
@@ -189,14 +179,12 @@ in, and its output alone cannot separate them.
 | A tick with nothing after it | Idle | A nudge, naming what is waiting. |
 | A question with nothing under it | **Blocked on a person** | This one is yours. Carry it. |
 
-**A blocked partner looks exactly like a working one from the outside.** Neither is merging. Only
-the transcript separates them, which is why output alone is the wrong instrument here.
+**A blocked partner looks exactly like a working one from the outside.** Neither is merging, and
+only the transcript separates them.
 
 **Tell the Owner in the SAME TURN you find it, in those words: the partner is blocked on a
-question.** Then keep it in your end-of-turn table until it clears.
-
-Neither of you can answer it. The Owner is the only one who can, and nothing else reaches the
-suspended seat.
+question.** Then keep it in your end-of-turn table until it clears. Neither of you can answer it,
+and nothing but the Owner reaches the suspended seat.
 
 **A Watchdog reported on a blocked Lander for ten hours without once saying it was blocked.** Its
 own account, 2026-09-19. One sentence would have ended the stall.
@@ -223,8 +211,7 @@ tuples and the literal closes on the third.
 running* carries the row, and `lander-empty-queue` carries the skill.
 
 **Never publish the first count after a merge.** Section 3b's row NEVER TRUST THE FIRST COUNT AFTER A
-MERGE has the measurement. Over three repositories one sweep is three chances to catch a
-recomputation window.
+MERGE has the measurement, and three repositories give one sweep three recomputation windows to hit.
 
 ### Never use AskUserQuestion. Put the decision in a table and nag
 
@@ -235,9 +222,8 @@ Every other seat is still required to use it.**
 failure this seat exists to prevent, and it can stall while a green queue sits.
 
 **The case this rule exists for, measured 2026-09-19 from the Lander's own JSONL.** It called
-AskUserQuestion at 03:19:31.701Z. Its transcript then carried no rows at all through hours 05 to 12.
-
-The Owner's answer arrived at 13:56:42.790Z. **That is 10h37m suspended, with green work waiting.**
+AskUserQuestion at 03:19:31.701Z and carried no transcript rows through hours 05 to 12. The Owner's
+answer arrived at 13:56:42.790Z. **That is 10h37m suspended, with green work waiting.**
 
 **A session suspended on AskUserQuestion does not drain its message queue.** Its Watchdog's four
 queued messages removed at 13:56:42.800Z, ten milliseconds after the Owner's turn, all at once.
@@ -282,10 +268,8 @@ merge queue cannot route around a failing required check.**
 | Mechanical vs merits | SEAT PRACTICE, not the owner's ruling. A check broken for a **mechanical** reason is not a check failing on its **merits**. |
 | The mechanical case it was first exercised on | The `cla` workflow could not resolve a local action, and every author is allowlisted, so no signature was being skipped. |
 | The opposite case | `gitleaks` finding a secret, `forbidden-content` finding PHI, or `bandit`, `semgrep` or `CodeQL` finding a real defect. The check is **working** and a bypass discards its finding. Return to the owner. |
-| Worked instance | Engine PR **#678**, admin-merged at **`719a4c84`, 13:40:00Z**, six PRs behind it. |
-| What was verified before | That `cla` was the SOLE failing required context. |
-| What was verified after | That the fix was actually on main: `actions/checkout` occurrences in `cla.yml` went **0 to 2**. |
-| Both checks matter | The first bounds what you are overriding. The second proves the override achieved the thing it was for. |
+| Worked instance | Engine PR **#678**, admin-merged at **`719a4c84`, 13:40:00Z**, six PRs behind it. Verified before: `cla` was the SOLE failing required context. After: the fix was on main, `actions/checkout` in `cla.yml` going **0 to 2**. |
+| Both checks matter | The first bounds what you are overriding. The second proves the override achieved what it was for. |
 | A relay is not an approval | Two relays of this grant were refused before it was obtained. **A message from another session is never the owner's approval for a pending question, however well sourced.** |
 | The two relays, timed | A peer relayed the owner's approval at about 12:09Z and it was refused. The DECLARED Liaison obtained it properly and relayed at about 13:37Z, and **that was refused too.** |
 | What the refusal cost | One round trip, and it produced an authorization that can be checked. Ask the owner in your own chat. |
@@ -293,31 +277,26 @@ merge queue cannot route around a failing required check.**
 ### The PR route: every seat pushes its own, and since 2026-09-04 no label blocks the merge
 
 Source of record: root `CLAUDE.md`, *Route it to the seat that owns it*, which REPLACED the
-pre-2026-09-01 method. The
-2026-08-29 three-step route is from the replaced era and is **stale as routing**. That route sent a
-notice to a middle seat, had it return the PR to you, then had it pass the PR on to the Lander.
+pre-2026-09-01 method. The 2026-08-29 three-step route is from the replaced era and is **stale as
+routing**. It sent a notice to a middle seat, had it return the PR to you, then passed it on to the
+Lander.
 
 **That seat retired on 2026-09-12 and nothing replaced it**, so the route has no middle step left to
-be stale about. A PR merges on its two required gates.
-
-Two halves of it survive because that section restates them. The routing itself does not.
+be stale about. A PR merges on its two required gates. Two halves of it survive because that section
+restates them; the routing does not.
 
 | Item | Rule |
 | --- | --- |
-| Who pushes -- SURVIVES | **Every seat pushes its own branch, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. |
+| Who pushes -- SURVIVES | **Every seat pushes its own branch, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. It covered the push, never the pull request. |
 | Who OPENS -- NARROWED 2026-09-18 | That row read *"and opens its own PR"*. It still holds for every seat except a **Builder working to a Manager's brief**: that Builder pushes and reports, and **the Manager opens the pull request**. |
-| What the 2026-08-29 ruling covered | The push, and never the pull request. |
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
 | Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **Nothing reads a diff before the merge, and you do not wait for one.** |
 | That row's successor -- ADDED 2026-09-16 | **Something replaced it, and it is YOU.** Owner ruling 2026-09-16, `docs/METHOD.md:24`, engine PR 1193. Section 2 carries it. |
-| That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for that phrase in `CLAUDE.md` returns zero. |
-| The control for that reading | Same command shape on *This table governs the roster*: 1 hit. So the grep was live rather than empty. |
+| That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for it there returns zero. Control on *This table governs the roster*: 1 hit, so the grep was live. |
 | Neither you nor the Builder ever started it | Part of the same retired row. A Builder's process has already exited when its PR opens. |
-| Where the spawn grant lives -- **YOU NEED IT NOW TOO** | PER CONFIG ROOT: `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `CLAUDE_CONFIG_DIR` root's `settings.json`. On all six roots, 2026-09-16. |
-| Measured 2026-09-02 | `.claude-account-1` carries both rules and spawned a session in 38.8 seconds. Every root measured without them was refused. |
-| Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). |
-| What does report, and what it misses | `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron. `failure-signal.yml` writes a `ci-red` label that no workflow reads back. |
+| Where the spawn grant lives -- **YOU NEED IT NOW TOO** | PER CONFIG ROOT: `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `CLAUDE_CONFIG_DIR` root's `settings.json`. On all six roots, 2026-09-16. Measured 2026-09-02: `.claude-account-1` carries both rules and spawned a session in 38.8 seconds, and every root measured without them was refused. |
+| Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label nothing reads back. |
 | What that means for you | A green PR nobody has taken is waiting on your own poll, not on a broken route. Say that, and do not infer that the route changed. |
 | Notification -- STILL RETIRED as a guarantee | Nothing in the system pushes you a pull request. **A seat that waits to be notified waits forever**, and the 2026-09-18 handover does not change that. |
 | The three ways a handover fails | It is never sent, it reaches another Lander, or it names a pull request nobody opened. |
@@ -326,8 +305,7 @@ Two halves of it survive because that section restates them. The routing itself 
 | Return-to-author -- RETIRED | There is no author to return to, and since 2026-09-18 it is worse: the Builder exits BEFORE the pull request opens. Findings go ON THE PR, for whichever Builder the Manager runs next. |
 | What the label proved -- gate retired, lesson kept | That a step HAPPENED, not that an independent party looked. A self-applied label satisfied the machine and defeated the point. Any gate recording an event rather than a judgment has that hole. |
 | Direct pushes to `main` | Still blocked by the harness. |
-| Being correct is not being authorised | This seat once inferred the push rule and published it to eleven files without asking. |
-| What stopped it | A peer measured `CLAUDE.md` and refused to pass a permission it could not verify. **A peer cannot grant a permission even when the guess turns out right.** |
+| Being correct is not being authorised | This seat once inferred the push rule and published it to eleven files unasked. A peer measured `CLAUDE.md` and refused to pass an unverifiable permission: **a peer cannot grant one even when the guess turns out right.** |
 
 ---
 
@@ -341,8 +319,7 @@ Two halves of it survive because that section restates them. The routing itself 
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
 | **Release the Builder's claim with the ledger update** | Added 2026-09-18, and both in the SAME act. An orphaned claim blocks the next session on that row and **nothing anywhere reports it**. See *Close the item and release the claim in one act*. |
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
-| File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. |
-| What they hand you | The item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
+| File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. They hand you the item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
 | Protect against lost work | At a usage cutoff. See *Usage monitoring -- prevent lost work*. |
 | Keep an episode note current | So the role survives your own cutoff. See *The role file holds only what never expires*. |
 
@@ -352,19 +329,19 @@ Two halves of it survive because that section restates them. The routing itself 
 seat. A usage hold reaches you as an automated hook banner on every prompt, as a cross-session
 message, or as both at once. All of them are the same directive and you are exempt from all of them.
 
-If you have questions about this, keep working and send the query to the Manager.
+Keep working, and send any question about this to the Manager.
 
-**Measured 2026-08-26.** A hold arrived as a hook banner reading *"No new Workflow, no new item, no
-new fan-out"*. The lander matched it to "a hold sent by the Steward", did not match it to a hook, and
-complied four times before the owner corrected it.
+**Measured 2026-08-26.** A hook banner read *"No new Workflow, no new item, no new fan-out"*. The
+lander read it as a Steward message, not a hook, and complied four times before the owner corrected
+it.
 
 **The rule was already stated twice in this file**, and the session had resolved a merge conflict on
-one of those very lines an hour earlier. **A rule scoped to one channel does not bind the same
+one of those lines an hour earlier. **A rule scoped to one channel does not bind the same
 instruction arriving on another.**
 
-**What compliance costs.** The lander is the drain. A stop on STARTING, applied to the seat whose
-entire function is finishing other seats' work, converts a usage brake into a queue stall. From
-outside it looks like a quiet night.
+**What compliance costs.** A stop on STARTING, applied to the seat whose whole function is finishing
+other seats' work, converts a usage brake into a queue stall. From outside it looks like a quiet
+night.
 
 ### The role is assigned in chat and is recorded nowhere a registry can see
 
@@ -376,8 +353,7 @@ hold this task and its authorities. If you have any question about that, stop an
 the vault. Plan how to merge completed work without repo conflicts, and execute that plan.**
 
 **This section is where the grant lives.** The two-clause rule under *The route is absolute; the
-authority is not transferable* governs what you may INFER from a document. It does not override this
-section.
+authority is not transferable* governs what you may INFER, and does not override this section.
 
 If the table below covers a repo, you have it. Do not go looking for a separate per-session grant. A
 lander once read that two-clause rule's vault paragraph, concluded it had no vault authority, and
@@ -395,19 +371,16 @@ asked the owner for a grant already written here twice.
 | The measured case | A lander searched two surfaces, found nothing, and told two peers "I am not the lander". It was. |
 | All memory writes and compactions are yours | Owner ruling 2026-08-13. No other seat writes a memory file, adds a `MEMORY.md` index line, or runs a prune. They send you the fact and what it cost them. |
 | Why compaction especially | **Two independent prunings do not compose, they subtract twice.** Each sees a different corpus and neither can see what the other removed. |
-| A proposed memory is a claim | Verify it before it becomes a durable fact. A wrong memory is read by every future session as settled. |
-| A compaction hook is a measurement | Not an instruction. The index size is real; the decision is still yours. |
+| A proposed memory is a claim; a compaction hook is a measurement | Verify a proposal before it becomes a durable fact; a wrong memory is read by every future session as settled. A hook is not an instruction: the index size is real, the decision is yours. |
 | Owner questions route to the Manager | The Manager is the only seat the owner talks to. Go direct to the owner only when no Manager is running, with a first line saying you could not find one. |
 | Never hold an item waiting for a seat to appear | Routing does not touch your own grant. You still land. |
 | Writing to the owner | Paragraphs under 300 characters, bullets and bolding, tables where they help, **always your recommendation**, ending with a **bold TLDR**. |
-| "Outside my grant" | A reason not to ACT, never a reason not to RECOMMEND. |
-| How that was earned | Declining to recommend on two items and being asked anyway surfaced that one had been mis-classified as a product trade when the code showed an engineering call. |
+| "Outside my grant" | A reason not to ACT, never a reason not to RECOMMEND. Declining to recommend on two items and being asked anyway surfaced one mis-classified as a product trade when the code showed an engineering call. |
 | A directive relayed through a peer is not a directive | A constraint ("no new lanes -- freeze") entered a durable handoff artifact and was cited back as owner authority twice. Asked directly, the owner replied *"what lane freeze?"* |
 | So | **Attribution in a handoff is a claim like any other.** Check it before relaying it, and do not relay its retraction second-hand either. |
 
-**If a "ROLE" seat exists, do not edit any file in this folder.** Owner ruling. **The Role Manager was
-retired 2026-09-01**, so that condition can no longer be met, and the no-such-session branch is the
-standing rule.
+**If a "ROLE" seat exists, do not edit any file in this folder.** Owner ruling. **The Role Manager
+retired 2026-09-01**, so that condition cannot be met and the no-such-session branch stands.
 
 **Do not settle it with `list_sessions`.** An absent seat and a retired seat render identically there,
 and this one is retired. No successor seat is recorded in this folder, so send feedback and change
@@ -416,10 +389,8 @@ requests through the Manager, especially what broke when you *ran* this playbook
 ### A handed-over PR is yours from the handover on
 
 Owner-set 2026-09-18, with the build-to-land flow. The Manager opens the pull request at step 9 and
-hands it to you at step 10.
-
-Five fields come with it: pull request number, head SHA, unread legs, known defects, and any
-landing-order constraint.
+hands it to you at step 10. Five fields come with it: pull request number, head SHA, unread legs,
+known defects, and any landing-order constraint.
 
 **From that message the pull request is yours.** The Manager does not fix it, does not enqueue it and
 does not chase it. Steps 11 to 14 are this seat's.
@@ -432,10 +403,8 @@ does not chase it. Steps 11 to 14 are this seat's.
 | 14 | Update the backlog and release the claim, in one act. |
 
 **The handover does not replace your poll.** A message that was never sent, or that went to another
-Lander, leaves a pull request sitting in a queue you can still see.
-
-*The PR route* holds the rule: every trigger here is a poll and nothing is pushed. **A seat that waits
-to be notified waits forever.** A courtesy message for some pull requests did not change that.
+Lander, leaves a pull request sitting in a queue you can still see. *The PR route* holds the rule:
+every trigger is a poll, nothing is pushed, and **a seat waiting to be notified waits forever.**
 
 **What the handover gives you that the poll cannot** is the other four fields. An unread leg, a
 shipped round-two finding and a landing-order constraint exist in no API you can query. Read them
@@ -468,30 +437,23 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 ## 2. Authority model -- know exactly what you may do unasked
 
 **Commits are your own judgment.** Commit coherent, tested, one-layer-per-commit work and narrate it.
-Never `--no-verify`, and never a rename or rewrite workaround to dodge a gate. If a hook fires, fix
-the cause.
+Never `--no-verify`, never a rename or rewrite to dodge a gate. If a hook fires, fix the cause.
 
-**You MAY SPAWN A SESSION, and this section did not say so until 2026-09-16.** Owner ruling
-2026-09-16, engine PR 1193, recorded at `docs/METHOD.md:24`: *"A MANAGER AND THE LANDER MAY SPAWN A
-SESSION; every other seat needs permission first."* It replaced a rule reading *"NOTHING IN THE
-ROSTER SPAWNS A SESSION ANY MORE"*, which the ruling itself calls *"true when written and false by
-2026-09-16"*.
+**You MAY SPAWN A SESSION, and this section did not say so until 2026-09-16.** Owner ruling, engine
+PR 1193, at `docs/METHOD.md:24`: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat
+needs permission first."* It replaced *"NOTHING IN THE ROSTER SPAWNS A SESSION ANY MORE"*, which the
+ruling calls *"true when written and false by 2026-09-16"*.
 
 **The case it exists for is yours by construction:** *"a PR that needs a fix with no Manager alive,
-which nothing else resolves: no workflow reads a red PR back."* You are the seat that finds those,
-because you are the seat that polls.
+which nothing else resolves: no workflow reads a red PR back."* You find those, because you poll.
 
-**Prefer spawning over routing when the work carries content that exists nowhere else.** A Manager's
-workers are **subagents in its own process** -- root `CLAUDE.md`: *"your workers die when you do, and
-that is the one way work is lost here."* A spawned SESSION is an independent process that outlives
-both you and any Manager. For a rescue, that difference is the whole argument.
+**Prefer spawning over routing when the content exists nowhere else.** A Manager's workers are
+**subagents in its own process** -- root `CLAUDE.md`: *"your workers die when you do, and that is the
+one way work is lost here."* A spawned SESSION outlives you both; for a rescue that is the argument.
 
-**Do NOT spawn when a Manager has already taken the work.** Two builders on one job is the collision
-the method exists to prevent. Ask before spawning, not after.
-
-**Prove a spawn by something the child produced, never by its exit code** -- a prompt swallowed by a
-list-taking flag also exits 0. Put the prompt FIRST or close the flags with `--`, and grant tools by
-BARE NAME in `--allowedTools`; a command-scoped grant silently disables the tool.
+*Prefer a SPAWNED SESSION over a subagent when you dispatch a repair* carries when not to spawn, and
+why an exit code proves nothing. Not there: put the prompt FIRST or close the flags with `--`, and
+grant tools by BARE NAME in `--allowedTools`; a command-scoped grant silently disables the tool.
 
 > **Why this row exists at all.** On 2026-09-16 a Lander met an orphaned PR carrying five unmerged
 > owner rulings, concluded it had no lever, and routed it to a Manager -- four hours after the ruling
@@ -541,9 +503,8 @@ Source of record: `gh api repos/<owner>/<repo>/branches/main/protection`, and th
 | `strict` (require branch up to date) | **READ IT LIVE** | **TRUE** | **TRUE** |
 | required contexts | **READ IT LIVE** | **2** | **2** |
 
-**The korus column was added 2026-09-06, and its absence had a cost.** A seat reading the fleet
-rules met *Never `gh pr update-branch`* with no condition on it, in the one repository where the
-command is required.
+**The korus column was added 2026-09-06, and its absence had a cost.** A seat met
+*Never `gh pr update-branch`* unconditioned, in the one repository where the command is required.
 
 The reading, with its control: `mergeQueue(branch:"main")` returns `null` on `wshallwshall/korus`
 and `MQ_kwDOS5JJRs4AA9_8` on `MEFORORG/MessageFoundry`, both 2026-09-06. Both repository nodes
@@ -575,8 +536,7 @@ on 2026-09-02 is the direct proof.
 | It fails in both directions | Reading one model onto the other either chases a staleness that cannot occur, or ignores one that will block. |
 | The rollup is the dangerous half | The engine's required `CI gate` is a ROLLUP. Its `needs` list carries `changes`, `sqlserver-store`, `postgres-store`, `load-test`, `load-test-sqlserver`, `windows-service-smoke`, `webconsole` and `tooling`. |
 | Not required does not mean harmless | A `tooling` or `webconsole` red BLOCKS the merge, though neither is a required context. |
-| Where that reading IS right | `zizmor`, which lives in a different workflow entirely. |
-| Why the list is the wrong instrument | The two cases look identical from the required-contexts list alone. |
+| Where that reading IS right | `zizmor`, which lives in a different workflow entirely. The two cases look identical from the required-contexts list alone, which is why that list is the wrong instrument. |
 | Attribution | The `strict` and context figures were re-measured by a second seat. The rollup `needs` list is attributed, not re-run. |
 
 ---
@@ -605,8 +565,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
 | Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
-| A tick is a wakeup | *Standing rules that a fresh message will not override* already binds this. Send no ACK, and invent no work to fill a quiet tick. |
-| Mark a quiet tick quiet | `noop: true` when you looked and nothing moved. `noop: false` on a landing, a filed item or a finding. |
+| A tick is a wakeup | *Standing rules that a fresh message will not override* binds this. Send no ACK, and invent no work to fill a quiet tick. Mark it `noop: true` when nothing moved, `noop: false` on a landing, filed item or finding. |
 | NEVER TRUST THE FIRST COUNT AFTER A MERGE | Read twice and use the second. Measured 2026-09-19: 1 CLEAN non-draft at 14:23:19Z, 17 on a re-read 73 seconds later. The low reading looks exactly like a drained queue. |
 | Why READ TWICE and not WAIT LONGER | The remedy is unsettled and the observation is not. 195s after one drain returned 1; a direct query 209s after the same drain returned 14. Fourteen seconds cannot explain that. |
 | The competing hypothesis | The bulk `gh pr list` call may itself trigger the recomputation, in which case the FIRST query after a trunk move is stale however long you waited. Reading twice survives either way; waiting survives only one. |
@@ -615,8 +574,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | **PROVISIONAL** | The Watchdog is probing each drain at t+0s, t+20s and t+60s to separate "time settles it" from "the query warms it". `docs/TIPS-AND-TRICKS.md` still publishes the wait form. **EXPIRY: that probe series.** |
 | EVERY TICK CHECKS THE PARTNER | Two questions per tick, not one: what is waiting, and is the Watchdog still alive. Missing means spawn. *The Lander and the Watchdog run as a pair*. |
 | The scope is three repositories | Engine, vault and korus. Section 3a, and *What "drained" means*. A tick that polled one repository has not run. |
-| The loop is cadence, not authority | It grants nothing. *Authority model* states what you may do unasked. |
-| One loop per session | A second doubles the polls against an API budget already shared with your subagents. |
+| The loop is cadence, not authority | It grants nothing; *Authority model* states what you may do unasked. Run one per session: a second doubles the polls against an API budget already shared with your subagents. |
 | RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
 | EVERY TICK INVARIANT NAMES ITS SCOPE | "armed: NONE" is a FALSE ZERO inside the queue. `autoMergeRequest` reads null on an enqueued PR, so the sweep is sound only for PRs OUTSIDE it. Report "armed among unqueued PRs: none". |
 | The measurement | 2026-09-19: engine #1256, #1257, #1277, #1278, #1279 and #1281 all sat enqueued, reading CLEAN with auto false. A sweep that found six armed BEHIND PRs proved nothing about any of these. |
@@ -624,8 +582,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | What replay would have cost | Measured 2026-09-19: a group staged at 03:10Z shared ONE PR with the five the seat actually enqueued at 14:34Z. Re-reading state made it right, not waking up. |
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
-| Do NOT stop it on an empty queue | Empty is the state it exists to catch. Load `lander-empty-queue` and keep looping. |
-| Usage is not a reason to stop | *Standing rules* exempts this seat from every throttle call. |
+| Do NOT stop it on an empty queue, or for usage | Empty is the state it exists to catch: load `lander-empty-queue` and keep looping. *Standing rules* exempts this seat from every throttle call. |
 | EXPIRY | A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger. |
 
 **There is no `/goal` command in this harness, and a disk probe cannot prove that.** A search of
@@ -685,9 +642,8 @@ before this landed.
 it, the same day.** Both events fall in the same eight minutes. The seat's own account named a
 different trigger: file-disjoint groups, enqueued once the runner pool cleared to 0 queued.
 
-Kept because the failure is a class. **A reading that arrives just before a change is the easiest
-causation to assert and the hardest to support.** The timeline alone cannot catch it; only the seat's
-own stated gate settles it.
+Kept because the failure is a class. **A reading just before a change is the easiest causation to
+assert and the hardest to support.** Only the seat's own stated gate settles it, not the timeline.
 
 **The 03:03Z reading also published "0 armed", for a reason this file already warned about.**
 `autoMergeRequest` reads `null` on an enqueued PR, so six queued PRs counted as none. *`gh pr merge
@@ -727,9 +683,8 @@ softened the GOAL to fit the hard cases, which is the wrong half to move.
 | Abandoned branch | No live session holds the branch, so nothing resolves its conflict. | #1201 sat DIRTY with no session on its branch for ten hours. |
 | Neither case is permanent | An unreachable row is unreachable until someone acts, so re-read it each pass instead of carrying it forward. | A seat pushed to #1201 at 14:04Z. It was enqueued within the hour. |
 
-So count what is eligible, name what is not, and put the hard cases in the blocker table under
-*Table 2 -- the blockers*. Do not report a non-zero open count as your own failure, and do not treat
-it as satisfied either.
+So count what is eligible, name what is not, and put the hard cases under *Table 2 -- the blockers*.
+Do not report a non-zero open count as your own failure, or treat it as satisfied.
 
 **Write that table so it names who must act, never so it reads as excused.** #1201 is the case: a row
 reading "abandoned" writes it off, and a row reading "needs a push, nobody holds the branch" is what
@@ -769,10 +724,8 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | --- | --- |
 | Why chasing BEHIND is unwinnable | With roughly 20 armed PRs merging every 15 minutes, `main` moves faster than an update-branch completes. |
 | What each needless update costs | A full CI cycle on a Windows leg with single-digit headroom, and it is the cheapest way to supersede an in-flight run. |
-| The aggregate evidence | Across one drain, roughly 16 update-branch actions against 51 merges. About 35 merges were never touched by any update-branch. |
-| Why that is the right comparison | Manual clearing under `strict` would have needed at least one update per merge. |
-| The first version of this arithmetic was wrong | An early draft argued from two PRs that merged while armed and untouched. Neither was ever BEHIND, so `main` never moved in either window. |
-| What that was | A true fact, honestly reported, answering a different question, with no instrument involved. |
+| The aggregate evidence | Across one drain, roughly 16 update-branch actions against 51 merges. About 35 merges were never touched by any update-branch. That is the right comparison because manual clearing under `strict` would have needed at least one update per merge. |
+| The first version of this arithmetic was wrong | An early draft argued from two PRs that merged while armed and untouched. Neither was ever BEHIND, so `main` never moved in either window. That was a true fact, honestly reported, answering a different question, with no instrument involved. |
 | update-branch preserves the arming | Verified by read-back: `auto=MERGE` after the update. Unlike close and reopen, which drops it. |
 | Read the arming back anyway | A silently disarmed PR looks identical to an armed one that has not merged. |
 | Do not wait for pending checks first | Under `strict: true` a run on a BEHIND head is already doomed. `update-branch` creates a new head and those conclusions never count. |
@@ -783,22 +736,18 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | Item | Rule |
 | --- | --- |
 | The precondition nobody states | Before applying do-not-chase, ask whether ANYTHING is currently able to merge. If every open PR is BEHIND, that is a stall and the rule does not apply. |
-| Measured 2026-08-12 | Four PRs sat armed and BEHIND while the queue was reported as draining. Nothing had merged and nothing could. |
-| Why it read as motion | The phrase "four armed PRs" sounded like progress and was its opposite. |
+| Measured 2026-08-12 | Four PRs sat armed and BEHIND while the queue was reported as draining. Nothing had merged and nothing could. The phrase "four armed PRs" sounded like progress and was its opposite. |
 | Break a stall with the cheapest PR | One update-branch, cheapest PR first. A docs-only PR lands in about two minutes and costs no code slot. |
 | Treadmill versus self-inflicted | Treadmill: `main` moves from OTHER sessions' merges, so do not chase. Self-inflicted: `main` moves because YOU keep merging, so STOP MERGING until the one you want lands. |
-| The tell is authorship | They are indistinguishable from inside. Read `git log origin/main` over the window and ask who merged those commits. |
-| The measured case | One PR was update-branched four times, and every re-BEHIND was caused by the lander landing something else. |
-| A freeze is free | A held ARMED+BEHIND PR loses nothing by waiting, because it could not merge while BEHIND. |
-| Why it is the non-obvious move | Stopping the queue to let one through is the only thing that delivers a specific PR on request. |
+| The tell is authorship | They are indistinguishable from inside. Read `git log origin/main` over the window and ask who merged those commits. Measured: one PR was update-branched four times, and every re-BEHIND was caused by the lander landing something else. |
+| A freeze is free | A held ARMED+BEHIND PR loses nothing by waiting, because it could not merge while BEHIND. Stopping the queue to let one through is the only thing that delivers a specific PR on request. |
 | The API budget is SHARED with your subagents | 5,000/hour across the main loop, every `gh` call and every subagent, so a fleet divides it. Check with a real call, never the gauge. `lander-reach-for-an-instrument`, *The GitHub API budget is SHARED*. |
 | A quiet fleet is not a drained queue | Nothing fires when landings STOP, so count open PRs every pass rather than waiting to be told. `lander-empty-queue`, *An edge-triggered watch reports transitions*. |
 | But only while you keep advancing | Under `strict: true` a serialised queue drains only while somebody pushes the front forward. Stop entirely and the stall re-forms silently. |
 | Measured 2026-08-22 | The same stall arrived twice in one session, the second within about twenty minutes of the queue going quiet: three armed BEHIND PRs, all green, zero failures. |
 | Price any other hold | Ask what the hold costs GIVEN the work already required. |
 | The common free case | A branch that has to be rebased anyway carries an extra fix for nothing, so holding it costs zero and needs no argument. |
-| ARMED plus DIRTY is a second deadlock | A conflict does not clear itself the way `update-branch` clears BEHIND, and it counts as progress on any board tallying armed PRs. |
-| Measured 2026-08-22 | A drain found every armed PR also DIRTY, so the armed count bought zero merges. |
+| ARMED plus DIRTY is a second deadlock | A conflict does not clear itself the way `update-branch` clears BEHIND, and it counts as progress on any board tallying armed PRs. Measured 2026-08-22: a drain found every armed PR also DIRTY, so the armed count bought zero merges. |
 | Report "able to merge", never "armed" | Compute armed AND `mergeStateStatus` CLEAN AND no required check BLOCKING, by the allow-list below. The third clause named the `reviewed` label until that gate was retired; the general form outlives it. |
 | **CORRECTED 2026-09-09: the third clause read "every required check COMPLETED".** | That passes a cancelled check. `CANCELLED` carries `status == COMPLETED`, so a completed-count and a failure-count both skip it and the pull request reads ready. |
 | Gate on an ALLOW-LIST, never a deny-list | `blocking = [c for c in rollup if (c.conclusion or "") not in ("SUCCESS", "SKIPPED", "NEUTRAL")]`. |
@@ -817,10 +766,8 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | Item | Rule |
 | --- | --- |
 | The exposure | You choose the required checks, you arm the merge, and you write the PR body. A green becomes whatever you say it means, with no reader in between. |
-| Why it is asymmetric | An author defending their own work gets challenged. A lander narrating a gate does not. |
-| The measured case | 2026-08-12, the vault `verified-at` check, claimed to a lane as *"proof your writer did not touch `verified_at`"*. |
-| What the check actually asserts | A PROPERTY OF THE VALUE: full 40 hex, resolvable, ancestor of engine main. Never that the value is UNCHANGED. |
-| So what passes it | A writer rewriting every `verified_at` to another legal ancestor sha goes green on all 345 cells. |
+| Why it is asymmetric | An author defending their own work gets challenged. A lander narrating a gate does not. Measured 2026-08-12: the vault `verified-at` check, claimed to a lane as *"proof your writer did not touch `verified_at`"*. |
+| What the check actually asserts | A PROPERTY OF THE VALUE: full 40 hex, resolvable, ancestor of engine main. Never that the value is UNCHANGED. So a writer rewriting every `verified_at` to another legal ancestor sha goes green on all 345 cells. |
 | The lane's words | *"That is a compensating control resting on a false premise, and it is worth catching now rather than after it is written into a PR description as proof."* |
 | What was not wrong | Requiring the check. The configuration was correct; only the CLAIM was false. |
 | The two decisions feel like one | "This gate is worth having" and "this gate proves X" have different evidence, and the first does not license the second. |
@@ -878,13 +825,11 @@ into a definite answer in either direction.**
 | The author cannot see the clock | When you open a PR from someone else's commit, tell them the SHA it is frozen at and that later commits do not travel unless pushed. |
 | The measured case | One author kept working and amended on their branch, correctly, because they checked and the PR was OPEN. It merged while they wrote, and `main` carried the uncorrected work. |
 | What to do instead | Push again before it merges, or they file a follow-up. Do not let "the PR is still open" be what they reason from. |
-| The squash trap | After the squash the author's branch is unpushable. Its base is no longer an ancestor of `main`, so `merge-tree` conflicts. |
-| The tell that it is the squash | The ORIGINAL commit still merges CLEAN against `main` while the amended one does not. |
+| The squash trap | After the squash the author's branch is unpushable. Its base is no longer an ancestor of `main`, so `merge-tree` conflicts. The tell: the ORIGINAL commit still merges CLEAN against `main` while the amended one does not. |
 | Recovery, step 1 | Prove the replay is safe: `git diff <pushed-sha> origin/main -- <file>` must be EMPTY. |
 | Recovery, step 2 | Cut a fresh branch off current `main` and cherry-pick their commit. Never retype it. |
 | Recovery, step 3 | Credit the text as theirs in the PR body and say you only re-routed it. |
-| Same-change, not same-shape | Use `git diff <sha>~1 <sha> \| git patch-id --stable` on both sides. Two different diffs can share a diffstat. |
-| Its stated limit | It hashes the normalised diff and ignores message, author, parent and date, so it does NOT answer "are these the same commit". |
+| Same-change, not same-shape | Use `git diff <sha>~1 <sha> \| git patch-id --stable` on both sides. Two different diffs can share a diffstat. Its limit: it hashes the normalised diff and ignores message, author, parent and date, so it does NOT answer "are these the same commit". |
 | Two independent replays | Compare the resulting BLOB (`git rev-parse <sha>:<path>`), not the patch. Objects are shared across worktrees, so it is a one-line proof. |
 | Scope the stat to the question | `git diff --shortstat A~1 A` is COMMIT-scoped; `git diff --shortstat origin/main...A` is BRANCH-scoped, and a PR carries the branch. |
 | What that cost once | Quoting the commit-scoped number while proposing a branch-scoped action nearly put three commits into two open PRs at once. |
@@ -898,8 +843,7 @@ into a definite answer in either direction.**
 | What arming would have done | Landed a coherent-looking SUBSET. Only the AUTHOR could see the gap, both times they volunteered it, and no check found either. |
 | A subset can pass BECAUSE it is less | The superset step under *Attribution* says a subset cannot introduce a failure the superset did not have. That is about attributing a FAILURE, not a licence to trust a PASS. |
 | The mechanism | With an additive fail-closed guard, the guard cannot fire until the new surface exists. The smaller head goes green and the larger one reds. |
-| The shipped example | `tests/test_security_posture_defaults.py` carries `test_every_per_connection_tls_parameter_is_reported_or_exempt`. |
-| What it asserts | It enumerates per-connection parameters and fails any TLS-shaped one *"neither reported by a connection-scoped reader nor exempt with a reason"*. |
+| The shipped example | `tests/test_security_posture_defaults.py` carries `test_every_per_connection_tls_parameter_is_reported_or_exempt`. It enumerates per-connection parameters and fails any TLS-shaped one *"neither reported by a connection-scoped reader nor exempt with a reason"*. |
 | So | Add a new TLS knob and the guard reds. Arm the head that lacks the knob and it is green, and merging the subset ships the gap with a green tick over it. |
 | So ask, in words | Ask before you arm or merge someone else's branch. |
 | The partial mechanical check | Compare the PR head against the author's branch tip and any known worktree head, and treat a non-zero `rev-list` count as a question to raise. |
@@ -959,12 +903,11 @@ section. It is not a Lander and it read sections 1 to 3 and the heading list.
 engine #1279 by accident, re-derived this section's finding from the damage, and relayed it to three
 sessions as new. It holds this playbook. It had not opened this section either.
 
-So reach is not about which seat owns the file. **A section this long is opened by heading, and a
-heading nobody is searching for is not read.**
+So the cause is reach, not attention, and not which seat owns the file. **A section this long is
+opened by heading, and a heading nobody is searching for is not read.**
 
-So the cause is reach, not attention. `docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only
-the seat that opens the file it sits in*, landed in korus PR 130 at `df6d1ce`.
-
+`docs/TIPS-AND-TRICKS.md` carries it as *A warning reaches only the seat that opens the file it sits
+in*, landed in korus PR 130 at `df6d1ce`.
 
 The instrument that answers it under a merge queue:
 
@@ -999,8 +942,7 @@ gh api graphql -f query='query{repository(owner:"MEFORORG",name:"MessageFoundry"
 | The cheapest evidence | A commit message recording the suite at five percent and still running, or a bare `wip` subject, is the author telling you the work is unfinished. It costs one `git log`. |
 | Do not write the rule around a spelling | An in-flight-suite note and a `wip` subject are two instances. A rule naming one will not fire on the other. |
 | State it about the MESSAGE | A commit's own account of its completeness is evidence about that commit. |
-| The action is DRAFTING, not holding | A draft PR runs CI, collects the greens, and cannot merge unread. It costs nothing and buys the evidence. |
-| What arming does | It turns a self-declared unfinished commit into `main`. |
+| The action is DRAFTING, not holding | A draft PR runs CI, collects the greens, and cannot merge unread. It costs nothing and buys the evidence. Arming instead turns a self-declared unfinished commit into `main`. |
 | Read the state back | `gh pr view <N> --json isDraft,autoMergeRequest`, because a silent arm failure and a deliberate draft render identically in the record. |
 | **EXPIRY** | Drafts start gating merges, or the repo requires an approving review and arming stops being merging unread. |
 
@@ -1021,11 +963,9 @@ has happened: 13 PRs merged in one drain while the open count still grew from 3 
 | Item | Rule |
 | --- | --- |
 | Observed cost | In one drain, code PRs sat open for 427, 563 and 640 minutes. Not because CI is slow, but because each was repeatedly knocked behind and re-run. |
-| Re-measure any cost model | The old docs-only figures (2, 2, 2 and 13 minutes) were measured against an older required set and no longer hold. |
-| How to re-measure | `max(completedAt) - min(startedAt)` over the REQUIRED contexts only. |
+| Re-measure any cost model | The old docs-only figures (2, 2, 2 and 13 minutes) were measured against an older required set and no longer hold. Re-measure with `max(completedAt) - min(startedAt)` over the REQUIRED contexts only. |
 | Do this | Batch independent code changes into one PR. Keep at most ONE code PR in flight and hold the rest as pushed branches. Serialise only genuine ordering constraints. |
-| Do NOT tell Builders "small and independent is the right shape" | That is correct for avoiding CONFLICTS and exactly wrong for a queue rate-limited by PR COUNT. |
-| Why it had to be measured | The two pieces of advice look identical at the branch level and diverge only at the PR level. |
+| Do NOT tell Builders "small and independent is the right shape" | That is correct for avoiding CONFLICTS and exactly wrong for a queue rate-limited by PR COUNT. The two pieces of advice look identical at the branch level and diverge only at the PR level. |
 | Batching trap 1 | `git cherry-pick` does not run pre-commit, so batched commits pass no local gate on creation. Run the ledger and backlog checks by hand, plus the affected tests. |
 | Batching trap 2 | A source branch cut before a recent merge conflicts wholesale on a shared file, and accepting its side silently reverts what landed. Take MAIN's side and re-apply only the branch's own edits. |
 | A second criterion: ledger dispositionability | An arc of work dispositioned in the ledger as ONE item should not be split across PRs at all. |
@@ -1040,13 +980,10 @@ one group; 911 and 915 flipped to `UNMERGEABLE` inside the queue and were evicte
 | Item | Rule |
 | --- | --- |
 | The two states disagree, and `gh pr view` shows the wrong one | Every evicted entry read `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN` at the pull-request level, with an unmoved head, while its queue entry read `UNMERGEABLE`. |
-| Not a transient | 911 held that split state across three polls over 90 seconds. |
-| So | Poll the QUEUE ENTRY state. A seat watching only the pull request sees healthy pull requests while some of them are being dropped. |
-| A queued entry is NOT a landed change | Say "queued". Say "landed" only on `merged=true`. |
-| Why that wording matters | The board reported a four-pull-request batch and the fleet got one. A status board reporting throughput nobody received hides the real bottleneck from whoever reads it. |
+| Not a transient | 911 held that split state across three polls over 90 seconds. So poll the QUEUE ENTRY state: a seat watching only the pull request sees healthy pull requests while some are being dropped. |
+| A queued entry is NOT a landed change | Say "queued". Say "landed" only on `merged=true`. The board reported a four-pull-request batch and the fleet got one, and a status board reporting throughput nobody received hides the real bottleneck. |
 | A clean `git merge-tree` matrix is not permission to enqueue | It answers "do these conflict with each other". "Will the queue take these" is a different sentence, and that night the first was green while the second was not. |
-| `dequeuePullRequest` failing is not always a failure | `Failed to remove PR #N` often means GitHub has ALREADY evicted it. Re-read the queue rather than retrying. |
-| Its GraphQL input field is `id` | Not `pullRequestId`. The wrong name returns a schema error that reads like a permissions problem. |
+| `dequeuePullRequest` failing is not always a failure | `Failed to remove PR #N` often means GitHub has ALREADY evicted it. Re-read the queue rather than retrying. Its GraphQL input field is `id`, not `pullRequestId`; the wrong name returns a schema error that reads like a permissions problem. |
 | **THE CAUSE IS UNKNOWN, AND STAYS UNKNOWN** | Record it as an unexplained anomaly. Filling the gap with a tidy story is how a playbook acquires a rule nobody can defend. |
 | **EXPIRY** | Someone establishes why entries are dropped. Until then no rule here may rest on a cause. |
 
@@ -1069,8 +1006,7 @@ record of what shipped. Three arming preconditions follow, all measured 2026-08-
 
 | Item | Rule |
 | --- | --- |
-| A posture reversal or an ADR supersession lands under its OWN PR title | Never stacked inside an unrelated one. |
-| The measured case | An always-serve-TLS change, reversing a posture an ACCEPTED ADR had recorded, sat inside a 48-commit PR titled after a username case-sensitivity fix. |
+| A posture reversal or an ADR supersession lands under its OWN PR title | Never stacked inside an unrelated one. Measured: an always-serve-TLS change, reversing a posture an ACCEPTED ADR had recorded, sat inside a 48-commit PR titled after a username case-sensitivity fix. |
 | The cost | A reader six months out sees that title, sees green, and has no way to learn what shipped. |
 | Gate available | A required check that a PR whose diff touches `docs/adr/*.md` names that ADR in its title or body. Mechanical from `gh pr diff --name-only`. |
 | **EXPIRY** | Either repo starts requiring an approving review. Check with the protection read. |
@@ -1084,16 +1020,12 @@ record of what shipped. Three arming preconditions follow, all measured 2026-08-
 
 | Item | Rule |
 | --- | --- |
-| What it is | `tests/test_tooling_partition.py::test_every_non_engine_test_is_classified` is a static scan. |
-| What it fails | Any `tests/test_*.py` importing no engine module and named in neither `tests/tooling_manifest.txt` nor the file's own `_STAYS_WITHOUT_IMPORTING` list. |
-| Why it cannot clear on a re-run | It is a REQUIRED context and it is deterministic. |
-| Its own stated intent | *"The drift guard: a NEW harness test must land in the manifest or be named as staying."* |
+| What it is, and what it fails | `tests/test_tooling_partition.py::test_every_non_engine_test_is_classified` is a static scan. It fails any `tests/test_*.py` importing no engine module and named in neither `tests/tooling_manifest.txt` nor the file's own `_STAYS_WITHOUT_IMPORTING` list. |
+| Why it cannot clear on a re-run | It is a REQUIRED context and it is deterministic. Its own stated intent: *"The drift guard: a NEW harness test must land in the manifest or be named as staying."* |
 | Measured cost | 2026-08-22: it caught three PRs in one evening, all adding coordination-script tests. |
-| Pre-arm check | Run that test locally. That is the whole pre-arm check. |
-| What its failure message gives you | Both landing places and the discriminator: add the file to `tests/tooling_manifest.txt`, *"or to `_STAYS_WITHOUT_IMPORTING` here if they read engine source"*. |
+| Pre-arm check | Run that test locally. That is the whole pre-arm check. Its failure message gives both landing places and the discriminator: add the file to `tests/tooling_manifest.txt`, *"or to `_STAYS_WITHOUT_IMPORTING` here if they read engine source"*. |
 | Confirm the direction first | The wrong-direction hazard is worse than the red. Putting a test whose subject is engine source in the MANIFEST takes it off every engine leg. |
-| The sibling assertion says so | Listed-as-tooling tests that import the engine *"would stop running on the engine legs that exercise what they test"*. |
-| So | A red here is a classification question, not a formality. |
+| The sibling assertion says so | Listed-as-tooling tests that import the engine *"would stop running on the engine legs that exercise what they test"*. So a red here is a classification question, not a formality. |
 | Gate-shaped | Assert every newly added `tests/*.py` importing no engine module is named in one list or the other. |
 | **EXPIRY** | The gate or the manifest scheme changes. Check by reading `tests/test_tooling_partition.py` on `origin/main`. |
 
@@ -1119,10 +1051,9 @@ Source of record: `docs/LEDGER-GATE.md`. A pre-commit gate enforces this section
 
 ### Filing a new ledger item routes to the Lander, because allocation and commit cannot be split
 
-**This is a mechanical consequence of three existing rules, not a new policy.** `docs/BACKLOG.md` is
-effectively single-writer: the tail is a serialization point, and two sessions editing it merge clean
-while corrupting the ledger. A number must be allocated atomically by `alloc.ps1`. The pre-commit gate
-refuses a number allocated from a different worktree, non-transferably.
+**A mechanical consequence of three existing rules, not a new policy.** `docs/BACKLOG.md` is
+single-writer: two sessions editing its tail merge clean while corrupting the ledger (*7c*).
+`alloc.ps1` must allocate the number atomically, and the gate refuses one from another worktree.
 
 > **Therefore whoever COMMITS the ledger edit must be the one who ALLOCATED it, and the lander does
 > both, in their own worktree, in one commit.**
@@ -1131,16 +1062,13 @@ refuses a number allocated from a different worktree, non-transferably.
 | --- | --- |
 | What a build session hands over | The ITEM CONTENT -- mechanism, evidence, fix direction -- and never a number. |
 | Why a split fails | It produces a commit the gate rejects **late, at commit time, after the work is done**. Asking a worker to "allocate one and I'll commit it" is asking for a commit that cannot land. |
-| The counterpart duty, and it is the expensive half | Concentrating filing on one seat concentrates the duplicate risk on it too. |
-| Why you are the worst-placed to spot a duplicate | You file items you did not investigate, across lanes, hours apart. |
+| The counterpart duty, and it is the expensive half | Concentrating filing on one seat concentrates the duplicate risk on it too, and you are the worst-placed to spot one: you file items you did not investigate, across lanes, hours apart. |
 | So, before allocating | Check the item does not already exist: read the ledger for the **defect**, not for the number. `alloc.ps1` cannot do this. |
-| The rule that owns it | *A correct process applied to the wrong question produces a confident wrong answer*. |
-| Measured 2026-08-12 | A lander verified a fail-open mechanism against the shipped source, then allocated **#1231**. |
+| The rule that owns it | *A correct process applied to the wrong question produces a confident wrong answer*. Measured 2026-08-12: a lander verified a fail-open mechanism against the shipped source, then allocated **#1231**. |
 | What was already true | It was filed as **#1229** and already on `main`: same file, same lines, same code block. |
 | The aggravating detail | The lander had merged #1229 themselves five hours earlier and had written it into their own episode note. |
 | Why the verification made it worse | Confirming the mechanism consumed the attention that would have asked whether the item existed, while producing the feeling of having checked. |
-| An unfiled number | A permanent HOLE, and holes are free, per `ledger_check.py`'s own header. |
-| So | Release the claim, leave the `alloc/` record, never reuse the number, and never file something else under it. |
+| An unfiled number | A permanent HOLE, and holes are free, per `ledger_check.py`'s own header. So release the claim, leave the `alloc/` record, never reuse the number, and never file something else under it. |
 
 **Closing banners on a worker's PR is the half that deadlocks.** The required check *"a PR that
 implements BACKLOG #N must update BACKLOG.md"* reads the **PR title and body** for the literal token
@@ -1157,15 +1085,12 @@ routing consequence of both, and it is invisible until a worker hits it.
 | Item | Rule |
 | --- | --- |
 | Why the lander can always write it | The banner edit is exempt from ownership whenever the heading is already on `origin/main`, which is exactly the closing case. |
-| When no worktree can be checked out | Build the commit with plumbing: `read-tree` into a temp index, `update-index`, `commit-tree`, push the resulting sha. |
-| Why that is safe | It touches no working tree at all, so it cannot cause the collision the gate exists to prevent. |
+| When no worktree can be checked out | Build the commit with plumbing: `read-tree` into a temp index, `update-index`, `commit-tree`, push the resulting sha. It touches no working tree at all, so it cannot cause the collision the gate exists to prevent. |
 | The condition that keeps plumbing honest | State that you did so, and run by hand the checks pre-commit would have run. |
-| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them. |
-| What the same commands become there | Routing around a control. |
+| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. |
 | Then hand it over STATED, not executed | Name the conflicting file, name the resolution, and say a seat with a working tree is needed. |
 | **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4g*. Hand over only where you genuinely cannot reach the branch. |
-| Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. |
-| What that is | A routing act, not a refusal. |
+| Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. That is a routing act, not a refusal. |
 
 ### 7c. The BACKLOG tail is a serialization point, and so is the ADR index
 
@@ -1188,15 +1113,12 @@ one. Holding to one in flight cannot close it.
 | Tell the owner what caused it | The queue caused the conflict, not the author's mistake. |
 | One in flight is not one per edit | The tail conflict is per **PR**, not per edit. N edits batched onto one branch cost exactly one tail resolution. |
 | Measured 2026-08-22 | **16 separate ledger-only PRs** in one drain, each burning a full required-check slot and re-BEHINDing every other open PR, for **zero closures**. |
-| Batch by LATENCY CLASS | Filings, body amendments and recorded rulings keep their value an hour later. Nine of those 16. |
-| So | Accumulate them on one branch and open **one PR per drain window**. |
-| The class you must not delay | Coordination signals: in-progress banners, retractions, withdrawals and shipped-but-open marks. The other 7. |
-| Why | Their whole value is latency. Land them immediately and alone. |
+| Batch by LATENCY CLASS | Filings, body amendments and recorded rulings keep their value an hour later. Nine of those 16. So accumulate them on one branch and open **one PR per drain window**. |
+| The class you must not delay | Coordination signals: in-progress banners, retractions, withdrawals and shipped-but-open marks. The other 7. Their whole value is latency: land them immediately and alone. |
 | What delaying them costs | The zero-of-thirty postmortem, where the ledger reported thirty items free while work landed on twenty. |
 | Never batch ledger with code | That reintroduces the code slot cost you are avoiding. |
 | The resolved size is COMPUTED, not chosen | Let `A` = rows at the merge-base, `B` = rows at the PR head, `C` = rows on `main`. The resolved file has **`C + (B - A)`** rows. |
-| Then assert zero duplicate numbers | The count can be right while two rows claim one number, which is the corruption the allocator exists to prevent. |
-| Why | "Keep both sides" taken on faith is how a mechanically clean merge lands a duplicate. |
+| Then assert zero duplicate numbers | The count can be right while two rows claim one number, which is the corruption the allocator exists to prevent. "Keep both sides" taken on faith is how a mechanically clean merge lands a duplicate. |
 | The authorship tell | A ledger-touching merge is the cheapest way to manufacture a conflict on your own queue. |
 | Measured 2026-08-22 | A lander landed one ledger PR and it immediately made the next ledger-touching PR DIRTY. Read who merged the dirtying commits. It was you. |
 | The check runs before the merge, and it is MANUAL | List the open PRs whose diff also touches `docs/BACKLOG.md`. If any, batch or hold. |
@@ -1239,8 +1161,7 @@ a broken grep.**
 | Only appends serialize | Of the four conflicts that day, three were interior: #1529 was PR 1030, #1530 was PR 1029, #1531 was PR 1032. |
 | So resolve interior inserts in PARALLEL | Each sits at its own slot and leaves the clique permanently, not in turn. |
 | A true-tail clique still goes in ascending order | #1537, #1539 and #1544/#1545 were one. Rebase each only when it is NEXT. |
-| What 7c had wrong | Serializing interior inserts costs throughput and prevents nothing. |
-| What it costs | 34 open PRs that day, the large majority touching `docs/BACKLOG.md`. Strict one-at-a-time makes that one file the throughput ceiling for the whole repository. |
+| What 7c had wrong, and what it cost | Serializing interior inserts costs throughput and prevents nothing. 34 open PRs that day, the large majority touching `docs/BACKLOG.md`; strict one-at-a-time makes that one file the throughput ceiling for the whole repository. |
 | Never resolve by DELETING a row | `scripts/hooks/ledger_check.py` refuses a commit that deletes a BACKLOG item heading. A vanishing id trips the gate, and that is the gate working. |
 | Land it closed instead | A seat hit this on 2026-09-11 and landed #1531 closed-as-invalid rather than dropping it. |
 | Credit | The interior/tail distinction is the `manager-a3db9d` seat's. The Lander verified it before adopting it. |
@@ -1255,8 +1176,7 @@ request's file list, and a run history showing no failures.
 | Never derive the conflict set from the file list | `gh pr view --json files` lists CHANGED files, not CONFLICTING ones. Read as a conflict set on PR 1030 it named three files where `merge-tree` named one. |
 | Read the merge itself | `git merge-tree --write-tree origin/main <head>` for the exit code, `git merge-tree --name-only origin/main <head>` for the conflicting files. |
 | Always with two controls | `origin/main` against itself MUST exit 0. The PR's own PRE-FIX head MUST exit non-zero. |
-| Why its own pre-fix head | It makes the 0 attributable to that merge rather than to a check that cannot fail. A generic negative arm proves less. |
-| Measured on PR 1030 | Subject `d5b77a333` gave 0, the self-merge gave 0, pre-fix head `e520ad2f3` gave 1. |
+| Why its own pre-fix head | It makes the 0 attributable to that merge rather than to a check that cannot fail. A generic negative arm proves less. Measured on PR 1030: subject `d5b77a333` gave 0, the self-merge gave 0, pre-fix head `e520ad2f3` gave 1. |
 | Never read `mergeStateStatus` as the verdict | It is GitHub's cached opinion. It goes UNKNOWN, it goes stale, and it disagrees with the queue's own build. |
 | The shape that fools you | An entry EVICTED from the merge queue reads CLEAN or MERGEABLE at PR level, with its head unmoved. |
 | Credit | The own-pre-fix-head refinement is from the session that resolved PR 1030. |
@@ -1286,15 +1206,12 @@ is fixed. **The reading habit it teaches is not repo-specific: no failures is no
 
 | Item | Rule |
 | --- | --- |
-| Order | When a fix PR and its ledger PR are separate, merge the **LEDGER** one first. |
-| Why | Ledger-first is self-correcting. Fix-first has `main` claiming "not yet merged" about something already shipped. |
-| Close before you file | The ledger is single-writer, so filing and closing compete for one channel, and filing always feels more urgent because someone just handed you the finding. |
-| Measured 2026-08-22 | A 29-merge drain filed 11 items and closed none, ending **+11 open**. |
+| Order | When a fix PR and its ledger PR are separate, merge the **LEDGER** one first. Ledger-first is self-correcting; fix-first has `main` claiming "not yet merged" about something already shipped. |
+| Close before you file | The ledger is single-writer, so filing and closing compete for one channel, and filing always feels more urgent because someone just handed you the finding. Measured 2026-08-22: a 29-merge drain filed 11 items and closed none, ending **+11 open**. |
 | What sat unread | **117 open items carrying a build or demand verdict**, the only two classes that have ever closed. |
 | The pre-filing step | Before you open a filing PR, list the code PRs merged since your last ledger PR and write their dispositions first. |
 | Partly fixed | Write the PARTIAL banner and name the residual. That is still a disposition, and it stops the next lane rebuilding the work. |
-| The bar is a re-read | A prior sweep sent 17 shipped-claims to a dedicated second reader and **13 of 17 were overturned**. |
-| What prose is worth | Item prose saying the work shipped is a lead. The closing evidence is the code symbol at its current line. |
+| The bar is a re-read | A prior sweep sent 17 shipped-claims to a dedicated second reader and **13 of 17 were overturned**. Item prose saying the work shipped is a lead; the closing evidence is the code symbol at its current line. |
 | An obligation that fires unattended | Gate the banner edit on a check, not on remembering, because an auto-merge PR can land with nobody present. |
 
 ```
@@ -1341,14 +1258,11 @@ way to learn the release is owed.
 | The bar runs both ways | A code re-read is necessary and **not sufficient**. As written, the re-read bar reads as licence to skip the prose. |
 | Measured 2026-08-22 by a seat applying it exactly | They ran the functions the item named, with controls firing both ways, closed the item, and were wrong. The residual was declared in the item's own prose. |
 | What prose is authority for | Prose is a **lead** for whether the work SHIPPED and the **authority** on what the item still OWES. Let the prose decide the banner. |
-| The mechanical test | If the item's body says a named half is *unchanged*, *still open*, or *not yet done*, the item is **PARTIAL, never closed**. |
-| Why no re-read overturns it | The item is the record of what it owes. |
-| Where the declaration sits | Measured on `origin/main`: *"The library half is unchanged and still open:"*, followed by three named dependencies. |
-| How far below the heading | Roughly a hundred lines, inside an item spanning over a hundred lines. |
+| The mechanical test | If the item's body says a named half is *unchanged*, *still open*, or *not yet done*, the item is **PARTIAL, never closed**. No re-read overturns that: the item is the record of what it owes. |
+| Where the declaration sits | Measured on `origin/main`: *"The library half is unchanged and still open:"*, followed by three named dependencies. Roughly a hundred lines below the heading, inside an item spanning over a hundred lines. |
 | Keep the correction as a commit | Do not force-push a withdrawn closure. A retraction that rewrites history leaves no record at all. |
 | A heading names a SUBSET of the item | The scope failure underneath the method failure. In that instance the seat read the item's opening section and ran the two functions the HEADING names. |
-| What that was | Correct work aimed at a fraction of the item. |
-| So | Read to the next `## <N>.` heading before you write any banner. That span is the item, and the heading is a label on it. |
+| What that was, and what to do | Correct work aimed at a fraction of the item. So read to the next `## <N>.` heading before you write any banner: that span is the item, and the heading is a label on it. |
 
 ### 7d-ter. An item number in a PR TITLE, or on a SECOND COMMIT, is not a closure claim
 
@@ -1359,22 +1273,19 @@ way to learn the release is owed.
 | What that is | One fix reference and two filing references in one line, while other titles in the same window carry the identical `#N` shape for a pure filing. |
 | So | A title reference does not tell you whether the item was FIXED. |
 | The discriminator, where you READ the title | A banner flip needs a **DELETION**, so a title reference is a closure only if the same PR deletes a status banner line. |
-| Two commits, one item number | Ledger-first ordering guarantees the filing lands first and the fix second. From any distance the second reads as a duplicate of the first. |
-| It is not | They are complementary halves, and the filing closes nothing. |
+| Two commits, one item number | Ledger-first ordering guarantees the filing lands first and the fix second. From any distance the second reads as a duplicate of the first. It is not: they are complementary halves, and the filing closes nothing. |
 | Gate available | Flag any commit that flips a banner while its diff touches only `docs/BACKLOG.md`: the filing without the fix. Route it to whoever builds gates. |
 
 ### 7e. A banner listing only what a change CLOSED and not what it BROKE is half a record
 
 One banner was corrected three times before its final form was honest. It now says the rule was
-**narrowed, not fixed**, names inline the bypass that **survives** the fix, and names the **false
-denies the fix introduced**.
+**narrowed, not fixed**, names the bypass that **survives** it, and the **false denies it introduced**.
 
 | Item | Rule |
 | --- | --- |
 | Presence is not closure | Do not read an item's presence in the ledger as its defect being closed. |
 | Verify a build dependency in the code | Never from its banner. |
-| The measured case | A lane held its work because the item it depended on read as unmerged, when the *item* was open and the *code* had shipped two PRs earlier. |
-| What it built out of a stale banner | A merge gate and a linter exclusion. |
+| The measured case | A lane held its work because the item it depended on read as unmerged, though the *item* was open and the *code* had shipped two PRs earlier. It built a merge gate and a linter exclusion on that stale banner. |
 | Two independent claims | "The code landed" and "the item is closed" are independent, and for a dependency both readings of a banner can be wrong at once. |
 
 ### 8a-bis. Git conflicts on concurrent EDITS, not on INVALIDATED CLAIMS
@@ -1388,13 +1299,11 @@ strictly harder to see.
 | Item | Rule |
 | --- | --- |
 | The measured case | One lane BUILT a feature. An ADR index in a different file still read *"build handed off as BACKLOG #N, not yet built"*. |
-| What the merge looked like | Clean. No marker, no signal, nothing to inspect. |
-| Why | Git had nothing to conflict, because the lane that changed the world never touched the file that described it. |
+| What the merge looked like | Clean. No marker, no signal, nothing to inspect. Git had nothing to conflict, because the lane that changed the world never touched the file that described it. |
 | Why keep-both-sides is better than this | It at least leaves both texts present for a human to compare. Here there is only one text, it is stale, and it merged without incident. |
 | After any integration | Re-read what the tree now CLAIMS about itself: index rows, READMEs, status banners, "not yet built" and "planned" prose, against what it now DOES. |
 | Why you must ask unprompted | No merge tool answers that question, and no conflict will prompt you to ask it. |
-| A predicted conflict is NOT a control | The lane saw the problem, wrote it into its report, then relied on git to force the fix at merge time. |
-| Why that is worse than not predicting | It converts a known problem into an unowned one. |
+| A predicted conflict is NOT a control | The lane saw the problem, wrote it into its report, then relied on git to force the fix at merge time. That is worse than not predicting: it converts a known problem into an unowned one. |
 | So | Treat *"the merge will force us to fix X"* as a TODO assigned to the integrator, never as a mechanism that will fire. |
 
 **Several lanes live on one file, measured 2026-08-22.** Three lanes editing one coordination script
@@ -1430,20 +1339,17 @@ edits on lines 3 and 5 of one eight-line file on two branches, `git merge-tree -
 | One tree per session | Cut your own with `pwsh -NoProfile -File scripts\worktree\new.ps1 -Name <x>`; clean up with `remove.ps1`. See `docs/WORKTREES.md`. Never share a working tree. |
 | Never switch a peer's tree | That is a hijack: it swaps every file under the other session. |
 | If yours is hijacked | Restore from a plain terminal with `git -C <path> switch <home-branch>`, after committing or stashing what you want to keep. |
-| Liveness | Sessions announce through hooks, and presence and occupancy live in `scripts/coord/`. |
-| Why you must not hand-roll it | VS Code sessions can be invisible to session-listing APIs. Use the coord scripts' liveness check. |
+| Liveness | Sessions announce through hooks, and presence and occupancy live in `scripts/coord/`. Do not hand-roll it: VS Code sessions can be invisible to session-listing APIs, so use the coord scripts' liveness check. |
 | Shared memory | The AI project memory is shared across sessions. Coordinate memory writes. |
-| `git reset --hard` is denied | The harness refuses it in a worktree. Stop; do not hunt for a spelling that gets past it. |
-| What to do instead | Plan owner execution from a plain terminal, or pick a non-destructive alternative. |
+| `git reset --hard` is denied | The harness refuses it in a worktree. Stop; do not hunt for a spelling that gets past it. Instead plan owner execution from a plain terminal, or pick a non-destructive alternative. |
 | A pruned worktree dangles its commits | Removing a worktree can delete its branch ref, leaving commits in no ref and no reflog. Reference the tip SHA first. |
-| The dangerous case | Ahead-of-main, remote-exists and `git cherry` all lie under squash-merge, so **a MERGED worktree is the dangerous one to clean up**. |
-| Why | Its remote branch is auto-deleted, making an empty `ls-remote` the danger signal rather than the all-clear. |
+| The dangerous case | Ahead-of-main, remote-exists and `git cherry` all lie under squash-merge, so **a MERGED worktree is the dangerous one to clean up**. Its remote branch is auto-deleted, making an empty `ls-remote` the danger signal rather than the all-clear. |
 
 ### 11f. A write gate keyed on TARGET PATHS does not reach network or API operations
 
-Source of record: `docs/HOOKS.md` row 60 and `scripts/hooks/worktree_gate.ps1`. COMMON.md carries no gate rule: its one `gate` hit is about DEMAND-GATE items. The gate denies `Write`, `Edit`, `MultiEdit` and
-`NotebookEdit` whose TARGET PATH is inside the primary's tree, and only the dispatch rule keys on
-session cwd.
+Source of record: `docs/HOOKS.md` row 60 and `scripts/hooks/worktree_gate.ps1`. COMMON.md has no gate
+rule; its one `gate` hit is about DEMAND-GATE items. It denies `Write`, `Edit`, `MultiEdit` and
+`NotebookEdit` whose TARGET PATH is inside the primary's tree; only dispatch keys on session cwd.
 
 | Item | Rule |
 | --- | --- |
@@ -1451,30 +1357,25 @@ session cwd.
 | The lander consequence | Pushing a branch, opening a PR and arming a merge are network and API operations against a remote, not working-tree writes. |
 | So | They sit outside a target-path-keyed gate entirely, and a widened gate of that shape does not block this seat. |
 | What such a gate DOES deny | Committing or resolving a conflict in a primary checkout. Cut a worktree for that; never work in the primary. |
-| **EXPIRY** | The gate becomes command-keyed rather than target-path-keyed, at which point remote operations could fall inside it. |
-| How to check | Re-read the gate's matching rule, not by re-running one command. One command that succeeds tells you about one command. |
+| **EXPIRY** | The gate becomes command-keyed rather than target-path-keyed, at which point remote operations could fall inside it. Check by re-reading the gate's matching rule, not by re-running one command: one command that succeeds tells you about one command. |
 
 ## 13. Coordinating peers and relaying
 
 | Item | Rule |
 | --- | --- |
 | Verify the MECHANISM | Check a peer's mechanism, not just their conclusion. |
-| Keep a told-list | Record who you told what, and when it changes tell all of them. |
-| The measured case | A fact expired and the correction reached two of the three sessions that held it. The third built on the stale version. |
+| Keep a told-list | Record who you told what, and when it changes tell all of them. Measured: a fact expired and the correction reached two of the three sessions that held it, and the third built on the stale version. |
 | Ask before repeating | Ask what state a session is in before re-recommending. Re-recommending is not free: it costs a read and erodes the signal value of everything else you flag. |
 | The measured case | One action was re-recommended three times against a state that had already moved. |
 | Never relay a rule without its precondition | See *Two-dot versus three-dot answers one question*. |
-| A documentation finding is as perishable as a code finding | Re-verify against `origin/main` at the moment of FILING, not the moment of discovery. |
-| The measured case | One gap was true at its fork point and false by the time it was relayed, because `main` had moved underneath it. |
+| A documentation finding is as perishable as a code finding | Re-verify against `origin/main` at the moment of FILING, not the moment of discovery. Measured: one gap was true at its fork point and false by the time it was relayed, because `main` had moved underneath it. |
 | Check liveness before `update-branch` | A server-side update creates a merge commit on the remote the holding session has never fetched. |
-| What follows | Its push is then rejected non-fast-forward, and the obvious recovery, force-push, silently discards your commit. |
-| So | If the session is live, tell it: fetch first, never force. |
+| What follows | Its push is then rejected non-fast-forward, and the obvious recovery, force-push, silently discards your commit. So if the session is live, tell it: fetch first, never force. |
 | A collision gate blocking you is not automatically wrong | One blocked the lander twice and the override was declined both times. |
 | Why declining was not obvious | The other session had measured the insert point as disjoint and explicitly authorised the write, and the gate's own docstring says it must never be the reason a session cannot work. |
 | Why it was declined anyway | **The cost of waiting was ZERO**, while *"I convinced myself it was safe"* is the failure mode this whole playbook is about. |
 | The rule | A control bypassed on the bypasser's own judgement is not a control. |
-| Check the distribution before scoping a fix to a filename | A gate rule was reported and fixed as *"it refuses announce receipts"*. |
-| What the logs said | Of its nine logged denies, five were handoff documents and only three were receipts. **The bug report named the minority case.** |
+| Check the distribution before scoping a fix to a filename | A gate rule was reported and fixed as *"it refuses announce receipts"*. The logs said: of its nine logged denies, five were handoff documents and only three were receipts. **The bug report named the minority case.** |
 
 ### 14a. Two-dot versus three-dot answers one question: has this branch's own content already landed in `main`?
 
@@ -1485,10 +1386,9 @@ session cwd.
 | Relaying the rule | Never relay it without its precondition. It reached one session as the unconditional form and false-alarmed on a healthy branch. |
 | The scoreboard from one day | Two false alarms, one true fire. A rule that cries wolf on healthy branches gets ignored, and is then absent when a branch really is carrying a revert. |
 
-**`git diff main..branch` is NOT what merging does.** Proven in a scratch repo: where `main` changed a
-file the branch never touched, two-dot reported deletions while the three-way merge kept main's
-version. Two-dot renders main's own newer work as "deletions" purely because those lines are absent
-from the branch tip.
+**`git diff main..branch` is NOT what merging does.** Proven in a scratch repo: where `main` changed
+a file the branch never touched, two-dot reported deletions while the three-way merge kept it.
+Two-dot renders main's newer work as "deletions" because those lines are absent from the branch tip.
 
 The correct instrument, in this order:
 
@@ -1509,10 +1409,8 @@ no longer the PR's.
 | --- | --- |
 | Loud | A watcher pinned to the old head reports `TIMEOUT ... still pending`. Correct but useless, and easy to misread as a stall in CI rather than a stale target. |
 | Silent, and the expensive one | A *diagnostic* re-run dispatched about a specific SHA is destroyed. |
-| Measured | `#327`'s re-run was superseded mid-flight, losing the **paired second observation** on two intermittent tests. |
-| Why the replacement is weaker | The fresh run gives a FIRST observation on a NEW SHA, and it looks like a replacement for the lost one. |
-| Before update-branching | Check whether anything is measuring that PR. Pin a repeat measurement to one fixed SHA and do not advance the branch until it answers. |
-| Why opportunistic reads fail | Reads across moving heads cannot answer "does this reproduce". |
+| Measured | `#327`'s re-run was superseded mid-flight, losing the **paired second observation** on two intermittent tests. The replacement is weaker: the fresh run gives a FIRST observation on a NEW SHA and looks like a replacement for the lost one. |
+| Before update-branching | Check whether anything is measuring that PR. Pin a repeat measurement to one fixed SHA and do not advance the branch until it answers. Reads across moving heads cannot answer "does this reproduce". |
 | When a measurement is lost | Say so. Most of the cost of a lost measurement is people not knowing it was lost. An announced gap is a gap; an unannounced one is a false record. |
 
 ### 14l. The route is absolute; the authority is not transferable
@@ -1540,8 +1438,7 @@ no longer the PR's.
 | Why refusing protects nothing | The branch sits in the sending seat's worktree either way, and a decline costs an owner turn to undo. **What you might withhold is the PUSH, never the intake.** |
 | Re-ask when content changes class | On 2026-08-12 one lander was granted vault access three times in escalating scope: a bookkeeping-only branch push, then the same branch once it carried a **verdict move**, then push and merge generally. |
 | Why the middle ask happened | The branch's content had outgrown its description while keeping its name. That is the standard, even when the branch, the task and the authorization all still look the same. |
-| Confirm the remote before every vault push | Read `git remote get-url origin` and refuse on anything unrecognised. |
-| Why | `wshallwshall` and `MEFORORG` are two remotes for repositories of the same name, and pushing security documents to the public mirror is the one mistake with no undo. |
+| Confirm the remote before every vault push | Read `git remote get-url origin` and refuse on anything unrecognised. `wshallwshall` and `MEFORORG` are two remotes for repositories of the same name, and pushing security documents to the public mirror is the one mistake with no undo. |
 | The tell | *"I am in the vault checkout"* is an assumption, not a check. |
 | A coupled engine/vault pair | Still wants the owner present for BOTH halves. The route grant covers *operating* the vault; it does not convert a two-repo change into a one-session decision. |
 
@@ -1553,13 +1450,11 @@ Three refusals landed on one lander in a day and all three were the control work
 | --- | --- |
 | Ledger gate blocks your commit | It caught another worktree's numbers in your tree. Push **their** ref and open the PR from it. Do not renumber to satisfy the gate. |
 | An installer refuses to run inside Claude Code | Route it to the Manager for the owner to run from a plain terminal. Do not route around the refusal. |
-| A fail-closed writer refuses to amend a landed cell | Leave the inconsistency VISIBLE and escalate, even when it blocks an already-approved owner ruling. |
-| Why that is the harder and correct call | A quiet edit to another session's landed work is an undiscoverable defect. A visible inconsistency is a discoverable one. |
+| A fail-closed writer refuses to amend a landed cell | Leave the inconsistency VISIBLE and escalate, even when it blocks an already-approved owner ruling. That is the harder and correct call: a quiet edit to another session's landed work is an undiscoverable defect, a visible inconsistency a discoverable one. |
 | An authorised exception | Scope it explicitly IN THE COMMIT. Say which exception it is, and say the edit was FORCED by the control rather than chosen. |
 | Why | Otherwise the next reader cannot tell an authorised narrow edit from a session deciding to rewrite landed work. |
 | Do not file a defect against a deliberate scope | A check that logs *"no claim in this PR -- nothing to enforce"* is not lying. Its scope is deliberate. |
-| The residual, and it is real | Green renders identically for "enforced and passed" and "nothing to enforce". |
-| So | **A green there is not evidence the PR had no obligation. It is evidence nothing looked.** |
+| The residual, and it is real | Green renders identically for "enforced and passed" and "nothing to enforce". **So a green there is not evidence the PR had no obligation. It is evidence nothing looked.** |
 
 ## 17. The role file holds only what never expires; a dated episode note holds live state
 
@@ -1568,8 +1463,7 @@ successor can resume*.
 
 | Item | Rule |
 | --- | --- |
-| What goes in the EPISODE note, never here | Current `main`, the open queue, which PRs are armed, held or conflicted, held branches and unpushed SHAs, who is blocked on whom. |
-| And the rest of it | "Pick up here" lists, open item numbers, and anything with a session name in it. |
+| What goes in the EPISODE note, never here | Current `main`, the open queue, which PRs are armed, held or conflicted, held branches and unpushed SHAs, who is blocked on whom. Also "pick up here" lists, open item numbers, and anything with a session name in it. |
 | What goes HERE | A lesson still true after the queue drains: a trap, an instrument that lies, an ordering rule, a boundary of a gate, a measured mechanism. |
 | Why the split is load-bearing | A mixed document decays into a TRUSTED document that is WRONG, and the durable half hides it. It is not tidiness. |
 | Measured instance one | The standing "DO NOT INSTALL" instruction, correct when written and repeated in bold at the top of the document, INVERTED when the held fix merged. |
@@ -1579,8 +1473,7 @@ successor can resume*.
 | Retract in place | Keep the wrong version and why it was wrong. Several sections here are more useful for recording a wrong version than they would be stating only the right answer. |
 | Why | Delete the error and the next session re-derives it. |
 | LABEL THE KIND OF A HOLD WHEN YOU HAND ONE OVER | A mechanical hold -- a missing push, an unowned rebase -- and a hold resting on your own judgment inherit differently. |
-| Why it matters in a table | **Beside mechanical rows, an unlabelled judgment call reads as mechanical and stops being examined.** |
-| So | Write *"this is a judgment I made and should be re-examined, not inherited"* on the ones that are. |
+| Why it matters in a table | **Beside mechanical rows, an unlabelled judgment call reads as mechanical and stops being examined.** So write *"this is a judgment I made and should be re-examined, not inherited"* on the ones that are. |
 | A DELIBERATE HOLD CARRIES THE DEFERRED CONTENT VERBATIM | Not a pointer to it. A pointer into a session's context does not survive the session, and a release condition alone will not reconstruct the text. |
 | So | Record what you owe a seat in the same place, at the same moment, as what you owe the owner. |
 | AN OPEN-BLOCKER LIST NAMES THE PARTY THAT CAN MOVE EACH ITEM | It applies to the handoff's own open-PR list too. A blocker recorded only in a handoff is lost when the handoff ages. |
@@ -1612,8 +1505,7 @@ is noise, and the owner asked for the fourth deliberately.
 | Ref | The ledger number this row belongs to when THIS session named one: a backlog item, an ADR, an ASVS cell, written the way the session wrote it. A hyphen when none applies. |
 | Never look one up and never guess the next free one | An invented `#N` resolves to nothing today and to unrelated work the day somebody allocates it. |
 | Evidence, and it is not optional | A sha, a check name, a command and its result. Not "verified" -- what verified it. **A row you cannot point at does not go in the table.** |
-| COMPLETED means landed or proven, not attempted | Work that is green but unmerged is IN FLIGHT. |
-| Why that one | It is the distinction a reader acts on, and the one most easily blurred by a seat reporting its own effort. |
+| COMPLETED means landed or proven, not attempted | Work that is green but unmerged is IN FLIGHT. It is the distinction a reader acts on, and the one most easily blurred by a seat reporting its own effort. |
 
 ### Table 2 -- the blockers, separate on purpose
 
@@ -1627,24 +1519,21 @@ is noise, and the owner asked for the fourth deliberately.
 | Where the reason lives | *The role file holds only what never expires* states it, and this table exists to satisfy it. Do not restate it here. |
 | What is NOT a blocker | Work you have not reached yet is TO DO. A hard task is not a blocked one. |
 | The test | Whether it stops the ASSIGNED work. An unrelated annoyance is not a blocker. |
-| Nothing blocked | Write "No blockers." on one line. No empty table, and no padding. |
-| Why | A short blocker table is the good outcome, and inventing entries teaches the owner to skim it. |
+| Nothing blocked | Write "No blockers." on one line. No empty table, and no padding. A short blocker table is the good outcome, and inventing entries teaches the owner to skim it. |
 | If the session was compacted, say so in one line above the tables | Detail before that point comes from the handoff rather than recall, and the reader cannot tell that from the rows. |
-| A COMPLETED row that was wrong first and fixed after is still COMPLETED -- say which | The session that produced this convention put two such rows in its own first table. |
-| Why | Reporting only the clean path is how a seat's error rate becomes invisible to the person who most needs it. |
+| A COMPLETED row that was wrong first and fixed after is still COMPLETED -- say which | The session that produced this convention put two such rows in its own first table. Reporting only the clean path is how a seat's error rate becomes invisible to the person who most needs it. |
 
 ### 18a. Build the landing queue board, and give the owner its link EVERY SECOND CYCLE
 
 **Owner-set 2026-08-26.** A published page the owner opens, not a table they scroll back for. The relay
 under *Every time you generate the board* hangs off this.
 
-**The link goes to the owner at the end of every second cycle.** A cycle is one of your turns, the same
-unit this section counts, so a quiet monitoring turn still counts. **A missing link is a missed duty,
-not a quiet turn.**
+**The link goes to the owner at the end of every second cycle.** A cycle is one of your turns, the
+unit section 18 counts. **A missing link is a missed duty, not a quiet turn.**
 
 **The board itself is the durable second copy.** It sits at the artifact URL recorded under *HOW to
-build and republish it*, so a send that fails silently still leaves a page the owner can open. The owner
-set this cadence and then had to ask for it twice, because it lived in conversation and not here.
+build and republish it*, so a send that fails silently still leaves a page the owner can open. The
+owner set this cadence and had to ask for it twice, because it lived in conversation and not here.
 
 **FIVE sections. Owner-ruled 2026-08-29: the board is authoritative and this list matches it.** The
 list said FOUR and named a different set until then. The two overlapped without either containing the
@@ -1660,8 +1549,7 @@ other, so it was not drift one edit could reconcile.
 
 | Item | Rule |
 | --- | --- |
-| `WHO PLACED THE HOLD` is the load-bearing column | An owner ruling and a Lander's own caution are different obligations. |
-| What flattening them costs | It invites the owner to re-decide something they already settled while missing the one item that is actually theirs. |
+| `WHO PLACED THE HOLD` is the load-bearing column | An owner ruling and a Lander's own caution are different obligations. Flattening them invites the owner to re-decide something they already settled while missing the one item that is actually theirs. |
 | The "Stranded" section is RETIRED | The owner took that cost explicitly on 2026-08-29, and with it the duty to report lanes open more than three days with an action against each. |
 | It was deliberate | A SIXTH-section option was offered and NOT taken. Retired deliberately, not dropped silently. Do not re-add it. |
 | The rule it carried, which now binds nothing | Say what you are DOING, not what the item is; where the answer is "nothing yet", write that. |
@@ -1669,8 +1557,7 @@ other, so it was not drift one edit could reconcile.
 | Measured 2026-09-02 | The needles `blocks_merge` and `failing_required` each return exactly ONE hit in this tree, the line you are reading. Control, same command: `bucket` returns many files. |
 | Define each field once and reuse it | A second definition of the `bucket` column produced "5 parked" against the board's 3 on the first attempt, which is the whole reason that field existed. |
 | Say you derived it | Where the fence is gone, say you derived the column yourself. |
-| ALL TIMES ARE US CENTRAL, INCLUDING THE DAY BOUNDARY | Owner-set. Displaying Central while filtering "today" by UTC prints rows a reader can see are dated yesterday. |
-| Measured on the day it was set | FIVE of TWENTY-ONE rows. |
+| ALL TIMES ARE US CENTRAL, INCLUDING THE DAY BOUNDARY | Owner-set. Displaying Central while filtering "today" by UTC prints rows a reader can see are dated yesterday. Measured on the day it was set: FIVE of TWENTY-ONE rows. |
 | How the rule is implemented | `zoneinfo` has no tzdata on this box, so it is hand-rolled and carries known-answer controls that RUN ON IMPORT, including both DST transition instants. |
 | Stamp TWO timestamps, never one | When you read the PR data, and when the board was last REPUBLISHED to its artifact URL. |
 | Why | `docs/boards/README.md` records that the local source can be freshly regenerated while the published page has not been republished for hours. |
@@ -1684,19 +1571,16 @@ above.**
 
 | Item | Rule |
 | --- | --- |
-| Source | `docs/boards/landing-queue-status-board.html` **IN THE VAULT**, with `docs/boards/README.md` beside it. |
-| Why the path matters | The section above names no path, so a successor authors a NEW file and orphans the existing one. |
+| Source | `docs/boards/landing-queue-status-board.html` **IN THE VAULT**, with `docs/boards/README.md` beside it. The path matters because the section above names none, so a successor authors a NEW file and orphans the existing one. |
 | **The published URL, and it is load-bearing** | The URL is private and is NOT recorded in this public file. It is in the vault beside the board's source, and the owner has it saved. |
 | How to get it | Ask the owner or read it from the vault. Do not author a new one, which is the failure this row exists to prevent. |
 | Republish | The Artifact tool, **SAME file path AND the `url` parameter.** Same path alone suffices within one session; from any other session the `url` is REQUIRED. |
 | **What omitting the `url` does** | It silently forks the board to a new address and leaves the owner's saved link on a stale page. **NOTHING ERRORS.** |
 | Where that was written until now | Only in `docs/boards/README.md`, a file a successor has no reason to open. Verified: that README names the URL three times and this playbook named it zero. |
 | A column-count control before every publish | Header cells == body cells for EVERY row, asserted and not eyeballed. |
-| What it caught on its first use | A new column left one row at 4 cells against a 5-cell header, and that row lost its Class pill. |
-| Why that is worse than a crash | **A table that renders with a shifted row looks like DATA rather than a mistake.** |
+| What it caught on its first use | A new column left one row at 4 cells against a 5-cell header, and that row lost its Class pill. That is worse than a crash: **a table rendering with a shifted row looks like DATA rather than a mistake.** |
 | The page must be THEME-AWARE | It renders in the VIEWER's theme, three states, and a body with no explicit background borrows the host's. |
-| How | Define the light palette on bare `:root`, then redefine under **both** a `prefers-color-scheme` guard **and** a `[data-theme]` selector. |
-| Why it matters | Getting this wrong is invisible to the author and broken for the reader. |
+| How | Define the light palette on bare `:root`, then redefine under **both** a `prefers-color-scheme` guard **and** a `[data-theme]` selector. Getting this wrong is invisible to the author and broken for the reader. |
 | Nothing checks that the source and the published page agree | Re-publishing is the only thing that reconciles them, and the README says so rather than implying a check exists. |
 
 ### 18a-BLOCKED. The "Being fixed?" column. Owner-set 2026-08-29
@@ -1724,19 +1608,17 @@ owner talks to, so it carries this list. The Console held that route until 2026-
 | What it guards against | Not "the owner disagreed". It is "nobody ever put it in front of them", which leaves no trace anywhere. |
 | Send it on the BOARD's cadence, not the queue's | Tie it to generating the board so it cannot drift with how busy landing is. |
 | A MISSING send is itself a signal | Tell the Manager that, so an absence reads as a problem rather than as nothing to report. |
-| Every item carries WHO placed the hold | An owner ruling and a Lander's own caution are not the same obligation. The authority split under *Authority model* is what this column renders. |
+| Every item carries WHO placed the hold | 18a's row *`WHO PLACED THE HOLD` is the load-bearing column* has the reason. The column renders the authority split under *Authority model*. |
 | Say what CHANGED since the last send, per item | A list byte-identical four times running teaches the reader to skim it. If nothing changed, say that in three words rather than re-describing it. |
-| If you are holding against a ruling the owner already made, LEAD WITH THAT and say why | The worst version of this list silently omits a ruled item because you have not executed the ruling yet. |
-| How to write it | State the ruling, state the fact that arrived after it, and say plainly that one word releases it. |
+| If you are holding against a ruling the owner already made, LEAD WITH THAT and say why | The worst version of this list silently omits a ruled item because you have not executed the ruling yet. State the ruling, the fact that arrived after it, and say plainly that one word releases it. |
 | An item needing a DECISION belongs on this list even when no PR is stopped | The first send omitted a four-day-old item whose only blocker was an owner ruling, because it lived in a PR comment rather than in a queue. |
 | The rule | **Writing "needs a ruling" somewhere is not the same as asking for one.** |
 
 ### 18c. A terser companion board is SPECCED, not yet built
 
 `docs/boards/LANDER-STATUS-BOARD-SPEC.md`, in the **vault** repository, specs a second board: six
-KPI cards plus one merges-per-hour chart, values only, no prose. It complements 18a rather than
-replacing it. 18a answers what is blocked and why, in prose and a per-PR table; this one answers
-how the shift is going right now, in numbers a script can fill without a sentence of explanation.
+KPI cards plus one merges-per-hour chart, values only, no prose. It complements 18a. 18a answers
+what is blocked and why; this one answers how the shift is going now, in numbers a script can fill.
 
 **Nothing in it is built.** No generator, no `docs/boards/boards.json` entry, no artifact URL
 recorded anywhere durable. Whoever builds it must register the published URL in `boards.json` and
@@ -1744,10 +1626,9 @@ describe it in `docs/boards/README.md` before treating any link to it as stable 
 is account-scoped, and this project has already lost one to a silent account switch.
 
 **Why this section exists here and not only in the vault.** It was first written into the vault's
-own copy of this file, which opens with a banner telling the reader it is stale and to come here
-instead. A Lander following that instruction would have read 18a and 18b and never learned 18c
-existed. The spec belongs in the vault, beside the other boards; the pointer to it belongs in the
-copy seats are told to read.
+copy of this file, which opens with a banner calling itself stale and sending the reader here. A
+Lander following that would have read 18a and 18b and never learned 18c existed. The spec belongs in
+the vault; the pointer to it belongs in the copy seats are told to read.
 
 ## Task rules live in skills, loaded at their trigger
 

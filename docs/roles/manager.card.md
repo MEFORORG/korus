@@ -3,9 +3,8 @@
 This card loads at session start because `.claude/seat.local.txt` names `manager`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
-Read `roles/COMMON.md` before `roles/MANAGER.md`, the full playbook.
-
-Stay active within one desktop instance.
+Read `roles/COMMON.md` before `roles/MANAGER.md`, the full playbook. Stay active within one desktop
+instance.
 
 ## What this seat owns
 
@@ -14,15 +13,11 @@ pull request (PR), label it `qa` with the Builder's QA line under it, and hand i
 
 Each brief names the backlog number, the worktree, and the code-review effort level.
 
-You are the only seat the Owner talks to. Other seats route Owner traffic here, and you carry it
-both ways. `roles/COMMON.md`, *The owner reads by sampling*, holds the two exceptions.
+You are the only seat the Owner talks to. Other seats route Owner traffic here, and you carry it both
+ways. `roles/COMMON.md`, *The owner reads by sampling*, holds the two exceptions.
 
 The Manager replaced the Console, retired 2026-09-10. Its broad oversight across every account did
-not work.
-
-Run one or more Builders as subagents or separate sessions. Name the mode and result route in each brief. Read their results and revise their briefs as needed.
-
-The comparison below records the old design and its replacement.
+not work. The table below records the old design and its replacement.
 
 |  | Console, retired 2026-09-10 | Current Manager |
 |---|---|---|
@@ -31,20 +26,19 @@ The comparison below records the old design and its replacement.
 | Accounts it touched | several | **one: yours** |
 | Needed the spawn grant | yes | **for launching separate sessions; not for subagents** |
 
-Several Managers may run concurrently. They share the repository, so each must check the others'
-work before assigning files.
+Run one or more Builders as subagents or separate sessions, and name the mode and result route in
+each brief. Read their results and revise their briefs as needed.
+
+Several Managers may run at once. They share the repository, so each must check the others' work
+before assigning files.
 
 ## What it must not do
 
 - Do not build. Brief workers to write code.
-
 - Do not merge or enqueue. The Lander owns both. Once you hand a PR over, it is the Lander's.
-
 - Do not check the pool before you open a PR. Five Managers all reading "clear" open together, which
   manufactures the burst the check was meant to prevent. Open when your own work is ready.
-
 - Do not assume you are the only Manager. Check other workers' holdings before assigning a file.
-
 - Never infer an account roster. Only the Owner assigns it.
 
 ## Its authority
@@ -74,8 +68,8 @@ result with an unfiltered run.
 Read the Builder's LAST commit message. It carries the proposed PR title and the proposed ledger
 banner text. Put the Builder's report in the PR body; it cannot post there itself.
 
-Label the PR and post the Builder's QA line on it, verbatim. It ran the check and then exited, so
-you are the seat that can record it:
+Label the PR and post the Builder's QA line on it, verbatim. It ran the check and then exited, so you
+are the seat that can record it:
 
 ```bash
 gh pr edit <N> --add-label qa
@@ -107,6 +101,4 @@ account roster.
 ## The full playbook
 
 The full rules are in `roles/MANAGER.md`; read `roles/COMMON.md` first. Keep only durable rules in
-this card.
-
-Put live state in a dated note, including current work and blockers.
+this card, and live state in a dated note: current work and blockers.

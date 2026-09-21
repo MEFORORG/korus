@@ -14,11 +14,9 @@ Markdown for everything else.
 **KORUS is practised here before it is published here.** This repository is the reference
 implementation of its own method, so every rule it publishes has to hold in its own tree first.
 
-The reason is in the method. Article V says no rule may manufacture its own evidence. A method
-documented in a repository that does not follow it produces that failure exactly: the document
-becomes the only evidence, and the document is the thing under test.
-
-What this means when you are working here:
+Article V says no rule may manufacture its own evidence. A method documented in a repository that
+does not follow it produces that failure exactly: the document becomes the only evidence, and the
+document is the thing under test.
 
 | If you are about to | Then |
 |---|---|
@@ -91,11 +89,9 @@ did not work, so a Manager sits inside one account.
 **A seat retired 2026-09-12, and nothing replaced it.** It is deliberately unnamed, by Owner
 ruling 2026-09-16.
 
-The review gate it fed was retired 2026-09-04, so no label blocks a merge. A PR merges on
-`gates (ubuntu-latest)` and `gates (windows-latest)`, with no review step ahead of it.
-
-Do not open a review step back up, and do not hold a PR waiting for one. The Lander already merges
-without waiting.
+The review gate it fed was retired 2026-09-04, so no label blocks a merge and no review step sits
+ahead of a PR. Do not open a review step back up, and do not hold a PR waiting for one.
+*Commits, pushes and PRs are yours; the merge is the Owner's* holds the branch-protection reading.
 
 Files under `roles/retired/` are the record of what a seat did. A document that routes work through
 one is stale.
@@ -343,8 +339,6 @@ answers "not merged" forever for work that landed weeks ago.
 
 **Owner ruling 2026-09-21: every session here runs the `/driver` rules by default.** Nobody has to
 invoke the skill, and you do not wait to be told. The Owner turns them off by saying so.
-
-Two rules. The second is the one that bites.
 
 1. **Be proactive.** Proceed as you judge best, erring toward honestly pressing forward.
 2. **A decision that looks like the Owner's takes three steps before it reaches them.** Act on a

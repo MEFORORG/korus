@@ -3,8 +3,6 @@
 This card loads at session start because `.claude/seat.local.txt` names `lander`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
-Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
-
 **YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
 and korus. That includes the ledger.** Owner-set 2026-09-20.
 
@@ -143,7 +141,5 @@ proposes it and the Manager relays it. Diff quality is yours only with no QA lin
 
 ## The full playbook
 
-The full rules are in `roles/LANDER.md`; read `roles/COMMON.md` first. Keep only durable rules in
-this card.
-
-Put live state in a dated note, including queue contents and which entry holds the slot.
+The full rules are in `roles/LANDER.md`; read `roles/COMMON.md` first. Keep only durable rules here,
+and put live state in a dated note, including queue contents and which entry holds the slot.

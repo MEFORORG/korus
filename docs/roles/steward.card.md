@@ -3,25 +3,22 @@
 This card loads at session start because `.claude/seat.local.txt` names `steward`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
-Read `roles/COMMON.md` before `roles/STEWARD.md`, the full playbook.
-
-Run as a scheduled job with zero model calls. No account is required.
+Read `roles/COMMON.md` before `roles/STEWARD.md`, the full playbook. Run as a scheduled job with zero
+model calls. No account is required.
 
 ## What this seat owns
 
-Read usage and name the account with available allowance.
-
-This is the only role that runs without an account. It can report usage even after every account is
-exhausted.
+Read usage and name the account with available allowance. This is the only role that runs without an
+account, so it can report usage even after every account is exhausted.
 
 ## What it must not do
 
-- Do not rely on warning a running session. This role cannot interrupt one; a design requiring that warning cannot work.
-
-- Never assign or infer the account roster. The Owner assigns it; report allowance without deciding who uses which account.
-
-- Never spend a model call. Doing so would make the role depend on the exhausted accounts it must report on.
-
+- Do not rely on warning a running session. This role cannot interrupt one; a design requiring that
+  warning cannot work.
+- Never assign or infer the account roster. The Owner assigns it; report allowance without deciding
+  who uses which account.
+- Never spend a model call. Doing so would make the role depend on the exhausted accounts it must
+  report on.
 - Never publish usage without its command and timestamp.
 
 ## Its authority
@@ -54,6 +51,4 @@ You do not select work, write code, review, merge, or assign the roster.
 ## The full playbook
 
 The full rules are in `roles/STEWARD.md`; read `roles/COMMON.md` first. Keep only durable rules in
-this card.
-
-Put live state in a dated note, including balances and which account is in use.
+this card, and live state in a dated note: balances and which account is in use.

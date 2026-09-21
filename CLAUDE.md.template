@@ -21,8 +21,8 @@ Trunk branch: `<TRUNK>`. Language/toolchain: `<LANGUAGE / RUNTIME>`.
 
 ## Plan before implementing
 
-For anything beyond a trivial edit, produce a plan first and do not write code until it is
-approved. `<OWNER OR ROLE>` decides when building starts -- wait for an explicit go-ahead.
+For anything beyond a trivial edit, produce a plan first, and do not write code until
+`<OWNER OR ROLE>` gives an explicit go-ahead.
 
 Point at the relevant existing code alongside the plan request. Guessing at an interface you have
 not read is the most expensive kind of speed.
@@ -82,12 +82,11 @@ Rules that are not negotiable:
 | AI project memory is shared across every worktree on the machine. | It lives outside the repo. Reads are fine; coordinate **writes** explicitly, or let exactly one session own them. Last write wins, silently. |
 
 Asking sessions to use a worktree does not work on its own. Measured on the repo this tooling was
-developed in: 44% of the file writes made by sessions launched in the shared primary landed in the
-primary's own tree despite a banner asking otherwise, and 29% of the writes made by those same
-primary-seated sessions went into a sibling worktree by absolute path -- already correct behavior
-that a cwd-keyed rule would have denied. That is why the
-`PreToolUse` worktree gate exists, and why it keys on the write's **target path** rather than the
-session's working directory.
+developed in: 44% of the file writes by sessions launched in the shared primary landed in the
+primary's own tree despite a banner asking otherwise, and 29% of the writes by those same
+primary-seated sessions went into a sibling worktree by absolute path -- already correct behavior a
+cwd-keyed rule would have denied. So the `PreToolUse` worktree gate exists, and it keys on the
+write's **target path** rather than the session's working directory.
 
 ---
 
@@ -110,8 +109,7 @@ refuses a number this worktree did not allocate; the `commit-msg` claim gate ref
 commit that declares an item without holding that item's claim.
 
 Allocation is a one-way door -- numbers are never reclaimed, and holes are free while collisions are
-not. Use `-ShowFloor` when you want to inspect the allocator rather than spend a number on the
-question.
+not. Use `-ShowFloor` to inspect the allocator rather than spend a number on the question.
 
 ---
 
@@ -167,7 +165,7 @@ When you do land work, four states all read as "can't merge" and three need diff
 | `BLOCKED` | usually just waiting | take every `statusCheckRollup` entry whose `conclusion` is **not** `SUCCESS`, `SKIPPED` or `NEUTRAL`. Nothing in that set plus pending checks means wait. Do not count failures: a cancelled check is neither a failure nor pending, so it vanishes from both counts |
 | `UNKNOWN` | still being computed | re-read in a moment |
 
-Merge traps worth knowing before they cost you:
+Merge traps:
 
 - **Check `git merge-base --is-ancestor origin/<TRUNK> HEAD` first.** Under squash-merge a branch's
   own commits never become ancestors of trunk, so a branch cut from a pre-squash commit inherits a
@@ -206,7 +204,7 @@ pwsh -NoProfile -File scripts/quality/check-ascii.ps1 -Fix     # rewrite the saf
 Run, in order: `<LINT COMMAND>`, `<TYPE-CHECK COMMAND>`, `<TEST COMMAND>`. New behavior gets a
 test. If a check cannot run locally, say which one and why rather than declaring success.
 
-Four verification rules that this tooling exists because of:
+Four verification rules this tooling exists because of:
 
 1. **Test the installed artifact, not the repo copy.** Hooks and gates execute from an installed
    copy outside the working tree. A suite that binds only the repo copy stays green while
