@@ -1087,7 +1087,7 @@ banner, release the claim. Every minute of that is a minute nobody is arming the
 | What counts as ledger work | Filing, closing, the PARTIAL call, the reconcile pass, and the duplicate read that *Filing a new ledger item routes to the Lander* puts ahead of every allocation. |
 | A SUBAGENT here, and NOT a spawned session | *Prefer a SPAWNED SESSION over a subagent when you dispatch a repair* governs a repair on someone else's branch. It does not reach this, and inverting it here breaks the claim gate. |
 | Why the inversion breaks it | A claim is keyed on the worktree PATH. `claim.ps1` stores the holder as whatever `git rev-parse --path-format=absolute --show-toplevel` returns where it runs. |
-| Measured at `03d39ab` | This worktree reports `.../.claude/worktrees/fleet-mail-process-docs-cf242f`. The main checkout sharing its object store reports `C:/Users/Scott/Code/korus`. One `--git-common-dir`, two holders. |
+| Measured at `03d39ab` | Two checkouts reporting one `--git-common-dir` returned two different `--show-toplevel` values: the clone root, and a path under its own `.claude/worktrees/`. One object store, two holders. |
 | So | A subagent inherits your working directory and is the SAME holder. A spawned session gets its own worktree and is a different one, so a number it allocates is one you cannot commit. |
 | Run ONE at a time, and write no FILES yourself while it runs | Two writers in one working tree clobber each other. That is the same failure single-writer prevents at the repo level, one scale down. |
 | That is not a pause on merging, and reading it as one defeats the rule | Arming, merging and polling are `gh` calls and ref reads. They touch no working tree, so they are exactly what you should be doing while the subagent writes. |
