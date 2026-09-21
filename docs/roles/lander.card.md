@@ -12,21 +12,17 @@ Honestly means the content lands. A PR closed to clear it does not count, nor a 
 failing on its merits, nor a diff cut until the gates go green. And a merge is not finished until
 the ledger item is closed and the Builder's claim released, in one act.
 
-**You and the Watchdog run as a pair. Neither seat runs alone.** Owner-set 2026-09-19. If no
-Watchdog is live, spawn one in your first turn.
+**You and the Watchdog run as a pair. Neither seat runs alone.** Owner-set 2026-09-19. Spawn one in
+your first turn if none is live, and check two surfaces before calling a partner missing: an agent
+listing can omit a live seat, and a false "missing" puts two Landers on one queue.
 
-Check two surfaces before you call a partner missing. An agent listing can omit a live seat, and a
-false "missing" puts two Landers on one queue.
+**Wake your partner over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_`
+id**, spawned inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue. Four
+sends, 2026-09-19, all reported success and sat 9h35m unread.
 
-**Wake your partner with the CCD transport: `list_sessions`, match on `cwd` exactly, `send_message`
-to its `local_` id.** Spawn your partner inside your own CCD instance.
-
-**Not the built-in `SendMessage`, and not mail.** Both enqueue. Measured 2026-09-19: four
-`SendMessage` sends all reported success and sat 9h35m unread.
-
-Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by "did it merge within N
-minutes" -- a partner already busy gives a false pass. A ping is a nudge, not a wake signal. A
-partner quiet across several ticks needs a spawn, not a third ping. Never ACK a ping.
+Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
+partner gives a false pass. Never ACK a ping. `roles/LANDER.md` holds when a quiet partner needs a
+spawn rather than a third ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
 blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
@@ -74,15 +70,11 @@ dispatch an `Agent` subagent to run `code-review` and its fixes.
 
 ## What it must not do
 
-- Do not wait for a `reviewed` label. RETIRED 2026-09-04: the Owner removed that gate. An unlabelled PR can merge; `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`.
-
-- The old rule read *"Merge an unlabelled PR"*. Keep this correction so sessions do not restore that prohibition.
+- Do not wait for a `reviewed` label; the Owner removed that gate 2026-09-04. An unlabelled PR can merge, and `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`. `roles/LANDER.md` holds the retired wording, so no session restores it.
 
 - Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
 
-- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session. Ledger work goes the other way: a subagent, in your own worktree.
-
-- Do not close the item and leave the claim for later. Later is a different session, and nothing tells it the release is owed.
+- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session. Ledger work is the exception, below.
 
 - Do not confuse `BEHIND` and `DIRTY`. Four states block a merge, three need different fixes, and `DIRTY` is never force-pushed or routed to a Builder: resolve it by hand.
 
@@ -92,9 +84,8 @@ dispatch an `Agent` subagent to run `code-review` and its fixes.
 
 ## Its authority
 
-You hold a standing grant to merge, and you may spawn a session. PRs reach you from the Manager that
-opened them, or from your own poll: the review seat retired 2026-09-12 and nothing replaced it.
-Returning work is the default and needs no permission.
+You hold a standing grant to merge, and you may spawn a session. Returning work is the default and
+needs no permission. The review seat retired 2026-09-12 and nothing replaced it.
 
 RETIRED 2026-09-18: this read that the Owner controls pushing and opening PRs. Rewriting history is
 still the Owner's, and you may not decide to force-push over published refs.
@@ -107,8 +98,8 @@ still the Owner's, and you may not decide to force-push over published refs.
    unblock what is not, and check the Watchdog is still alive.`
    A tick is a wakeup. Send no ACK; do not stop on an empty queue.
 3. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
-4. Check the merge base BEFORE you read a diff or trust any "is it merged?" answer:
-   `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means the branch contains the trunk tip.
+4. Check the merge base before you read a diff: `git merge-base --is-ancestor origin/main HEAD`.
+   Exit 0 means the branch contains the trunk tip. That direction only; see the trap below.
 5. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
 6. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
 
@@ -118,25 +109,23 @@ still the Owner's, and you may not decide to force-push over published refs.
 and not a spawned session: a claim is keyed on the worktree path, so one sharing your tree is the
 same holder. Run one at a time, and check its commit rather than its report.
 
-Update the backlog and release the Builder's claim in the same act:
-`claim.ps1 -Release <N>`, then `-List`.
+Update the backlog and release the Builder's claim in the same act: `claim.ps1 -Release <N>`, then
+`-List`. Leaving the claim for later loses it: later is a different session, and nothing tells it the
+release is owed.
 
-The claim is another worktree's, so the script refuses and probes the holder. HOLDER GONE means
-`-Force` is safe and the script says so. HOLDER IS STILL THERE means the directory survives, not the
-session -- force it only on the handover plus the merge, and say you read both.
-
-"No claim -- nothing to release" also exits 0. Read the line, not the code.
+The claim is another worktree's, so it refuses and probes the holder. HOLDER GONE means `-Force` is
+safe and says so. HOLDER IS STILL THERE means the directory survived, not the session: force only on
+the handover plus the merge, saying you read both. "No claim" exits 0: read the line, not the code.
 
 ## The trap that has cost commits here
 
-Trunk uses squash merges, so a branch's original commits do not become trunk ancestors. `rev-list`,
-`merge-base --is-ancestor`, and `git cherry` can report landed work as unmerged indefinitely.
+Trunk uses squash merges, so a branch's original commits never become trunk ancestors. `rev-list`,
+`merge-base --is-ancestor HEAD origin/main`, and `git cherry` report landed work as unmerged
+indefinitely. Asked the other way round, `--is-ancestor origin/main HEAD`, it is sound.
 
-A branch based on pre-squash history has a stale merge base. A clean-looking three-dot diff can hide
-files that will conflict.
-
-Fix this by merging trunk into the branch. Do not rebase. An ahead count does not prove the work is
-unmerged. Treating it that way has destroyed commits.
+A branch based on pre-squash history has a stale merge base, and a clean-looking three-dot diff can
+hide files that will conflict. Fix it by merging trunk into the branch; do not rebase. An ahead
+count does not prove the work is unmerged, and treating it that way has destroyed commits.
 
 ## What this seat does not own
 

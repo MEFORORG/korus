@@ -105,9 +105,20 @@ CARD_MAX_LINES = 150
 #: 4,248. The old cap could only be met by deleting measured rules from the two seats the ruling
 #: was about.
 #:
-#: CARD_MAX_LINES did NOT move, and it is now the binding cap for both: 142 and 146 of 150. The
-#: budget's argument is unchanged -- one card is injected per session, so the cost is one card --
-#: and a cap raised to fit whatever was just written is not a cap. Cut before raising this again.
+#: CARD_MAX_LINES did NOT move. The budget's argument is unchanged -- one card is injected per
+#: session, so the cost is one card -- and a cap raised to fit whatever was just written is not a
+#: cap. Cut before raising this again.
+#:
+#: CORRECTED 2026-09-21: the line above read "CARD_MAX_LINES ... is now the binding cap for both:
+#: 142 and 146 of 150". That flipped as the two cards grew. Measured at this commit with
+#: `wc -l -c docs/roles/*.card.md`: lander 136 lines and 7,874 bytes, watchdog 137 and 8,055. So
+#: lander has 14 lines of room against 318 bytes, and watchdog 13 against 137. BYTES bind for both,
+#: and a reader trimming lines to make room would not gain any.
+#:
+#: The Lander card was compacted this commit and the Watchdog card was not, so watchdog is the
+#: tighter of the two. Both sit near the cap because the 2026-09-19 ruling put five standing
+#: blocks in them, so the next squeeze is a choice between raising this and moving a block to the
+#: playbook. That is the Owner's call, not a test's.
 CARD_MAX_BYTES = 8 * 1024
 
 
