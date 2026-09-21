@@ -191,7 +191,13 @@ def check_state(c):
     return {"SUCCESS": "pass", "PENDING": "pending", "EXPECTED": "pending"}.get(c["state"], "fail")
 
 def classify(p, required):
-    """needs a person / waiting on CI / ready. The three partition the open set."""
+    """needs a fix / waiting on CI / ready. The three partition the open set.
+
+    The bucket KEY stays "person" because data.json is a wire format others read. The label a
+    reader sees is "Needs a fix", corrected by the owner on 2026-09-20: none of the three arms
+    waits on a human. A draft needs its author to finish it, a conflict needs a rebase, and a red
+    needs diagnosing -- all fixes the fleet does and the Lander drives.
+    """
     roll = p["commits"]["nodes"][0]["commit"]["statusCheckRollup"]
     latest = {}
     # A re-run leaves the old run in the rollup. Keep the newest per name, as `gh pr checks` does.

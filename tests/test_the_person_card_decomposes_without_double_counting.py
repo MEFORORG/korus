@@ -1,4 +1,4 @@
-"""The "Needs a person" card is decomposed into a table whose rows SUM to it.
+"""The "Needs a fix" card is decomposed into a table whose rows SUM to a labelled total.
 
 WHAT THIS EXISTS FOR. `classify()` puts a pull request in the person bucket on
 `draft or DIRTY or failing`. Those three arms overlap: the engine on 2026-09-20 held pull
@@ -15,6 +15,16 @@ bucket it explains is computed in collect.py. Two copies of one rule in two file
 CLAUDE.md names for verifier drift. If they ever disagree, a silent skip would shrink the table
 while the card stayed right, and the page would look consistent. The Unattributed row exists so
 that failure is loud, and the test below forces it rather than trusting it.
+
+THE FOOTER TRAP, added after the owner hit it. The total row first carried the card's own name,
+so it read as a FOURTH reason sitting under three others, and the owner had to ask whether it was
+a total. A row that has to be explained is not labelled. It now says "Total", and a case below
+pins that it is never spelled as one of the reasons.
+
+THE NAMING, corrected by the owner on 2026-09-20. The card was "Needs a person", which names an
+actor that none of the three requires: a draft needs its author to finish it, a conflict needs a
+rebase, and a red needs diagnosing. All three are fixes the fleet does and the Lander drives. The
+rows now say what CLEARS each one rather than why it is there.
 
 Nothing here calls GitHub. build.py is run as a subprocess over a fixture, which is the real
 rendering path rather than a re-implementation of it.
@@ -90,7 +100,7 @@ def render(repos):
 
 def table(html):
     """The panel's rows as {reason: [ints]}, read out of the rendered HTML."""
-    m = re.search(r"<h3>Why a person is needed</h3>(.*?)</article>", html, re.S)
+    m = re.search(r"<h3>What needs fixing</h3>(.*?)</article>", html, re.S)
     assert m, "the panel did not render at all"
     rows = {}
     for tr in re.findall(r"<tr>(.*?)</tr>", m.group(1), re.S):
@@ -112,7 +122,7 @@ class PersonCardDecomposition(unittest.TestCase):
         """The positive control. Every assertion below reads this panel, so a suite that passed
         while the panel was absent would be measuring its own regex and nothing else."""
         html = render([repo("engine", [pr(1, draft=True)])])
-        self.assertIn("Why a person is needed", html)
+        self.assertIn("What needs fixing", html)
         self.assertIn("Draft", table(html))
 
     def test_a_pull_request_with_every_reason_is_counted_once(self):
@@ -140,12 +150,12 @@ class PersonCardDecomposition(unittest.TestCase):
         reasons = sum(t[k][-1] for k in
                       ("Draft", "Conflicts with main", "Red required check"))
         self.assertEqual(reasons, 5, "five of the seven are in the person bucket")
-        self.assertEqual(t["Needs a person"][-1], 5, "the footer is the card")
+        self.assertEqual(t["Total"][-1], 5, "the footer is the card")
 
     def test_only_person_bucket_rows_are_counted(self):
         """A ready pull request can still be BEHIND with an advisory red. It is not a person's."""
         html = render([repo("engine", [pr(1, bucket="ready", failing=["advisory"])])])
-        self.assertEqual(table(html)["Needs a person"][-1], 0)
+        self.assertEqual(table(html)["Total"][-1], 0)
 
     def test_drift_between_the_two_files_is_loud(self):
         """FORCED, not trusted. A person-bucket row with no arm firing can only mean build.py's
@@ -167,7 +177,33 @@ class PersonCardDecomposition(unittest.TestCase):
                        repo("vault", [pr(2, draft=True), pr(3, draft=True)]),
                        repo("korus", [])])
         t = table(html)
-        self.assertEqual(t["Needs a person"], [1, 2, 0, 3], "three repos then the total")
+        self.assertEqual(t["Total"], [1, 2, 0, 3], "three repos then the total")
+
+    def test_the_total_row_is_labelled_a_total_and_not_a_reason(self):
+        """The owner read the footer as a fourth reason and had to ask. A total that needs
+        explaining is not labelled, and repeating the card's name there is what caused it."""
+        html = render([repo("engine", [pr(1, merge="DIRTY")])])
+        t = table(html)
+        self.assertIn("Total", t)
+        for reason in ("Draft", "Conflicts with main", "Red required check"):
+            self.assertNotEqual(reason, "Total")
+        self.assertNotIn("Needs a fix", t, "the card's name must not reappear as a row")
+
+    def test_no_row_names_an_actor(self):
+        """The correction itself. None of the three waits on a human, so nothing in the panel
+        may say one does -- that is the wording the owner rejected."""
+        html = render([repo("engine", [pr(1, draft=True), pr(2, merge="DIRTY"),
+                                       pr(3, failing=["CI gate"])])])
+        self.assertNotIn("needs a person", html.lower())
+
+    def test_each_row_says_what_clears_it(self):
+        """A taxonomy names the state. This panel has to name the work, or it explains a number
+        without telling anyone what to do about it."""
+        html = render([repo("engine", [pr(1, draft=True), pr(2, merge="DIRTY"),
+                                       pr(3, failing=["CI gate"])])])
+        self.assertIn("its author marks it ready", html)
+        self.assertIn("a rebase", html)
+        self.assertIn("refresh the branch first", html)
 
     def test_the_most_common_red_context_is_named(self):
         """The one actionable line: which check to look at first."""

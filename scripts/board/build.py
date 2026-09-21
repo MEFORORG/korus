@@ -153,9 +153,12 @@ ready_say = ("Every required check is green. <b>Queue throughput is the only thi
              "between these and main.</b>")
 ci_say = "No required check is red, and one or more is still running. <b>Nobody acts yet.</b>"
 # Most reds measured on 2026-09-19 were STALE: the check ran against an older main and a branch
-# refresh cleared it. "Each needs a person" sent readers looking for work that did not exist.
-nr_say = ("Draft, conflicted, or a red required check. <b>Refresh the branch before reading a "
-          "red as broken.</b> Only a red that survives the refresh needs code.")
+# refresh cleared it. "Each needs a person" sent readers looking for work that did not exist, and
+# named the wrong actor besides -- a draft, a conflict and a red are all FIXES, which the fleet
+# does and the Lander drives. The refresh-first caveat now rides on the red row itself, where a
+# reader meets it next to the count it qualifies rather than three lines above.
+nr_say = ("Draft, conflicted, or a red required check. <b>None of these waits on a human</b> -- "
+          "they are fixes, and the table below says what clears each one.")
 m60_say = "Best hour on the chart landed <b>%d</b>." % s["best_hour"]
 rate_say = ("Over the last 24 hours. <b>%d</b> landed across the full %d."
             % (s["merged_window"], s["window_h"]))
@@ -174,7 +177,7 @@ cards = [
     card("PRs open", "amber", tot["open"], "total", lambda r: str(r["open"]), open_say),
     card("Ready and waiting", "teal", tot["ready"], "PRs", lambda r: str(r["ready"]), ready_say),
     card("Waiting on CI", "amber", tot["ci"], "PRs", lambda r: str(r["ci"]), ci_say),
-    card("Needs a person", "warn", tot["person"], "PRs", lambda r: str(r["person"]), nr_say),
+    card("Needs a fix", "warn", tot["person"], "PRs", lambda r: str(r["person"]), nr_say),
     card("Enqueued now", "teal", tot["enq"], "entries", lambda r: str(r["enq"]), enq_say),
     card("Merged, last 60 min", "teal", tot["m60"], "PRs", lambda r: str(r["m60"]), m60_say),
     card("Avg merged per hour", "teal", "%.1f" % tot["rate"], "/ h",
@@ -214,7 +217,7 @@ STATE_SAY = {
     "UNKNOWN": "GitHub has not computed mergeability yet",
     "UNSTABLE": "a non-required check is red, which blocks no merge",
     "BLOCKED": "a required check is red or missing",
-    "DIRTY": "conflicts with main; needs a person",
+    "DIRTY": "conflicts with main; needs a rebase",
 }
 
 
@@ -245,10 +248,10 @@ mix_rows = "".join(
 # also the order a person acts in. A draft is not asking for review yet, and a conflict has to be
 # resolved before any check result underneath it means anything.
 PERSON_REASONS = [
-    ("Draft", "not asking for review yet", lambda p: p["draft"]),
-    ("Conflicts with main", "rebase first; nothing under it reads true until then",
+    ("Draft", "its author marks it ready", lambda p: p["draft"]),
+    ("Conflicts with main", "a rebase, and nobody writes code for it",
      lambda p: p["merge"] == "DIRTY"),
-    ("Red required check", "the only arm that may need code",
+    ("Red required check", "refresh the branch first; only a red that survives needs code",
      lambda p: bool(p["failing"])),
 ]
 
@@ -307,9 +310,9 @@ def person_table():
                 % (esc(top[0][0]), top[0][1]) if top else
                 "No required check is red anywhere.")
     return ('<div class="ptab-wrap"><table class="ptab">'
-            '<thead><tr><th>Reason</th>%s<th>All</th></tr></thead>'
+            '<thead><tr><th>Fix, and what clears it</th>%s<th>All</th></tr></thead>'
             '<tbody>%s</tbody>'
-            '<tfoot><tr><td>Needs a person</td>%s</tr></tfoot>'
+            '<tfoot><tr><td>Total</td>%s</tr></tfoot>'
             '</table></div><p class="note">%s</p>' % (head, body, foot, red_note))
 
 

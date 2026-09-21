@@ -91,7 +91,7 @@ Below the cards sits the **PR Statuses** strip; section 8a specifies it.
 | PRs open | total open | whether the vault is clear |
 | Ready and waiting | every required check green | that queue throughput is the only thing in the way |
 | Waiting on CI | no required check red, one or more still running | that nobody acts yet |
-| Needs a person | draft, conflicted, or a red required check | refresh the branch before reading a red as broken |
+| Needs a fix | draft, conflicted, or a red required check | none of the three waits on a human; the table below it says what clears each |
 | Enqueued now | queue entries | whether anything is moving |
 | Merged, last 60 min | merges in the hour | the best hour on the chart, for contrast |
 | Avg merged per hour | mean over 24h | the total landed across the full window |
@@ -118,7 +118,7 @@ pull request's check rollup with it:
 
 | Bucket | Rule |
 | --- | --- |
-| Needs a person | draft, DIRTY, or a failing required context |
+| Needs a fix | draft, DIRTY, or a failing required context |
 | Waiting on CI | no failing required context, one or more still pending |
 | Ready | every required context green |
 
@@ -163,8 +163,11 @@ On 2026-09-19, 27 of the engine's 29 reds had run against an older `main`:
 - 16 were one pip-audit finding, three anyio CVEs. `main` already pinned `anyio==4.14.2`.
 - 11 were the CI gate roll-up on repo harness tests, which `main`'s latest run passed.
 
-A branch refresh clears both, and nobody writes code. So the "Needs a person" card says to refresh
-the branch before reading a red as broken. A card that said "each needs a person" sent readers
+A branch refresh clears both, and nobody writes code. So the red row of the "What needs fixing"
+table says to refresh the branch before reading a red as broken. A card that said "needs a person"
+named an actor none of the three requires -- a draft needs its author to finish it, a conflict
+needs a rebase, a red needs diagnosing, and all three are fixes the fleet does and the Lander
+drives. Owner correction, 2026-09-20. A card that said "each needs a person" sent readers
 looking for work that did not exist.
 
 ### 4c. Count idle RUNS, not idle hours
@@ -342,7 +345,7 @@ tells a reader nothing.
 Tabular figures everywhere digits line up.
 
 **Cards.** A three-pixel accent rail coloured by meaning, not decoration: amber for backlog, teal for
-throughput, warning for work needing a person, critical for failures.
+throughput, warning for work needing a fix, critical for failures.
 
 **Layout.** Four cards across on a wide screen. Going from five across to four made each card
 shorter, because the sentence wraps to fewer lines. The ninth card, the last merge, spans the
