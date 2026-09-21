@@ -14,9 +14,7 @@ reads usage, appends a row to the vault burn log, and names the account with hea
 warn a running session, because nothing can interrupt one.
 
 The Manager reads what the cron publishes when it picks `CLAUDE_CONFIG_DIR` for a launch line.
-
-Duties this file used to assign that nobody can now perform have been dropped. Each place they
-appeared says so, in place, rather than going quiet.
+Duties nobody can now perform have been dropped, and each place they appeared says so.
 
 **This file carries no live state on purpose.** Current readings, which pool sits in which state, and
 the rates you measured go in the vault burn log -- see *This file holds only what never expires*.
@@ -25,14 +23,14 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 
 | Item | Rule |
 | --- | --- |
-| A grant ADDS, it never narrows | COMMON, *A grant ADDS, it never narrows*. Read it there. A fresh specific message feels operative *because* it is fresh, and that is when the standing grant here goes unread. |
+| A grant ADDS, it never narrows | COMMON, *A grant ADDS, it never narrows*. Read it there. A fresh specific message feels operative *because* it is fresh, and that is when the standing grant goes unread. |
 | A tick is a wakeup, not a message | COMMON, *A tick is a wakeup, not a message*. Read it there. |
-| You do not ration | The ordinary sense of "steward" is husbanding a scarce resource. That is the opposite of this seat's rule. See *The cron watches pools and stewards the work, not the quota*. |
+| You do not ration | "Steward" ordinarily means husbanding a scarce resource, the opposite of this seat's rule. See *The cron watches pools and stewards the work, not the quota*. |
 | You steward the WORK, not the quota | Your product is that nothing in flight is lost when a session is cut. A Steward telling a seat to ration is a Steward exceeding its seat. |
 | **RETIRED 2026-09-12: this row read** *"the label is what blocks a merge, not the [seat name omitted] seat"* | The label stopped blocking a merge on 2026-09-04, and the owner retired that seat on 2026-09-12 with nothing to replace it; it is deliberately unnamed here. COMMON, *The PR route*, owns what is left. |
 | Every seat pushes its own branch | COMMON, *The PR route*, owns it. Owner ruling 2026-08-29, in their words: *"Sessions push their own."* |
 | **NARROWED 2026-09-18, the opening half** | That row read *"and opens its own PR"*. A Builder under a Manager no longer does: the Manager opens it. Every other seat is unchanged. |
-| Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify. A peer cannot grant one even when the guess proves right. |
+| Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify, and cannot grant one even when the guess proves right. |
 | No glyphs or emoji | CLAUDE.md's no-glyphs rule. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Conflicts between this file and COMMON | Owner ruling 2026-08-28: a role playbook that contradicts COMMON is an owner question, never settled by precedence. See COMMON, *Where a role playbook and this file disagree*. |
@@ -57,9 +55,8 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 reads its own hook. Read the stop off the output, not off a session list: the newest row in
 `docs/usage/burn-history.jsonl` dates the last reading, and the boards page carries its `read_at`.
 
-A newest row older than the tick interval means nobody is watching.
-
-The work-at-risk push sweep stays the Lander's either way. It is a landing act.
+A newest row older than the tick interval means nobody is watching. The work-at-risk push sweep
+stays the Lander's either way; it is a landing act.
 
 ### 1a. The account list is configuration, and the cron reads every one
 
@@ -67,19 +64,18 @@ The account list is data, not a question. It lives in the `usage` block of `docs
 which names the reader script and the token files it runs over. `read_accounts` in
 `scripts/coord/board_index.py` runs that reader over all of them and ranks them by headroom.
 
-The cron reads every account rather than watching one confirmed pool, so no subject has to be
-confirmed before a reading.
+The cron reads every account rather than one confirmed pool, so no subject needs confirming first.
 
 ### 1b. The subject question moves down to the row
 
 | Item | Rule |
 | --- | --- |
-| The failure mode | A row carrying the wrong org or account is not a partial reading. It is a fluent, well-formed, continuously wrong one, and it reports calm from a quiet pool while the pool the sessions actually bill runs into a cutoff. |
+| The failure mode | A row carrying the wrong org or account is not a partial reading. It is a fluent, well-formed, continuously wrong one, reporting calm from a quiet pool while the pool the sessions bill runs into a cutoff. |
 | Nothing corrects it | A wrong subject produces a believable burn rate and no error of any kind. **There is no symptom until the cutoff.** |
 | Where the guard lives | Invariant 1 of `docs/usage/README.md` makes org and account mandatory on every row. |
 | Name the subject inside the reading | Write "this row is org X, account Y", so a reader checks a claim rather than trusting an unnamed one. |
-| Never infer the subject | Not from a hook line, a config file, or whichever account the machine happens to be signed in as. Inference is what produces a fluent wrong answer here. |
-| Say the account and pool in every warning | That is what lets a recipient catch a mis-set watch you cannot see yourself. |
+| Never infer the subject | Not from a hook line, a config file, or whichever account the machine is signed in as. Inference is what produces a fluent wrong answer here. |
+| Say the account and pool in every warning | That lets a recipient catch a mis-set watch you cannot see yourself. |
 | Unconfirmed beats absent | If you cannot get confirmation, watch anyway and say loudly and repeatedly that the account is UNCONFIRMED. An unconfirmed watch presented as confirmed is worse than none. |
 | It applies to the Lander too | When the Lander holds this duty with no Steward running. |
 
@@ -87,30 +83,27 @@ confirmed before a reading.
 
 ## 2. Burn rate is the primary instrument; a level is only a backstop
 
-**Both triggers are void if the pool is not yours.** Everything below grades a pool. None of it
-identifies one. If the banner says *"no record for this session"*, you have not yet identified your
-pool, and neither the level nor the projection means anything until you do.
+**Both triggers are void if the pool is not yours.** Everything below grades a pool; none of it
+identifies one. If the banner says *"no record for this session"*, neither the level nor the
+projection means anything until you identify your pool.
 
 Requested by the Steward seat 2026-08-14 after this section sent it to act on the projection -- the
 wrong half of an instrument pointed at the wrong subject. Mechanism and general form: *Confirm the
 subject before refining the predicate*.
 
 Owner's guidance: burn rates give the best tracking. Take that literally. The question is never "how
-high is it", it is "how long have they got".
-
-Why a percentage alone cannot answer it -- the same number means different things at different rates:
+high is it", it is "how long have they got". A percentage alone cannot answer that, because the same
+number means different things at different rates:
 
 | Reading | At a slow burn | At a fast burn |
 |---|---|---|
 | 78 percent | hours of headroom, no warning owed | minutes away, you are already late |
 | 90 percent | still a while | cut before you finish typing |
 
-Concurrency is what moves the rate, and it moves it hard. One Workflow can move a pool several
-points on its own, so several in flight outrun the cache the readings come from (COMMON, *The
-workflow gate cannot see aggregate load*).
+Concurrency moves the rate hard. One Workflow can move a pool several points, so several in flight
+outrun the cache the readings come from (COMMON, *The workflow gate cannot see aggregate load*).
 
-A session that was comfortable ten minutes ago can be inside the urgent band now, with no threshold
-crossed slowly.
+A session comfortable ten minutes ago can be in the urgent band now, with nothing crossed slowly.
 
 So project, do not read. State the rate and the projection when you publish, never a bare percentage.
 *"Pool X, 5-hour at 81 percent, +40 points/hour, about 28 minutes"* is actionable. *"Pool X at 81
@@ -119,9 +112,7 @@ percent"* is not.
 ### 2a. A rising weekly identifies the live pool; a high level does not
 
 The method is a measurement rather than a lookup: read every account twice, minutes apart, and find
-the one whose weekly rose.
-
-Measured 2026-08-14, 27 minutes apart:
+the one whose weekly rose. Measured 2026-08-14, 27 minutes apart:
 
 | pool | reading | verdict |
 |---|---|---|
@@ -129,21 +120,18 @@ Measured 2026-08-14, 27 minutes apart:
 | two others | flat | not live |
 | `<EMAIL-REDACTED>` | 5-hour 37 to 11 (window rolled), weekly 21 to 23 | **rising, so this is the live one** |
 
-Exactly one pool moves. Note that the 5-hour reading *fell* on the live pool, so a single sample of the
-right pool would have pointed away from it.
+Exactly one pool moves. The 5-hour reading *fell* on the live pool, so one sample of the right pool
+would have pointed away from it.
 
 ### 2b. Never read sub-percent structure into a usage value
 
-This is the safe version, and it is deliberately weaker than what was first broadcast.
+This is the safe version, deliberately weaker than what was first broadcast. Every usage value
+observed to date has been integer-valued, and the reader's own formatting adds a decimal place the
+data never carried. That much is established from source.
 
-Every usage value observed to date has been integer-valued, and the reader's own formatting adds a
-decimal place the data never carried. That much is established from source.
-
-What is **not** established is whether the source quantises a continuous quantity or the underlying
-quantity is genuinely integral. Those two predict identical observations, and no volume of readings
-separates them.
-
-The rules that hold under both readings, and only those:
+What is **not** established is whether the source quantises a continuous quantity or the quantity is
+genuinely integral. The two predict identical observations, and no volume of readings separates
+them. The rules that hold under both readings, and only those:
 
 | Rule | Why |
 | --- | --- |
@@ -165,8 +153,7 @@ Measured across a whole climb: 81, 83, 84, 86, 90, 90, 92 across fifteen minutes
 **+60/hr, then +48, then zero for a minute, then +30. Overall +44.**
 
 Every constant-rate projection was wrong. Two seats arguing about it were wrong in opposite
-directions: one hot because it sampled a burst, one cool because it sampled a lull. Neither had "the
-rate" and both quoted one.
+directions: one hot from a burst, one cool from a lull. Neither had "the rate" and both quoted one.
 
 An over-hot rate is not the safe error. It causes the one thing the standing rule forbids: stopping
 when you did not need to. Measured 2026-08-14, one warning against three other instruments:
@@ -185,7 +172,7 @@ thing?"* the opposite way.
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
 | Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. |
-| Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, and let the recipient see which one you are confident in. |
+| Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | The ladder fires on a measured number, so a wrong rate does not soften a real level. 92 is 92 whatever the runway. |
 | When the burn goes flat, publish NO projection | Not a reassuring one. An instrument that declines to project is working; one that extrapolates a flat line is not. |
@@ -206,9 +193,8 @@ In the second case a 29-minute-too-slow estimate was withdrawn and replaced from
 alone. Under acceleration the oldest data is the most misleading, and averaging it in produced the
 error. That is the exact inverse of the near-cap case, where the newest leg is the misleading one.
 
-**The discriminator is proximity to the cap, not window length.** There is no window length safe in
-both regimes. A projection made at 92 percent and one made at 55 percent are not the same kind of
-claim.
+**The discriminator is proximity to the cap, not window length.** No window length is safe in both
+regimes, and a projection at 92 percent is not the same kind of claim as one at 55 percent.
 
 The same arithmetic points in opposite directions, so say which one you are handing over:
 
@@ -217,15 +203,13 @@ The same arithmetic points in opposite directions, so say which one you are hand
 | above about 90 percent, decelerating into the cap | a **FLOOR** | *"not before X"* |
 | a decaying mid-range regime | a **CEILING** | *"probably later than X"* |
 
-The reader cannot derive the direction from the number, so the number alone is an incomplete handoff.
-State the regime alongside it.
+The reader cannot derive the direction from the number, so state the regime alongside it.
 
 Measured on a live pool, final approach: `00:13:04Z 92%`, `00:21:30Z 96%`, `00:31:48Z 99%` -- legs
 **+44, then +28, then +17.5 per hour. Monotonic decay.** Stated as measured percentages only.
 
-The reporter explicitly declined to say what the cap does; they were still taking turns at 99
-percent and had not observed the boundary. This entry supplies no mechanism either. A cause you can
-name is not a cause you have tested.
+The reporter declined to say what the cap does, still taking turns at 99 percent and never seeing
+the boundary. This entry supplies no mechanism. A cause you can name is not a cause you have tested.
 
 The rule, from getting it wrong three times in twenty minutes: above about 90 percent, a linear
 cutoff time is a floor, not an estimate.
@@ -239,12 +223,9 @@ instrument outage.** **No cutoff, and no seat stopped, at any point.**
 
 The ladder never needed its stop half.
 
-The ladder never needed its stop half.
-
 ### 2e. A countdown read off the source beats a rate you differentiated
 
-This is the strongest result in this section, because it controls for the practitioner. A reset time is
-a countdown read off the instrument. A cutoff time is a projection off a rate.
+A reset time is a countdown read off the instrument. A cutoff time is a projection off a rate.
 
 | what was forecast | how it was derived | record |
 |---|---|---|
@@ -259,17 +240,14 @@ So publish a countdown when the source gives you one, and treat anything derived
 different and weaker class of claim: ranged, regime-labelled, and withdrawn cheaply. Where only a
 projection exists, convert it -- *The three states* requires the conversion -- and publish the band.
 
-Never refuse the conversion, and never quote a point.
-
-The measuring seat's own reflection is why the result is credible. In their words:
+Never refuse the conversion, and never quote a point. The measuring seat's own reflection is why the
+result is credible. In their words:
 
 > *"I drew the countdown-versus-projection distinction at 02:50Z and then produced eight hours of
 > evidence for it without noticing I was running the experiment."*
 
 The record was not assembled to support the rule. It accumulated while the rule sat unused, which is
 what makes it evidence rather than illustration.
-
-It accumulated while the rule sat unused, which is what makes it evidence rather than illustration.
 
 **A drifting series of forecasts is ambiguous in the same way a single one is.** Measured
 2026-08-15, and the failure was on the receiving side: successive rung estimates of `~04:33Z`, then
@@ -284,9 +262,8 @@ sender is the only party who knows which, and saying so costs one clause.
 
 ### 2f. A warning that changes behaviour invalidates its own projection
 
-Before you discount an early call, ask whether the call caused the miss. Every cutoff estimate is
-conditioned on the burn continuing as observed, and a broadcast whose entire purpose is to stop that
-burn breaks its own precondition.
+Before you discount an early call, ask whether the call caused the miss. Every cutoff estimate
+assumes the burn continues, and a broadcast meant to stop that burn breaks its own precondition.
 
 Observed 2026-08-15: a cutoff was projected for `~03:54Z` from an accelerating curve. The fleet was
 told. Several seats killed fan-outs, one stopped launching, the watcher cut its own polling -- and the
@@ -297,9 +274,8 @@ hour passed with the fleet still working.
 | the projection was wrong | recalibrate -- this is the *warning so often nobody reads you* case |
 | **the warning worked and the behaviour changed** | the alarm SUCCEEDED, and discounting it is exactly backwards |
 
-The two are indistinguishable from the outcome alone. Separate them by asking what the recipients
-did. If seats demonstrably changed behaviour after the broadcast, the miss is evidence for the
-alarm, not against it.
+The two are indistinguishable from the outcome alone. Separate them by asking what recipients did:
+if seats changed behaviour after the broadcast, the miss is evidence for the alarm, not against it.
 
 Say so when you report the miss, or your own successful warning becomes the reason the next one is
 ignored.
@@ -310,8 +286,8 @@ and the absence of a cutoff, not from a rate.
 
 The rule does not depend on that night's numbers; the conditioning is structural.
 
-This is also *warning so often nobody reads you* arriving through a forecast rather than a warning. Every early call that does not
-land teaches the recipient to discount the next one, and the next one may be the real one.
+This is *warning so often nobody reads you* arriving through a forecast. Every early call that does
+not land teaches the recipient to discount the next one, and the next one may be the real one.
 
 ### 2g. Restraint is unproven, and a band held through blindness was not right
 
@@ -374,10 +350,37 @@ endpoints. A cross-caller leg inherits the two callers' disagreement as slope.
 The section sat adjacent to this rule and did not state it. Measured by the reporting seat after it
 asserted the absence unmeasured.
 
-Over this section's 242 lines, `caller` **0** and `own reading` **0**, against controls of `rate`
-**27**, `regime` **9**, `projection` **22**. The two nonzero probes were read rather than counted.
+**As first published:** over this section's 242 lines, `caller` **0** and `own reading` **0**,
+against controls of `rate` **27**, `regime` **9**, `projection` **22**. The two zero probes were read
+rather than counted.
 
-The two nonzero probes were read rather than counted.
+**RE-MEASURED 2026-09-21, because writing 2h moved the subject.** This subsection put `caller` into
+section 2, so a probe over the whole of section 2 now swallows the text that answers it. The scope
+the finding holds in is section 2 EXCLUDING 2h, and that is the only one of the three ranges an edit
+to 2h leaves alone.
+
+```bash
+sed -n '84,344p' roles/STEWARD.md | grep -o -i caller | wc -l   # then each control in turn
+```
+
+| Scope | lines | caller | own reading | rate | regime | projection |
+| --- | --- | --- | --- | --- | --- | --- |
+| Section 2 EXCLUDING 2h, lines 84-344 | 261 | **0** | 1 | 41 | 7 | 20 |
+
+**The finding's shape survives in that scope and its numbers do not.** `caller` is still 0 outside
+2h, so the original absence holds where it was taken. `own reading` is now 1 there, at line 333, so
+that half no longer reproduces. Every control moved, and 242 matches no current range.
+
+**The two wider scopes are not tabulated here, because they will not hold still.** Any edit inside
+2h moves the end of 2h and the end of section 2 with it, and writing this repair moved both twice
+before the numbers were dropped. Derive the boundaries when you need them:
+
+```bash
+grep -n '^## 2\.\|^### 2h\.\|^## 3\.' roles/STEWARD.md
+```
+
+A probe whose range contains its own write-up keeps doing this, so cite the narrow scope. The three
+controls all fire there, so the two zeros above sit beside an armed detector.
 
 Measured by one seat, on itself, the night it published two headline rates off mixed legs:
 
@@ -389,18 +392,15 @@ Measured by one seat, on itself, the night it published two headline rates off m
 Thirty-eight seconds apart. As a leg that is **+380/hr**, about twice the steepest leg that seat
 measured that night (+189/hr). Skew or quantisation is the likelier reading than a real step.
 
-On a short leg four points is a large fraction of the rise, so the disagreement between the two
-callers becomes the slope.
+On a short leg four points is much of the rise, so the callers' disagreement becomes the slope.
 
 Recomputed from that seat's own consecutive readings -- 14, 16, 18, 30, 36, 38 between 23:42:45Z and
 23:52:34Z -- the rate is **+147/hr full span and +127/hr recent.** The bands survived and the
 conclusion held; the arithmetic behind the headline did not.
 
-That is the dangerous shape: a wrong method that happens to reach a right answer is not corrected by
-checking the answer.
-
-**So cross-caller points are sound as LEVELS, and sound as evidence the instrument is reachable. They
-must not be the ENDPOINTS OF A SLOPE.**
+That is the dangerous shape: a wrong method reaching a right answer is not corrected by checking the
+answer. **So cross-caller points are sound as LEVELS, and sound as evidence the instrument is
+reachable. They must not be the ENDPOINTS OF A SLOPE.**
 
 | Item | Rule |
 | --- | --- |
@@ -430,9 +430,8 @@ levels are the backstop.
 **The Weekly column names a severity, not an authority. Only the Session column can stop anyone.**
 A weekly-only rung has the protect half and no start-nothing half. Section 3a carries the rest.
 
-Stated here rather than only in 3a, because a reader of this table does not reach 3a. Four
-sessions have now read a weekly crossing as a hold: the seat and PM 3a records, and three more on
-2026-09-17.
+Stated here rather than only in 3a, because a reader of this table does not reach 3a. Four sessions
+have read a weekly crossing as a hold: the seat and PM 3a records, and three more on 2026-09-17.
 
 The sharpest of the three is the one where it changed what got done. The session on branch
 `claude/rederive-after-the-tree-moves`, which landed #125, reports declining offered work partly
@@ -453,9 +452,8 @@ Section 3a's correction is about a weekly-**85** crossing, and section 5's drift
 **One act reads a state.** The Manager reads the published reading before it writes a launch line.
 Nothing else changes on a state, because nothing can interrupt a running session.
 
-These levels are the owner's general guidance from experience, not a derivation. Treat them as a floor
-to warn at, not a target to ride up to, and do not present them as a hard mechanism. They are
-calibration, and calibration moves.
+These levels are the owner's guidance from experience, not a derivation and not a hard mechanism.
+Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
 
 The percentage columns are OR, not AND. Session at 86 with weekly at 40 is state 2. Weekly at 92 with
 session at 30 is state 2. Take the worse of the two windows -- `max`, never weekly alone, and never
@@ -470,9 +468,8 @@ not an instruction to hold new work.
 Steward-corrected 2026-08-27, after that seat announced a weekly-85 crossing as a standard ladder hold
 and the PM stopped work on it: *"I conflated the rung's name with its authority."*
 
-The `max` rule stated in *The three states* is right, and this does not replace it. `max` is still how you pick the STATE.
-What it never said is which window can stop anyone, and a reader holding only that sentence resolves the
-gap the expensive way.
+The `max` rule in *The three states* stands: `max` still picks the STATE. What it never said is which
+window can stop anyone, and a reader with only that sentence resolves the gap the expensive way.
 
 **It is a findability defect, and that is measured rather than inferred.** Three seats -- the PM,
 the ASVS tracker and one other -- each rediscovered the rule independently inside about one hour on
@@ -498,8 +495,6 @@ A field called `state` carrying the literal string "URGENT STOP" reads as a stop
 severity label, and its stop half is gated in a field the reader never sees. A fourth seat
 rediscovered this through the instrument rather than through the document.
 
-A fourth seat rediscovered this through the instrument rather than through the document.
-
 **So do not file it as a bug and do not change the gating. Read `by_level_stop`, never `state`, before
 you tell anyone to stop.**
 
@@ -521,9 +516,8 @@ landed"*, which implies it is owed a landing.
 The correcting seat replied there is no such repo path on main, on any branch, or in any worktree.
 Measured 2026-08-28, both are wrong.
 
-The two errors are not symmetric, which is the part worth keeping. The first seat ran a correctly
-scoped command -- `git log origin/main -- <path>`, with a control proving it read -- and
-over-concluded only as far as "unlanded".
+The two errors are not symmetric. The first seat ran a correctly scoped command, with a control
+proving it read -- `git log origin/main -- <path>` -- and over-concluded only to "unlanded".
 
 The correcting seat ran a recursive grep over its own working tree and generalised the empty result
 to every ref, in the act of correcting. Its own words: it named the question "is it in any ref" and
@@ -550,8 +544,7 @@ config roots" until 2026-09-02, and a later edit widened it to "EVERY config roo
 which the 2026-09-02 reading refutes. A root you miss is a root left pointing at the old path.
 
 Two seats put the same file under version control at the same path on the same day, neither knowing
-about the other. That is the strongest argument available for landing exactly one, and it was produced
-by accident.
+about the other. That argument for landing exactly one was produced by accident.
 
 | Item | Rule |
 | --- | --- |
@@ -650,13 +643,11 @@ COMMON, *The workflow gate cannot see aggregate load*, and the Lander playbook c
 narrower rule: no new Workflow above 90 percent of `max(5-hour, weekly)` without asking the owner.
 
 The ladder here is stricter and fires earlier in every case, because 80/85 is crossed before 90 can
-be. So HOLD NEW WORK is the operative line for a new Workflow, and the 90 percent rule can no longer
-fire first.
+be. So HOLD NEW WORK is the operative line for a new Workflow, and 90 percent cannot fire first.
 
 **Do not delete the 90 rule on that arithmetic.** It is owner-set, it names a specific act, and it
-carries "ask the owner first", which the table does not.
-
-Three reasons the gate sits outside the tuning grant, and they do not depend on each other:
+carries "ask the owner first", which the table does not. Three reasons the gate sits outside the
+tuning grant, and they do not depend on each other:
 
 | Reason | Detail |
 | --- | --- |
@@ -672,30 +663,23 @@ within minutes of making it, and kept in their words because the formulation is 
 > minutes and is invisible to that question. I CHECKED WHETHER I COULD AFFORD THE FIRST TOKEN, NOT THE
 > TWELFTH AGENT."*
 
-They followed the procedure exactly: fresh reading, judged against the real pool, `max(25, 46) =
-46`, comfortably under 90, launched. Correct procedure, bad outcome -- an instrument answering the
-adjacent question.
+They followed the procedure: fresh reading, judged against the real pool, `max(25, 46) = 46`, under
+90, launched. Correct procedure, bad outcome -- an instrument answering the adjacent question.
 
 The instruction they followed was this file's own, *"judge each request against a fresh reading, not
 a quoted one"*, written to fix staleness, which it does. It simply answers a different question from
 the one a fan-out asks, and every seat sent at it cleared the gate the same way.
 
-A second seat ran the identical check minutes earlier, on the same pool, and launched two.
-
-The diagnosing seat refused the exculpation that finding offered them, which is why the rule is
-worded as an instruction and not as a complaint.
-
-The diagnosing seat refused the exculpation that finding offered them, which is why the rule is
-worded as an instruction and not as a complaint. In their words:
+A second seat ran the identical check minutes earlier, on the same pool, and launched two. The
+diagnosing seat refused the exculpation that finding offered them, which is why the rule is worded
+as an instruction and not as a complaint. In their words:
 
 > *"the instruction being incomplete does not make my launch blameless -- I am the one who knew a
 > fan-out's shape and still priced it as a point action."*
 
 They asked that this be carried as **"a fan-out must be priced against its fanout, not its first
 token"**, not as "the instruction was incomplete". The first tells the next seat what to do; the
-second only assigns a defect.
-
-The arithmetic that makes the gate answerable in the right units:
+second only assigns a defect. The arithmetic that makes the gate answerable in the right units:
 
 | window | rate | what was running |
 |---|---|---|
@@ -712,9 +696,8 @@ multiplier on the whole fleet's draw.
 12-14 agent run** while in flight, times its expected duration, plus what the fleet is already
 drawing. If that lands past a rung, the gate is tripped even though the spot reading is not.
 
-Worked from that night: at 03:28Z the pool read **46** and the gate was untripped, with runs already
-in flight. Another ~+40/hr on an existing ~+117/hr puts the pool at 100 in about twenty minutes,
-which is what happened.
+From that night: at 03:28Z the pool read **46** and the gate was untripped, runs already in flight.
+Another ~+40/hr on an existing ~+117/hr puts the pool at 100 in about twenty minutes, as happened.
 
 **Every input was available at 03:28Z and the procedure did not ask for any of them.**
 
@@ -727,14 +710,11 @@ tokens, which no seat can see live. It is used because it is what a launcher act
 rule is derived from one night's arithmetic after the fact and has not been tested.
 
 **If the ladder and the gate disagree, the stricter binds and the question routes to the owner**
-through the Manager (COMMON, *The owner reads by sampling*). If the disagreement is purely about a
-LEVEL, that is calibration.
+through the Manager (COMMON, *The owner reads by sampling*). A purely LEVEL dispute is calibration.
 
 Tell the two apart by asking which question is in dispute, not which number is larger.
 
 ### 3i. The ladder wins where the hook disagrees
-
-**Resolved 2026-08-13.**
 
 **Resolved 2026-08-13.** `watch.py` was replaced and independently verified against the installed
 file. It carries three states matching this ladder, and the 5-hour and weekly thresholds of *The
@@ -755,8 +735,8 @@ purpose is to stop new work never fired, because the instrument did not have it.
 | Never wait for the hook to confirm you | A Steward that escalates only when the tool agrees has adopted the tool's ladder rather than this one. |
 
 Expiry: the standing rules above do not expire. The RESOLVED note does. Re-check the installed file
-rather than trusting this paragraph, because the ladder is tunable (*Nobody holds the grant to tune these numbers now*) and the hook does not follow
-automatically.
+rather than trusting this paragraph. The ladder is tunable
+(*Nobody holds the grant to tune these numbers now*) and the hook does not follow automatically.
 
 ---
 
@@ -837,9 +817,8 @@ than the one in *The three states* (**86/92**).
 Between those numbers the hook is silent and correct by its own definition, while the seat is
 already in protect and wrap.
 
-This is worse than a broken instrument. A broken tool eventually misbehaves visibly. This one is working
-perfectly, against a rule that no longer exists. Nothing in its output is wrong, nothing is stale, and
-there is no error to notice.
+This is worse than a broken instrument, which eventually misbehaves visibly. This one works perfectly
+against a rule that no longer exists: nothing is wrong, nothing is stale, no error to notice.
 
 | Item | Rule |
 | --- | --- |
@@ -862,14 +841,11 @@ applied: STEWARD.md s3]`.
 It also carried a rule to ask the owner before repointing a `seats.json` entry, because that edit
 grants you your own exemption. A cron has no banner and no entry, so none of it has a performer.
 
-A cron has no banner and no entry, so none of it has a performer.
-
 ### 6a. `seats.json` orphans silently because it is keyed by worktree path
 
 **This is a general seat failure, not this file's.** It hits every seat that takes a worktree, so it
-belongs in [COMMON.md](COMMON.md). It is recorded here only until it lands there.
-
-A worktree is a disposable per-session artifact, so every seat rotation strands its own entry.
+belongs in [COMMON.md](COMMON.md), and is recorded here only until it lands there. A worktree is a
+disposable per-session artifact, so every seat rotation strands its own entry.
 
 Measured: one seat's key pointed at `asvs-handoff-session-b-fec292` and another's at
 `coordinator-role-handoff-3be531`, both gone from disk, while `seat-tick.last` had printed
@@ -906,10 +882,8 @@ cites most often. A playbooks seat spent a search proving `scripts/coord/watch.p
 ref, with a passing control, and concluded it was UNLANDED. **It was never a repo artifact.**
 
 The list named three files and not the two a Steward actually quotes. **A control validates the
-instrument, never the question.**
-
-Found by a peer 2026-08-14 while implementing the alarm this section prescribes, because this
-section named the three files and no path.
+instrument, never the question.** Found by a peer 2026-08-14 while implementing the alarm this
+section prescribes, because this section named the three files and no path.
 
 They looked under `.git/mefor-coord`, the natural place, since every other coordination artefact
 lives there. They found `seats.json` absent beside a `seats` **directory**, which reads as a
@@ -938,9 +912,8 @@ A watchdog cannot watch its own death, and the reason generalises further than t
 must wake from a source independent of the clock.** That excludes any seat whose only wake sources
 are dispatch and the tick, because it goes quiet with the clock and cannot notice.
 
-The Lander wakes on CI and PR state, which is genuinely external, so the alarm is the Lander's.
-Reservation on record from the seat that made the assignment: it concentrates a watch duty on the
-busiest seat.
+The Lander wakes on CI and PR state, genuinely external, so the alarm is the Lander's. Reservation
+on record from the seat that assigned it: it concentrates a watch duty on the busiest seat.
 
 **A session cannot keep watching by intending to.** Measured 2026-08-13, on the first day this seat
 ran. A turn ends and the session idles, whatever the playbook says.
@@ -1049,12 +1022,10 @@ Had the fleet gone quiet, it would have been dark for an hour with the fleet hea
 healthy throughout.
 
 23 clean ticks with four excursions is a throttle behaving as designed on a busy seat. That is
-visible only if you count every tick you received, rather than the interval you happen to be
-standing in.
+visible only if you count every tick you received, not the interval you are standing in.
 
-**Watch both directions.** A clock that fires too fast is the expensive fault, and a seat told to
-watch for silence will never report it. Gaps that are too long mean the chain is broken and you are
-awake by luck.
+**Watch both directions.** A clock firing too fast is the expensive fault, and a seat told to watch
+for silence will never report it. Long gaps mean the chain is broken and you are awake by luck.
 
 Gaps that are too short mean the clock is over-firing. Every tick wakes a seat and spends a turn, so
 a runaway clock burns the very pool this ladder exists to protect.
@@ -1109,10 +1080,8 @@ and fully recovers, and eleven seats do not all die at one tick and all return n
    received it means fanout skip. No seat received it means failed send or scheduler; check the task's
    own `LastRunTime` / `LastTaskResult`, which are independent of mail.
 
-Step 1 is first because it is cheapest, needs no second seat, and is the innocent explanation.
-
-**The counterweight goes in with it or step 1 becomes the new defect.** "Correct suppression" is the
-reassuring explanation.
+Step 1 is cheapest, needs no second seat, and is the innocent explanation. **The counterweight goes
+in with it or step 1 becomes the new defect.** "Correct suppression" is the reassuring explanation.
 
 So confirm suppression from the clock's **recorded status for those cycles**. Not from the
 plausibility of the story, and not from a **current** label, which this section measures as
@@ -1225,7 +1194,6 @@ subject you log are the same fact. Its default is a specific pool -- `messagefou
 `usage-log.ps1` line 39 -- and it is wrong for every other one.
 
 This entry omitted the parameter until 2026-08-29, so the command as documented was a live defect.
-
 **It defeats the *Every row carries its subject* invariant while satisfying it syntactically, which
 is why nothing reports it.**
 
@@ -1234,8 +1202,7 @@ well-formed row: org `b11dff81...`, account `<EMAIL-REDACTED>`, five_hour 100.0,
 seat's own pool read five_hour 32.0, weekly 7.0.
 
 **The row carried a subject. It carried the wrong one, and the exit code was 0.** The record is
-append-only by design, so such a row is corrected only by appending a `supersedes` row, never
-removed.
+append-only, so such a row is corrected only by appending a `supersedes` row, never removed.
 
 It compounds *An owner confirmation fixes a fact, not a subject*. The default names the pool the
 fleet was on before the last account switch. A successor arriving after any switch gets a plausible
@@ -1250,13 +1217,11 @@ because it would have dated this entry to one account. The script's own default 
 belongs to whoever owns `scripts/coord/usage-log.ps1`.
 
 The script takes its own reading, resolves the org from `accounts.json`, stamps provenance and
-appends. `-DryRun` prints the row without writing. **It refuses to write rather than writing
-something wrong.**
+appends. `-DryRun` prints the row without writing. **It refuses to write rather than writing wrong.**
 
 The record is `docs/usage/burn-history.jsonl`; `docs/usage/README.md` holds the schema and rotation.
-All four artifacts verified present on vault `origin/main`.
-
-**The four invariants matter more than the paths, and each came from a measured failure:**
+All four artifacts verified present on vault `origin/main`. **The four invariants matter more than
+the paths, and each came from a measured failure:**
 
 | invariant | why |
 | --- | --- |
@@ -1304,11 +1269,9 @@ python scripts\coord\token-collect.py --vault-root <vault checkout> --logger-sea
 `docs/usage/TOKENS.md` and `docs/usage/token-history.jsonl` were **absent from vault
 `origin/main`**, with a control on three files that are present.
 
-The collector was on one branch: 1 hit across 898 branches.
-
-The Steward that built it held it back deliberately. Its adversarial phase ran and its findings were
-applied, but 1,491 lines had not been read line by line. The last hour of the week is not when an
-unread instrument goes on main.
+The collector was on one branch: 1 hit across 898 branches. The Steward that built it held it back
+deliberately. Its adversarial phase ran and its findings were applied, but 1,491 lines had not been
+read line by line. The last hour of the week is not when an unread instrument goes on main.
 
 Run `git cat-file -e origin/main:scripts/coord/token-collect.py`; when it exits 0, this paragraph
 has expired.
@@ -1317,11 +1280,9 @@ Run it on the same cadence as your burn reading. A warm run costs about 2 second
 16,453 files; the first run on a new box costs 36 seconds and rebuilds everything. Record:
 `docs/usage/token-history.jsonl`. Schema, reading rules and limits: `docs/usage/TOKENS.md`.
 
-It is the only supported writer.
-
-**It is account-independent by construction, and that was measured rather than assumed.** It
-discovers every `~/.claude*` directory that holds a `projects/` subdirectory and reads all of them,
-so a seventh account arrives with no code change.
+It is the only supported writer. **It is account-independent by construction, and that was measured
+rather than assumed.** It discovers every `~/.claude*` directory that holds a `projects/`
+subdirectory and reads all of them, so a seventh account arrives with no code change.
 
 Verified 2026-08-29 by invoking it once under each of the six `CLAUDE_CONFIG_DIR` values against one
 frozen cursor: identical accounts walked, identical per-account file counts, identical seat census.
@@ -1362,21 +1323,19 @@ failing state first, on synthetic fixtures -- no corpus, no network, about two s
 an `OR` its own fixture satisfied through one branch.
 
 **Rows written before `token-collect.py/1.1.0` carry one wrong seat.** Session `2bb4514a` reads
-`labserver`; it was a lander session, and the label came from **directory-name ordering**, not from
-anything about the session.
+`labserver`; it was a lander session, and the label came from **directory-name ordering**, not the
+session.
 
 `instrument` is the discriminator, the record is append-only, and those rows stay -- do not edit
-them. Reading by the procedure in `TOKENS.md` needs no special handling, because the seat comes from
-the later row.
+them. The procedure in `TOKENS.md` needs no special handling: the seat comes from the later row.
 
 ---
 
 ## 8. Nobody is owed a restart
 
-The cron tells nobody to stop, so it owes nobody a restart. A Builder is one turn and then its process
-exits, so there is no held session to wake.
-
-**Publish the window reset time as a field of the reading.** That is all this section now asks for.
+The cron tells nobody to stop, so it owes nobody a restart. A Builder is one turn and then its
+process exits, so there is no held session to wake. **Publish the window reset time as a field of
+the reading.** That is all this section now asks for.
 
 **Retired 2026-09-01: this section previously carried a wake-and-resume duty**, owner ruling
 2026-08-13: *"You told them to stop; you owe them the restart"*. It had a null-case precondition, a
@@ -1445,9 +1404,8 @@ it is recorded with what it does **not** change.
 confirm the fleet is on that pool.
 
 Requested by the Steward seat 2026-08-14. It is the most expensive trap on this list, because it
-defeats the rest: every other rule here tests the NUMBER, and none tests the SUBJECT.
-
-It beat three careful, independent analyses in a row, each correcting the last:
+defeats the rest: every other rule here tests the NUMBER, and none tests the SUBJECT. It beat three
+careful, independent analyses in a row, each correcting the last:
 
 | | reasoning | verdict |
 |---|---|---|
@@ -1460,14 +1418,11 @@ verified the sample age, and asserted a control that had to behave differently i
 stale. The control passed *because the reading really was live.*
 
 **A liveness control cannot detect a subject error.** It confirms the instrument works, on whatever
-it is pointed at.
-
-The instrument admits it in a parenthetical that is trivially read past: *"(desktop app's current
-account -- no record for this session)"*.
+it is pointed at. The instrument admits it in a parenthetical that is trivially read past:
+*"(desktop app's current account -- no record for this session)"*.
 
 On 2026-08-14 it printed URGENT STOP and *"exhausted in under a minute"* roughly **six times, all
-correctly**. The subject was a pool with **zero fleet traffic**, while the fleet worked comfortably
-on another.
+correctly**. The subject was a pool with **zero fleet traffic**, while the fleet worked on another.
 
 **The general form, and it is not confined to pools:** *whose is this* is a different question from *is
 this real*, and every control in this file answers the second. Ask the first one out loud. *A rising weekly
@@ -1475,9 +1430,8 @@ identifies the live pool* carries the method that answers it for a pool.
 
 ### 9.8a. An owner confirmation fixes a fact, not a subject
 
-A pool is a fact with a shelf life. Re-derive the subject across any boundary that could have moved it,
-however well attested. Requested by a replacement Steward seat, 2026-08-28, from a near-miss it measured
-on itself.
+A pool is a fact with a shelf life. Re-derive the subject across any boundary that could move it,
+however well attested. Requested by a replacement Steward seat, 2026-08-28, from its own near-miss.
 
 *Confirm the subject before refining the predicate* and the burn-rate section both assume the
 subject is UNKNOWN or INFERRED. This one was neither. It was pinned by an owner confirmation, the

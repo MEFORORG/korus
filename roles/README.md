@@ -6,18 +6,18 @@
 > set changes, and the table below is a snapshot of a moving set.
 
 This folder holds one durable playbook per **seat** in MessageFoundry's parallel session setup. A
-session in a given seat reads its own file on arrival, **instead of being hand-fed context**. That is
-the whole point of the folder: the owner should not have to paste a briefing into a fresh window.
+session reads its own file on arrival **instead of being hand-fed context**, so the owner never has
+to paste a briefing into a fresh window.
 
 These files name internal process, gates, instruments and their failure modes, because the vault they
-were written in is private. They still obey the project's writing rules. No glyphs or emoji, and no
+were written in is private. They still obey the project's writing rules: no glyphs or emoji, and no
 present-tense claim that MessageFoundry is deployed, because it is a not-yet-deployed beta.
 
 **This file carries no live state on purpose.** The open queue, item numbers, which PRs are armed,
 who is blocked on whom and session names belong in a dated episode note. *These files carry nothing
 that expires* states the split; *Episode notes live outside this folder* says where they go.
 
-## 1. The seat set changed four times, nine seats have retired, and one was added
+## 1. Ten seats have retired, two were added, and 2026-09-19 did both at once
 
 **Seven seats retired by owner decision on 2026-09-01: Dispatcher, Project Manager, Liaison, Cleaner,
 Role manager, Process improvement and ASVS Tracker.** The Console took the Dispatcher's and the
@@ -26,17 +26,22 @@ Liaison's work. Nothing replaced the other five.
 **The Console then retired on 2026-09-10, and the Manager took all three.** A Console reached across
 every account and oversaw the whole build. That breadth did not work.
 
-A Manager sits inside ONE account, and several run at once. So the plan, the brief and the owner's
-questions all arrive at the same seat they did before, held by a smaller one.
+A Manager sits inside ONE account, and several run at once. The plan, the brief and the owner's
+questions arrive at the same seat as before, held by a smaller one.
 
-**A ninth seat retired on 2026-09-12, and nothing replaced it.** Section 3 below was the open
-question, and this is the answer to it.
+**A ninth seat retired on 2026-09-12, and nothing replaced it.** Section 3 asked; this answers.
 
-**The owner added the Special seat on 2026-09-16, and it is the first addition rather than a
-replacement.** It holds work that falls outside the other six, so no retirement made room for it.
+**The owner added the Special seat on 2026-09-16, the first addition rather than a replacement.** It
+holds work falling outside the other six, so no retirement made room for it.
 
 It is also the only seat that stays silent on arrival. Owner-set: it reads [COMMON.md](COMMON.md),
 stands by, and announces only when its instruction makes the message worth sending.
+
+**The Watchdog arrived on 2026-09-19, and the Regulator retired hours later the same day.** The
+second addition and the tenth retirement, and they are not a swap: 1a and 1b each say why.
+
+**The heading read "four times, nine seats have retired, and one was added" until 2026-09-21.** Its
+numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 
 **Do not route work to a retired seat, and do not read a retired row as a live instruction.**
 
@@ -82,8 +87,8 @@ Two ways to read it, both in the vault clone. The blob:
 `git -C <vault> cat-file -p 9a2f7a64a8802dab6d281665b4c9b05d5cf8eda2`. Or the file's own history:
 `git -C <vault> log -- roles/INSTRUMENTS.md`.
 
-Live seats still cite it, so **do not delete those citations**. [COMMON.md](COMMON.md), *Where the old
-COMMON numbers went*, owns the row.
+Live seats still cite it, so **do not delete those citations**. [COMMON.md](COMMON.md), *Where the
+old COMMON numbers went*, owns the row.
 
 ## 2. COMMON owns the rules that bind every seat, and these files point rather than restate
 
@@ -147,12 +152,10 @@ Every section they cited still existed, so nothing errored and **every grep read
 ### 4c. A blanket replace corrupted the history of the name it was renaming
 
 The 2026-08-29 rename updated **35 references across 8 files**. Controls: 35 occurrences of the
-retired name before and 0 after, and 0 occurrences of the new name before, so nothing unrelated was
-folded into this seat.
+retired name before and 0 after, and 0 of the new name before, so nothing unrelated folded in.
 
 It then failed in a way the three earlier renames did not. The pass corrupted the very paragraph
-recording the 2026-08-26 rename. That paragraph came to say the third rename produced
-`ROLE-MANAGER.md`, which is false.
+recording the 2026-08-26 rename, making it say that rename produced `ROLE-MANAGER.md`, which is false.
 
 The error was **unfalsifiable from inside the file**, because by then every name in the sentence was
 a real one. The seat that broke it repaired it in the same window.
@@ -173,27 +176,24 @@ The seat's own name was settled by an owner ruling, 2026-08-28, in one line: *"Y
 Manager"*. Until then the H1 read "ROLE PLAYBOOKS seat" while the file, the handoffs and `seat.ps1`
 all said `role-manager`.
 
-The seat holding the single-editor rule did not settle its own name. It flagged both as live and
-asked.
+The seat holding the single-editor rule did not settle its own name; it flagged both as live and asked.
 
 ### 4e. The check after any seat rename has two arms
 
 Run both. Arm one: every link in this file resolves, **11 of 11 at `befdc79a`**. Arm two: zero
 occurrences of the retired name remain outside a history block.
 
-**Run the second arm with a control token that must return zero**, or a broken grep reads as a clean
-folder.
+**Run the second arm with a control token that must return zero**, or a broken grep reads as clean.
 
 ### 4f. Do not reuse a retired seat name for a new seat
 
 The owner-queue seat added later was going to be called the Coordinator. It was named the **Liaison**
-instead, precisely to avoid reusing a retired name.
+instead, precisely to avoid reusing a retired name: a distinct name costs nothing, and the ambiguity
+would have been permanent.
 
 Reuse would have made one word denote two seats sharing no duties, against roughly **182 historical
 occurrences** that could not be swept. Those are records of what a session did on a given night.
 Rewriting them would falsify the record to tidy a name.
-
-A distinct name costs nothing, and the ambiguity would have been permanent.
 
 **Expiry for the Coordinator note specifically:** delete it once no artifact a session is likely to
 read still uses the old name. Until then, if a peer refers to the coordinator, they mean the Lander.
@@ -231,14 +231,13 @@ The best material here came from seats reporting what executing a playbook did. 
 arrival battery found a row that could not answer its own question. The Dispatcher that found COMMON
 unreachable by its own rules. The Liaison that found its own seat unreachable from every other file.
 
-**Report the measurement and what it cost you.** You do not have to propose wording.
+**Report the measurement and what it cost you.** You do not have to propose wording. When you do, it
+is a claim like any other: it gets verified before it lands, and several have not survived that. Send
+the measurement alongside it so the check is cheap.
 
-When you do propose wording, it is a claim like any other. It gets verified before it lands, and
-several have not survived that. Send the measurement alongside it so the check is cheap.
-
-Do **not** write a second, thinner summary of a seat somewhere else. Two documents describing one role
-have no drift signal between them. If you want a short pointer elsewhere, make it a pointer. A summary
-goes stale silently, where a pointer cannot.
+Do **not** write a second, thinner summary of a seat somewhere else.
+*Why the seat files point rather than restate*, in section 2, owns that rule: a summary goes stale
+silently, where a pointer cannot.
 
 ## 7. Episode notes live outside this folder, in a directory you derive
 

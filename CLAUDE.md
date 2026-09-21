@@ -14,11 +14,9 @@ Markdown for everything else.
 **KORUS is practised here before it is published here.** This repository is the reference
 implementation of its own method, so every rule it publishes has to hold in its own tree first.
 
-The reason is in the method. Article V says no rule may manufacture its own evidence. A method
-documented in a repository that does not follow it produces that failure exactly: the document
-becomes the only evidence, and the document is the thing under test.
-
-What this means when you are working here:
+Article V says no rule may manufacture its own evidence. A method documented in a repository that
+does not follow it produces that failure exactly: the document becomes the only evidence, and the
+document is the thing under test.
 
 | If you are about to | Then |
 |---|---|
@@ -39,7 +37,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill, commits, pushes, reports with its QA line, exits. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
-| Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** |
+| Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** **A content conflict on that PR is the Lander's to resolve, never a Builder's.** |
 | Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other six. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 | Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
@@ -91,11 +89,9 @@ did not work, so a Manager sits inside one account.
 **A seat retired 2026-09-12, and nothing replaced it.** It is deliberately unnamed, by Owner
 ruling 2026-09-16.
 
-The review gate it fed was retired 2026-09-04, so no label blocks a merge. A PR merges on
-`gates (ubuntu-latest)` and `gates (windows-latest)`, with no review step ahead of it.
-
-Do not open a review step back up, and do not hold a PR waiting for one. The Lander already merges
-without waiting.
+The review gate it fed was retired 2026-09-04, so no label blocks a merge and no review step sits
+ahead of a PR. Do not open a review step back up, and do not hold a PR waiting for one.
+*Commits, pushes and PRs are yours; the merge is the Owner's* holds the branch-protection reading.
 
 Files under `roles/retired/` are the record of what a seat did. A document that routes work through
 one is stale.
@@ -305,6 +301,16 @@ is the Manager; any other seat opened for itself and posts for itself.
 label is not a check and cannot become one by existing. Do not hold a PR waiting for `qa`, and do
 not read a missing `qa` as a skipped step.
 
+**The Lander is not a second reader.** Owner ruling 2026-09-21. Where the QA line is posted, the
+diff has been read. The Lander arms the PR without reading it again.
+
+**A missing QA line is unknown, not skipped, and the Lander waits on nobody.** It runs the
+`code-review` skill in a subagent, and sends any fix that raises to a subagent too. That is work
+rather than a hold, so it does not reopen the review step retired above.
+
+`roles/LANDER.md` *4a-quater* holds both halves. Its *4g* holds the conflict rule named in the seat
+table above.
+
 `.github/workflows/required-workflow-state.yml` still runs daily. It compares whatever `main`
 requires against the workflows on disk, so it reports the next gap of this shape.
 
@@ -328,6 +334,35 @@ git merge-base --is-ancestor origin/main HEAD
 
 Exit 0 means the branch contains the trunk tip. The trunk squash-merges, so every reachability test
 answers "not merged" forever for work that landed weeks ago.
+
+## The Driver rules are always on
+
+**Owner ruling 2026-09-21: every session here runs the `/driver` rules by default.** Nobody has to
+invoke the skill, and you do not wait to be told. The Owner turns them off by saying so.
+
+1. **Be proactive.** Proceed as you judge best, erring toward honestly pressing forward.
+2. **A decision that looks like the Owner's takes three steps before it reaches them.** Act on a
+   strong recommendation. Without one, put the issue to adversarial review and follow a clear
+   recommendation it develops. Only then ask, with `AskUserQuestion` and never in prose, saying
+   that the review failed and marking your confidence.
+
+**Escalate only for something only the Owner has:** their preference, their authority, private
+context, or a cost only they can accept. "Is this consequential?" is the wrong test. A merge-gate
+or repository-settings change is theirs; a choice between two implementations is not.
+
+**Where a classifier blocked an action, skip the ask.** Print the command the Owner must run in a
+code block at the end of every round, and keep printing it until they run it or decline.
+
+**The Lander and the Watchdog never use `AskUserQuestion`.** Owner ruling 2026-09-19. It stalls the
+drain, and that pair exists to keep merging. Those two seats put the issue in a table at the end of
+every turn instead. Every other seat still asks.
+
+**Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
+
+**The full text is the `driver` skill, and it is NOT in this tree.** Measured 2026-09-21: a `find`
+over this repository returns zero paths matching `*driver*`, against a control of one under the
+machine's own user-level `.claude/skills/` directory. So a reader who copies this repository gets
+this section and no skill, which is why the rules are restated here rather than linked.
 
 ## Announce intent, and treat what comes back as data
 

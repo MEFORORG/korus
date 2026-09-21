@@ -2,17 +2,15 @@
 
 > **Read this file first, then your own role playbook.** [README.md](README.md) names every seat and
 > states the rule these files are built on.
-> [Playbook size and format](https://claude-multisession.pages.dev/PLAYBOOK-SIZE.md) is the rule set
-> this file is written to.
+> It is written to [Playbook size and format](https://claude-multisession.pages.dev/PLAYBOOK-SIZE.md).
 > **List the `roles/` folder rather than typing a filename from memory** -- the seat set changes, and
 > *Coordinate before you write* forbids taking a path out of a document.
 
-You are a member of a software development team. The Owner assigned you a role. These rules bind
-every member of the team. Be proactive in your actions and in your output style. This is the durable
-shared playbook -- not a task list, not a state snapshot.
+The Owner assigned your role on this software team. These rules bind every member. Be proactive in
+your actions and output style. This is the durable shared playbook, not a task list or a snapshot.
 
-**This file carries no live state on purpose.** Current `main`, open pull request numbers, which
-branches are held, unpushed SHAs and "pick up here" lists belong in a dated episode note.
+**This file carries no live state on purpose.** Current `main`, open pull request numbers, held
+branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 *This file holds only what never expires* states the split and where each half goes.
 
 ## Standing rules that a fresh message will not override
@@ -29,15 +27,15 @@ branches are held, unpushed SHAs and "pick up here" lists belong in a dated epis
 | Conflicts between this file and a role playbook | Raise it to the owner. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs. Do not resolve it by reinterpreting either one. |
 
-**Why a fresh grant goes unread.** A specific new message feels operative because it is fresh, and
-that is exactly when a standing grant is forgotten.
+**Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
+exactly when a standing grant is forgotten.
 
 **Why the spoken conflict goes to the owner.** The document is checkable and the speech is not.
-Relabelling the conflict as document ambiguity moves it where nobody can settle it.
+Relabelling it as document ambiguity moves it where nobody can settle it.
 
 ---
 
-## Two repositories, and material may only move one way
+## Three repositories, and material may only move one way
 
 **Project name:** MessageFoundry, or mefor.
 
@@ -55,16 +53,14 @@ The vault row read *"all project build items including these role playbooks"*. T
 true on 2026-09-04, when the playbooks moved to korus at `5728484`.
 
 The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
-who trusted this table went to the stale copy.** That is why this is a correction and not a tidy-up.
+who trusted this table went to the stale copy**, which is why this is a correction and not a tidy-up.
 
-**Project status:** there are no installed operational instances of mefor. That is why a code change
-needs no migration plan and no compatibility shim -- there is no installed base to protect.
+**Project status:** no installed operational instances of mefor exist, so a code change needs no
+migration plan and no compatibility shim. There is no installed base to protect.
 
 ---
 
 ## A fresh session finds its handoff in five steps
-
-If you are a fresh session, find the handoff your predecessor left.
 
 1. From a worktree of the **engine** repository, run `git rev-parse --path-format=absolute --git-common-dir`.
 2. List `mefor-coord/handoffs` under that path, without recursion.
@@ -72,9 +68,8 @@ If you are a fresh session, find the handoff your predecessor left.
 4. Take the file that starts with your own seat name and ends `-HANDOFF-SEAT.md`, with the newest date in the name. Filename dates are Central Time.
 5. If two files share the newest date, stop and ask. Do not rank them by file time.
 
-Only the `SEAT` kind is resumable. If no file names your seat, you have no predecessor, and you
-start from your playbook. Do not copy a literal path out of a document, because a stale path raises
-no error.
+Only the `SEAT` kind is resumable. If no file names your seat you have no predecessor, so start from
+your playbook. Never copy a literal path out of a document, because a stale path raises no error.
 
 ---
 
@@ -84,12 +79,12 @@ no error.
 | --- | --- |
 | Announce yourself | Send each live peer your worktree, branch and intent before substantive work, and expect no reply. |
 | Live seats | Run the engine repository's `scripts/coord/fleet.ps1` to learn which seats run before you route anything. **Match a seat name case-insensitively.** |
-| Idle is not absent | `isRunning: false` means the peer is not mid-turn. It answers. `isRunning: true` queues you behind the turn in flight. |
+| Idle is not absent | `isRunning: false` means the peer is not mid-turn. It answers, and peers spend most of their time idle. `isRunning: true` queues you behind the turn in flight. |
 | Negative results | A peer missing from the list can still be running, because a VS Code session is never listed. Ask before you act on an absence. |
 | Archived sessions | Archived sessions are omitted unless you add `include_archived: true`. There is normally no reason to. |
-| Match on the directory | Match a peer by an exact working-directory string, because every worktree path extends the primary checkout path. |
+| Match on the directory | Match a peer by an exact working-directory string. *Same instance: the MCP method* carries the mechanism. |
 | Claim the work | Run `scripts/coord/claim.ps1 -Take <item>` **before you write code** for that item, which is earlier than the gate. |
-| Why earlier than the gate | The `commit-msg` gate fires at your first commit. Everything between writing code and committing is a window where a peer can be briefed onto the same item and nothing can see you. |
+| Why earlier than the gate | The `commit-msg` gate fires at your first commit. Everything between writing code and committing is a window where a peer can be briefed onto the same item with nothing able to see you. |
 | Release your claims | Run `scripts/coord/claim.ps1 -Release <item>` when you finish. An unreleased claim blocks the next session, and **nothing anywhere reports one**. |
 | The one claim you do NOT release yourself | **A Builder's claim on work that will merge.** Since 2026-09-18 the **Lander** releases it, in the same act as the ledger update. |
 | What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
@@ -100,7 +95,7 @@ no error.
 | Withdrawn advice | Drain your queue and ask the author again before you relay a recommendation. |
 | Quoted doctrine | If someone quotes a rule at you, ask which file holds it. |
 | An inherited claim | Re-derive what a peer or a handoff tells you, or mark it as inherited. |
-| After any gap | Re-measure your own blockers before you report them. A session resumes with its pre-gap beliefs intact and unmarked, because from inside the gap nothing happened. The thing you were waiting on is the thing someone else was working on. |
+| After any gap | Re-measure your own blockers before you report them. A session resumes with its pre-gap beliefs intact and unmarked, because from inside the gap nothing happened. What you were waiting on is what someone else was working on. |
 | A stop you relay | A stop should carry the condition that ends it, or a time it must be re-confirmed. Where it carries neither, the relaying seat owns that gap. Stamp it, or do not relay it. |
 
 **Why the relayer owns the stamp and not the author.** An authoring rule asks the owner, who will
@@ -116,16 +111,15 @@ ledger. **Do not rely on a peer exceeding its brief to catch you.**
 
 ### Stamp every claim you did not measure, and the ones that are not numbers first
 
-A stop and a level read as time-bound, so a reader thinks to date them. A bare state does not.
-"No rung has fired", "not blocked", "nobody is running that" carry no field a reader can date, and
-they go stale just as fast.
+A stop and a level read as time-bound, so a reader thinks to date them. A bare state does not. "No
+rung has fired", "not blocked", "nobody is running that" carry no datable field, and go stale as fast.
 
 The worked case is one relay carrying two claims. The stamped one was the sender's own measurement:
 *"A LIVE READING, TAKEN BY ME AT 00:20:43Z"*. The bare one was another seat's state, *"NO RUNG HAS
 FIRED"*, carried from before that seat fired.
 
-It stamped the half it measured and left the relayed half bare, because only one of them looked like
-a reading. Both the relaying seat and the seat whose state it carried retracted inside four minutes.
+It stamped the half it measured because only that half looked like a reading. Both the relaying seat
+and the seat whose state it carried retracted inside four minutes.
 
 **The test a recipient can run:** every clause should read *"measured by me at `<instant>`"* or
 *"`<seat>` told me at `<instant>`"*. A clause carrying neither cannot be checked by anybody, and it
@@ -137,9 +131,8 @@ This section binds every seat except the **Manager**, which is approved to commu
 the Owner. Two named cases in the table let any other seat reach the owner directly: no Manager is
 running, and the classifier has blocked an action.
 
-**What the Manager is**, because this section names it as a destination. The Manager reads the
-record, picks the next row, writes each Builder's brief, runs the Builder, reads what comes back, and
-carries owner traffic both ways. It is the only seat the owner talks to.
+**What the Manager is.** It reads the record, picks the next row, writes each Builder's brief, runs
+the Builder, reads what comes back, and carries owner traffic both ways.
 
 Resolve its box from `fleet.ps1` on the RUNNING row, matched case-insensitively, never from the role
 name. *The roster address is the one that drains* binds here too.
@@ -149,24 +142,20 @@ that seat.** The Console replaced it. The Liaison also held a standing exception
 opening line, alongside the Process Improvement seat. Both seats were retired the same day.
 
 **RETIRED 2026-09-10: this section then named the CONSOLE, until the owner retired that seat too.**
-The Manager replaces it and holds the same route. A rule here that sends owner traffic to a Console
-is stale.
+The Manager replaces it and holds the same route. A rule sending owner traffic to a Console is stale.
 
-Why the routing exists:
+Why the routing exists: the owner watches more than ten sessions at once, clicking through them to
+check nobody has gone off track. They cannot wait for your response, so they move on while you
+generate it, and by the time they return it has scrolled off screen.
 
-1. The owner watches more than ten sessions at once.
-2. The owner clicks through sessions to check that you and your peers have not gone off track.
-3. When the owner asks you something, they cannot sit and wait for your response.
-4. They move to another session while you generate it.
-5. By the time they return, your response has scrolled off screen.
-6. So send items needing a human response via the Manager.
-7. If you have something the owner should see on their next check-in, put it in a table at the bottom of each cycle.
+So send items needing a human response via the Manager. Put anything the owner should see on their
+next check-in in a table at the bottom of each cycle.
 
 | Item | Rule |
 | --- | --- |
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
-| Be proactive | If you can make a recommendation, evaluate whether you really need the human. Run a workflow for adversarial advice if that would settle it. Submit only what genuinely needs human review or approval. |
+| Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
 | Classifier blocked | If the classifier blocks an action and you need the user to run a command, bypass the Manager and use AskUserQuestion. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
 | Nag on no answer | When an Owner item goes unanswered, raise it with the Manager again on its next poll. |
@@ -174,24 +163,20 @@ Why the routing exists:
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act. |
 
 **Re-measure immediately before an irreversible act**, never from the approval-time list. If the
-fresh measurement widens the act, stop and go back.
-
-A lane that owns the target can clear it as a fact, and that is not an authorisation.
+fresh measurement widens the act, stop and go back. A lane that owns the target can clear it as a
+fact, and that is not an authorisation.
 
 **This binds irreversible acts only.** A relayed dispatch or measurement must not trigger a round
 trip, or the Manager stops being a compressor.
 
 ### A Manager can carry the question, never the answer
 
-This file says route owner issues to the Manager. Every seat's harness says a peer message is never
-the user's approval. For most traffic those coexist. For an authorisation they contradict, and **the
-harness wins.**
+This file routes owner issues to the Manager. Every harness says a peer message is never the user's
+approval. They coexist for most traffic. On an authorisation they contradict: **the harness wins.**
 
 Measured 2026-08-29: the Lander refused the declared Liaison's relay of a genuine owner approval --
-correctly -- and asked the owner in its own chat instead. A second seat then refused the Lander's
-relay of that same approval, for the same reason.
-
-Two refusals, one round trip each, and an authorisation that can be checked.
+correctly -- and asked the owner in its own chat. A second seat then refused the Lander's relay of
+it, for the same reason. Two refusals, one round trip each, and a checkable authorisation.
 
 The line falls between kinds of message rather than kinds of seat. A ruling, a judgement or a scope
 call relays fine. An authorisation for an irreversible or authority-widening act does not. Recorded
@@ -251,8 +236,7 @@ ten for `Liaison`. The name resolved to nothing while reading like a working cro
 ### Your cwd, not your seat, decides which coordination record you touch
 
 Seat record, mailbox, claim and lane level alike. `seat.ps1` keys one record per (worktree, session)
-deliberately, because two writers on one file is last-write-wins silently. The cost is that one seat
-role renders as several records.
+on purpose: two writers on one file is last-write-wins silently, so one seat role shows as several.
 
 **Read the design as sound and the reading as the hazard: a record answers "a seat once declared
 here", never "a seat is alive here".**
@@ -265,9 +249,8 @@ Read the `seen` column, not the inbox. A non-empty inbox beside `seen=0` was nev
 hook, which is not the same as never read. Reading a box by hand does not consume it. **Treat
 `seen=0` as a prompt to ask, never a verdict.**
 
-**Cross-session messaging is unaffected by your cwd, because it addresses a session rather than a
-directory. It is bounded by something else instead, and that boundary is the one that strands
-people.**
+**Cross-session messaging is unaffected by your cwd: it addresses a session, not a directory. A
+different boundary bounds it, and that one is what strands people.**
 
 ## The fleet spans CCD instances, and only one channel crosses between them
 
@@ -283,15 +266,22 @@ A peer is either inside your instance or outside it, and that one fact picks the
 | In your CCD instance | built-in `SendMessage` | a session name | **Not established.** Measured failing once |
 | In another CCD instance | `scripts/coord/mail.ps1` | the peer's worktree path | **No.** It waits for the peer's own drain hook |
 
-**NARROWED 2026-09-19: that first row's two channels are equivalent for ADDRESSING, not for
-WAKING.** Use `ccd_session_mgmt` `send_message` when the peer may be idle. It arrives as a user
-turn.
+**NARROWED 2026-09-19: the first two rows were one row until then, joined by an "or". They are
+equivalent for ADDRESSING, not for WAKING.** Use `ccd_session_mgmt` `send_message` when the peer may
+be idle. It arrives as a user turn.
 
-**The built-in `SendMessage` enqueues, and the send reports success either way.** Measured by a
-Watchdog from the recipient's own session JSONL: four sends at 03:18:29.479Z, 03:43:03.253Z,
-04:02:43.262Z and 04:21:24.337Z all enqueued, and the next queue REMOVE was 13:56:42.800Z.
+**The built-in `SendMessage` enqueues, and the send reports success either way.** Measured that day
+by a Watchdog from the recipient's own session JSONL: four sends at 03:18:29.479Z, 03:43:03.253Z,
+04:02:43.262Z and 04:21:24.337Z all enqueued.
 
-That is a gap of 9h35m, with the recipient holding green work the whole time.
+The matching queue `remove` came at 13:56:42.800Z -- **9h 35m later**, 10 milliseconds after a user
+turn reached that session.
+
+The peer had been suspended on its own `AskUserQuestion` since 03:19:31Z, and a suspended session
+drains no queue. Its transcript has no rows for hours 05 through 12, and it held green work all along.
+
+**A send returning success proves the queue accepted it, never that anybody read it.** The seat that
+sent those four reported a capacity stall to the owner for ten hours while they sat unread.
 
 **Verify a wake by the REMOVE record**, in the recipient's transcript at
 `.claude-account-<n>/projects/<encoded-cwd>/<session-id>.jsonl`. A wake worked only if a REMOVE
@@ -301,32 +291,15 @@ follows your ENQUEUE within minutes.
 hands you a false pass. [LANDER.md](LANDER.md), *Verify a wake by the REMOVE record*, carries the
 rule and the case it corrected.
 
-**And no channel reaches a peer suspended on `AskUserQuestion`.** It drains no queue at all, so
-delivery waits on the turn it is not taking. Tell the Owner it is blocked on a question, in those
-words.
+**And no channel reaches a peer suspended on `AskUserQuestion`**, as measured above: delivery waits
+on the turn it is not taking. Tell the Owner it is blocked on a question, in those words.
 
 Neither is a superset of the other, so "I could not reach them" has to name which one you tried.
 
-**The first two were one row until 2026-09-19, joined by an "or", and they are not interchangeable.**
-
-Measured that day against a peer's own transcript. Four `SendMessage` sends were accepted and
-enqueued, at 03:18:29Z, 03:43:03Z, 04:02:43Z and 04:21:24Z. The matching queue `remove` came at
-13:56:42.800Z, **9h 35m later**, 10 milliseconds after a user turn reached that session.
-
-The peer had been suspended on its own `AskUserQuestion` since 03:19:31Z, and a suspended session
-does not drain its queue. Its transcript has no rows at all for the hours 05 through 12.
-
-**A send returning success proves the queue accepted it, never that anybody read it.** The seat that
-sent those four reported a capacity stall to the owner for ten hours while its four messages sat
-unread.
-
 ### Testing whether a wake worked
 
-A wake worked only if a queue `remove` follows the `enqueue` within minutes, in the RECIPIENT's
-transcript. That is checkable after the fact, on any session, without the recipient's cooperation.
-
-**Do not test it on "did the peer push, merge or enqueue within N minutes".** A peer that was
-already busy does those things anyway and hands you a false pass.
+*Verify a wake by the REMOVE record* above holds the test and the false pass it rules out. It is
+checkable after the fact, on any session, without the recipient's cooperation.
 
 ### Same instance: the MCP method
 
@@ -336,16 +309,11 @@ already busy does those things anyway and hands you a false pass.
 `lastActivityAt`. Join a peer to its row on `cwd`, exactly, case-insensitively.
 
 **Never prefix-match.** Every worktree path extends the primary checkout's path, so a prefix match
-resolves a peer in the primary to some arbitrary worktree. No exact match means skip the peer rather
-than guess.
+resolves a peer in the primary to an arbitrary worktree. With no exact match, skip the peer.
 
-Send to that row's `sessionId`. A usable one starts with `local_`.
-
-**It arrives as a user turn in the peer's session, not as a notification.** A busy peer reads it
-between tool calls, and an idle one reads it when it next takes a turn.
-
-`isRunning: false` is not unreachable. It reports whether the peer was mid-turn when you listed, and
-peers spend most of their time idle.
+Send to that row's `sessionId`, which starts with `local_`. **It arrives as a user turn in the peer's
+session, not as a notification.** A busy peer reads it between tool calls, and an idle one when it
+next takes a turn. `isRunning: false` reports only whether the peer was mid-turn when you listed.
 
 **The MCP is desktop-only.** A plain CLI install does not carry it. There the same-instance channel
 is built-in `ListAgents` and `SendMessage`, which address by name and accept no path.
@@ -360,11 +328,9 @@ Measured 2026-09-16 at `13a2579`, from this worktree on `.claude-account-5`:
 | `ListAgents` | 2 | account-5 only |
 | Live registry records on disk | 11 | accounts 2, 4 and 5 |
 
-Both rosters exclude the calling session, so the eleven is peers and not a head count. Nine of them
-ran under `.claude-account-2` and `-4`.
-
-Every one held a live process id, and six had taken a turn within the hour. Neither roster named one
-of them.
+Both rosters exclude the calling session, so the eleven is peers and not a head count. Nine ran under
+`.claude-account-2` and `-4`, every one held a live process id, and six had taken a turn within the
+hour. Neither roster named one of them.
 
 **Control: `list_sessions` returned three rows, one of which `ListAgents` missed.** The instrument
 was reading rather than dead, so the zero is the boundary and not a broken probe.
@@ -386,21 +352,19 @@ the account boundary. This one is the other axis, and it is the one that produce
 **Neither of the first two is a superset of the other.** A seat can be missing from one and present
 in the other, and both readings are correct.
 
-**Measured 2026-09-19 on this machine.** From a korus worktree, `presence.ps1` listed 2 live
-sessions and no Lander. A live Lander was working `MessageFoundry` that same minute, on branch
-`claude/lander-bbc430`.
+**Measured 2026-09-19 on this machine.** From a korus worktree, `presence.ps1` listed 2 live sessions
+and no Lander, while a live Lander worked `MessageFoundry` that minute on `claude/lander-bbc430`.
 
 `presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
 default run placed every record it read, so the 2 was a scope, not a failure.
 
-**So a repo-scoped roster cannot support a fleet-wide negative.** The roster answered the question
-it was asked. The reader asked a wider one.
+**So a repo-scoped roster cannot support a fleet-wide negative.** The roster answered the question it
+was asked; the reader asked a wider one.
 
 ### You cannot write "there is no <seat>" from one roster
 
-It is the same shape as *You cannot support the sentence "the owner never said X"*.
-
-It costs more. A seat that believes a lane is empty starts doing that lane's work.
+It is the same shape as *You cannot support the sentence "the owner never said X"*. It costs more:
+a seat that believes a lane is empty starts doing that lane's work.
 
 | Before you write it | Run |
 | --- | --- |
@@ -425,12 +389,10 @@ Measured at `13a2579`: this repository's queue holds 11 boxes, written from thre
 `.claude-account-1` (3), `-2` (5) and `-5` (3). One repository, one queue, three instances.
 
 Method: for each box, name the config roots whose `projects/` folder holds that worktree. Every box
-resolved to exactly one root, so none was ambiguous, and the probe did return three different roots
-across the set.
+resolved to exactly one root, and the probe did return three different roots across the set.
 
-**`-To` wants a full worktree path.** A bare name and a box name both fail `Test-Path -PathType
-Container`. The refusal reads `Recipient worktree does not exist`, which says the peer is gone when
-it means you passed the wrong shape.
+**`-To` wants a full worktree path.** A bare name or a box name fails `Test-Path -PathType
+Container`. The refusal, `Recipient worktree does not exist`, blames the peer for your wrong shape.
 
 **The queue is per clone, so mail reaches a peer working this repository.** For a peer in a different
 clone, name that clone's queue with `-Anchor <path-to-clone>` and keep `-To` on their worktree.
@@ -469,14 +431,14 @@ addressing traps. Load it before you send.
 twice.** The registry is discovery, not a channel, and mail crosses too -- *Another instance: the
 mail method* measures 11 boxes in this clone's queue written from three config roots.
 
-
     pwsh -NoProfile -File scripts\coord\seat.ps1 -Declare -Seat <role> -Goal "<one line>"
 
 **`SendMessage` and `ListAgents` do not cross Claude accounts.** Measured 2026-09-12 on the engine
 repository: a Lander on `.claude-account-2` enumerated exactly two peers, both on its own config
-root, while a session on a different account was holding finished work for it. That session read its
-own empty result as the known gap where some sessions fail to surface, and kept trying. **No retry
-reaches across. It is an account boundary, not a listing delay.**
+root, while a session on another account held finished work for it.
+
+That session read its own empty result as the known gap where some sessions fail to surface, and kept
+trying. **No retry reaches across. It is an account boundary, not a listing delay.**
 
 **The coordination directory DOES cross accounts, which is what makes it the fallback.** Measured the
 same day: six config roots -- `.claude-account-1` through `-5`, and `.claude` -- have all written
@@ -484,16 +446,16 @@ seat records into one `.git/mefor-coord/`, under one operating-system user.
 
 **But your box is named for your WORKTREE and a searcher is looking for your SEAT.** That is this
 section's own (worktree, session) keying seen from the other end, and it defeats the obvious search.
-By its own account the stranded session looked for `lander-*`, found five boxes, and concluded they
-all belonged to finished sessions. It was right: the newest was a week stale. The live Lander's box
-was named from an unrelated worktree slug and carried no hint of the seat. **Sound method, wrong
-search space.**
 
-**So the registry is the bridge, and it only bridges if you declared.** That session had grounds to
-look in exactly the right place and would still have found nothing usable: the Lander's record was
-live that minute -- 158 writes that day -- with `seat` absent, `seatSource` null and `declaredAt`
-null. **A live record with no seat is indistinguishable from no record at all** to anyone asking who
-holds a role.
+By its own account the stranded session looked for `lander-*`, found five boxes, and read them all as
+finished sessions. It was right: the newest was a week stale. The live Lander's box came from an
+unrelated worktree slug and carried no hint of the seat. **Sound method, wrong search space.**
+
+**So the registry is the bridge, and it only bridges if you declared.** That session would have found
+nothing usable in the right place either: the Lander's record was live that minute -- 158 writes that
+day -- with `seat` absent, `seatSource` null and `declaredAt` null.
+
+**A live record with no seat is indistinguishable from no record** to anyone asking who holds a role.
 
 **Finding a live seat from any account, which is the read side of the same rule:**
 
@@ -516,10 +478,8 @@ every axis except recency, so any search that does not sort by time finds a corp
 
 | You need | Channel |
 | --- | --- |
-| A peer in your own instance, now | The MCP method |
-| Any peer in another instance | Mail |
-| A receipt you can read afterwards | Mail |
-| To wake an idle peer in your instance | The MCP method |
+| A peer in your own instance now, or to wake an idle one there | The MCP method |
+| Any peer in another instance, or a receipt you can read afterwards | Mail |
 
 Mail also works inside your own instance. It is the only one that works outside it.
 
@@ -527,35 +487,28 @@ Mail also works inside your own instance. It is the only one that works outside 
 
 ## Run in the Proactive output style
 
-This section is the single definition of the seat output style. Every playbook in this folder points
-here, and none of them restates it.
+This section is the single definition of the seat output style. Every playbook here points to it.
 
 That is this file's own *State it once* rule. Nine copies of a behaviour contract have no drift
-signal between them, so nine copies is how the contract starts disagreeing with itself silently.
+signal between them, so that is how a contract starts disagreeing with itself silently.
 **Link this section. Do not paste the block.**
 
 **What it is.** A Claude Code *output style*: it replaces the harness's default disposition prose
-for the whole session.
+session-wide. `keep-coding-instructions: true` layers it on top of the coding instructions rather
+than replacing them, so it displaces nothing about tool use, verification or the project's rules.
 
-`keep-coding-instructions: true` means it layers on top of the coding instructions rather than
-replacing them, so nothing about tool use, verification or the project's own rules is displaced by
-it.
+**Why every seat.** The seats are dispatched to work, not to converse. This style prevents a session
+spending its turn asking which of two obvious options to take, on a question the repository answers.
 
-**Why every seat.** The seats are dispatched to work, not to converse. The failure this style exists
-to prevent is a session that spends its turn asking which of two obvious options to take, on a
-question the repository already answers.
-
-It is a disposition change and nothing more, and the last section of the definition's last section
+It is a disposition change and nothing more, and the definition's last section
 is load-bearing: **it does not widen permissions.** Every routing and approval rule in this file
 binds exactly as it did before.
 
 ### Where it interacts with the seat rules, and which wins
 
-The style is a **default**, and every rule in the table is a named exception it already defers to.
-Its own "ask only when it actually blocks you" clause covers hard-to-reverse actions, and its
-closing section disclaims permissions entirely.
-
-They are listed so no seat has to reason it out under time pressure.
+The style is a **default**, and every rule in the table is a named exception it defers to. Its own
+"ask only when it actually blocks you" clause covers hard-to-reverse actions, and its closing section
+disclaims permissions. They are listed so no seat reasons it out under time pressure.
 
 | Seat rule | Still binds, unchanged |
 | --- | --- |
@@ -571,8 +524,7 @@ They are listed so no seat has to reason it out under time pressure.
 about **evidence**. A terse report still states what was measured and how. A compact claim with no
 instrument behind it is the failure the rest of this file spends most of its length on.
 
-Drop the narration, never the measurement. Where the two pull against each other, the measurement
-stays and the prose goes.
+Drop the narration, never the measurement. Where the two pull against each other, the prose goes.
 
 ---
 
@@ -580,30 +532,27 @@ stays and the prose goes.
 
 Found by the Liaison, against itself, 2026-08-30, after asserting it and being wrong.
 
-Every seat sees one channel to the owner. That is its own chat. The owner talks to other seats
-directly, and none of that reaches you. **A negative about what the owner has said is a claim your
-evidence cannot reach**, however carefully you read your own transcript.
+Every seat sees one channel to the owner, its own chat. The owner talks to other seats directly, and
+none of that reaches you. **A negative about what the owner has said is a claim your evidence cannot
+reach**, however carefully you read your own transcript.
 
 The measured case. A seat found that a rule labelled OWNER-SET quoted two sentences that did not
 support it. That finding was correct and worth sending. The seat then wrote that the owner had never
 set the rule. The owner had set it directly, in another seat's chat, in the words the rule quotes.
 
-The danger is the authority, not the error. "Did the owner say this" is the question other seats route
-to whoever holds the owner's channel. A negative from there sounds settled. The reader cannot check it
-from where they stand.
+The danger is the authority, not the error. Other seats route "did the owner say this" to whoever
+holds the owner's channel, so a negative from there sounds settled and the reader cannot check it.
 
 Say what your evidence supports and stop. "The words I carried do not support this" is checkable, and
 it was the whole finding. Ask the seat holding the other channel.
 
-This survives the 2026-09-01 redesign. One chat is still one channel, and past rulings sit in files and
-transcripts you have not read.
+This survives the 2026-09-01 redesign. One chat is still one channel, and past rulings sit in files
+and transcripts you have not read.
 
 ## Prohibitions that bind before any task starts
 
-These are quoted from the task files named beside them. They are resident because a file that loads
-when the task begins arrives after the act it forbids.
-
-Each rule below is quoted verbatim. The file holding its full context is named after it.
+Each rule below is quoted verbatim from the task file named after it, which holds its full context.
+They are resident because a file that loads when the task begins arrives after the act it forbids.
 
 - "Refusing to act on someone else's work in a shared structure is correct even when you are
   certain." And: drop a shared stash entry by SHA, "never by `stash@{0}` -- that index moves when
@@ -629,8 +578,8 @@ none. Adding one is an owner decision, not a splitter's.
 
 ## Task rules live in skills, loaded at their trigger
 
-Split out on 2026-09-05. Each loads when its trigger fires. Load one deliberately if it
-does not load itself: a skill no trigger matches is silent, and nothing reports that.
+Split out on 2026-09-05. Each loads when its trigger fires. Load one deliberately if it does not load
+itself: a skill no trigger matches is silent, and nothing reports that.
 
 | When | Skill |
 | --- | --- |
