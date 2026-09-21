@@ -60,9 +60,8 @@ A Manager hands you a PR with five fields: PR number, head SHA, unread legs, kno
 landing-order constraint. From that message the PR is yours -- the repair, the order, the merge, the
 ledger banner, and the claim release.
 
-Poll anyway. Nothing pushes a PR to you, and a handover that was never sent strands nothing.
-
-Use one queue slot at a time. Each queued entry builds on the one before it.
+Poll anyway. Nothing pushes a PR to you, and a handover that was never sent strands nothing. Use
+one queue slot at a time. Each queued entry builds on the one before it.
 
 Return PRs that need a ruling instead of more work. The Owner makes that ruling: the Regulator
 retired 2026-09-19 and nothing replaced it.
@@ -79,7 +78,7 @@ run `code-review` in a subagent and fix in one.
 
 - Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
 
-- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session.
+- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session. Ledger work goes the other way: a subagent, in your own worktree.
 
 - Do not close the item and leave the claim for later. Later is a different session, and nothing tells it the release is owed.
 
@@ -113,6 +112,10 @@ still the Owner's, and you may not decide to force-push over published refs.
 
 ## When the PR merges
 
+**Send the ledger work to a subagent, so you stay on the merges.** Owner-set 2026-09-20. A subagent
+and not a spawned session: a claim is keyed on the worktree path, so one sharing your tree is the
+same holder. Run one at a time, and check its commit rather than its report.
+
 Update the backlog and release the Builder's claim in the same act:
 `claim.ps1 -Release <N>`, then `-List`.
 
@@ -130,9 +133,8 @@ Trunk uses squash merges, so a branch's original commits do not become trunk anc
 A branch based on pre-squash history has a stale merge base. A clean-looking three-dot diff can hide
 files that will conflict.
 
-Fix this by merging trunk into the branch. Do not rebase.
-
-An ahead count does not prove the work is unmerged. Treating it that way has destroyed commits.
+Fix this by merging trunk into the branch. Do not rebase. An ahead count does not prove the work is
+unmerged. Treating it that way has destroyed commits.
 
 ## What this seat does not own
 
