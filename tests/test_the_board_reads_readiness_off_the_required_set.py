@@ -314,7 +314,18 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
     def test_a_still_open_pull_request_contributes_its_creation(self):
         # The closed list cannot carry an open pull request. Without this the reconstructed open
         # line loses every arrival that has not closed yet, which is most of a busy window.
-        open_pr = dict(pr(GREEN), createdAt="2026-09-19T12:00:00Z")
+        #
+        # THE FIXTURE DATE MUST STAY RELATIVE, AND MUST BE READ OFF `collect.dt`. `main` keeps a
+        # create only when it is newer than a cutoff three days behind ITS OWN wall clock, so any
+        # literal here stops being inside that window three days after someone types it, with no
+        # code change to blame and nothing warning that the clock is the cause. The literal this
+        # replaced, "2026-09-19T12:00:00Z", aged out at 2026-09-22T12:00:00Z and reddened both
+        # required contexts on every pull request in the repository. Bumping it only re-arms the
+        # same fuse. `collect.dt` is the module the collector itself reads the time from, so the
+        # fixture and the cutoff cannot drift apart; a second clock is how this defect returns.
+        now = collect.dt.datetime.now(collect.dt.timezone.utc).replace(microsecond=0)
+        created_at = (now - collect.dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        open_pr = dict(pr(GREEN), createdAt=created_at)
         replies = iter([done("CI gate\ntest (ubuntu-latest)\n"),
                         page([open_pr]),
                         done(json.dumps({"data": {"repository": {"mergeQueue": None}}})),
@@ -326,7 +337,7 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
                         run=lambda a, **_: next(replies))):
                 collect.main()
             got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
-        self.assertEqual(got["repos"][0]["created"], ["2026-09-19T12:00:00Z"])
+        self.assertEqual(got["repos"][0]["created"], [created_at])
 
 
 class UnknownIsAFactAboutTheReadNotThePullRequest(unittest.TestCase):
