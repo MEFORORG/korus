@@ -84,6 +84,9 @@ and 9 gained the QA line on 2026-09-20; the fourteen and their order did not cha
 | 13 | GitHub | Merges. |
 | 14 | Lander | Updates the backlog and releases the claim, in one act. |
 
+**Step 5 read "keeps its first line" until 2026-09-22.** That first line is often prose rather than
+a tag, so it is the report that keeps it. `roles/BUILDER.md` 4e holds the reading and the commands.
+
 ### Why the steps that look redundant are not
 
 **Step 3 says `-Take`, not `-Claim`.** The gate fires at commit time in the builder's own worktree.
@@ -225,8 +228,9 @@ Commit at logical stops. Your LAST commit message carries the proposed pull requ
 the proposed ledger banner text. That is mandatory: it is what makes the branch usable if your
 manager dies before it opens the pull request.
 
-Push your own branch, then report: branch name, head SHA, review level and outcome, what you
-ran, and what you did NOT run. Name every hosted-only leg.
+Push your own branch, then report: branch name, head SHA, review level and outcome, the
+skill's own first line verbatim for each round, what you ran, and what you did NOT run.
+Name every hosted-only leg.
 
 End the report with the QA line your manager posts for you, in this shape:
   QA -- korus roles/BUILDER.md step 11

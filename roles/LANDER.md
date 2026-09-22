@@ -829,7 +829,7 @@ evidence, and says what to do when the evidence is absent.
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
 | Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and a tag names the one that ran where the skill returns one. |
 | So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
-| Four consecutive runs returned NO tag | Measured 2026-09-22, in `BUILDER.md` 4e. Read an absent tag as unknown, never as inline, and read the commit. |
+| Expect NO tag at all | Measured 2026-09-22 in `BUILDER.md` 4e: both QA lines on one pull request had none. Read an absence as unknown, never as inline, and read the commit. |
 | Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |

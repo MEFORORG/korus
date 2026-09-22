@@ -312,8 +312,10 @@ That is work rather than a hold, so it does not reopen the review step retired a
 skill returned. `roles/BUILDER.md` 4c holds the shapes it runs in, inline among them.
 
 **NARROWED 2026-09-22: that sentence read "the tag on the skill's first line".** The tag is the
-first line of the skill's own PROMPT, not of the report it asks back, and four runs in a row
-returned none. `roles/BUILDER.md` 4e holds the reading. An absent tag is unknown, not inline.
+first line of the skill's own PROMPT, not of the report it asks back, and both QA lines on one
+pull request returned none. `roles/BUILDER.md` 4e holds the reading and the commands behind it.
+
+**An absent tag is unknown, not inline.** Read the commit, as *Name the exposure* already says.
 
 **So the Builder's QA line carries the level it PASSED, not one read off the reply.** Its `Tag`
 field holds `none returned` where nothing came back, which is a reading rather than an empty field.

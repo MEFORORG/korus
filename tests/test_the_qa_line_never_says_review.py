@@ -33,9 +33,13 @@ MARKER = "QA -- korus roles/BUILDER.md step 11"
 # The line plus the two under it: Level and Tag, then Rounds and Findings.
 BLOCK_LINES = 3
 
-# The second line of the block, which is the one whose premise failed on 2026-09-22. All three
-# carriers must spell it identically; `roles/BUILDER.md` 4e is the authority.
-FIELD_LINE_INDEX = 1
+# The field lines, which are every line of the block after the marker. All three carriers must
+# spell them identically; `roles/BUILDER.md` 4e is the authority.
+#
+# BOTH LINES, NOT JUST THE ONE THAT BROKE. Line two is where the 2026-09-22 premise failed, and
+# pinning only it would leave line three free to diverge -- which it already had, `(null path)` in
+# the playbook against `(reason)` in the other two. That is the same gap in one line down.
+FIELD_LINES = slice(1, BLOCK_LINES)
 
 # Files required to carry at least one block. A file dropping its copy is a silent loss of the
 # rule from the place a seat actually reads, so absence fails rather than passing vacuously.
@@ -49,7 +53,12 @@ BANNED = re.compile(r"review", re.IGNORECASE)
 
 
 def _blocks(text: str) -> list[str]:
-    """Every QA line in `text`, each as the marker line plus the two lines under it."""
+    """Every QA line in `text`, each as the marker line plus the two lines under it.
+
+    A marker in the last two lines of a file yields a SHORT slice. It is returned as it stands
+    rather than padded or dropped: `test_every_carrier_still_holds_a_block` is the check that
+    speaks to a truncated copy, and callers here must not raise before it gets the chance.
+    """
     lines = text.splitlines()
     found = []
     for i, line in enumerate(lines):
@@ -63,11 +72,16 @@ def _offenders(block: str) -> list[str]:
 
 
 def _field_spellings(texts: dict[str, str]) -> dict[str, str]:
-    """Line two of every QA block, mapped to the first carrier that spelled it that way."""
+    """Every block's field lines, mapped to the first carrier that spelled them that way.
+
+    A short block keys on what it has, so a truncated copy reads as a divergence rather than
+    raising IndexError out of whichever test the runner happens to reach first.
+    """
     seen: dict[str, str] = {}
     for relpath, text in texts.items():
         for block in _blocks(text):
-            seen.setdefault(block.splitlines()[FIELD_LINE_INDEX].strip(), relpath)
+            fields = [line.strip() for line in block.splitlines()[FIELD_LINES]]
+            seen.setdefault("\n".join(fields), relpath)
     return seen
 
 
@@ -100,39 +114,56 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
                     )
         self.assertGreaterEqual(total, len(CARRIERS), "fewer blocks than carriers")
 
-    def test_every_carrier_spells_the_field_line_the_same_way(self):
-        """The three copies must agree on line two, and a planted divergence must be caught.
+    def test_every_carrier_spells_the_field_lines_the_same_way(self):
+        """The three copies must agree on the field lines, and the control is a DIFFERENTIAL.
 
-        THE FAILURE THIS EXISTS FOR. Until 2026-09-22 that line read `Tag: <the skill's own first
+        THE FAILURE THIS EXISTS FOR. Until 2026-09-22 line two read `Tag: <the skill's own first
         line>`, on a premise that did not hold: the tag is the first line of the skill's PROMPT,
-        not of its report. Four consecutive runs recorded the field as empty. `roles/BUILDER.md`
-        4e carries the measurement.
+        not of its report. Both QA lines on `MEFORORG/MessageFoundry` 1419 recorded the field as
+        empty. `roles/BUILDER.md` 4e carries the measurement.
 
         The rule was stated in three files and checked in none, so nothing could tell a repair
         that reached all three from one that reached only the playbook. This closes that.
+
+        THE CONTROL PLANTS TWICE, and the second plant is the load-bearing one. Planting inside
+        the block and getting a hit only shows the dict holds two strings. Planting the SAME text
+        below the block and getting no hit is what shows the check reads `FIELD_LINES` rather
+        than the file -- and a check that read the file would pass the first plant too.
         """
         texts = {relpath: t.read(t.REPO_ROOT / relpath) for relpath in CARRIERS}
         seen = _field_spellings(texts)
         self.assertEqual(
             1,
             len(seen),
-            "the carriers disagree on line two of the QA line: "
-            + "; ".join(f"{path} says {field!r}" for field, path in seen.items())
+            "the carriers disagree on the QA line's field lines: "
+            + "; ".join(f"{path} says {fields!r}" for fields, path in seen.items())
             + ". `roles/BUILDER.md` 4e is the authority -- bring the other copies to it.",
         )
 
-        # The control. Change line two in ONE carrier and require the same check to catch it.
-        # Without this, three identical carriers and a detector reading nothing both return 1.
         victim = CARRIERS[-1]
-        spelling = next(iter(seen))
-        planted = dict(texts)
-        planted[victim] = texts[victim].replace(spelling, "Tag: whatever the skill said")
-        self.assertNotEqual(planted[victim], texts[victim], "the plant changed nothing")
+        divergence = "Tag: whatever the skill said"
+
+        # Plant INSIDE the block: must be caught.
+        inside = dict(texts)
+        inside[victim] = texts[victim].replace(next(iter(seen)).splitlines()[0], divergence)
+        self.assertNotEqual(inside[victim], texts[victim], "the in-block plant changed nothing")
         self.assertGreater(
-            len(_field_spellings(planted)),
+            len(_field_spellings(inside)),
             1,
-            "the control was not caught, so the agreement above measures the detector rather "
-            "than the corpus.",
+            "the in-block plant was not caught, so the agreement above measures the detector "
+            "rather than the corpus.",
+        )
+
+        # Plant OUTSIDE the block, appended to the file: must NOT be caught. Without this arm a
+        # check that hashed whole files would pass the arm above and catch nothing real.
+        outside = dict(texts)
+        outside[victim] = texts[victim] + "\n" + divergence + "\n"
+        self.assertNotEqual(outside[victim], texts[victim], "the out-of-block plant changed nothing")
+        self.assertEqual(
+            seen,
+            _field_spellings(outside),
+            "text below the block changed the reading, so this check is not scoped to "
+            "FIELD_LINES and its agreement above proves less than it claims.",
         )
 
     def test_the_control_fires(self):

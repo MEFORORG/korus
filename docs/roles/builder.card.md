@@ -62,11 +62,11 @@ Invoke the `Skill` tool with `skill: "code-review"` at the level the brief names
 Apply what you confirm, then run it once more. Stop after two rounds: ship, and hand round-two
 findings to the Manager.
 
-Keep the skill's first line for your REPORT. It is prose, not a tag: measured 2026-09-22, four runs
-in a row returned no `<level> effort -> ...` line. `roles/BUILDER.md` 4e holds the reading.
+Keep the skill's first line for your REPORT, whatever it is. It may be a tag, or it may be prose:
+both QA lines on `MEFORORG/MessageFoundry` 1419 got prose. `roles/BUILDER.md` 4e holds the reading.
 
 The line below carries the level you PASSED, and a tag only if one came back. Never infer a shape
-from what you were granted, and never paste the prose opener into this line.
+from what you were granted, and never paste a prose opener into this line.
 
 That paragraph read "Keep the skill's FIRST LINE. It names the shape the run took" until
 2026-09-22. The tag is the first line of the skill's own prompt, not of its report.
@@ -74,8 +74,8 @@ That paragraph read "Keep the skill's FIRST LINE. It names the shape the run too
 Your LAST commit message carries the proposed PR title and the proposed ledger banner text. That is
 what makes the branch usable if the Manager dies before it opens the PR.
 
-Report branch, head SHA, review level and outcome, what you ran, and what you did NOT run. Name every
-hosted-only leg. An unnamed leg reads downstream as green.
+Report branch, head SHA, review level and outcome, the skill's first line verbatim for each round,
+what you ran, and what you did NOT run. Name every hosted-only leg; an unnamed leg reads as green.
 
 End the report with the QA line the Manager posts on the PR. `roles/BUILDER.md` 4e holds the rules:
 

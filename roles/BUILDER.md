@@ -23,10 +23,10 @@ this line, none was told to run the review, and none ran it.
 It was never missing from the playbook, only from the part a Manager reads when it cuts a brief.
 
 **Copy the skill's own first line into your report, and do not smooth it to "a review".** Copying it
-stops a thin run reading as compliance. Your REPORT takes it, never the QA line of section 4e.
+stops a thin run reading as compliance. Section 4e's QA line takes a tag, never the prose opener.
 
-**That sentence went on "That line names the shape the run took" until 2026-09-22, and it did not.**
-The tag is the first line of the skill's own prompt. Section 4e holds the reading.
+**That sentence went on "That line names the shape the run took" until 2026-09-22.** Read against
+two of them, it describes the shape once and carries the level neither time. Section 4e measures it.
 
 **That paragraph said "say subagent" until 2026-09-20, and the word had stopped being a marker.**
 Section 4c carries the measurement: an `xhigh` run here, with `Agent` available, was inline. The
@@ -685,15 +685,19 @@ before the pull request exists, so these two artifacts are everything the next s
 **Both belong in the message body, under a plain label.** A reader with only `git log` must find them
 without knowing this playbook.
 
-**Your report to the Manager carries five things:**
+**Your report to the Manager carries six things:**
 
 | Field | What it must hold |
 | --- | --- |
 | Branch name | Exactly as pushed. |
 | Head SHA | Read live from `git rev-parse HEAD`, never from memory. |
 | Review level and outcome | `xhigh` or the level your brief named, the rounds you ran, and what round two said. |
+| The skill's own first line, verbatim | Every round. Do not smooth it. This is the one place it is recorded, because 4e keeps the prose out of the QA line. |
 | What you RAN | Commands and their scope. *Report scope beside every number*. |
 | What you did NOT run | **Name each hosted-only leg by name.** A leg nobody names reads downstream as green. |
+
+**That table held five rows until 2026-09-22, and the opener had nowhere to land.** Section 4e sent
+it here while this list named no field for it, so the artifact 4e moved was moved to nowhere.
 
 **The report is a claim the Manager re-derives, not a fact it inherits.** At step 9 it checks the
 remote itself with `git ls-remote --heads origin`. Say the branch is pushed anyway: a check with
@@ -714,16 +718,20 @@ pull request could not tell a diff that had been worked from one that had not.
 ```
 QA -- korus roles/BUILDER.md step 11
 Level: xhigh, from the brief. Tag: none returned.
-Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
+Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 ```
 
 | Field | What it must hold |
 | --- | --- |
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
-| Level | The level you passed when you invoked the skill, and where it came from: your brief, or 4c's `xhigh` default. Read it off your own invocation. |
+| Level | The level you PASSED, and where it came from: `from the brief`, or `4c default`. Read it off your own invocation. |
+| Level, where you passed none | `inherited, not passed`. 4c says a bare call takes the session's level and `CLAUDE_CODE_EFFORT_LEVEL` beats both, so name the override where one is set. |
 | Tag | The `<level> effort -> ...` line if the skill returned one, otherwise `none returned`. Never reconstruct one, and never paste the skill's prose opener here. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**Never write a level you did not pass as though you had.** That is the inference 4c bans, wearing
+this field's clothes. `inherited, not passed` is the honest spelling, and it costs a reader nothing.
 
 **Where the two levels disagree, print both.** A tag naming a level you did not pass is a reading
 about the skill, and flattening it to one number throws away the only place that shows.
@@ -741,13 +749,17 @@ gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[]
 gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag: NOT EMITTED'
 ```
 
-Both return 2, so both QA lines there recorded the field as empty. Control, the same pair over
+Both return **2**, so both QA lines there recorded the field as empty. Control, the same pair over
 `roles/BUILDER.md` at `9915096`: 1 and 0. The second pattern discriminates rather than matching
 every `Tag:` line.
 
-The second of those two names itself the fourth consecutive run, and quotes what did come back:
-`Review complete. The file passes pytest (125 passed, 2 skipped) ...`. It describes the shape in
-prose and names no level.
+**Two is what this instrument measures. Do not carry a four.** The second comment calls itself the
+FOURTH consecutive run. A Lander comment on the same pull request says the third in a row. So the
+record holds 2, 3 and 4 for three different quantities, and only the 2 has a command here.
+
+That comment quotes what did come back. Round two: `Review complete. The file passes pytest ...
+Findings below are from the 10 finder angles plus the gap sweep`. Round one names no shape at all.
+Neither names a level.
 
 #### The tag is the first line of the skill's PROMPT, not of its report
 
@@ -757,8 +769,8 @@ for this reading:
 ```bash
 B=~/.local/share/claude/versions/2.1.278
 grep -a -o '=>`.\{0,3\}xhigh effort .\{0,50\}' "$B"
-tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep -c findings
-tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep findings | grep -c effort
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep -c effort
+tr '\n' ' ' < "$B" | grep -a -o 'You are reviewing.\{0,400\}' | grep -c effort
 ```
 
 The first prints the tag with a template literal opening immediately before it:
@@ -769,8 +781,12 @@ The first prints the tag with a template literal opening immediately before it:
 
 So the tag is line one of the text the skill hands its reviewer, not of the reply it asks back.
 
-The second returns 5 and the third 0. Five output contracts name the findings they want back and
-none of them asks for a tag. The 5 is the control: the extraction read real contracts, not nothing.
+**The second returns 0 and the third returns 7, over 9 windows.** One needle, one pipeline, one
+file: no output contract names an effort tag, and the needle fires where the prompts do. A zero
+beside an unarmed needle would say nothing, which is this repository's own rule.
+
+**The condition I varied is the window.** The 0 holds at 200, 400, 800 and 1200 characters. The
+count of matching windows does not, so no number of contracts is published here.
 
 **One contract asks for `{level, findings}`,** so the level is in the report shape even where no
 prose carries it. You passed that level yourself, which is why this line reads it off the

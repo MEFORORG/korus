@@ -377,7 +377,9 @@ you can find later: nothing survives the moment you close the instance.
 | Item | Rule |
 | --- | --- |
 | How every brief ends | **Run the `code-review` skill. Push the branch. Report, with the QA line of `BUILDER.md` 4e. Exit.** Not negotiable. |
-| **CORRECTED 2026-09-20** | This row said *"the code-review subagent"*. The word names a shape the skill does not always take: one measured `xhigh` run was inline by instruction. `BUILDER.md` 4c holds the tags. Brief the level, and require the tag back. |
+| **CORRECTED 2026-09-20** | This row said *"the code-review subagent"*. The word names a shape the skill does not always take: one measured `xhigh` run was inline by instruction. `BUILDER.md` 4c holds the tags. Brief the level. |
+| **NARROWED 2026-09-22** | The row above ended *"and require the tag back"*. The skill often returns none, so that demand cannot be met. Require the level you briefed, and the skill's first line verbatim. `BUILDER.md` 4e measures it. |
+| So `Tag: none returned` is compliant | Do not read it as a skipped step or send the Builder back. Post the line as it stands. |
 | Why the review is in this row | A Manager briefing from the seat table alone omits it. Reported 2026-09-18 and not re-measured here: eight Builders briefed that way, none told to review, none reviewed. |
 | **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
 | The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |
