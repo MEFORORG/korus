@@ -394,10 +394,10 @@ the board is titled **Lander Board**. Ask the owner if the listing does not show
 
 A Watchdog taking the seat restarts the refresh in four steps:
 
-1. **Extract all six scripts from `origin/main` into your own scratchpad, every time**, with
-   `git -C <korus> fetch origin` then `git -C <korus> show origin/main:scripts/board/<file>`.
-   The six are `collect.py`, `series.py`, `build.py`, `template.html`, `refresh.ps1` and
-   `seatstate.py`. **Never run the copies in a working tree**, however healthy that tree looks.
+1. **Extract all six from `origin/main` every time**, into your own scratchpad. With
+   `git -C <korus>`: `fetch origin`, then `show origin/main:scripts/board/<file>` for
+   `collect.py`, `series.py`, `build.py`, `template.html`, `refresh.ps1`, `seatstate.py`.
+   **Never run a working tree's copies.**
 2. Run the scratchpad `refresh.ps1` with an `-OutDir` beside it.
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
@@ -410,19 +410,16 @@ scripts were committed and the thing that ran them was not, so the refresh could
 
 #### Step 1 says "every time" because the conditional form already failed
 
-**Measured 2026-09-21.** Step 1 read *"extract the five scripts if the working tree does not carry
-them"*, and a Watchdog read that condition correctly: the ordinary korus clone did
-carry all six, so it ran them. That clone was **six commits behind `origin/main`**, and the board it
-produced had 11px axis labels and an open-count axis starting at 12 -- both already fixed on
-`origin/main` by an earlier Watchdog, on a branch named for exactly those two changes.
+**Measured 2026-09-21.** Step 1 said to extract *if the working tree does not carry them*. The
+korus clone carried all six, so a Watchdog ran those. The clone was **six commits stale**.
 
-**Nothing in the output said so.** A board built from stale scripts renders cleanly, carries a
-current timestamp, and reports live numbers, because the DATA is fetched fresh by `collect.py` while
-only the rendering is old. The owner found it by looking at the chart.
+Its board showed 11px axis labels and an open-count axis starting at 12. Both were already fixed on
+`origin/main`, by an earlier Watchdog, on a branch named for those two changes.
 
-**Present-tense phrasing of the failure:** *the scripts were there, so the condition was false, so
-the extract was skipped, so the fix that existed did not reach the board.* A fix landing on
-`origin/main` does not reach a session that never reads `origin/main`.
+**Nothing in the output said so.** `collect.py` fetches the DATA fresh, so only the rendering is
+old. The board rendered cleanly and stamped the current time. The owner found it by eye.
+
+A fix on `origin/main` does not reach a session that never reads `origin/main`.
 
 | Do | Not |
 | --- | --- |
