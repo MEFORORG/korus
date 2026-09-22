@@ -536,6 +536,10 @@ A worktree holding changed or untracked files gets no command, only a `git statu
 `git worktree remove` exits 128 on it, and `--force` is the loss. Nor does a parent whose ignored
 child holds work: the parent reads clean, and removing it takes the child.
 
+That test is only as good as `git status`. A printed command still deletes ignored files, untracked
+files hidden by `status.showUntrackedFiles=no`, and commits on a detached HEAD that no branch holds.
+The refusal says so. Found by the third review round, 2026-09-22, and not fixed.
+
 **The nested row's "only for one you named" was false until 2026-09-22.** `remove.ps1` also deleted
 any registered worktree inside its target, exited 0, and left that worktree registered with no
 directory. This section did not say so.

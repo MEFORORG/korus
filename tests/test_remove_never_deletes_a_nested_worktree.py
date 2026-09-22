@@ -12,11 +12,14 @@ RETRACTED 2026-09-22, the same day: this paragraph said "A nested checkout is gi
 parent, so the parent reads clean". This file's fixture has no ignore rule, the parent read
 `?? .claude/`, and the loss happened anyway. Ignoring was never the cause.
 
-WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The six
-refusal cases fail on the unfixed script at `05eb4a7`: the removal exits 0 and the nested checkout
-is gone. They cover both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
+WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. Against
+an export of `05eb4a7` this file returns `10 failed, 3 passed, 2 subtests passed`. Every case fails
+there except the two controls and the two `sibling` subtests of the `.` and `..` case. They cover
+both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
 
-Four more hold the REMEDY the refusal prints, which must never be a step that deletes work:
+Four of them hold the REMEDY the refusal prints, which must not be a step that deletes work
+`git status` can see. What it cannot see -- ignored files, untracked files hidden by
+`status.showUntrackedFiles=no`, a detached HEAD's commits -- is not covered:
 
   * Commands come deepest first. `git worktree remove` without `--force` deletes ignored files, so
     a parent removed before an ignored child takes the child with it.

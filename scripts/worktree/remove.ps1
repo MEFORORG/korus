@@ -191,9 +191,10 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
         Write-Host "  git -C `"$Primary`" worktree remove `"$p`"" -ForegroundColor Red
     }
     if (@($rows | Where-Object { $_.Why }).Count -gt 0) {
-        Write-Host ("This script prints no step that deletes work. Keep, move or discard that work " +
-            "yourself once you have looked at it.") -ForegroundColor Red
+        Write-Host ("Keep, move or discard that work yourself once you have looked at it.") -ForegroundColor Red
     }
+    Write-Host ("A printed command can still delete what git status does not show: ignored files, " +
+        "and commits on a detached HEAD that no branch holds. Look before you run one.") -ForegroundColor Red
     Write-Host "Then re-run this command. It checks again, and -Force does not override it." -ForegroundColor Red
     throw "Worktree contains $($nested.Count) registered worktree(s). Nothing was removed."
 }
