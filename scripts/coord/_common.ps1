@@ -589,13 +589,20 @@ function Get-CcxWorktreePath {
                              repository, or a `git worktree remove` aimed at it is still refused.
           remove.ps1         does NOT call it. Under `nested` this function resolves
                              `remove.ps1 -Name x` to <primary>/.claude/worktrees/x, and remove.ps1
-                             removes that worktree. Under EITHER layout, removing a worktree also
-                             deletes any worktree nested inside it, and leaves that one registered
-                             with no directory.
+                             removes that worktree. Under EITHER layout it refuses a target that is
+                             not itself a registered worktree, or that contains one, and removes
+                             nothing. Containment decides, not this guard.
 
         docs/WORKTREES.md, "Two layouts coexist, and only one has scripted teardown", documents the
         remove.ps1 behaviour. test_the_harness_guard_comment_matches_its_callers.py holds the first
-        clause of each row, "calls it" or "does NOT call it", to the code. The rest is unchecked.
+        clause of each row, "calls it" or "does NOT call it", to the code. The rest is unchecked here;
+        test_remove_never_deletes_a_nested_worktree.py holds the remove.ps1 row's behaviour by running
+        the script.
+
+        RETRACTED 2026-09-22, the day it landed. The remove.ps1 row ended: "Under EITHER layout,
+        removing a worktree also deletes any worktree nested inside it, and leaves that one registered
+        with no directory." True of remove.ps1 at 05eb4a7. False once remove.ps1 gained its
+        containment refusal, which calls Get-NestedWorktrees in occupancy.ps1.
 
         RETRACTED 2026-09-22. This paragraph read: "It does not change the fact that any path
         containing a `.claude/worktrees/` segment is excluded from destructive operations
