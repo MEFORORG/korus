@@ -411,8 +411,8 @@ scripts were committed and the thing that ran them was not, so the refresh could
 #### Step 1 says "every time" because the conditional form already failed
 
 **Measured 2026-09-21.** Step 1 read *"extract the five scripts if the working tree does not carry
-them"*, and a Watchdog read that condition correctly: the tree at `C:\Users\Scott\Code\korus` did
-carry all six, so it ran them. That tree was **six commits behind `origin/main`**, and the board it
+them"*, and a Watchdog read that condition correctly: the ordinary korus clone did
+carry all six, so it ran them. That clone was **six commits behind `origin/main`**, and the board it
 produced had 11px axis labels and an open-count axis starting at 12 -- both already fixed on
 `origin/main` by an earlier Watchdog, on a branch named for exactly those two changes.
 
