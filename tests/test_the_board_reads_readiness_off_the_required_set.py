@@ -40,6 +40,12 @@ SPEC.loader.exec_module(collect)
 REQUIRED = {"CI gate", "test (ubuntu-latest)"}
 
 
+def _stamp(hours_ago):
+    """An ISO stamp `hours_ago` behind the clock `collect.main` reads. See the window test below."""
+    when = collect.dt.datetime.now(collect.dt.timezone.utc) - collect.dt.timedelta(hours=hours_ago)
+    return when.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def run(name, conclusion="SUCCESS", status="COMPLETED", started="2026-09-19T10:00:00Z"):
     return {"__typename": "CheckRun", "name": name, "status": status,
             "conclusion": conclusion, "startedAt": started}
@@ -311,12 +317,10 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
                     got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
                     self.assertEqual(got["repos"][0]["enqueued"], 0)
 
-    def test_a_still_open_pull_request_contributes_its_creation(self):
-        # The closed list cannot carry an open pull request. Without this the reconstructed open
-        # line loses every arrival that has not closed yet, which is most of a busy window.
-        open_pr = dict(pr(GREEN), createdAt="2026-09-19T12:00:00Z")
+    def _created_for(self, stamp):
+        """Run the collector over one open pull request created at `stamp`, return its open line."""
         replies = iter([done("CI gate\ntest (ubuntu-latest)\n"),
-                        page([open_pr]),
+                        page([dict(pr(GREEN), createdAt=stamp)]),
                         done(json.dumps({"data": {"repository": {"mergeQueue": None}}})),
                         done("")])
         with tempfile.TemporaryDirectory() as tmp:
@@ -326,7 +330,22 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
                         run=lambda a, **_: next(replies))):
                 collect.main()
             got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
-        self.assertEqual(got["repos"][0]["created"], ["2026-09-19T12:00:00Z"])
+        return got["repos"][0]["created"]
+
+    def test_a_still_open_pull_request_contributes_its_creation(self):
+        # The closed list cannot carry an open pull request. Without this the reconstructed open
+        # line loses every arrival that has not closed yet, which is most of a busy window.
+        #
+        # THE STAMP IS RELATIVE TO THE COLLECTOR'S OWN CLOCK, and that is not tidiness. It read
+        # `2026-09-19T12:00:00Z` until 2026-09-22, when the fixture aged out of the three-day
+        # window `collect.main` computes from `now`. The test then failed on the calendar, with
+        # nothing in the tree changed, and it would have failed every day after.
+        inside = _stamp(hours_ago=1)
+        self.assertEqual(self._created_for(inside), [inside])
+
+    def test_a_pull_request_older_than_the_window_is_dropped(self):
+        """The control. Without it the assertion above passes on a collector that filters nothing."""
+        self.assertEqual(self._created_for(_stamp(hours_ago=24 * 4)), [])
 
 
 class UnknownIsAFactAboutTheReadNotThePullRequest(unittest.TestCase):
