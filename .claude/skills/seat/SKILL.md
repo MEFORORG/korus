@@ -112,6 +112,17 @@ does work that moves somewhere the old two words do not cover. One item is not a
 **No such tool means no title, and that is not a failure.** Say in one line that the tool was
 absent, and go on. The marker, the card and the readback are what the seat rests on.
 
+## Why the readback is not ceremony
+
+A file on disk is not context. The first two grades pass for a card nobody read.
+
+`docs/ROLE-CARDS.md` records an open probe: nobody has tested whether a SessionStart hook can emit
+`hookSpecificOutput.additionalContext` or only plain stdout. That decides whether a card lands at
+working-agreement weight.
+
+A skill sidesteps the question, because its output is already in the turn. The readback is what
+turns that from an assumption into a reading.
+
 ## A title is a label, never an address
 
 Renaming changes what a person reads in the session list. It changes nothing a tool resolves.
@@ -125,19 +136,8 @@ reached the undeclared one.
 
 `.claude/skills/fleet-message-a-peer/SKILL.md` holds that measurement.
 
-**A tidy title makes the wrong route look safer**, so this warning ships with the rule rather than
-behind it.
-
-## Why the readback is not ceremony
-
-A file on disk is not context. The first two grades pass for a card nobody read.
-
-`docs/ROLE-CARDS.md` records an open probe: nobody has tested whether a SessionStart hook can emit
-`hookSpecificOutput.additionalContext` or only plain stdout. That decides whether a card lands at
-working-agreement weight.
-
-A skill sidesteps the question, because its output is already in the turn. The readback is what
-turns that from an assumption into a reading.
+**A tidy title makes the wrong route look safer.** That is the cost of step 5, and the reason this
+section exists.
 
 ## What this command does not do
 
