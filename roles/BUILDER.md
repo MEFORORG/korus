@@ -22,12 +22,15 @@ this line, none was told to run the review, and none ran it.
 
 It was never missing from the playbook, only from the part a Manager reads when it cuts a brief.
 
-**Copy the skill's own first line into your report, and do not smooth it to "a review".** That line
-names the shape the run took, and copying it stops a thin run reading as compliance.
+**Copy the skill's own first line into your report, and do not smooth it to "a review".** Copying it
+stops a thin run reading as compliance. Your REPORT takes it, never the QA line of section 4e.
+
+**That sentence went on "That line names the shape the run took" until 2026-09-22, and it did not.**
+The tag is the first line of the skill's own prompt. Section 4e holds the reading.
 
 **That paragraph said "say subagent" until 2026-09-20, and the word had stopped being a marker.**
 Section 4c carries the measurement: an `xhigh` run here, with `Agent` available, was inline. The
-marker moved to the tag.
+marker moved to the tag, and the tag does not always come back.
 
 **Build honestly.** You want quality, secure code that really improves the application. Never cheat
 a gate, and never mislead a teammate or the owner about what you built.
@@ -611,13 +614,17 @@ costs a full review at `xhigh`.
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
 
-**It runs in more than two shapes, and its FIRST LINE names the one you got.** That line is the
-instrument. Read it and copy it, rather than inferring the shape from what you were granted.
+**It runs in more than two shapes, and a tag names the one you got -- when a tag comes back.** Copy
+it rather than inferring the shape from what you were granted. Where none comes back, record that.
+
+**That passage read "its FIRST LINE names the one you got" until 2026-09-22, and it was false.** The
+tag is the first line of the prompt the skill feeds its reviewer, not of the report it asks back.
+Section 4e holds the reading, and what the QA line records in its place.
 
 **CORRECTED 2026-09-20.** This passage said there were two outcomes: fan-out with `Agent`, or one
 inline pass without it. There are at least three tags.
 
-| The tag, as the skill writes it | What it is |
+| The tag, as the skill's own prompt carries it | What it is |
 | --- | --- |
 | `<level> effort -> 3+5 angles x 6 candidates -> 1-vote verify -> <=8 findings` | Fan-out, with a verify step. |
 | `<level> effort -> 5+5 angles x 8 candidates -> 1-vote verify -> sweep -> <=15 findings` | Fan-out, wider, with a sweep. |
@@ -639,6 +646,16 @@ different subject, so re-read it rather than trusting this table:
 ```bash
 grep -a -o "[a-z]* effort .\{0,30\}angles.\{0,70\}" ~/.local/share/claude/versions/<version>
 ```
+
+**The six rows are the instrument's reach, not the skill's whole set.** That grep requires the word
+`angles`, which drops every shape without one. Measured 2026-09-22 at 2.1.278 with the word dropped:
+
+```bash
+grep -a -o '[a-z]* effort .u2192 [^`]\{0,70\}' ~/.local/share/claude/versions/2.1.278 | sort -u | wc -l
+```
+
+It returns **12**, against **6** for the line above. Both patterns return the same counts at 2.1.272,
+so the widening moved the number and the version did not. **Six was never the count of shapes.**
 
 **The last row is what a session in this repository got at `xhigh`, with the `Agent` tool available.**
 So *"fan-out is the path you normally get"* is withdrawn. Availability does not settle the shape.
@@ -696,16 +713,79 @@ pull request could not tell a diff that had been worked from one that had not.
 
 ```
 QA -- korus roles/BUILDER.md step 11
-Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
+Level: xhigh, from the brief. Tag: none returned.
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
 | Field | What it must hold |
 | --- | --- |
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
-| Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the shapes and why you may not infer one. |
+| Level | The level you passed when you invoked the skill, and where it came from: your brief, or 4c's `xhigh` default. Read it off your own invocation. |
+| Tag | The `<level> effort -> ...` line if the skill returned one, otherwise `none returned`. Never reconstruct one, and never paste the skill's prose opener here. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**Where the two levels disagree, print both.** A tag naming a level you did not pass is a reading
+about the skill, and flattening it to one number throws away the only place that shows.
+
+#### That table said the first line already carried the level, and it did not
+
+**It read `Tag | The skill's own first line, copied rather than summarised. It already carries the
+level.` until 2026-09-22.** The premise was false, so the field recorded nothing on every run after
+it was written.
+
+Measured on pull request 1419 of `MEFORORG/MessageFoundry`:
+
+```bash
+gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag:'
+gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag: NOT EMITTED'
+```
+
+Both return 2, so both QA lines there recorded the field as empty. Control, the same pair over
+`roles/BUILDER.md` at `9915096`: 1 and 0. The second pattern discriminates rather than matching
+every `Tag:` line.
+
+The second of those two names itself the fourth consecutive run, and quotes what did come back:
+`Review complete. The file passes pytest (125 passed, 2 skipped) ...`. It describes the shape in
+prose and names no level.
+
+#### The tag is the first line of the skill's PROMPT, not of its report
+
+So the Builders were right and the field was wrong. Measured at CLI **2.1.278**, which is the ref
+for this reading:
+
+```bash
+B=~/.local/share/claude/versions/2.1.278
+grep -a -o '=>`.\{0,3\}xhigh effort .\{0,50\}' "$B"
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep -c findings
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep findings | grep -c effort
+```
+
+The first prints the tag with a template literal opening immediately before it:
+
+```
+=>`\`xhigh effort \u2192 10 inline angles \u2192 dedup (no verify) \
+```
+
+So the tag is line one of the text the skill hands its reviewer, not of the reply it asks back.
+
+The second returns 5 and the third 0. Five output contracts name the findings they want back and
+none of them asks for a tag. The 5 is the control: the extraction read real contracts, not nothing.
+
+**One contract asks for `{level, findings}`,** so the level is in the report shape even where no
+prose carries it. You passed that level yourself, which is why this line reads it off the
+invocation and not off the reply.
+
+#### The prose opener stays out of this line, deliberately
+
+It has begun `Review complete ...`, and the Owner's word rule forbids that word here.
+`tests/test_the_qa_line_never_says_review.py` reads the three lines of this block and fails on it.
+
+**Put the verbatim opener in your report instead**, under 4d. A report is prose to the Manager and
+carries no word rule, so nothing is smoothed away. It moves to where quoting it is safe.
+
+**Writing `none returned` is a reading, not an inference.** Section 4c forbids inferring WHICH shape
+ran from what you were granted. Recording that no tag came back says only what you saw.
 
 **The citation names the REPOSITORY, and that is not decoration.** Measured 2026-09-20:
 `roles/BUILDER.md` exists in korus AND in the `MessageFoundry-vault` checkout, and the two are

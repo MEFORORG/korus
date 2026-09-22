@@ -30,8 +30,12 @@ import _ccxtest as t
 # authority on the shape; the other two carry the same three lines for a reader who never opens it.
 MARKER = "QA -- korus roles/BUILDER.md step 11"
 
-# The line plus the two under it: Mode/Level/Rounds, then Findings.
+# The line plus the two under it: Level and Tag, then Rounds and Findings.
 BLOCK_LINES = 3
+
+# The second line of the block, which is the one whose premise failed on 2026-09-22. All three
+# carriers must spell it identically; `roles/BUILDER.md` 4e is the authority.
+FIELD_LINE_INDEX = 1
 
 # Files required to carry at least one block. A file dropping its copy is a silent loss of the
 # rule from the place a seat actually reads, so absence fails rather than passing vacuously.
@@ -56,6 +60,15 @@ def _blocks(text: str) -> list[str]:
 
 def _offenders(block: str) -> list[str]:
     return BANNED.findall(block)
+
+
+def _field_spellings(texts: dict[str, str]) -> dict[str, str]:
+    """Line two of every QA block, mapped to the first carrier that spelled it that way."""
+    seen: dict[str, str] = {}
+    for relpath, text in texts.items():
+        for block in _blocks(text):
+            seen.setdefault(block.splitlines()[FIELD_LINE_INDEX].strip(), relpath)
+    return seen
 
 
 class TheQaLineNeverSaysReview(unittest.TestCase):
@@ -86,6 +99,41 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
                         "`roles/BUILDER.md` 4e.",
                     )
         self.assertGreaterEqual(total, len(CARRIERS), "fewer blocks than carriers")
+
+    def test_every_carrier_spells_the_field_line_the_same_way(self):
+        """The three copies must agree on line two, and a planted divergence must be caught.
+
+        THE FAILURE THIS EXISTS FOR. Until 2026-09-22 that line read `Tag: <the skill's own first
+        line>`, on a premise that did not hold: the tag is the first line of the skill's PROMPT,
+        not of its report. Four consecutive runs recorded the field as empty. `roles/BUILDER.md`
+        4e carries the measurement.
+
+        The rule was stated in three files and checked in none, so nothing could tell a repair
+        that reached all three from one that reached only the playbook. This closes that.
+        """
+        texts = {relpath: t.read(t.REPO_ROOT / relpath) for relpath in CARRIERS}
+        seen = _field_spellings(texts)
+        self.assertEqual(
+            1,
+            len(seen),
+            "the carriers disagree on line two of the QA line: "
+            + "; ".join(f"{path} says {field!r}" for field, path in seen.items())
+            + ". `roles/BUILDER.md` 4e is the authority -- bring the other copies to it.",
+        )
+
+        # The control. Change line two in ONE carrier and require the same check to catch it.
+        # Without this, three identical carriers and a detector reading nothing both return 1.
+        victim = CARRIERS[-1]
+        spelling = next(iter(seen))
+        planted = dict(texts)
+        planted[victim] = texts[victim].replace(spelling, "Tag: whatever the skill said")
+        self.assertNotEqual(planted[victim], texts[victim], "the plant changed nothing")
+        self.assertGreater(
+            len(_field_spellings(planted)),
+            1,
+            "the control was not caught, so the agreement above measures the detector rather "
+            "than the corpus.",
+        )
 
     def test_the_control_fires(self):
         """Plant the word in a copy of every real block. Every one must be caught.
