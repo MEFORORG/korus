@@ -1,19 +1,34 @@
 """`remove.ps1` refuses a worktree that contains another registered worktree.
 
 THE FAILURE THIS EXISTS FOR. `remove.ps1` runs `git worktree remove --force`, which deletes the
-whole directory tree. A nested checkout is git-ignored inside its parent, so the parent reads clean
-and nothing stopped it. Measured 2026-09-22 with git 2.55.0.windows.5, under the `sibling` layout:
+whole directory tree. Its only guard reads the parent's `git status` and drops every `??` line, and
+a nested checkout shows there as `?? .claude/`, or not at all where it is ignored. So nothing stopped
+it. Measured 2026-09-22 with git 2.55.0.windows.5, under the `sibling` layout, with no ignore rule:
 removing `P-work` also deleted `P-work/.claude/worktrees/h`, exited 0, and left `h` registered as
 prunable. A session started inside a sibling worktree creates its own worktrees there, so the
 checkout deleted can be a live session's. CLAUDE.md sends every session through this script.
+
+RETRACTED 2026-09-22, the same day: this paragraph said "A nested checkout is git-ignored inside its
+parent, so the parent reads clean". This file's fixture has no ignore rule, the parent read
+`?? .claude/`, and the loss happened anyway. Ignoring was never the cause.
 
 WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The six
 refusal cases fail on the unfixed script at `05eb4a7`: the removal exits 0 and the nested checkout
 is gone. They cover both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
 
-Two of them hold the REMEDY the refusal prints. Its commands must remove the deepest worktree
-first, because `git worktree remove` deletes ignored files and a nested worktree is usually ignored
-inside its parent. And a locked worktree must come with its unlock step.
+Four more hold the REMEDY the refusal prints, which must never be a step that deletes work:
+
+  * Commands come deepest first. `git worktree remove` without `--force` deletes ignored files, so
+    a parent removed before an ignored child takes the child with it.
+  * A nested worktree holding changed or untracked files gets no command. Plain `git worktree
+    remove` exits 128 on it, and `--force` is the loss this file exists for.
+  * Nor does a parent whose ignored child holds work, because the parent reads clean.
+  * A locked worktree comes with its unlock step.
+
+AND ONE HAZARD THE FIX ITSELF OPENED. `-Name`'s pattern accepts `.` and `..`. Under the `nested`
+layout those resolve to `.claude/worktrees` and `.claude`, which hold every harness worktree, and the
+first cut of the refusal listed them all with commands to delete them. The target must be a
+registered worktree before the nested check runs.
 
 TWO CONTROLS, because "refuse everything" passes every refusal case here:
 
@@ -120,6 +135,12 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
             capture_output=True, text=True, env=env, cwd=str(primary), timeout=TIMEOUT_SECONDS,
         )
 
+    def ignore_nested(self, primary: Path) -> None:
+        """Ignore `.claude/worktrees/` in every worktree of the fixture, as a real clone may."""
+        common = Path(git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=primary).strip())
+        with open(common / "info" / "exclude", "a", encoding="utf-8") as f:
+            f.write("\n**/.claude/worktrees/\n")
+
     def sibling_holding_a_live_nested_worktree(self) -> tuple[Path, Path, Path]:
         """P, then P-work, then P-work/.claude/worktrees/h with a file only h holds."""
         primary = self.primary()
@@ -204,15 +225,25 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
     # --- the remedy it prints must not cause the loss it refuses ----------------------------------
 
     def remove_lines(self, said: str) -> list[str]:
-        return [line.strip() for line in said.splitlines() if " worktree remove " in line]
+        """The `git -C "..." worktree remove "..."` commands the refusal prints, and nothing else.
+
+        Anchored on the printed shape, so git's own error text or a throw naming the command is not
+        mistaken for a command the operator is told to run.
+        """
+        return [
+            line.strip() for line in said.splitlines()
+            if line.strip().startswith('git -c "') and '" worktree remove "' in line
+        ]
 
     def test_the_printed_commands_remove_the_deepest_worktree_first(self):
-        """A parent removed before its child deletes the child: it is ignored inside the parent.
+        """A parent removed before its child deletes the child when the child is ignored in it.
 
-        `alpha` is created first, so `git worktree list` reports it before `zeta`, which sits inside
-        it. The commands must come out the other way round.
+        `git worktree list` sorts by path, so `alpha` comes before `zeta`, which sits inside it. The
+        commands must come out the other way round. The ignore rule makes `alpha` read clean, which
+        is the case where running its command first would delete `zeta`.
         """
         primary = self.primary()
+        self.ignore_nested(primary)
         work = self.worktree(primary, self.base / "P-work", "work")
         alpha = self.worktree(work, work / ".claude" / "worktrees" / "alpha", "alpha")
         zeta = self.worktree(alpha, alpha / ".claude" / "worktrees" / "zeta", "zeta")
@@ -245,6 +276,85 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertIn("locked: harness", said)
         self.assertIn(f'worktree unlock "{fold(held)}"', said, "no unlock step for a locked worktree")
         self.assertNotIn("branch (detached)", said, "a detached worktree is labelled as a branch")
+
+    def test_a_nested_worktree_holding_work_gets_no_remove_command(self):
+        """Plain `git worktree remove` exits 128 on untracked files, and `--force` is the loss."""
+        primary, work, h = self.sibling_holding_a_live_nested_worktree()
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assert_untouched(primary, work, h)
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(
+            [], [line for line in self.remove_lines(said) if fold(h) + '"' in line],
+            "the refusal prints a remove command for a worktree holding untracked work. git refuses "
+            "it with exit 128, and the next thing an operator tries is --force.\n" + said,
+        )
+        self.assertEqual(
+            [], [line for line in said.splitlines() if line.strip().startswith("git ") and "--force" in line],
+            "--force is printed as a step to run\n" + said,
+        )
+        self.assertIn(f'git -c "{fold(h)}" status', said, "no pointer to look at the work first")
+
+    def test_a_parent_gets_no_command_while_an_ignored_child_holds_work(self):
+        """`alpha` reads clean because `zeta` is ignored inside it, and removing it deletes `zeta`."""
+        primary = self.primary()
+        self.ignore_nested(primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        alpha = self.worktree(work, work / ".claude" / "worktrees" / "alpha", "alpha")
+        zeta = self.worktree(alpha, alpha / ".claude" / "worktrees" / "zeta", "zeta")
+        (zeta / "live.txt").write_text("a session is writing here\n", encoding="utf-8")
+        self.assertEqual("", git("status", "--porcelain", cwd=alpha).strip(), "precondition: alpha reads clean")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assert_untouched(primary, work, alpha, zeta)
+        self.assertNotEqual(0, r.returncode, said)
+        printed = self.remove_lines(said)
+        for n in (alpha, zeta):
+            with self.subTest(nested=n.name):
+                self.assertEqual(
+                    [], [line for line in printed if fold(n) + '"' in line],
+                    f"a remove command is printed for {n.name}, and running it deletes zeta's work\n" + said,
+                )
+
+    # --- a name that is not a registered worktree ---------------------------------------------------
+
+    def test_dot_and_dot_dot_are_refused_before_the_nested_check(self):
+        """`-Name .` and `-Name ..` pass the pattern. Under `nested` they reach every worktree."""
+        top = self.base
+        for layout in ("sibling", "nested"):
+            for name in (".", ".."):
+                with self.subTest(layout=layout, name=name):
+                    # A fresh repository per case, so one case's removal cannot pass the next.
+                    self.base = top / f"{layout}-{len(name)}"
+                    self.base.mkdir()
+                    primary = self.primary(layout)
+                    root = primary / ".claude" / "worktrees" if layout == "nested" else self.base
+                    prefix = "" if layout == "nested" else "P-"
+                    a = self.worktree(primary, root / f"{prefix}a", "a")
+                    b = self.worktree(primary, root / f"{prefix}b", "b")
+                    (b / "live.txt").write_text("a session is writing here\n", encoding="utf-8")
+
+                    r = self.remove(primary, name)
+                    said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+                    now = self.registered(primary)
+                    for n in (a, b):
+                        self.assertTrue(n.is_dir(), f"{n} is gone after remove.ps1 -Name {name}")
+                        self.assertIn(fold(n), now)
+                    self.assertTrue((b / "live.txt").is_file())
+                    self.assertNotEqual(0, r.returncode, said)
+                    self.assertEqual(
+                        [], self.remove_lines(said),
+                        f"remove.ps1 -Name {name} printed commands to delete other worktrees\n" + said,
+                    )
+                    self.assertNotIn("registered worktree(s)", said, "the nested check ran on a non-worktree")
+                    if layout == "nested":
+                        # The path exists here, so this refusal is the one that must answer.
+                        self.assertIn("not a registered worktree", said, said)
 
     # --- the controls: a fix that refuses everything fails these ----------------------------------
 
