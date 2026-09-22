@@ -718,7 +718,7 @@ pull request could not tell a diff that had been worked from one that had not.
 ```
 QA -- korus roles/BUILDER.md step 11
 Level: xhigh, from the brief. Tag: none returned.
-Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
+Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
 | Field | What it must hold |
@@ -739,8 +739,8 @@ about the skill, and flattening it to one number throws away the only place that
 #### That table said the first line already carried the level, and it did not
 
 **It read `Tag | The skill's own first line, copied rather than summarised. It already carries the
-level.` until 2026-09-22.** The premise was false, so the field recorded nothing on every run after
-it was written.
+level.` until 2026-09-22.** The premise was false, and on the runs anyone has measured the field
+recorded nothing.
 
 Measured on pull request 1419 of `MEFORORG/MessageFoundry`:
 
@@ -749,9 +749,19 @@ gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[]
 gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag: NOT EMITTED'
 ```
 
-Both return **2**, so both QA lines there recorded the field as empty. Control, the same pair over
-`roles/BUILDER.md` at `9915096`: 1 and 0. The second pattern discriminates rather than matching
-every `Tag:` line.
+Both return **2**, so both QA lines there recorded the field as empty. The control is the same
+pattern pair over a corpus that holds a populated one:
+
+```bash
+git show 9915096:roles/BUILDER.md | grep -c '^Tag:'
+git show 9915096:roles/BUILDER.md | grep -c '^Tag: NOT EMITTED'
+```
+
+They return 1 and 0, so the second pattern discriminates rather than matching every `Tag:` line.
+
+**Two QA lines on one pull request is the whole sample.** One repository, one CLI version, seats
+nobody recorded. It is enough to retire the premise and not enough to say what the skill always
+does, which is why the field above takes a tag when one comes back.
 
 **Two is what this instrument measures. Do not carry a four.** The second comment calls itself the
 FOURTH consecutive run. A Lander comment on the same pull request says the third in a row. So the
@@ -769,7 +779,9 @@ for this reading:
 ```bash
 B=~/.local/share/claude/versions/2.1.278
 grep -a -o '=>`.\{0,3\}xhigh effort .\{0,50\}' "$B"
-tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}' | grep -c effort
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}'         | wc -l
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}'         | grep -c effort
+tr '\n' ' ' < "$B" | grep -a -o 'You are reviewing.\{0,400\}' | wc -l
 tr '\n' ' ' < "$B" | grep -a -o 'You are reviewing.\{0,400\}' | grep -c effort
 ```
 
@@ -781,12 +793,14 @@ The first prints the tag with a template literal opening immediately before it:
 
 So the tag is line one of the text the skill hands its reviewer, not of the reply it asks back.
 
-**The second returns 0 and the third returns 7, over 9 windows.** One needle, one pipeline, one
-file: no output contract names an effort tag, and the needle fires where the prompts do. A zero
-beside an unarmed needle would say nothing, which is this repository's own rule.
+**16 windows and 0 of them name an effort tag. The control is 9 windows of which 7 do.** One
+needle, one pipeline, one file, two anchors: the output contracts do not name a tag, and the same
+needle fires on the prompts. A zero beside an unarmed needle would say nothing, which is this
+repository's own rule.
 
 **The condition I varied is the window.** The 0 holds at 200, 400, 800 and 1200 characters. The
-count of matching windows does not, so no number of contracts is published here.
+16 does not, because a wider window swallows the next match, so read it as windows at 400 rather
+than as a count of contracts.
 
 **One contract asks for `{level, findings}`,** so the level is in the report shape even where no
 prose carries it. You passed that level yourself, which is why this line reads it off the
@@ -817,12 +831,17 @@ git -C <vault> show HEAD:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'
 
 The first returns that retired step. The second returns 0.
 
-**The control needs its ref, and this passage got it wrong once.** The pattern returns **4** on
-`origin/main`, 4a to 4d, and **5** here, where 4e is the section you are reading. An earlier draft
-published the 5 with no ref, in the paragraph arguing a citation must name where it resolves.
+**The control needs its ref, and this passage has now got it wrong twice.** The pattern returns
+**5** on `origin/main` and **5** here, 4a to 4e both times. Read it with
+`git show origin/main:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'`.
 
-Either number beats the vault's 0, so the conclusion holds: the subsection scheme this line cites
-does not exist there at all. Article VI is about the reading, not only the verdict.
+**It read "returns 4 on `origin/main`, 4a to 4d, and 5 here" until 2026-09-22.** That was true only
+until 4e merged, in #140, and 4e is an ancestor of `origin/main` now. A number pinned to a moving
+ref goes stale silently, which is the failure this very paragraph was written about.
+
+The first draft published the 5 with no ref at all. Five still beats the vault's 0, so the
+conclusion holds: the subsection scheme this line cites does not exist there. Article VI is about
+the reading, not only the verdict.
 
 **So a bare `BUILDER.md step 11` lands on the opposite rule** -- an instruction to open your own
 pull request, retired 2026-09-18. A citation that resolves to the rule it contradicts is worse than

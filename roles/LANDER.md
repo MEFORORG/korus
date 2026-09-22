@@ -822,7 +822,8 @@ evidence, and says what to do when the evidence is absent.
 | --- | --- |
 | The instrument | The QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
 | Read it with | `gh pr view <N> --json comments --jq '.comments[].body'`, and `gh pr view <N> --json labels` for the label. |
-| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level the brief named, and its findings are in the line. Arm the pull request. |
+| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level its own `Level` field names, and its findings are in the line. Arm the pull request. |
+| Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
 | QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |

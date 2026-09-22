@@ -315,7 +315,8 @@ skill returned. `roles/BUILDER.md` 4c holds the shapes it runs in, inline among 
 first line of the skill's own PROMPT, not of the report it asks back, and both QA lines on one
 pull request returned none. `roles/BUILDER.md` 4e holds the reading and the commands behind it.
 
-**An absent tag is unknown, not inline.** Read the commit, as *Name the exposure* already says.
+**An absent tag is unknown, not inline.** Read the commit, as `roles/LANDER.md`, *Name the
+exposure, because it is real*, already says.
 
 **So the Builder's QA line carries the level it PASSED, not one read off the reply.** Its `Tag`
 field holds `none returned` where nothing came back, which is a reading rather than an empty field.

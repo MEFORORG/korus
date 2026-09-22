@@ -236,9 +236,11 @@ End the report with the QA line your manager posts for you, in this shape:
   QA -- korus roles/BUILDER.md step 11
   Level: xhigh, from the brief. Tag: none returned.
   Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
-`Level` is what you passed. `Tag` is the `<level> effort -> ...` line if the skill
-returned one, otherwise `none returned`. The QA line never uses the word "review",
-so the skill's own opener goes in the report above it. Then exit.
+`Level` is the level you passed AND where it came from: "from the brief", or
+"4c default", or "inherited, not passed" if you made a bare call. `Tag` is the
+`<level> effort -> ...` line if the skill returned one, otherwise "none returned".
+The QA line never uses the word "review", so the skill's own opener goes in the
+report above it. Then exit.
 
 Do not open the pull request; your manager does. Do not merge; the lander does.
 ```

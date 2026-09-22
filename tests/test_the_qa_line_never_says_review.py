@@ -34,12 +34,20 @@ MARKER = "QA -- korus roles/BUILDER.md step 11"
 BLOCK_LINES = 3
 
 # The field lines, which are every line of the block after the marker. All three carriers must
-# spell them identically; `roles/BUILDER.md` 4e is the authority.
+# agree on the FIELD LABELS in them; `roles/BUILDER.md` 4e is the authority.
 #
 # BOTH LINES, NOT JUST THE ONE THAT BROKE. Line two is where the 2026-09-22 premise failed, and
 # pinning only it would leave line three free to diverge -- which it already had, `(null path)` in
 # the playbook against `(reason)` in the other two. That is the same gap in one line down.
 FIELD_LINES = slice(1, BLOCK_LINES)
+
+# LABELS, NOT VALUES, and the difference is what keeps this check honest. Pinning the whole line
+# pins the sample values too -- `xhigh`, `2`, the rejection reason -- so 4e's own second Level
+# spelling, `inherited, not passed`, could not be written as a worked example anywhere in the
+# three carriers without reddening this file. The drift it exists to catch is in the NAMES: a copy
+# still headed `Tag:` where the authority now says `Level:`. Values are free to differ, and the
+# authority is free to carry a real rejection reason where a card carries a placeholder.
+FIELD_LABEL = re.compile(r"(?:^|(?<=[.] ))([A-Z][A-Za-z]*):")
 
 # Files required to carry at least one block. A file dropping its copy is a silent loss of the
 # rule from the place a seat actually reads, so absence fails rather than passing vacuously.
@@ -71,8 +79,8 @@ def _offenders(block: str) -> list[str]:
     return BANNED.findall(block)
 
 
-def _field_spellings(texts: dict[str, str]) -> dict[str, str]:
-    """Every block's field lines, mapped to the first carrier that spelled them that way.
+def _field_labels(texts: dict[str, str]) -> dict[str, str]:
+    """Every block's field labels, mapped to the first carrier that used that sequence.
 
     A short block keys on what it has, so a truncated copy reads as a divergence rather than
     raising IndexError out of whichever test the runner happens to reach first.
@@ -80,9 +88,21 @@ def _field_spellings(texts: dict[str, str]) -> dict[str, str]:
     seen: dict[str, str] = {}
     for relpath, text in texts.items():
         for block in _blocks(text):
-            fields = [line.strip() for line in block.splitlines()[FIELD_LINES]]
-            seen.setdefault("\n".join(fields), relpath)
+            labels = []
+            for line in block.splitlines()[FIELD_LINES]:
+                labels.extend(FIELD_LABEL.findall(line.strip()))
+            seen.setdefault(" ".join(labels), relpath)
     return seen
+
+
+def _insert_at(text: str, offset: int, line: str) -> str:
+    """Put `line` `offset` lines below the first marker, pushing the rest down."""
+    lines = text.splitlines()
+    for i, existing in enumerate(lines):
+        if MARKER in existing:
+            lines.insert(i + offset, line)
+            return "\n".join(lines) + "\n"
+    raise AssertionError("no block to plant in")
 
 
 class TheQaLineNeverSaysReview(unittest.TestCase):
@@ -114,8 +134,8 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
                     )
         self.assertGreaterEqual(total, len(CARRIERS), "fewer blocks than carriers")
 
-    def test_every_carrier_spells_the_field_lines_the_same_way(self):
-        """The three copies must agree on the field lines, and the control is a DIFFERENTIAL.
+    def test_every_carrier_uses_the_same_field_labels(self):
+        """The three copies must agree on the field labels, proven by three plants.
 
         THE FAILURE THIS EXISTS FOR. Until 2026-09-22 line two read `Tag: <the skill's own first
         line>`, on a premise that did not hold: the tag is the first line of the skill's PROMPT,
@@ -125,45 +145,77 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
         The rule was stated in three files and checked in none, so nothing could tell a repair
         that reached all three from one that reached only the playbook. This closes that.
 
-        THE CONTROL PLANTS TWICE, and the second plant is the load-bearing one. Planting inside
-        the block and getting a hit only shows the dict holds two strings. Planting the SAME text
-        below the block and getting no hit is what shows the check reads `FIELD_LINES` rather
-        than the file -- and a check that read the file would pass the first plant too.
+        FOUR PLANTS, AND TWO OF THEM MUST NOT FIRE.
+
+        A renamed label must be caught. A changed VALUE must not, or the check pins sample text
+        and 4e's own second Level spelling could never be written as a worked example.
+
+        The last two BRACKET THE WINDOW, and they are the same text one line apart: planted at
+        the last line INSIDE `FIELD_LINES` it must fire, and at the first line OUTSIDE it must
+        not. One line, opposite outcomes, so neither arm can be passing for a general reason.
+        A reader that scanned whole files rather than the slice would fire on both.
+
+        AN EARLIER ARM APPENDED THE PLANT AT END OF FILE, 128 lines past the nearest marker,
+        where no window of any plausible width reaches. It passed at every width from 3 to 129
+        and measured nothing.
         """
         texts = {relpath: t.read(t.REPO_ROOT / relpath) for relpath in CARRIERS}
-        seen = _field_spellings(texts)
+        seen = _field_labels(texts)
         self.assertEqual(
             1,
             len(seen),
-            "the carriers disagree on the QA line's field lines: "
-            + "; ".join(f"{path} says {fields!r}" for fields, path in seen.items())
+            "the carriers disagree on the QA line's field labels: "
+            + "; ".join(f"{path} uses {labels!r}" for labels, path in seen.items())
             + ". `roles/BUILDER.md` 4e is the authority -- bring the other copies to it.",
         )
 
         victim = CARRIERS[-1]
-        divergence = "Tag: whatever the skill said"
 
-        # Plant INSIDE the block: must be caught.
-        inside = dict(texts)
-        inside[victim] = texts[victim].replace(next(iter(seen)).splitlines()[0], divergence)
-        self.assertNotEqual(inside[victim], texts[victim], "the in-block plant changed nothing")
+        # 1. A RENAMED LABEL inside the block must be caught.
+        renamed = dict(texts)
+        renamed[victim] = texts[victim].replace("Tag: none returned", "Shape: none returned")
+        self.assertNotEqual(renamed[victim], texts[victim], "the rename plant changed nothing")
         self.assertGreater(
-            len(_field_spellings(inside)),
+            len(_field_labels(renamed)),
             1,
-            "the in-block plant was not caught, so the agreement above measures the detector "
+            "a renamed field label was not caught, so the agreement above measures the detector "
             "rather than the corpus.",
         )
 
-        # Plant OUTSIDE the block, appended to the file: must NOT be caught. Without this arm a
-        # check that hashed whole files would pass the arm above and catch nothing real.
-        outside = dict(texts)
-        outside[victim] = texts[victim] + "\n" + divergence + "\n"
-        self.assertNotEqual(outside[victim], texts[victim], "the out-of-block plant changed nothing")
+        # 2. A CHANGED VALUE inside the block must NOT be caught, or the check pins sample text.
+        revalued = dict(texts)
+        revalued[victim] = texts[victim].replace(
+            "Level: xhigh, from the brief.", "Level: inherited, not passed."
+        )
+        self.assertNotEqual(revalued[victim], texts[victim], "the value plant changed nothing")
         self.assertEqual(
             seen,
-            _field_spellings(outside),
-            "text below the block changed the reading, so this check is not scoped to "
-            "FIELD_LINES and its agreement above proves less than it claims.",
+            _field_labels(revalued),
+            "changing a sample VALUE moved the reading, so this check pins example text and 4e's "
+            "own `inherited, not passed` spelling cannot be written as a worked example.",
+        )
+
+        # 3. The same new label at the LAST line inside the window must be caught.
+        boundary = "Shape: planted at the window edge"
+        last_inside = dict(texts)
+        last_inside[victim] = _insert_at(texts[victim], FIELD_LINES.stop - 1, boundary)
+        self.assertNotEqual(last_inside[victim], texts[victim], "the inside plant changed nothing")
+        self.assertGreater(
+            len(_field_labels(last_inside)),
+            1,
+            "a label on the LAST line of the window was not caught, so the window is narrower "
+            "than FIELD_LINES claims and arm 4 below proves nothing.",
+        )
+
+        # 4. The same text one line further down must NOT be caught. That is the window edge.
+        first_outside = dict(texts)
+        first_outside[victim] = _insert_at(texts[victim], FIELD_LINES.stop, boundary)
+        self.assertNotEqual(first_outside[victim], texts[victim], "the outside plant changed nothing")
+        self.assertEqual(
+            seen,
+            _field_labels(first_outside),
+            "a label on the first line BELOW the window moved the reading, so this check is not "
+            "scoped to FIELD_LINES and its agreement above proves less than it claims.",
         )
 
     def test_the_control_fires(self):
