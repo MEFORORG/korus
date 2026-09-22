@@ -366,8 +366,12 @@ Watchdog issuing verdicts has taken a retired seat's grant, which no seat can ha
 
 ### 1b. The board is a standing duty, and it is an instrument before it is a deliverable
 
-**MOVED UP, to *YOUR FIRST STANDING DUTY: refresh the Lander Board every 15 minutes*.** The number
-stays because three files cite it.
+**MOVED UP, to *YOUR FIRST STANDING DUTY: refresh the Lander Board every 15 minutes*.** Cite the
+heading. **NOTHING outside this file ever cited the number.** A claim here that three files did was
+wrong. It came from a true count of files citing `WATCHDOG.md`, carried into a claim about files citing
+`1b`. Measured 2026-09-22 on korus `origin/main` and the engine repo: four citations inside this file,
+zero outside it. Controls: `section 1a` found three files, `WATCHDOG` found five engine files. This
+stub stays for the finding below, not for the number.
 
 **Why it moved.** It sat here, 330 lines in. Measured 2026-09-22: a Watchdog read the opening and the
 standing-rules table, took a baseline and published a reading, never learning the board existed. The
@@ -681,6 +685,9 @@ the real problem.
 concluding no partner is live, because a false missing spawns two Landers racing one queue.
 
 **Kept because a reader reaches that wrong claim on its own**, straight off section 2.
+
+**And recorded because a reviewer that only agrees has measured nothing.** This one had published the
+opposite recommendation and changed it against its own record.
 
 ### The Regulator boundary was checked, and the checker was wrong once
 
