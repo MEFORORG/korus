@@ -641,10 +641,23 @@ also miss repositories that store scripts elsewhere.
 |---|---|---|---|
 | 1 | `prefix` | `ccx` | the state root `<git-common-dir>/<prefix>-coord`, the git config key `<prefix>.homeBranch`, and the per-worktree home-branch marker file `<prefix>-home-branch` |
 | 2 | `trunk` | `auto` | the base for new worktrees, the allocator's floor sweep, the overlap detector's comparison, the sequence gate's base ref |
-| 3 | `worktreeLayout` | `sibling` | where **we** create worktrees. Nested-worktree *exclusion* from destructive operations is unconditional regardless |
+| 3 | `worktreeLayout` | `sibling` | where **we** create worktrees. The gate and the reaper exclude `.claude/worktrees/` paths under either layout. `remove.ps1` does not, so under `nested` it removes the one you name |
 | 4 | `setupHook` | none | a script run after `git worktree add`, which is what keeps this repo language-agnostic |
 | 5 | `protectedRefs` | `main`, `master` | which refs `push_guard.py` refuses a direct push to |
 | 6 | `sequences` | none | `alloc.ps1 -Kind <name>` and `seq_check.py`. **Omit the key entirely and the sequence machinery is simply off** |
+
+**Row 3 read "Nested-worktree *exclusion* from destructive operations is unconditional regardless"
+until 2026-09-22, and it was false.** `remove.ps1` is destructive and never calls
+`Test-CcxHarnessWorktreePath`.
+
+Measured at `05eb4a7`, with `prune-merged.ps1` as the control:
+
+```bash
+git show 05eb4a7:scripts/worktree/remove.ps1       | grep -c Test-CcxHarnessWorktreePath   # 0
+git show 05eb4a7:scripts/worktree/prune-merged.ps1 | grep -c Test-CcxHarnessWorktreePath   # 1
+```
+
+The control returns a hit, so the pattern was live rather than empty.
 
 Config loading enforces two validation rules:
 

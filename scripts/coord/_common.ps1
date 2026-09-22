@@ -576,9 +576,31 @@ function Get-CcxWorktreePath {
         command aimed at the primary, and because the two layouts coexist: the harness creates NESTED
         worktrees on its own, and those must never be touched by tooling that reaps siblings.
 
-        `nested` here selects where WE create worktrees. It does not change the fact that any path
+        `nested` here selects where WE create worktrees. It does not change what
+        Test-CcxHarnessWorktreePath says: under either layout, a path with a `.claude/worktrees/`
+        segment is the harness's own. What protects such a path is whichever script consults that
+        guard, and not every destructive one does:
+
+          worktree_gate.ps1  consults it. Rules 1 to 3 do not treat such a path as the primary.
+                             Rules 3c and 3d skip it on purpose: their target is the shared .git.
+          prune-merged.ps1   consults it, directly and through Test-CcxSiblingWorktreePath. The
+                             reaper never makes such a path a candidate.
+          remove.ps1         does NOT consult it. Under `nested` this function resolves
+                             `remove.ps1 -Name x` to <primary>/.claude/worktrees/x, and remove.ps1
+                             removes that worktree, whoever created it.
+
+        docs/WORKTREES.md, "Two layouts coexist, and only one has scripted teardown", documents the
+        remove.ps1 behaviour. The test file test_the_harness_guard_comment_matches_its_callers.py
+        holds the three rows above to the code.
+
+        RETRACTED 2026-09-22. This paragraph read: "It does not change the fact that any path
         containing a `.claude/worktrees/` segment is excluded from destructive operations
-        unconditionally, whatever this setting says -- see Test-CcxHarnessWorktreePath.
+        unconditionally, whatever this setting says -- see Test-CcxHarnessWorktreePath." That was
+        false. remove.ps1 is a destructive operation and never calls the guard. Measured at 05eb4a7,
+        `git show 05eb4a7:<script> | grep -c Test-CcxHarnessWorktreePath` returns 0 for remove.ps1,
+        against a control of 1 for prune-merged.ps1. Run under `nested` in a scratch repository,
+        remove.ps1 -Name x removed a worktree the guard returns True for, and exited 0. A ledger row
+        in another repository relied on the old wording and published a false conclusion.
 
         Returns the RAW path in the platform's own separator style: this value is handed to `git
         worktree add` and printed for a human, so it must not be the folded comparison form.
