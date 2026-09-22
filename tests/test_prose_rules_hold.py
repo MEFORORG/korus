@@ -387,6 +387,12 @@ class BannedConstructionsAreAbsent(unittest.TestCase):
 #   examples/sequence-adr/index-row-format.md     4          3  debt, and it is example prose
 #   scripts/validation/README.md                  0          2  debt
 #   specs/001-worker-brief/spec.md               12          9  debt
+#   specs/002-fleet-wiki/spec.md                  0          0  none; specs/ has no corpus
+#   specs/002-fleet-wiki/plan.md                  0          0  none; specs/ has no corpus
+#
+# THE TWO 002 PAGES ARE CLEAN, measured 2026-09-22 with `_measure([page])`: (0, 0, 2457, 0) and
+# (0, 0, 912, 0). They are listed only because no corpus reads `specs/`, and admitting that prefix
+# would pull in 001's debt. A `specs/` corpus is the fix once 001 is paid down.
 #
 # CLAUDE.md IS THE ONE TO FIX FIRST, and it is nearly free: zero long sentences, zero fat cells,
 # zero fat paragraphs. One hard-fail hit blocks it, on the line that names `in order to` as a banned
@@ -409,6 +415,8 @@ UNREAD_PAGES = frozenset({
     "examples/sequence-adr/index-row-format.md",
     "scripts/validation/README.md",
     "specs/001-worker-brief/spec.md",
+    "specs/002-fleet-wiki/spec.md",
+    "specs/002-fleet-wiki/plan.md",
 })
 
 
