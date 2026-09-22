@@ -7,9 +7,13 @@ removing `P-work` also deleted `P-work/.claude/worktrees/h`, exited 0, and left 
 prunable. A session started inside a sibling worktree creates its own worktrees there, so the
 checkout deleted can be a live session's. CLAUDE.md sends every session through this script.
 
-WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The four
+WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The six
 refusal cases fail on the unfixed script at `05eb4a7`: the removal exits 0 and the nested checkout
 is gone. They cover both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
+
+Two of them hold the REMEDY the refusal prints. Its commands must remove the deepest worktree
+first, because `git worktree remove` deletes ignored files and a nested worktree is usually ignored
+inside its parent. And a locked worktree must come with its unlock step.
 
 TWO CONTROLS, because "refuse everything" passes every refusal case here:
 
@@ -196,6 +200,51 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, x, y)
         self.assertNotEqual(0, r.returncode, said)
         self.assertIn(fold(y), said, "the refusal does not name the nested worktree")
+
+    # --- the remedy it prints must not cause the loss it refuses ----------------------------------
+
+    def remove_lines(self, said: str) -> list[str]:
+        return [line.strip() for line in said.splitlines() if " worktree remove " in line]
+
+    def test_the_printed_commands_remove_the_deepest_worktree_first(self):
+        """A parent removed before its child deletes the child: it is ignored inside the parent.
+
+        `alpha` is created first, so `git worktree list` reports it before `zeta`, which sits inside
+        it. The commands must come out the other way round.
+        """
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        alpha = self.worktree(work, work / ".claude" / "worktrees" / "alpha", "alpha")
+        zeta = self.worktree(alpha, alpha / ".claude" / "worktrees" / "zeta", "zeta")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assert_untouched(primary, work, alpha, zeta)
+        self.assertNotEqual(0, r.returncode, said)
+        order = [
+            next((i for i, line in enumerate(self.remove_lines(said)) if fold(n) + '"' in line), None)
+            for n in (zeta, alpha)
+        ]
+        self.assertNotIn(None, order, "a nested worktree has no remove command:\n" + said)
+        self.assertLess(order[0], order[1], "the parent's command comes before its child's:\n" + said)
+
+    def test_a_locked_nested_worktree_is_named_with_its_unlock_step(self):
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        head = git("rev-parse", "HEAD", cwd=primary).strip()
+        held = work / ".claude" / "worktrees" / "held"
+        git("worktree", "add", "-q", "--detach", str(held), head, cwd=work)
+        git("worktree", "lock", "--reason", "harness", str(held), cwd=primary)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assert_untouched(primary, work, held)
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn("locked: harness", said)
+        self.assertIn(f'worktree unlock "{fold(held)}"', said, "no unlock step for a locked worktree")
+        self.assertNotIn("branch (detached)", said, "a detached worktree is labelled as a branch")
 
     # --- the controls: a fix that refuses everything fails these ----------------------------------
 

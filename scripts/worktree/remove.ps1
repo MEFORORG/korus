@@ -54,7 +54,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '../coord/_common.ps1')
-# The nested-worktree detector, shared with prune-merged.ps1. One copy of a safety check, not two.
+# The nested-worktree detector and the worktree-list parser, shared with prune-merged.ps1. One copy
+# of a safety check, not two.
 . (Join-Path $PSScriptRoot '../coord/occupancy.ps1')
 
 $PrimaryRoot = Get-CcxPrimaryRoot
@@ -88,35 +89,56 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 #
 # NOT overridable, and deliberately not by -Force. -Force means "discard uncommitted tracked
 # changes", and a switch with two meanings is how a caller discards a live session by accident. The
-# remedy is to remove the nested worktree first, which git refuses to do while it holds changes.
+# remedy is to remove the nested worktrees first, deepest first.
+#
+# It reads ONLY the worktree list. Get-WorktreeOccupancy would also read every session record and
+# fence each one, which this check does not use, and one malformed record would then stop every
+# manual removal. So the occupancy header's rule for callers of the liveness fence does not bind here.
 #
 # It sees only worktrees registered to THIS repository. A checkout of some other repository sitting
 # inside the target is not in this list, and the removal below deletes it.
-$occ = Get-WorktreeOccupancy -Repo $PrimaryRoot
-if (-not $occ.RepoFound) {
-    # FAIL CLOSED. An unreadable worktree list returns no nested worktrees, which is the same empty
-    # answer as a target with none, so it must not read as permission.
-    throw ("Could not list this repository's registered worktrees, so there is no way to tell " +
-        "whether '$WorktreePath' contains one. Nothing was removed.")
-}
-$nested = @(Get-NestedWorktrees -Occupancy $occ -Path $WorktreePath)
-if ($nested.Count -gt 0) {
-    Write-Host ("REFUSED: '$WorktreePath' contains $($nested.Count) registered worktree(s). Removing " +
-        "it would delete them too, and leave them registered with no directory:") -ForegroundColor Red
+function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
+    $registered = @(Get-RepoWorktrees $Primary)
+    if ($registered.Count -eq 0) {
+        # FAIL CLOSED. An unreadable worktree list returns no nested worktrees, which is the same
+        # empty answer as a target with none, so it must not read as permission.
+        throw ("Could not list this repository's registered worktrees, so there is no way to tell " +
+            "whether '$Target' contains one. Nothing was removed.")
+    }
+    # Get-NestedWorktrees reads only .Worktrees off its -Occupancy argument.
+    $nested = @(Get-NestedWorktrees -Occupancy ([pscustomobject]@{ Worktrees = $registered }) -Path $Target)
+    if ($nested.Count -eq 0) { return }
+
+    # DEEPEST FIRST. A nested worktree is usually git-ignored inside its parent, and `git worktree
+    # remove` without --force refuses modified or untracked files but deletes ignored ones. Removing
+    # a parent before its child would delete the child and leave it registered: the loss refused here.
+    # A child's path is always longer than its parent's, so longest first puts every child first.
+    $nested = @($nested | Sort-Object { (ConvertTo-CcxComparablePath $_.Path).Length } -Descending)
+
+    Write-Host ("REFUSED: '$Target' contains $($nested.Count) registered worktree(s). Removing it " +
+        "would delete each one still on disk, and leave it registered with no directory:") -ForegroundColor Red
     foreach ($n in $nested) {
         $state = @()
-        if ($n.Branch) { $state += "branch $($n.Branch)" }
+        if ($n.Detached) { $state += 'detached' } elseif ($n.Branch) { $state += "branch $($n.Branch)" }
         if ($n.Locked) { $state += $(if ($n.LockReason) { "locked: $($n.LockReason)" } else { 'locked' }) }
-        if ($n.Prunable) { $state += "prunable: $($n.Prunable)" }
+        if ($n.Prunable) { $state += "directory already missing: $($n.Prunable)" }
         Write-Host "  $($n.Path)  [$($state -join '; ')]" -ForegroundColor Red
     }
     Write-Host ("A session started inside this worktree puts its own worktrees here, so any of these " +
-        "may belong to a live session. Once you know nobody is using one, remove it first. git " +
-        "refuses while it holds changes:") -ForegroundColor Red
-    foreach ($n in $nested) { Write-Host "  git -C `"$PrimaryRoot`" worktree remove `"$($n.Path)`"" -ForegroundColor Red }
+        "may belong to a live session. Once you know nobody is using them, remove them in this " +
+        "order, deepest first. git refuses modified or untracked files, but it deletes ignored ones, " +
+        "and a worktree nested inside another is usually ignored:") -ForegroundColor Red
+    foreach ($n in $nested) {
+        # A locked worktree refuses `remove` until it is unlocked. The lock is its owner saying "in
+        # use", so the unlock is printed as a step to take deliberately, never folded into a --force.
+        if ($n.Locked) { Write-Host "  git -C `"$Primary`" worktree unlock `"$($n.Path)`"" -ForegroundColor Red }
+        Write-Host "  git -C `"$Primary`" worktree remove `"$($n.Path)`"" -ForegroundColor Red
+    }
     Write-Host "Then re-run this command. -Force does not override this check." -ForegroundColor Red
     throw "Worktree contains $($nested.Count) registered worktree(s). Nothing was removed."
 }
+
+Assert-NoNestedWorktree -Target $WorktreePath -Primary $PrimaryRoot
 
 # Guard against losing committed-but-unpushed or modified tracked work. Untracked entries ('??') are
 # expected and do not block removal.
@@ -148,6 +170,11 @@ if ($tip) {
 # ability to ask. $null means detached HEAD (or git could not answer) -- handled explicitly below
 # rather than by falling back to $Name, which would be guessing at a destructive step.
 $branchToDelete = if ($branch -and $branch -ne 'HEAD') { $branch } else { $null }
+
+# RE-READ, as prune-merged.ps1 re-reads before each removal. `git status` on a large tree takes long
+# enough for a session inside the target to create a worktree there. This bounds that window to the
+# keep-ref write below; it does not close it, since nothing here takes a lock.
+Assert-NoNestedWorktree -Target $WorktreePath -Primary $PrimaryRoot
 
 if ($DeleteBranch -and $tip) {
     # A keep-ref, written BEFORE the branch is deleted. It keeps the commits reachable, so they survive

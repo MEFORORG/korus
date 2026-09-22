@@ -524,6 +524,10 @@ names each one, exits non-zero, and `-Force` does not override it. It uses the r
 The rule is containment, not path shape. A `.claude/worktrees/x` with nothing inside it is still
 removed, so the `nested` layout keeps its teardown.
 
+The refusal prints the commands that clear it, deepest first. `git worktree remove` without
+`--force` refuses modified or untracked files but deletes ignored ones. A nested worktree is usually
+ignored inside its parent, so removing the parent first would delete the child.
+
 **The nested row's "only for one you named" was false until 2026-09-22.** `remove.ps1` also deleted
 any registered worktree inside its target, exited 0, and left that worktree registered with no
 directory. This section did not say so.
@@ -532,7 +536,7 @@ Measured at `05eb4a7` with git 2.55.0.windows.5, under `sibling`: removing `P-wo
 `P-work/.claude/worktrees/h`, and `h` stayed registered as prunable. The instrument is
 `tests/test_remove_never_deletes_a_nested_worktree.py`.
 
-Its four refusal cases fail against `05eb4a7`'s `remove.ps1` and pass here. Its two controls pass
+Its six refusal cases fail against `05eb4a7`'s `remove.ps1` and pass here. Its two controls pass
 on both, so the fix does not refuse everything. Run it against the old script from an export:
 
 ```bash
@@ -541,7 +545,7 @@ cp tests/test_remove_never_deletes_a_nested_worktree.py <scratch>/tests/
 cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_worktree.py
 ```
 
-It returns 4 failed and 2 passed.
+It returns 6 failed and 2 passed.
 
 It sees only worktrees registered to this repository. A checkout of another repository inside the
 target is not in that list, and `remove.ps1` still deletes it.
