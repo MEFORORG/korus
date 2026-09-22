@@ -428,6 +428,10 @@ delete the branch using `-d`.
 The script refuses if you stand inside the target worktree. Its message explains that location error
 before git attempts removal.
 
+It also refuses a worktree that contains another registered worktree, and names each one. `-Force`
+does not override that. Remove the nested worktrees first. See
+[Two layouts](#two-layouts-coexist-and-only-one-has-scripted-teardown).
+
 Uncommitted tracked changes block removal unless you pass `-Force`. Untracked dependencies, build
 output, and scratch databases do not block it.
 
@@ -513,6 +517,35 @@ Both sibling and nested worktrees were live together in the source project:
 `remove.ps1` never calls it; under `nested`, `remove.ps1 -Name x` removes that named nested
 worktree.
 
+`remove.ps1` refuses a target that contains another registered worktree, under either layout. It
+names each one, exits non-zero, and `-Force` does not override it. It uses the reaper's own check,
+`Get-NestedWorktrees` in `scripts/coord/occupancy.ps1`.
+
+The rule is containment, not path shape. A `.claude/worktrees/x` with nothing inside it is still
+removed, so the `nested` layout keeps its teardown.
+
+**The nested row's "only for one you named" was false until 2026-09-22.** `remove.ps1` also deleted
+any registered worktree inside its target, exited 0, and left that worktree registered with no
+directory. This section did not say so.
+
+Measured at `05eb4a7` with git 2.55.0.windows.5, under `sibling`: removing `P-work` also deleted
+`P-work/.claude/worktrees/h`, and `h` stayed registered as prunable. The instrument is
+`tests/test_remove_never_deletes_a_nested_worktree.py`.
+
+Its four refusal cases fail against `05eb4a7`'s `remove.ps1` and pass here. Its two controls pass
+on both, so the fix does not refuse everything. Run it against the old script from an export:
+
+```bash
+git archive 05eb4a7 | tar -x -C <scratch>
+cp tests/test_remove_never_deletes_a_nested_worktree.py <scratch>/tests/
+cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_worktree.py
+```
+
+It returns 4 failed and 2 passed.
+
+It sees only worktrees registered to this repository. A checkout of another repository inside the
+target is not in that list, and `remove.ps1` still deletes it.
+
 One helper handles two different requirements:
 
 - A gate protecting the primary must *not* govern a nested worktree. Its path starts with primary,
@@ -530,7 +563,7 @@ Two related path rules also apply:
   Even then it only *looks* like ours: removal turns on occupancy, cleanliness and merge state.
 - A nested checkout is git-ignored inside its parent. The parent therefore reads perfectly clean,
   and a `--force` removal of the parent deletes both -- leaving the nested worktree registered with
-  no directory.
+  no directory. Both removal scripts refuse such a parent for that reason.
 
 ### A wrong-cwd run must refuse loudly, never green no-op
 

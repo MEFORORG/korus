@@ -7,8 +7,9 @@ removing `P-work` also deleted `P-work/.claude/worktrees/h`, exited 0, and left 
 prunable. A session started inside a sibling worktree creates its own worktrees there, so the
 checkout deleted can be a live session's. CLAUDE.md sends every session through this script.
 
-WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The
-headline case fails on the unfixed script: the removal exits 0 and the nested checkout is gone.
+WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. The four
+refusal cases fail on the unfixed script at `05eb4a7`: the removal exits 0 and the nested checkout
+is gone. They cover both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
 
 TWO CONTROLS, because "refuse everything" passes every refusal case here:
 
@@ -124,7 +125,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         return primary, work, h
 
     def assert_untouched(self, primary: Path, work: Path, *nested: Path) -> None:
-        self.assertTrue(work.is_dir(), "the refused target was removed anyway")
+        """The nested worktrees first, so a red run names the loss rather than the symptom."""
         now = self.registered(primary)
         for n in nested:
             self.assertTrue(
@@ -134,6 +135,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
             )
             self.assertIn(fold(n), now, f"{n} is no longer registered")
             self.assertFalse(now[fold(n)], f"{n} is registered with no directory (prunable)")
+        self.assertTrue(work.is_dir(), "the refused target was removed anyway")
 
     # --- the defect ------------------------------------------------------------------------------
 
@@ -143,7 +145,6 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         r = self.remove(primary, "work")
         said = (r.stdout + r.stderr).replace("\\", "/")
 
-        # The loss first, so a red run names what was lost rather than only the exit code.
         self.assert_untouched(primary, work, h)
         self.assertTrue((h / "live.txt").is_file(), "the nested worktree's own file is gone")
         self.assertNotEqual(
@@ -158,8 +159,8 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
         r = self.remove(primary, "work", "-Force", "-DeleteBranch")
 
-        self.assertNotEqual(0, r.returncode, "-Force overrode the refusal\n" + r.stdout + r.stderr)
         self.assert_untouched(primary, work, h)
+        self.assertNotEqual(0, r.returncode, "-Force overrode the refusal\n" + r.stdout + r.stderr)
         self.assertIn("work", git("branch", "--format=%(refname:short)", cwd=primary).split())
         refs = git("for-each-ref", "--format=%(refname)", "refs/ccx/removed/", cwd=primary)
         self.assertEqual(
@@ -177,11 +178,24 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         r = self.remove(primary, "work")
         said = (r.stdout + r.stderr).replace("\\", "/").lower()
 
-        self.assertNotEqual(0, r.returncode, said)
         self.assert_untouched(primary, work, harness, plain)
+        self.assertNotEqual(0, r.returncode, said)
         for n in (harness, plain):
             with self.subTest(nested=n.name):
                 self.assertIn(fold(n), said, f"the refusal does not name {n}")
+
+    def test_under_the_nested_layout_a_worktree_holding_another_is_refused(self):
+        """The same loss one level down: a session in `.claude/worktrees/x` creates its own there."""
+        primary = self.primary("nested")
+        x = self.worktree(primary, primary / ".claude" / "worktrees" / "x", "x")
+        y = self.worktree(x, x / ".claude" / "worktrees" / "y", "y")
+
+        r = self.remove(primary, "x")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assert_untouched(primary, x, y)
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn(fold(y), said, "the refusal does not name the nested worktree")
 
     # --- the controls: a fix that refuses everything fails these ----------------------------------
 
