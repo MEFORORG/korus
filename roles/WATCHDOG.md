@@ -27,7 +27,7 @@ are not:
 | Reading | Why it misleads |
 | --- | --- |
 | The open count fell | A closed PR lowers it the same way a merged one does. Count merges, and report closures separately. |
-| The open count is flat | Arrivals matching merges reads as a stall. Section 1b says the same of the board. |
+| The open count is flat | Arrivals matching merges reads as a stall. *YOUR FIRST STANDING DUTY* says the same of the board. |
 | A pull request merged | Its ledger item can still be open and its claim still held. The Lander's goal includes both. |
 
 **You measure the progress. You never make it.** Section 2 forbids the merge, and section 1a forbids
@@ -37,7 +37,7 @@ the verdict. A Lander merging dishonestly is a reading you raise, not a call you
 Lander is live, spawn one, then go back to measuring.
 
 **The pair's goal: merging goes on continually until every open pull request is drained from all
-three repositories.** Keep your partner awake with CCD messaging. Fleet mail does not wake a session.
+three repositories.** Keep your partner awake with CCD messaging, section 0b.
 
 **Spawning a Lander is not merging.** Section 0a draws that boundary, and section 0 carries the rest
 of the mechanics.
@@ -55,11 +55,49 @@ its expiry, and reads exactly like a current one to a seat that was not there.
 **Added 2026-09-19 by Owner instruction.** Seventh live seat. *How this playbook was written* names
 its sources.
 
+## YOUR FIRST STANDING DUTY: refresh the Lander Board every 15 minutes
+
+**Owner instruction, 2026-09-19: refresh the Lander Board every 15 minutes, and use its readings as
+part of watching the Lander.**
+
+[LANDER-BOARD.md](../docs/LANDER-BOARD.md) is the specification, written to rebuild it from nothing.
+`scripts/board/` builds it: `collect.py`, then `series.py`, then `build.py`.
+
+**This is the seat's first standing duty.** Everything else here waits for the Owner to name a
+subject. This does not.
+
+Read the board as evidence, not as output:
+
+| Reading it gives you | What you do with it |
+| --- | --- |
+| Minutes since the last merge, per repository | The `DRAINING` / `SLOW` / `STALLED` pill, and the duration behind it |
+| Arrivals against merges | Whether a flat open-count hides a queue losing ground |
+| Idle runs rather than idle hours | A baseline for calling a gap abnormal |
+
+A flat open count is not calm. **Arrivals matching merges reads as a stall and is a different
+problem**, and the board splits the two so you do not misread one as the other.
+
+### A 15-minute session cron will not deliver this
+
+**Measured 2026-09-19 by the first Watchdog: a `CronCreate` refresh at that cadence did not fire
+once.** Cron runs only while the session is idle, and that session worked continuously. The Owner
+found out by asking where the board was.
+
+| Do | Not |
+| --- | --- |
+| A cloud schedule, which survives the session | A session cron, which dies with it and skips while busy |
+| Stamp the cadence on the board itself | Leave a stale page that looks current |
+
+**A stale board is worse than no board**, because it answers the question with an old number and
+nothing says so. Section 8 is the general case: a busy session and a dead one look identical from
+the inside.
+
 ## Standing rules that a fresh message will not override
 
 | Item | Rule |
 | --- | --- |
 | **The goal** | The Lander making progress on honestly merging every open PR, the ledger included. Owner-set 2026-09-20. *YOUR GOAL*. |
+| **The board, every 15 minutes** | The seat's first standing duty, and the only one that waits for nothing. Owner instruction 2026-09-19. *YOUR FIRST STANDING DUTY*, directly above. |
 | Do not take the action you are watching for | The one that breaks the seat. Section 2 carries both reasons, and the second is the one you will not have thought of. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls this seat, and a stalled Watchdog cannot report that it stopped. Section 0d. |
 | Read the transcript, not the output | Section 0c. Working, idle and blocked look identical from outside, and only one of them is yours. |
@@ -217,16 +255,15 @@ question has issued a verdict and taken a retired seat's grant.
 The transcript is also a third liveness surface. Section 3 asks for two. A last entry that has not
 moved across your own ticks is evidence the seat is gone, not merely quiet.
 
-**There is a script for this check, and it is NOT on `main` yet.** `scripts/board/seatstate.py`,
-written by the first Watchdog from this section, prints one of the three states with an age:
+**There is a script for this check.** `scripts/board/seatstate.py`, written by the first Watchdog
+from this section, prints one of the three states with an age:
 
     python scripts/board/seatstate.py <transcript.jsonl>
 
 | Item | Reading |
 | --- | --- |
-| Where it is | korus PR **136**, branch `claude/watchdog-board-clock`. Measured 2026-09-19: **ABSENT from `origin/main`**, along with `refresh.sh` and that session's episode note. |
-| So check before you reach for it | `git cat-file -e origin/main:scripts/board/seatstate.py`. If 136 has not landed, do the check by hand from this section. |
-| Why it can be trusted when it lands | It pairs an `AskUserQuestion` `tool_use` against its `tool_result` BY ID. A first draft matched the string anywhere and fired on a session merely DISCUSSING the tool. |
+| Where it is | On `origin/main`, landed by korus PR **136** (`dae8194`) with `refresh.sh`. This file read ABSENT until 2026-09-22: true as measured 2026-09-19, stale once 136 landed. |
+| Why it can be trusted | It pairs an `AskUserQuestion` `tool_use` against its `tool_result` BY ID. A first draft matched the string anywhere and fired on a session merely DISCUSSING the tool. |
 | Its control | A slice of the real 04:30Z window, cut before the Owner's answer. It still reports BLOCKED, at 20h11m. |
 
 **A rule with no instrument gets re-derived by every seat that reads it.** This row exists so the
@@ -273,7 +310,7 @@ waiting on.
 | Item | Rule |
 | --- | --- |
 | The loop changes nothing you may do | Section 2 is untouched. Cadence, never authority. |
-| It is not the board schedule | Section 1b needs a cloud schedule, because a session cron did not fire once. The loop is a second instrument, not a replacement. |
+| It is not the board schedule | *YOUR FIRST STANDING DUTY* needs a cloud schedule, because a session cron did not fire once. The loop is a second instrument, not a replacement. |
 | A tick is a wakeup | Send no ACK, and invent no work to fill a quiet tick. `noop: true` where nothing moved. |
 | Every tick reads the transcript | Section 0c. Working, idle and blocked need three different acts, and output tells you none of them. |
 | Every tick asks after the partner | Is the Lander alive, and is the drain moving. A tick that only refreshed the board has not run. |
@@ -329,40 +366,14 @@ Watchdog issuing verdicts has taken a retired seat's grant, which no seat can ha
 
 ### 1b. The board is a standing duty, and it is an instrument before it is a deliverable
 
-**Owner instruction, 2026-09-19: refresh the Lander Board every 15 minutes, and use its readings as
-part of watching the Lander.**
+**MOVED UP, to *YOUR FIRST STANDING DUTY: refresh the Lander Board every 15 minutes*.** The number
+stays because three files cite it.
 
-[LANDER-BOARD.md](../docs/LANDER-BOARD.md) is the specification, written to rebuild it from nothing.
-`scripts/board/` builds it: `collect.py`, then `series.py`, then `build.py`.
-
-**This is the seat's first standing duty.** Everything else here waits for the Owner to name a
-subject. This does not.
-
-Read the board as evidence, not as output:
-
-| Reading it gives you | What you do with it |
-| --- | --- |
-| Minutes since the last merge, per repository | The `DRAINING` / `SLOW` / `STALLED` pill, and the duration behind it |
-| Arrivals against merges | Whether a flat open-count hides a queue losing ground |
-| Idle runs rather than idle hours | A baseline for calling a gap abnormal |
-
-A flat open count is not calm. **Arrivals matching merges reads as a stall and is a different
-problem**, and the board splits the two so you do not misread one as the other.
-
-#### A 15-minute session cron will not deliver this
-
-**Measured 2026-09-19 by the first Watchdog: a `CronCreate` refresh at that cadence did not fire
-once.** Cron runs only while the session is idle, and that session worked continuously. The Owner
-found out by asking where the board was.
-
-| Do | Not |
-| --- | --- |
-| A cloud schedule, which survives the session | A session cron, which dies with it and skips while busy |
-| Stamp the cadence on the board itself | Leave a stale page that looks current |
-
-**A stale board is worse than no board**, because it answers the question with an old number and
-nothing says so. Section 8 is the general case: a busy session and a dead one look identical from
-the inside.
+**Why it moved.** It sat here, 330 lines in. Measured 2026-09-22: a Watchdog read the opening and the
+standing-rules table, took a baseline and published a reading, never learning the board existed. The
+Owner asked where it was, the second time that question has been the instrument.
+`docs/PLAYBOOK-SIZE.md`, *Split a playbook by when a rule fires*, carries the same shape. A grant
+was read on arrival, then asked for twice, 1,970 lines from the passage met while already acting.
 
 ---
 
@@ -457,6 +468,11 @@ Confirmed first-hand while this section was written: the same probe, hand-rolled
 long sentences in `roles/`. The count settled only after importing `paragraphs` from that test
 module and reading through it.
 
+**It fails the other way too, and that direction is worse.** Measured 2026-09-22: a probe that passed
+`paragraphs()` the wrong argument type returned **zero** long sentences for a file the gate scored at
+three. A zero reads as clean. `paragraphs(text)` takes the file TEXT and yields `(joined, linemap)`
+pairs; anything else returns nothing and reports it as nothing wrong.
+
     python -c "import sys; sys.path.insert(0,'tests'); import test_prose_rules_hold as T; ..."
 
 **A gate you cannot reproduce is a gate you will argue with.** Reach for its own code, which is
@@ -504,12 +520,10 @@ Plant the control and watch it fire. A zero beside a control that fired is a mea
 state count taken inside a recomputation window, twice. Once reads as an anomaly; three reads as a
 property of the seat, which is why this is a prohibition here rather than a technique.
 
-**The worked case.** A Watchdog counted armed pull requests by reading `autoMergeRequest`. That
-field returns null on a genuinely enqueued pull request, so the count **reports zero while the queue
-is working**. The zero was published, and the seat that holds the file corrected it.
-
-[LANDER.md](LANDER.md) had recorded that exact trap since 2026-08-28. The cause was reach, not
-attention: the warning sat two thirds of the way into a playbook belonging to one seat.
+**The worked case is the `autoMergeRequest` row in section 4.** The zero was published, and the
+seat that holds the file corrected it. [LANDER.md](LANDER.md) had recorded that exact trap since
+2026-08-28, so the cause was reach, not attention: the warning sat two thirds of the way into a
+playbook belonging to one seat.
 
 **So it binds you twice over.** You are the seat most likely to read an instrument you do not own,
 and least likely to have read the playbook that warns about it.
@@ -562,16 +576,16 @@ look right and are not.
 **A watchdog cannot watch its own death.** [STEWARD.md](STEWARD.md), *The alarm belongs to a seat
 whose wake source is independent of the clock*, reaches this from the usage side.
 
-**Your own schedule is the instrument your own activity disables.** Section 1b carries the
-measurement: a 15-minute board refresh on a cron, 2026-09-19, that did not fire once because cron
-runs only while a session is idle.
+**Your own schedule is the instrument your own activity disables.** *YOUR FIRST STANDING DUTY*
+carries the measurement: a 15-minute board refresh on a cron, 2026-09-19, that did not fire once
+because cron runs only while a session is idle.
 
 **A busy session and a dead one are indistinguishable from the inside.** Neither runs the
 self-check, and neither reports that it did not.
 
 The 2026-09-19 cron carries that half too. The seat learned its refresh had never fired when the
-Owner asked where the board was, and nothing inside the session could have told it. Section 1b
-records the same event from the Owner's side.
+Owner asked where the board was, and nothing inside the session could have told it. *YOUR FIRST
+STANDING DUTY* records the same event from the Owner's side.
 
 **You can catch the errors you can think to test for, and that is the real boundary.** Most of the
 instrument errors in one measured shift were caught by the seat itself, by re-reading a count and by
@@ -637,7 +651,7 @@ a mutation, and correct yourself faster than you correct others.
 | --- | --- |
 | 1, the assignment and the poller | The Watchdog's account, with its four-against-forty reading |
 | 1a, the Regulator boundary | [REGULATOR.md](retired/REGULATOR.md), quoted cell by cell. **No longer inference.** |
-| 1b, the board and its cadence | `docs/LANDER-BOARD.md`, and the Owner's 15-minute instruction |
+| *YOUR FIRST STANDING DUTY*, the board | `docs/LANDER-BOARD.md`, and the Owner's 15-minute instruction |
 | 2, do not take the action | The Watchdog's account, including the queue it left undrained |
 | 2a, never relay a grant | The Watchdog's account of a relay a peer correctly refused |
 | 3, arrival checks | The Watchdog's account, all four |
@@ -654,43 +668,31 @@ a mutation, and correct yourself faster than you correct others.
 
 ### The spawn section changed the reviewer's own published recommendation
 
-**The sitting Watchdog had recommended to the Owner that this seat NOT hold a spawn power.** The
-Owner ruled the other way. The seat then read section 0a and withdrew its own recommendation, in
-writing, unprompted. Its two reasons, and what it said about each:
+**The sitting Watchdog had recommended to the Owner that this seat NOT hold a spawn power**, on the
+ground that spawning destroys the instrument as merging does. The Owner ruled the other way. The seat
+read section 0a, withdrew its own recommendation unprompted, and summarised itself: *"I named the
+disease and then argued against the cure."* Section 0a carries the one-line answer.
 
-| Its reason | Its retraction |
-| --- | --- |
-| Spawning destroys the instrument, as merging does | Wrong, and 0a says why in one line. A spawn restores the actor; a merge replaces it. Nothing is contaminated by creating a seat where none exists. |
-| Respawn would not have helped the stall it had just watched | Weak. The 37-hour flat line WAS "no Lander alive", and it had already told the Owner that seat continuity was the real problem. |
+Its second reason was the weaker: respawn would not have helped the stall it had just watched. **The
+37-hour flat line WAS "no Lander alive"**, and it had already told the Owner that seat continuity was
+the real problem.
 
-Its own summary: *"I named the disease and then argued against the cure."*
+**The part it said it would have missed is the guard rows in 0a.** Check both surfaces before
+concluding no partner is live, because a false missing spawns two Landers racing one queue.
 
-**It also named the part it would have missed: the guard rows.** Check both surfaces before
-concluding no partner is live, because a false missing spawns two Landers racing one queue. That is
-section 4's shape turned on this seat, and the reviewer said it belongs there.
-
-**Recorded because a reviewer that only agrees has measured nothing.** This one had published the
-opposite recommendation and changed it against its own record. That is a review worth having.
+**Kept because a reader reaches that wrong claim on its own**, straight off section 2.
 
 ### The Regulator boundary was checked, and the checker was wrong once
 
-The Watchdog reviewed the draft and upgraded two of the three inferred cells to measured, quoting
-[REGULATOR.md](retired/REGULATOR.md) for lifetime and for output.
+The Watchdog upgraded two of three inferred cells to measured, then **reported the third, the
+trigger, as unstated in [REGULATOR.md](retired/REGULATOR.md) and said it could not close it.** It is
+stated twice there. The standing-rules row *Nothing wakes you automatically* reads *A person starts
+you after a Manager poll notices one*, and the section *Nothing routes a red to you* repeats it. All
+four cells are measured, and the draft's inferred trigger was right.
 
-**It reported the third, the trigger, as unstated in that file, and said it could not close it.**
-
-Measured against the file, it is stated twice. The standing rules carry the row *Nothing wakes you
-automatically*: *A person starts you after a Manager poll notices one*. Its section
-*Nothing routes a red to you* says the same thing again.
-
-So all four cells are measured, and the draft's inferred trigger happened to be right.
-
-**The miss is this seat's own section 4, on its own reviewer.** It searched for who starts a
+**The miss is this file's own section 4, on its own reviewer.** It searched for who STARTS a
 Regulator; the file answers under *nothing wakes you*. A filter that did not match what the reading
-claimed to check.
-
-Recorded because the review was good and the one error in it is the exact failure the reviewer wrote
-the section about. That is the argument for the section, not against the reviewer.
+claimed to check, which is the argument for section 4 rather than against the reviewer.
 
 **Still unverified: the Watchdog has not confirmed the seat exists.** It declined on purpose, citing
 its own rule, because confirming a ruling relayed by a peer is not a reading it can take. That
