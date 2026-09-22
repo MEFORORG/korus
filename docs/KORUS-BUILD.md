@@ -73,7 +73,7 @@ and 9 gained the QA line on 2026-09-20; the fourteen and their order did not cha
 | 2 | Manager | Briefs one or more builders. Each brief names the backlog number, the worktree, and the code-review effort level. |
 | 3 | Builder | Takes the claim before its first commit: `claim.ps1 -Take <N>`. |
 | 4 | Builder | Codes what the brief names. |
-| 5 | Builder | Runs the `/code-review` skill at xhigh effort, and keeps its first line. |
+| 5 | Builder | Runs the `/code-review` skill at xhigh effort, and keeps its first line for the report. |
 | 6 | Builder | Applies confirmed fixes and reviews again. Two rounds maximum. |
 | 7 | Builder | Commits, pushes its branch, exits. |
 | 8 | Builder | Reports to the manager, and writes the QA line for the manager to post. |
@@ -83,6 +83,9 @@ and 9 gained the QA line on 2026-09-20; the fourteen and their order did not cha
 | 12 | Lander | Enqueues as it judges best. |
 | 13 | GitHub | Merges. |
 | 14 | Lander | Updates the backlog and releases the claim, in one act. |
+
+**Step 5 read "keeps its first line" until 2026-09-22.** That first line is often prose rather than
+a tag, so it is the report that keeps it. `roles/BUILDER.md` 4e holds the reading and the commands.
 
 ### Why the steps that look redundant are not
 
@@ -225,14 +228,19 @@ Commit at logical stops. Your LAST commit message carries the proposed pull requ
 the proposed ledger banner text. That is mandatory: it is what makes the branch usable if your
 manager dies before it opens the pull request.
 
-Push your own branch, then report: branch name, head SHA, review level and outcome, what you
-ran, and what you did NOT run. Name every hosted-only leg.
+Push your own branch, then report: branch name, head SHA, review level and outcome, the
+skill's own first line verbatim for each round, what you ran, and what you did NOT run.
+Name every hosted-only leg.
 
 End the report with the QA line your manager posts for you, in this shape:
   QA -- korus roles/BUILDER.md step 11
-  Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
+  Level: xhigh, from the brief. Tag: none returned.
   Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
-The QA line never uses the word "review". Then exit.
+`Level` is the level you passed AND where it came from: "from the brief", or
+"4c default", or "inherited, not passed" if you made a bare call. `Tag` is the
+`<level> effort -> ...` line if the skill returned one, otherwise "none returned".
+The QA line never uses the word "review", so the skill's own opener goes in the
+report above it. Then exit.
 
 Do not open the pull request; your manager does. Do not merge; the lander does.
 ```

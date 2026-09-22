@@ -62,20 +62,26 @@ Invoke the `Skill` tool with `skill: "code-review"` at the level the brief names
 Apply what you confirm, then run it once more. Stop after two rounds: ship, and hand round-two
 findings to the Manager.
 
-Keep the skill's FIRST LINE. It names the shape the run took, and `roles/BUILDER.md` 4c holds the
-shapes found so far. Copy it; never infer it from what you were granted.
+Keep the skill's first line for your REPORT, whatever it is. It may be a tag, or it may be prose,
+or it may say nothing about the run. `roles/BUILDER.md` 4e holds what was measured.
+
+That paragraph read "Keep the skill's FIRST LINE. It names the shape the run took" until
+2026-09-22. The tag is the first line of the skill's own prompt, not of its report.
+
+The QA line further down carries the level you PASSED, and a tag only if one came back. Never
+infer a shape from what you were granted, and never paste a prose opener into that line.
 
 Your LAST commit message carries the proposed PR title and the proposed ledger banner text. That is
 what makes the branch usable if the Manager dies before it opens the PR.
 
-Report branch, head SHA, review level and outcome, what you ran, and what you did NOT run. Name every
-hosted-only leg. An unnamed leg reads downstream as green.
+Report branch, head SHA, review level and outcome, the skill's first line verbatim for each round,
+what you ran, and what you did NOT run. Name every hosted-only leg; an unnamed leg reads as green.
 
 End the report with the QA line the Manager posts on the PR. `roles/BUILDER.md` 4e holds the rules:
 
 ```
 QA -- korus roles/BUILDER.md step 11
-Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
+Level: xhigh, from the brief. Tag: none returned.
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 ```
 

@@ -822,13 +822,15 @@ evidence, and says what to do when the evidence is absent.
 | --- | --- |
 | The instrument | The QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
 | Read it with | `gh pr view <N> --json comments --jq '.comments[].body'`, and `gh pr view <N> --json labels` for the label. |
-| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level the brief named, and its findings are in the line. Arm the pull request. |
+| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level its own `Level` field names, and its findings are in the line. Arm the pull request. |
+| Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
 | QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
-| Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and the tag on the skill's first line names the one that ran. |
+| Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and a tag names the one that ran where the skill returns one. |
 | So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
+| Expect NO tag at all | Measured 2026-09-22 in `BUILDER.md` 4e: both QA lines on one pull request had none. Read an absence as unknown, never as inline, and read the commit. |
 | Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |

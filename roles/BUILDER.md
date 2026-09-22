@@ -22,12 +22,15 @@ this line, none was told to run the review, and none ran it.
 
 It was never missing from the playbook, only from the part a Manager reads when it cuts a brief.
 
-**Copy the skill's own first line into your report, and do not smooth it to "a review".** That line
-names the shape the run took, and copying it stops a thin run reading as compliance.
+**Copy the skill's own first line into your report, and do not smooth it to "a review".** Copying it
+stops a thin run reading as compliance. Section 4e's QA line takes a tag, never the prose opener.
+
+**That sentence went on "That line names the shape the run took" until 2026-09-22.** Read against
+two of them, it describes the shape once and carries the level neither time. Section 4e measures it.
 
 **That paragraph said "say subagent" until 2026-09-20, and the word had stopped being a marker.**
 Section 4c carries the measurement: an `xhigh` run here, with `Agent` available, was inline. The
-marker moved to the tag.
+marker moved to the tag, and the tag does not always come back.
 
 **Build honestly.** You want quality, secure code that really improves the application. Never cheat
 a gate, and never mislead a teammate or the owner about what you built.
@@ -611,13 +614,17 @@ costs a full review at `xhigh`.
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
 
-**It runs in more than two shapes, and its FIRST LINE names the one you got.** That line is the
-instrument. Read it and copy it, rather than inferring the shape from what you were granted.
+**It runs in more than two shapes, and a tag names the one you got -- when a tag comes back.** Copy
+it rather than inferring the shape from what you were granted. Where none comes back, record that.
+
+**That passage read "its FIRST LINE names the one you got" until 2026-09-22, and it was false.** The
+tag is the first line of the prompt the skill feeds its reviewer, not of the report it asks back.
+Section 4e holds the reading, and what the QA line records in its place.
 
 **CORRECTED 2026-09-20.** This passage said there were two outcomes: fan-out with `Agent`, or one
 inline pass without it. There are at least three tags.
 
-| The tag, as the skill writes it | What it is |
+| The tag, as the skill's own prompt carries it | What it is |
 | --- | --- |
 | `<level> effort -> 3+5 angles x 6 candidates -> 1-vote verify -> <=8 findings` | Fan-out, with a verify step. |
 | `<level> effort -> 5+5 angles x 8 candidates -> 1-vote verify -> sweep -> <=15 findings` | Fan-out, wider, with a sweep. |
@@ -639,6 +646,16 @@ different subject, so re-read it rather than trusting this table:
 ```bash
 grep -a -o "[a-z]* effort .\{0,30\}angles.\{0,70\}" ~/.local/share/claude/versions/<version>
 ```
+
+**The six rows are the instrument's reach, not the skill's whole set.** That grep requires the word
+`angles`, which drops every shape without one. Measured 2026-09-22 at 2.1.278 with the word dropped:
+
+```bash
+grep -a -o '[a-z]* effort .u2192 [^`]\{0,70\}' ~/.local/share/claude/versions/2.1.278 | sort -u | wc -l
+```
+
+It returns **12**, against **6** for the line above. Both patterns return the same counts at 2.1.272,
+so the widening moved the number and the version did not. **Six was never the count of shapes.**
 
 **The last row is what a session in this repository got at `xhigh`, with the `Agent` tool available.**
 So *"fan-out is the path you normally get"* is withdrawn. Availability does not settle the shape.
@@ -668,15 +685,19 @@ before the pull request exists, so these two artifacts are everything the next s
 **Both belong in the message body, under a plain label.** A reader with only `git log` must find them
 without knowing this playbook.
 
-**Your report to the Manager carries five things:**
+**Your report to the Manager carries six things:**
 
 | Field | What it must hold |
 | --- | --- |
 | Branch name | Exactly as pushed. |
 | Head SHA | Read live from `git rev-parse HEAD`, never from memory. |
 | Review level and outcome | `xhigh` or the level your brief named, the rounds you ran, and what round two said. |
+| The skill's own first line, verbatim | Every round. Do not smooth it. This is the one place it is recorded, because 4e keeps the prose out of the QA line. |
 | What you RAN | Commands and their scope. *Report scope beside every number*. |
 | What you did NOT run | **Name each hosted-only leg by name.** A leg nobody names reads downstream as green. |
+
+**That table held five rows until 2026-09-22, and the opener had nowhere to land.** Section 4e sent
+it here while this list named no field for it, so the artifact 4e moved was moved to nowhere.
 
 **The report is a claim the Manager re-derives, not a fact it inherits.** At step 9 it checks the
 remote itself with `git ls-remote --heads origin`. Say the branch is pushed anyway: a check with
@@ -696,16 +717,105 @@ pull request could not tell a diff that had been worked from one that had not.
 
 ```
 QA -- korus roles/BUILDER.md step 11
-Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings
+Level: xhigh, from the brief. Tag: none returned.
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
 | Field | What it must hold |
 | --- | --- |
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
-| Tag | The skill's own first line, copied rather than summarised. It already carries the level. Section 4c holds the shapes and why you may not infer one. |
+| Level | The level you PASSED, and where it came from: `from the brief`, or `4c default`. Read it off your own invocation. |
+| Level, where you passed none | `inherited, not passed`. 4c says a bare call takes the session's level and `CLAUDE_CODE_EFFORT_LEVEL` beats both, so name the override where one is set. |
+| Tag | The `<level> effort -> ...` line if the skill returned one, otherwise `none returned`. Never reconstruct one, and never paste the skill's prose opener here. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
+
+**Never write a level you did not pass as though you had.** That is the inference 4c bans, wearing
+this field's clothes. `inherited, not passed` is the honest spelling, and it costs a reader nothing.
+
+**Where the two levels disagree, print both.** A tag naming a level you did not pass is a reading
+about the skill, and flattening it to one number throws away the only place that shows.
+
+#### That table said the first line already carried the level, and it did not
+
+**It read `Tag | The skill's own first line, copied rather than summarised. It already carries the
+level.` until 2026-09-22.** The premise was false, and on the runs anyone has measured the field
+recorded nothing.
+
+Measured on pull request 1419 of `MEFORORG/MessageFoundry`:
+
+```bash
+gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag:'
+gh pr view 1419 --repo MEFORORG/MessageFoundry --json comments --jq '.comments[].body' | grep -c '^Tag: NOT EMITTED'
+```
+
+Both return **2**, so both QA lines there recorded the field as empty. The control is the same
+pattern pair over a corpus that holds a populated one:
+
+```bash
+git show 9915096:roles/BUILDER.md | grep -c '^Tag:'
+git show 9915096:roles/BUILDER.md | grep -c '^Tag: NOT EMITTED'
+```
+
+They return 1 and 0, so the second pattern discriminates rather than matching every `Tag:` line.
+
+**Two QA lines on one pull request is the whole sample.** One repository, one CLI version, seats
+nobody recorded. It is enough to retire the premise and not enough to say what the skill always
+does, which is why the field above takes a tag when one comes back.
+
+**Two is what this instrument measures. Do not carry a four.** The second comment calls itself the
+FOURTH consecutive run. A Lander comment on the same pull request says the third in a row. So the
+record holds 2, 3 and 4 for three different quantities, and only the 2 has a command here.
+
+That comment quotes what did come back. Round two: `Review complete. The file passes pytest ...
+Findings below are from the 10 finder angles plus the gap sweep`. Round one names no shape at all.
+Neither names a level.
+
+#### The tag is the first line of the skill's PROMPT, not of its report
+
+So the Builders were right and the field was wrong. Measured at CLI **2.1.278**, which is the ref
+for this reading:
+
+```bash
+B=~/.local/share/claude/versions/2.1.278
+grep -a -o '=>`.\{0,3\}xhigh effort .\{0,50\}' "$B"
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}'         | wc -l
+tr '\n' ' ' < "$B" | grep -a -o '## Output.\{0,400\}'         | grep -c effort
+tr '\n' ' ' < "$B" | grep -a -o 'You are reviewing.\{0,400\}' | wc -l
+tr '\n' ' ' < "$B" | grep -a -o 'You are reviewing.\{0,400\}' | grep -c effort
+```
+
+The first prints the tag with a template literal opening immediately before it:
+
+```
+=>`\`xhigh effort \u2192 10 inline angles \u2192 dedup (no verify) \
+```
+
+So the tag is line one of the text the skill hands its reviewer, not of the reply it asks back.
+
+**16 windows and 0 of them name an effort tag. The control is 9 windows of which 7 do.** One
+needle, one pipeline, one file, two anchors: the output contracts do not name a tag, and the same
+needle fires on the prompts. A zero beside an unarmed needle would say nothing, which is this
+repository's own rule.
+
+**The condition I varied is the window.** The 0 holds at 200, 400, 800 and 1200 characters. The
+16 does not, because a wider window swallows the next match, so read it as windows at 400 rather
+than as a count of contracts.
+
+**One contract asks for `{level, findings}`,** so the level is in the report shape even where no
+prose carries it. You passed that level yourself, which is why this line reads it off the
+invocation and not off the reply.
+
+#### The prose opener stays out of this line, deliberately
+
+It has begun `Review complete ...`, and the Owner's word rule forbids that word here.
+`tests/test_the_qa_line_never_says_review.py` reads the three lines of this block and fails on it.
+
+**Put the verbatim opener in your report instead**, under 4d. A report is prose to the Manager and
+carries no word rule, so nothing is smoothed away. It moves to where quoting it is safe.
+
+**Writing `none returned` is a reading, not an inference.** Section 4c forbids inferring WHICH shape
+ran from what you were granted. Recording that no tag came back says only what you saw.
 
 **The citation names the REPOSITORY, and that is not decoration.** Measured 2026-09-20:
 `roles/BUILDER.md` exists in korus AND in the `MessageFoundry-vault` checkout, and the two are
@@ -721,12 +831,17 @@ git -C <vault> show HEAD:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'
 
 The first returns that retired step. The second returns 0.
 
-**The control needs its ref, and this passage got it wrong once.** The pattern returns **4** on
-`origin/main`, 4a to 4d, and **5** here, where 4e is the section you are reading. An earlier draft
-published the 5 with no ref, in the paragraph arguing a citation must name where it resolves.
+**The control needs its ref, and this passage has now got it wrong twice.** The pattern returns
+**5** on `origin/main` and **5** here, 4a to 4e both times. Read it with
+`git show origin/main:roles/BUILDER.md | grep -cE '^### 4[a-z]\.'`.
 
-Either number beats the vault's 0, so the conclusion holds: the subsection scheme this line cites
-does not exist there at all. Article VI is about the reading, not only the verdict.
+**It read "returns 4 on `origin/main`, 4a to 4d, and 5 here" until 2026-09-22.** That was true only
+until 4e merged, in #140, and 4e is an ancestor of `origin/main` now. A number pinned to a moving
+ref goes stale silently, which is the failure this very paragraph was written about.
+
+The first draft published the 5 with no ref at all. Five still beats the vault's 0, so the
+conclusion holds: the subsection scheme this line cites does not exist there. Article VI is about
+the reading, not only the verdict.
 
 **So a bare `BUILDER.md step 11` lands on the opposite rule** -- an instruction to open your own
 pull request, retired 2026-09-18. A citation that resolves to the rule it contradicts is worse than

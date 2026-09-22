@@ -308,8 +308,18 @@ diff has been read. The Lander arms the PR without reading it again.
 `Agent` subagent to run the `code-review` skill, and sends any fix that raises to a subagent too.
 That is work rather than a hold, so it does not reopen the review step retired above.
 
-**Invoking that skill is not by itself a subagent**, so make the subagent report the tag on the
-skill's first line. `roles/BUILDER.md` 4c holds the shapes it runs in, inline among them.
+**Invoking that skill is not by itself a subagent**, so make the subagent report whatever tag the
+skill returned. `roles/BUILDER.md` 4c holds the shapes it runs in, inline among them.
+
+**NARROWED 2026-09-22: that sentence read "the tag on the skill's first line".** The tag is the
+first line of the skill's own PROMPT, not of the report it asks back, and both QA lines on one
+pull request returned none. `roles/BUILDER.md` 4e holds the reading and the commands behind it.
+
+**An absent tag is unknown, not inline.** Read the commit, as `roles/LANDER.md`, *Name the
+exposure, because it is real*, already says.
+
+**So the Builder's QA line carries the level it PASSED, not one read off the reply.** Its `Tag`
+field holds `none returned` where nothing came back, which is a reading rather than an empty field.
 
 `roles/LANDER.md` *4a-quinquies* holds both halves. Its *4c-quinquies* holds the conflict rule
 named in the seat table above.
