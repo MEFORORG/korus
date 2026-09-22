@@ -1,6 +1,6 @@
 ---
 name: "seat"
-description: "Take a seat in this worktree: declare it, load its role card, and verify the card actually reached the session. Use when the user types /seat <name>, or asks this session to take, change or confirm a seat."
+description: "Take a seat in this worktree: declare it, load its card, verify the card reached the session, and name the session. Use when the user types /seat <name>, or asks this session to take, change or confirm a seat."
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -10,7 +10,8 @@ disable-model-invocation: true
 > Shared fleet rules live in [COMMON.md](../../../roles/COMMON.md). Read it first, whichever seat
 > you end up holding.
 
-`/seat <name>` binds a seat to this worktree and proves the card arrived.
+`/seat <name>` binds a seat to this worktree, proves the card arrived, and names the session after
+the seat and its task.
 
 ## What this closes
 
@@ -23,9 +24,11 @@ correct marker and no card until restart.
 
 This command does both halves in one turn, then checks its own work.
 
-## Run these four steps in order
+## Run these five steps in order
 
 Do not skip step 4. A declaration nobody verified is the failure this command exists to end.
+
+Step 5 waits on the task, so it may land a turn or two later than the rest.
 
 ### 1. Resolve the label
 
@@ -77,6 +80,54 @@ State these three from the card you just read, without reopening the file:
 **If you have to reopen the file to answer, the context is not set.** Say so plainly, and say the
 card arrived as text the session did not absorb. That reading is worth more than a green tick.
 
+### 5. Name the session
+
+Set the session title to the seat and a one or two word summary of what it is here to do.
+
+```
+<Seat>: <one or two words>
+```
+
+`Lander: queue drain`. `Builder: seat skill`. `Manager: wave 3`. `Watchdog: drain watch`.
+
+Call `mcp__ccd_session_mgmt__set_session_title` with `session_id` set to `"self"` and that title.
+
+**That tool is often deferred, so calling it cold fails.** Load it first, then call it:
+
+```
+ToolSearch: select:mcp__ccd_session_mgmt__set_session_title
+```
+
+**Wait until you know the task.** The seat is half the title, and the other half comes from the goal
+you wrote in step 1, or from the brief that arrives after it.
+
+If the seat is set and nothing has named a task yet, rename on the first turn that supplies one.
+
+**Use the canonical seat, not the alias you were handed.** `adhoc` declares the Special seat, so the
+title reads `Special`. The marker at `.claude/seat.local.txt` holds the canonical word.
+
+**Rename again only when the title stops describing the session.** A seat change does that, and so
+does work that moves somewhere the old two words do not cover. One item is not a new title.
+
+**No such tool means no title, and that is not a failure.** Say in one line that the tool was
+absent, and go on. The marker, the card and the readback are what the seat rests on.
+
+## A title is a label, never an address
+
+Renaming changes what a person reads in the session list. It changes nothing a tool resolves.
+
+Measured 2026-09-22 in this worktree: `ListAgents` returned `loving-jang-b1eff8-c4` both before the
+rename and after it. That name comes from the worktree and a ref, and `SendMessage` takes it.
+
+**So do not resolve a peer by its title.** `fleet.ps1` reads declarations, and a title is not one.
+Two sessions answered to "Liaison" on 2026-08-29, one declared and one not, and an owner item
+reached the undeclared one.
+
+`.claude/skills/fleet-message-a-peer/SKILL.md` holds that measurement.
+
+**A tidy title makes the wrong route look safer**, so this warning ships with the rule rather than
+behind it.
+
 ## Why the readback is not ceremony
 
 A file on disk is not context. The first two grades pass for a card nobody read.
@@ -105,3 +156,6 @@ nothing.
 
 That hook writes the marker and loads the card. It never writes a goal, so a session that needs to
 be visible to peers still runs step 1 here.
+
+**It cannot rename either.** A hook has no session-title tool. A session seated that way still owes
+step 5, and no restart will do it for them.

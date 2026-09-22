@@ -20,7 +20,7 @@ Set-Content .claude\seat.local.txt 'builder'
 load the card in the same turn.
 
 ```
-/seat builder          the command. Declares, loads the card, then verifies all three grades.
+/seat builder          the command. Declares, loads the card, verifies, then names the session.
 builder                a prompt that is EXACTLY a roster label. The hook treats it as a declaration.
 ```
 
@@ -43,7 +43,7 @@ cites it.
 
 | Piece | Where | What it does |
 |---|---|---|
-| The command | `.claude/skills/seat/SKILL.md` | `/seat <name>` declares, loads the card, then verifies. |
+| The command | `.claude/skills/seat/SKILL.md` | `/seat <name>` declares, loads the card, verifies, then names the session. |
 | The prompt hook | `scripts/hooks/seat-declare.ps1` | Turns a prompt that is exactly a roster label into a declaration. |
 
 The marker stays with the worktree through a crash, compaction, account switch, or respawn. A
@@ -106,7 +106,7 @@ card was ever injected.
 
 | Route | Trigger | What it writes |
 |---|---|---|
-| `/seat <name>` | You type it | The registry record, the marker, the card, and the three grades |
+| `/seat <name>` | You type it | The registry record, the marker, the card, the three grades, and the session title |
 | `seat-declare.ps1` | A prompt that is exactly a roster label | The marker and the card |
 | `seat.ps1 -Declare` | You run it | The registry record and the marker |
 | The card hook | Every `SessionStart` | The card, from a marker that already exists |
