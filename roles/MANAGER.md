@@ -299,11 +299,16 @@ What bound that run was the repository. See, in the constitution:
 what the queue looks like. See *Do not check the pool before you open*. What survives is granularity,
 decided at dispatch in section 2a and at step 9 in *When to cut a pull request*.
 
-CONFLICTS ARE NOT MISBEHAVIOUR. Nearly every open pull request edits docs/BACKLOG.md, because the
-method puts your ledger row in your own pull request. The Lander resolves those and expects to.
+**An engine pull request no longer edits the ledger.** The ledger moved to the vault on 2026-09-13
+(BACKLOG #1250). The Lander writes each banner there after the merge, from the text in the Builder's
+last commit message.
 
-In return: put your ledger row in its OWN commit, LAST. That turns a re-read of your intent into a
-scripted row-merge.
+**CORRECTED 2026-09-23.** This read *"Nearly every open pull request edits docs/BACKLOG.md, because
+the method puts your ledger row in your own pull request."* That has been false since the move.
+
+Ledger conflicts now arise only between vault pull requests that edit `docs/BACKLOG.md`. If you file
+rows there, put them in their OWN commit, LAST. That turns a re-read of your intent into a scripted
+row-merge.
 
 **RETIRED 2026-09-04: nothing requires the label any more.** Owner instruction. Read on before you
 conclude the label is gone, because it is not.
@@ -356,6 +361,9 @@ DO NOT ASK BEFORE PUSHING OR OPENING A PULL REQUEST. Unpushed work is the only s
 **A wave of N items filed as N pull requests does not cost N times one pull request. It costs N CI
 cycles PLUS N-1 conflict resolutions, and the resolutions are serial and land on the Lander.**
 
+**Since 2026-09-13 this section is about the vault**, where the ledger now lives. An engine item
+pull request carries no ledger edit, so only ledger-only waves in the vault still land on the tail.
+
 Backlog numbers ascend, so every new item appends at the same tail of `docs/BACKLOG.md`. Separate
 pull requests therefore collide maximally by construction: each landing re-conflicts the next. That
 is a property of the file and the numbering, not a coordination failure anyone can fix downstream.
@@ -367,7 +375,8 @@ carried here rather than re-derived by this seat.
 | --- | --- |
 | ONE PULL REQUEST PER WAVE for ledger-only output | A research wave producing seven backlog rows is one pull request, not seven. Same review, same text, one CI cycle, zero conflict resolutions. |
 | **ITS CEILING, measured 2026-09-05** | Of 48 branches touching `docs/BACKLOG.md` and conflicting with main, only 12 change that file ALONE. |
-| Why the other 36 are untouchable | They are Builder work whose banner update is REQUIRED to ride in the pull request implementing the item. No dispatch policy reaches them. |
+| Why the other 36 were untouchable then | They were Builder work whose banner update had to ride in the pull request implementing the item. No dispatch policy reached them. |
+| **SUPERSEDED 2026-09-13** | Banners no longer ride with code: the Lander writes them in the vault after the merge. So those 36 no longer touch the ledger at all. |
 | So | Collapsing the 12 moves arrivals from about 9.7/hour to 7.7/hour. **The queue still diverges.** Worth doing, and not a queue fix. |
 | And batching CORRELATES FAILURE | One red check or one conflict blocks every item in the wave, where a bad row today blocks only itself. At heavy oversubscription that is a real trade. |
 | The measurement | Two dispatch waves added 17 pull requests in about 35 minutes. Open non-draft went 35 to 54 in one hour, and **zero** merged in it. **24 of the 54 were DIRTY**, overwhelmingly on the ledger tail. |
@@ -416,17 +425,18 @@ Several Managers collided on this, and claiming backlog items does not solve it.
 legitimately hold different items and still collide, because **the paths their work touches were
 never claimed.**
 
-Measured on the same run: **33 of 34 merged commits touched the same file**, the item ledger. Every
-item's pull request updates the ledger by construction, so the contention is a property of the design
-rather than of any worker.
+Measured on the same run: **33 of 34 merged commits touched the same file**, the item ledger. Each
+item's pull request then updated the ledger by construction. **That stopped on 2026-09-13**, when the
+ledger moved to the vault and banners moved to the Lander.
 
 Before you brief a batch:
 
 1. **Name the paths each item will touch**, and put them in the brief.
 2. **Check them against what is already open.** A path two open pull requests both touch is a
    conflict you have scheduled.
-3. **Treat the ledger as contended by default.** Every item touches it. Either batch ledger updates
-   separately from the work, or expect your entries to serialise behind each other.
+3. **Treat the vault ledger as contended when you file rows.** An engine item no longer touches
+   it. A wave that files vault rows does: batch them into one pull request, or expect them to
+   serialise. This read *"Every item touches it"* until 2026-09-23.
 
 **Path contention is the SHAPE. Waiting time is the CAUSE.** Measured on 15 pull requests changing
 only `docs/BACKLOG.md`: of those whose merge base trailed main by four or more ledger commits, 5 of 5

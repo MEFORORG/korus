@@ -14,8 +14,12 @@ report to the Manager, and exit. One turn. **The Manager opens the pull request*
 2026-09-18. Since 2026-09-23 it also decides when, and one pull request usually carries several
 Builders' branches. So your branch must make sense on its own inside someone else's batch.
 
-Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
+Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the vault repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
+
+**The item ledger left the engine repo on 2026-09-13 (BACKLOG #1250).** It lives in
+`MEFORORG/MessageFoundry-vault`; the engine's `docs/BACKLOG.md` is a stub. Read the ledger at the
+vault's `origin/main`. This line named the engine repo until 2026-09-23.
 
 **The review is in this sentence because step 11 and section 4c were not enough.** Reported by a
 Manager on 2026-09-18 and not re-measured here: it briefed eight Builders from the seat table and
@@ -233,7 +237,11 @@ ledger gate, with the work already finished.
 
 ### 1d. The banner requirement is CONDITIONAL, and this section used to state it as absolute
 
-`.github/workflows/backlog-hygiene.yml` demands a same-PR `docs/BACKLOG.md` banner **only when the
+**On the engine repo there is no banner requirement any more.** Since 2026-09-13 its
+`backlog-hygiene.yml` is a no-op, kept only because its name is a required context. No engine pull
+request edits the ledger. What follows holds on the vault, whose copy of the check still runs.
+
+The vault's `.github/workflows/backlog-hygiene.yml` demands a same-PR `docs/BACKLOG.md` banner **only when the
 PR's three-dot diff touches `messagefoundry/`, `ide/` or `messagefoundry_webconsole/`**. Otherwise it
 exits 0 with "no banner update required".
 
