@@ -566,14 +566,18 @@ $idleCut = (Get-Date).AddHours(-1 * $IdleHours)
 # The status read is occupancy.ps1's Read-WorktreeStatus, shared with remove.ps1. Until 2026-09-23 this
 # function ran plain `git status --porcelain`, which obeys status.showUntrackedFiles. Set to `no`, it
 # hid every untracked file, this returned Clean, and -Apply deleted them. The shared read overrides the
-# setting. It does not pass -IncludeIgnored: ignored files do not block this script, as the note below
-# says, so it does not pay to list them.
+# setting. It also reports tracked files flagged skip-worktree or assume-unchanged, whose edits git
+# status does not show, and those block like any other tracked change.
+#
+# It passes -UntrackedFiles normal, which collapses an untracked directory to one entry: this only
+# counts, and so did the read it replaced. It does not pass -IncludeIgnored: ignored files do not block
+# this script, as the note below says, so it does not pay to list them.
 function Test-WorktreeClean {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         return @{ Clean = $false; Reasons = @('directory is missing (already half-removed? investigate before pruning)') }
     }
-    $status = Read-WorktreeStatus -Path $Path
+    $status = Read-WorktreeStatus -Path $Path -UntrackedFiles normal
     if ($status.Exit -ne 0) {
         return @{ Clean = $false; Reasons = @("git status failed (exit $($status.Exit)) -- cannot establish it is clean") }
     }
@@ -581,6 +585,10 @@ function Test-WorktreeClean {
     $untracked = @($status.Untracked)
     $r = @()
     if ($trackedChanges.Count -gt 0) { $r += "dirty: $($trackedChanges.Count) uncommitted tracked change(s)" }
+    if ($status.Flagged.Count -gt 0) {
+        $r += ("dirty: $($status.Flagged.Count) tracked file(s) flagged skip-worktree or assume-unchanged -- " +
+            "git status hides their edits, and --force would delete them")
+    }
     # Untracked files are the one loss class with no recovery THROUGH GIT: not in the index, not in a
     # stash, not in the reflog. (--force also deletes IGNORED files -- a dependency tree, a local
     # database, a generated fixture set -- which git status never shows here; those are unrecoverable

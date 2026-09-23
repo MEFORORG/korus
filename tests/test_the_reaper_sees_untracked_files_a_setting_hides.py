@@ -11,6 +11,12 @@ through one function, `Read-WorktreeStatus` in `scripts/coord/occupancy.ps1`, wh
 `--untracked-files=all`. That flag overrides the setting; the precondition below shows the setting
 hides the file from plain `git status`, so the case measures the override and not an empty fixture.
 
+THE SAME HOLE, ONE FLAG OVER. `git status` does not check a tracked file flagged skip-worktree, so
+a local override written into one read as clean, and `-Apply` deleted it too. Measured 2026-09-23
+against `fd7028f`, the commit that closed the first hole: the second case here was red there.
+`Read-WorktreeStatus` now lists flagged files from `git ls-files -v`, and the reaper counts them as
+tracked changes.
+
 A CONTROL IN THE SAME RUN. A clean sibling beside it is still pruned, so a reaper that skips
 everything fails here too.
 
@@ -74,12 +80,7 @@ class TheReaperSeesAHiddenUntrackedFile(unittest.TestCase):
         for name in ("hidden", "clean"):
             git("worktree", "add", "-q", str(self.base / f"primary-{name}"), "-b", f"feature/{name}", cwd=primary)
 
-        # Signal 2 satisfied honestly, as the fence re-read test does: backdate the worktree admin
-        # directories rather than switch the activity veto off.
-        when = time.time() - 48 * 3600
-        for admin in (primary / ".git" / "worktrees").iterdir():
-            for f in list(admin.rglob("*")) + [admin]:
-                os.utime(f, (when, when))
+        self.backdate(primary)
 
         # One readable session record outside every worktree, so the fence is available.
         roots = self.base / "roots"
@@ -89,6 +90,14 @@ class TheReaperSeesAHiddenUntrackedFile(unittest.TestCase):
             encoding="utf-8",
         )
         return primary, roots
+
+    def backdate(self, primary: Path) -> None:
+        """Signal 2 satisfied honestly, as the fence re-read test does: backdate the worktree admin
+        directories rather than switch the activity veto off."""
+        when = time.time() - 48 * 3600
+        for admin in (primary / ".git" / "worktrees").iterdir():
+            for f in list(admin.rglob("*")) + [admin]:
+                os.utime(f, (when, when))
 
     def reap(self, primary: Path, roots: Path, *args: str) -> dict:
         env = dict(os.environ)
@@ -126,6 +135,32 @@ class TheReaperSeesAHiddenUntrackedFile(unittest.TestCase):
         self.assertIn("untracked", " ".join(rows["primary-hidden"]["Reasons"]))
 
         # The control: the fixture really reaches a removal, so the skip above is a verdict on the file.
+        self.assertEqual("PRUNE", rows["primary-clean"]["Decision"], rows["primary-clean"])
+        self.assertFalse(clean.exists(), f"the clean sibling was not removed: {rows['primary-clean']}")
+
+    def test_an_edit_a_skip_worktree_flag_hides_blocks_the_prune(self):
+        """`git status` does not check a skip-worktree file, so a local override read as clean."""
+        primary, roots = self.fixture()
+        hidden = self.base / "primary-hidden"
+        clean = self.base / "primary-clean"
+        # Written through update-index, which touches the index; so backdate again after it.
+        git("update-index", "--skip-worktree", "README.md", cwd=hidden)
+        (hidden / "README.md").write_text("a local override\n", encoding="utf-8")
+        self.backdate(primary)
+        self.assertEqual(
+            "", git("--no-optional-locks", "status", "--porcelain", cwd=hidden).strip(),
+            "precondition: git status hides the edit",
+        )
+
+        result = self.reap(primary, roots, "-Apply")
+        rows = {c["Leaf"]: c for c in result["candidates"]}
+
+        self.assertTrue(
+            (hidden / "README.md").is_file() and "override" in (hidden / "README.md").read_text(encoding="utf-8"),
+            f"the reaper deleted an edit a skip-worktree flag hid. Its row: {rows.get('primary-hidden')}",
+        )
+        self.assertEqual("SKIP", rows["primary-hidden"]["Decision"], rows["primary-hidden"])
+        self.assertIn("skip-worktree", " ".join(rows["primary-hidden"]["Reasons"]))
         self.assertEqual("PRUNE", rows["primary-clean"]["Decision"], rows["primary-clean"])
         self.assertFalse(clean.exists(), f"the clean sibling was not removed: {rows['primary-clean']}")
 

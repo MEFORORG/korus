@@ -30,9 +30,19 @@ Most of the rest hold the REMEDY the refusal prints, which must not be a step th
     holds. Those three cases RUN the printed commands and assert the work survived. Against an
     export of `a58981d` they are the three failures in `3 failed, 13 passed, 11 subtests passed`.
 
+  * Nor does one holding a commit only its HEAD reflog keeps, or an edit to a skip-worktree file.
+    The first review of the fix found both. Against an export of `fd7028f` those two cases fail,
+    and so does the target guard's case below; nothing else in this file does.
+  * A changed tracked file, another repository's checkout, and a parent's own file beside a clean
+    child each withhold the command where they should, and only there.
+
 RETRACTED 2026-09-23: the paragraph above said the remedy covered only what `git status` can see,
 and that ignored files, hidden untracked files and a detached HEAD's commits were "not covered".
 `remove.ps1`'s Get-RemovalLoss now withholds the command in each case.
+
+THE TARGET'S OWN GUARD. It read `git status` and ignored the exit code, so a status that failed read
+as no changes and the `--force` removal deleted uncommitted edits. One case corrupts the index and
+requires a refusal.
 
 AND ONE HAZARD THE FIX ITSELF OPENED. `-Name`'s pattern accepts `.` and `..`. Under the `nested`
 layout those resolve to `.claude/worktrees` and `.claude`, which hold every harness worktree, and the
@@ -49,6 +59,8 @@ passes every remedy case:
   * A clean nested worktree gets a command, the command runs, and the re-run then removes the target.
   * A detached nested worktree whose commit a tag, a keep-ref or a remote-tracking ref holds gets its
     command. `git branch --contains` sees no tag, so a check built on it fails here.
+  * A nested worktree whose commit was amended away on its branch gets its command. The branch's own
+    reflog keeps the original, so a reflog read that does not subtract it fails here.
 
 WHAT THIS DOES NOT PROVE. It sees only worktrees registered to the fixture repository. A checkout of
 another repository inside the target is not in `git worktree list`, and the script still deletes it.
@@ -404,7 +416,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         )
         self.assertEqual([], self.printed_for(said, h), said)
         self.assertTrue(
-            any("--untracked-files=all" in p for p in self.pointer_for(said, h)),
+            any(re.search(r"--untracked-files=(all|normal)\b", p) for p in self.pointer_for(said, h)),
             "the pointer is plain `git status`, which the same setting blinds\n" + said,
         )
 
@@ -480,6 +492,108 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
             "the pointer does not say to look with --ignored, and plain `git status` hides the file\n" + said,
         )
 
+    def test_a_commit_only_the_nested_worktrees_reflog_holds_gets_no_command(self):
+        """Committed on a detached HEAD, then back on its branch: only this worktree's HEAD reflog holds it."""
+        primary, work, h = self.nested_in_work()
+        git("checkout", "-q", "--detach", cwd=h)
+        (h / "b.txt").write_text("left behind on a detached HEAD\n", encoding="utf-8")
+        git("add", "b.txt", cwd=h)
+        git("commit", "-qm", "left behind", cwd=h)
+        sha = git("rev-parse", "HEAD", cwd=h).strip()
+        git("switch", "-q", "h", cwd=h)
+        self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: it reads clean")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn(
+            sha, git("reflog", "--format=%H", cwd=h) if h.is_dir() else "",
+            f"following the printed commands deleted the only reflog holding commit {sha}\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+        self.assertTrue(any(p.endswith(" reflog") for p in self.pointer_for(said, h)), "no reflog pointer\n" + said)
+
+    def test_control_a_commit_amended_away_on_a_branch_still_gets_a_command(self):
+        """The branch's own reflog keeps the original, and it outlives the worktree. A plain reflog read fails here."""
+        primary, work, h = self.nested_in_work()
+        (h / "b.txt").write_text("first try\n", encoding="utf-8")
+        git("add", "b.txt", cwd=h)
+        git("commit", "-qm", "first try", cwd=h)
+        git("commit", "-q", "--amend", "-m", "second try", cwd=h)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(1, len(self.printed_for(said, h)), "an amend on a branch withheld the command\n" + said)
+
+    def test_an_edit_a_skip_worktree_flag_hides_gets_no_command(self):
+        """`git status` does not check a skip-worktree file, so a local override reads as clean."""
+        primary, work, h = self.nested_in_work()
+        git("update-index", "--skip-worktree", "a.txt", cwd=h)
+        (h / "a.txt").write_text("a local override\n", encoding="utf-8")
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: git status hides it")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue(
+            (h / "a.txt").is_file() and "override" in (h / "a.txt").read_text(encoding="utf-8"),
+            f"following the printed commands deleted an edit a skip-worktree flag hid\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_a_nested_worktree_with_a_changed_tracked_file_gets_no_command(self):
+        primary, work, h = self.nested_in_work()
+        (h / "a.txt").write_text("edited and not committed\n", encoding="utf-8")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn("edited", (h / "a.txt").read_text(encoding="utf-8"), ran)
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_another_repository_inside_a_nested_worktree_gets_no_command(self):
+        """It shows as one `<dir>/` entry, as a nested worktree does, but no command of ours removes it first."""
+        primary, work, h = self.nested_in_work()
+        other = h / "vendor" / "lib"
+        other.mkdir(parents=True)
+        git("init", "-q", "-b", "main", cwd=other)
+        (other / "x.txt").write_text("another repository's file\n", encoding="utf-8")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((other / "x.txt").is_file(), f"the other repository went with its parent\n{ran}\n{said}")
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_a_parent_holding_its_own_file_is_withheld_while_its_clean_child_is_not(self):
+        """Only the child's own `<dir>/` entry is excused from the parent's count, not the parent's files."""
+        primary = self.primary()
+        self.ignore_nested(primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        alpha = self.worktree(work, work / ".claude" / "worktrees" / "alpha", "alpha")
+        zeta = self.worktree(alpha, alpha / ".claude" / "worktrees" / "zeta", "zeta")
+        (alpha / "notes.txt").write_text("alpha's own work\n", encoding="utf-8")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        self.assertEqual(1, len(self.printed_for(said, zeta)), "the clean child got no command\n" + said)
+        self.assertEqual([], self.printed_for(said, alpha), "the parent's own file did not withhold it\n" + said)
+
+        ran = self.run_printed(r)
+        self.assertFalse(zeta.exists(), ran)
+        self.assertTrue((alpha / "notes.txt").is_file(), ran)
+
     def test_control_a_clean_nested_worktree_gets_a_command_that_works(self):
         """A fix that prints NO COMMAND for everything fails here. So does a command that does not run."""
         primary, work, h = self.nested_in_work()
@@ -496,6 +610,22 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         again = self.remove(primary, "work")
         self.assertEqual(0, again.returncode, "the re-run the refusal asks for failed\n" + again.stdout + again.stderr)
         self.assertFalse(work.exists())
+
+    # --- the target's own guard ---------------------------------------------------------------------
+
+    def test_a_target_whose_status_fails_is_refused_without_force(self):
+        """The old guard ignored git's exit code, so a failed status read as no changes and --force ran."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        (work / "a.txt").write_text("edited and not committed\n", encoding="utf-8")
+        index = Path(git("rev-parse", "--path-format=absolute", "--git-path", "index", cwd=work).strip())
+        index.write_bytes(b"not an index")
+
+        r = self.remove(primary, "work")
+
+        self.assertTrue(work.is_dir(), "the worktree was removed although its status could not be read\n" + r.stdout + r.stderr)
+        self.assertIn("edited", (work / "a.txt").read_text(encoding="utf-8"))
+        self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
 
     # --- a name that is not a registered worktree ---------------------------------------------------
 
