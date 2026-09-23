@@ -102,13 +102,15 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
    `/loop Keep the Lander draining all three repos: refresh the board, read the drain, and spawn or
    wake the Lander if it has stopped.`
 2. Read `roles/COMMON.md`, then `roles/WATCHDOG.md`.
-3. **Establish the Lander is alive, from two surfaces.** An agent listing can omit a live seat. The
+3. Query the fleet wiki for your subject. A miss never blocks:
+   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
+4. **Establish the Lander is alive, from two surfaces.** An agent listing can omit a live seat. The
    presence script, run from the watched repository, found one it missed. Spawn if it is gone.
-4. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
+5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
    One was nearly reported as stalled for it.
-5. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
+6. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
    a baseline, and you will be asked for one.
-6. Arm one control on each detector you publish from.
+7. Arm one control on each detector you publish from.
 
 ## Why your readings need more care than anyone's
 

@@ -97,11 +97,13 @@ still the Owner's, and you may not decide to force-push over published refs.
    `/loop Get every open PR merged across all three repos: poll each queue, arm what is green,
    unblock what is not, and check the Watchdog is still alive.`
    A tick is a wakeup. Send no ACK; do not stop on an empty queue.
-3. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
-4. Check the merge base before you read a diff: `git merge-base --is-ancestor origin/main HEAD`.
+3. Query the fleet wiki for your subject. A miss never blocks:
+   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
+4. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
+5. Check the merge base before you read a diff: `git merge-base --is-ancestor origin/main HEAD`.
    Exit 0 means the branch contains the trunk tip. That direction only; see the trap below.
-5. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
-6. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
+6. Read the state before acting: `gh pr view <N> --json state,mergeStateStatus,mergeable`.
+7. Count ACTUAL failures in the rollup. `BLOCKED` with zero failures and pending checks means wait.
 
 ## When the PR merges
 

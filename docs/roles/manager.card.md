@@ -55,10 +55,12 @@ remaining allowance.
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/MANAGER.md`.
-2. Find out which other Managers are live and what their workers hold. The repository is the shared
+2. Query the fleet wiki for the subject the Owner gave you, and for each item before you brief it:
+   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`. A miss never blocks.
+3. Find out which other Managers are live and what their workers hold. The repository is the shared
    surface, and it is the one that binds:
    `pwsh -NoProfile -File scripts/coord/presence.ps1` and `scripts/coord/overlap.ps1`.
-3. Give each worker its own worktree. Two workers in one tree clobber each other.
+4. Give each worker its own worktree. Two workers in one tree clobber each other.
 
 ## Before you open a PR, and after
 

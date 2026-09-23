@@ -48,13 +48,15 @@ A tick wakes the session. Do not reply, acknowledge, or issue a status line beca
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/BUILDER.md`.
-2. Work in your own worktree. Two sessions in one tree clobber each other.
-3. Check the merge base BEFORE reading a diff or pushing:
+2. Query the fleet wiki for the subject of your brief:
+   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`. A miss never blocks.
+3. Work in your own worktree. Two sessions in one tree clobber each other.
+4. Check the merge base BEFORE reading a diff or pushing:
    `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means you contain the trunk tip.
-4. Check who else is in your files: `pwsh -NoProfile -File scripts/coord/overlap.ps1`.
-5. Take the claim before your first commit: `claim.ps1 -Take <N>`. The flag is `-Take`, not `-Claim`,
+5. Check who else is in your files: `pwsh -NoProfile -File scripts/coord/overlap.ps1`.
+6. Take the claim before your first commit: `claim.ps1 -Take <N>`. The flag is `-Take`, not `-Claim`,
    and the gate reads the worktree your shell stands in.
-6. Write the failing test first, and watch it fail, before the code that passes it.
+7. Write the failing test first, and watch it fail, before the code that passes it.
 
 ## Before you exit
 
