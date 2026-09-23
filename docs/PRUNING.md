@@ -157,6 +157,18 @@ Any uncertain check produces SKIP. Cleanup must never take priority over preserv
 One routine supplies reasons for both the decision and pre-removal check. It distinguishes a missing
 directory, status exit 128, untracked files, and tracked edits.
 
+**The untracked-files rule above was false until 2026-09-23 wherever `status.showUntrackedFiles`
+was `no`.** The check read plain `git status --porcelain`, which obeys that setting. An untracked
+file read as clean, and `-Apply` deleted it.
+
+Measured against `a58981d` with `tests/test_the_reaper_sees_untracked_files_a_setting_hides.py`: the
+row read `Clean: True` and the file was gone. The check now reads status through `Read-WorktreeStatus`
+in `scripts/coord/occupancy.ps1`, which passes `--untracked-files=all`.
+
+Ignored files still do not block the reaper, and it still deletes them, as the policy above says.
+`remove.ps1` shares the status read but withholds its printed command for them, because it names
+nested worktrees that may belong to a live session.
+
 ## Occupancy is a veto, never a permission
 
 Occupancy checks whether someone works in the directory. There is no heartbeat, so it can block

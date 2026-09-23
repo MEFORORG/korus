@@ -13,13 +13,11 @@ parent, so the parent reads clean". This file's fixture has no ignore rule, the 
 `?? .claude/`, and the loss happened anyway. Ignoring was never the cause.
 
 WHAT THESE CASES PROVE, AND HOW. They RUN the real script against throwaway repositories. Against
-an export of `05eb4a7` this file returns `10 failed, 3 passed, 2 subtests passed`. Every case fails
-there except the two controls and the two `sibling` subtests of the `.` and `..` case. They cover
-both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
+an export of `05eb4a7`, this file as it stood at `a58981d` returns `10 failed, 3 passed, 2 subtests
+passed`. Every case fails there except the two controls and the two `sibling` subtests of the `.`
+and `..` case. They cover both layouts, a nested path not under `.claude/worktrees/`, and `-Force`.
 
-Four of them hold the REMEDY the refusal prints, which must not be a step that deletes work
-`git status` can see. What it cannot see -- ignored files, untracked files hidden by
-`status.showUntrackedFiles=no`, a detached HEAD's commits -- is not covered:
+Most of the rest hold the REMEDY the refusal prints, which must not be a step that deletes work:
 
   * Commands come deepest first. `git worktree remove` without `--force` deletes ignored files, so
     a parent removed before an ignored child takes the child with it.
@@ -27,18 +25,30 @@ Four of them hold the REMEDY the refusal prints, which must not be a step that d
     remove` exits 128 on it, and `--force` is the loss this file exists for.
   * Nor does a parent whose ignored child holds work, because the parent reads clean.
   * A locked worktree comes with its unlock step.
+  * Nor does a nested worktree holding what plain `git status` does not show: an untracked file
+    `status.showUntrackedFiles=no` hides, an ignored file, or commits on a detached HEAD that no ref
+    holds. Those three cases RUN the printed commands and assert the work survived. Against an
+    export of `a58981d` they are the three failures in `3 failed, 13 passed, 11 subtests passed`.
+
+RETRACTED 2026-09-23: the paragraph above said the remedy covered only what `git status` can see,
+and that ignored files, hidden untracked files and a detached HEAD's commits were "not covered".
+`remove.ps1`'s Get-RemovalLoss now withholds the command in each case.
 
 AND ONE HAZARD THE FIX ITSELF OPENED. `-Name`'s pattern accepts `.` and `..`. Under the `nested`
 layout those resolve to `.claude/worktrees` and `.claude`, which hold every harness worktree, and the
 first cut of the refusal listed them all with commands to delete them. The target must be a
 registered worktree before the nested check runs.
 
-TWO CONTROLS, because "refuse everything" passes every refusal case here:
+CONTROLS, because "refuse everything" passes every refusal case here, and "print no command"
+passes every remedy case:
 
   * A plain sibling with nothing nested is still removed.
   * Under the `nested` layout, `.claude/worktrees/x` is still removed, and a neighbour called `x-2`
     is not mistaken for a child of it. The rule is containment, never path shape: under that layout
     every worktree these scripts create lives under `.claude/worktrees/`.
+  * A clean nested worktree gets a command, the command runs, and the re-run then removes the target.
+  * A detached nested worktree whose commit a tag, a keep-ref or a remote-tracking ref holds gets its
+    command. `git branch --contains` sees no tag, so a check built on it fails here.
 
 WHAT THIS DOES NOT PROVE. It sees only worktrees registered to the fixture repository. A checkout of
 another repository inside the target is not in `git worktree list`, and the script still deletes it.

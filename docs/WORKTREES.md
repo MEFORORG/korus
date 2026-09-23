@@ -532,13 +532,50 @@ The refusal prints the commands that clear it, deepest first. `git worktree remo
 `--force` refuses modified or untracked files but deletes ignored ones. Where a child is ignored
 inside its parent, removing the parent first would delete the child.
 
-A worktree holding changed or untracked files gets no command, only a `git status` pointer. Plain
-`git worktree remove` exits 128 on it, and `--force` is the loss. Nor does a parent whose ignored
-child holds work: the parent reads clean, and removing it takes the child.
+A nested worktree gets a command only if removing it loses nothing. Otherwise it gets **NO
+COMMAND** and a line to look with first:
 
-That test is only as good as `git status`. A printed command still deletes ignored files, untracked
-files hidden by `status.showUntrackedFiles=no`, and commits on a detached HEAD that no branch holds.
-The refusal says so. Found by the third review round, 2026-09-22, and not fixed.
+| It holds | What plain `git worktree remove` does | The line to look with |
+|---|---|---|
+| Changed or untracked files | Exits 128, and the next try is `--force`. An untracked file that `status.showUntrackedFiles=no` hides, it deletes. | `git -C "<path>" status --untracked-files=all --ignored` |
+| Ignored files | Deletes them without asking. This repository ignores `*.local.*`, so a seat's `.claude/seat.local.txt` counts. | the same `status` line |
+| Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C "<primary>" log --oneline <sha> --not --exclude=refs/stash --glob="refs/*"` |
+
+Plain `git status` hides ignored files, and the setting hides untracked ones. So the `status` line
+carries both flags. It is the same read the check made, through `Read-WorktreeStatus` in
+`scripts/coord/occupancy.ps1`.
+
+The refs are read with `git rev-list --count <sha> --not --exclude=refs/stash --glob="refs/*"`.
+`git branch --contains` cannot see a tag. `--not --all` adds every worktree's HEAD, this one's too,
+so it never finds a commit lost. `refs/stash` is left out because every worktree shares it.
+
+Nor does a parent whose child holds work get a command: removing the parent takes the child. A
+registered worktree nested in another is not counted as the parent's file. It gets its own row.
+
+The check is a reading taken when the refusal prints. Anything written into a nested worktree after
+that is not covered, and the refusal says so.
+
+**RETRACTED 2026-09-23.** This section said "A printed command still deletes ignored files,
+untracked files hidden by `status.showUntrackedFiles=no`, and commits on a detached HEAD that no
+branch holds". It went on: "The refusal says so. Found by the third review round, 2026-09-22, and
+not fixed".
+
+The reading, on git 2.55.0.windows.5. Three cases in
+`tests/test_remove_never_deletes_a_nested_worktree.py` build one of those nested worktrees, run the
+printed commands, and check the work survived. Run that file, as it stood at `3d778a0`, against an
+export of the script before the fix:
+
+```bash
+git archive a58981d | tar -x -C <scratch>
+git show 3d778a0:tests/test_remove_never_deletes_a_nested_worktree.py > <scratch>/tests/test_remove_never_deletes_a_nested_worktree.py
+cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_worktree.py
+```
+
+It returns `3 failed, 13 passed, 11 subtests passed`. The three are those cases, and each fails on
+the loss itself. At `3d778a0` the same file returns `16 passed, 11 subtests passed`.
+
+The controls pass at both. A clean nested worktree gets a command that runs. So does a detached one
+whose commit a tag, a keep-ref or a remote-tracking ref holds.
 
 **The nested row's "only for one you named" was false until 2026-09-22.** `remove.ps1` also deleted
 any registered worktree inside its target, exited 0, and left that worktree registered with no
@@ -556,12 +593,16 @@ Run it against the old script from an export:
 
 ```bash
 git archive 05eb4a7 | tar -x -C <scratch>
-cp tests/test_remove_never_deletes_a_nested_worktree.py <scratch>/tests/
+git show a58981d:tests/test_remove_never_deletes_a_nested_worktree.py > <scratch>/tests/test_remove_never_deletes_a_nested_worktree.py
 cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_worktree.py
 ```
 
 It returns `10 failed, 3 passed, 2 subtests passed`. Every refusal case fails. The two controls pass,
 so the fix does not refuse everything.
+
+**The second line read `cp tests/test_remove_never_deletes_a_nested_worktree.py <scratch>/tests/`
+until 2026-09-23.** The file has grown since, so the copy on the trunk returns a different count.
+The count is for the file at `a58981d`, re-measured that day with the line above.
 
 The `.` and `..` case fails only in its two `nested` subtests, and only on the missing refusal
 message. At `05eb4a7` that typo already failed safely, with git exit 128. The hazard arrived with the

@@ -880,7 +880,7 @@ reached the file within the cache window.
 |---|---|
 | `scripts/coord/_common.ps1` | config load, state root, trunk, path folding, git plumbing |
 | `scripts/coord/session-registry.ps1` | the liveness fence (`Get-SessionLiveness`, `Test-RecordLiveness`, `Get-SessionRecords`) |
-| `scripts/coord/occupancy.ps1` | cwd -> worktree matcher + availability receipt (`Get-WorktreeOccupancy`, `Get-WorktreeOccupants`, `Get-NestedWorktrees`, `Get-ContainingWorktrees`, `Test-OccupancyVeto`) |
+| `scripts/coord/occupancy.ps1` | cwd -> worktree matcher + availability receipt (`Get-WorktreeOccupancy`, `Get-WorktreeOccupants`, `Get-NestedWorktrees`, `Get-ContainingWorktrees`, `Test-OccupancyVeto`), and the status read both removers share (`Read-WorktreeStatus`) |
 | `scripts/coord/presence.ps1` | the roster |
 | `scripts/coord/overlap.ps1` | files + declared work per peer worktree |
 | `scripts/coord/claim.ps1` | work claims |
