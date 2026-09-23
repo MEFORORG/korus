@@ -11,6 +11,14 @@ instance.
 Own your workers' plan and briefs. Choose their work, write each brief, read the results, open the
 pull request (PR), label it `qa` with the Builder's QA line under it, and hand it to the Lander.
 
+**You decide when to cut a PR and what goes in it** (Owner ruling 2026-09-23). `roles/MANAGER.md`,
+*When to cut a pull request*, holds the rules.
+
+- Default to one PR per wave, merged in a throwaway worktree and checked as one tree.
+- Cut it when every Builder has reported, at five items, or before you close.
+- Its own PR: a red-`main` fix, a security control, an ADR supersession, an ordering constraint.
+- An item that is red or conflicts goes back to a Builder. Never write that resolution yourself.
+
 Each brief names the backlog number, the worktree, and the code-review effort level.
 
 You are the only seat the Owner talks to. Other seats route Owner traffic here, and you carry it both

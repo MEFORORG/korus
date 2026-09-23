@@ -24,6 +24,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | What the Manager seat does | You decide what your workers build next, write their briefs, and read what comes back. The owner may assign other work. |
 | What it gained 2026-09-18 | **You open the pull request**, after checking the branch is on the remote, then hand it to the Lander. |
 | What it gained 2026-09-20 | **You post the Builder's QA line** on the pull request you open, and label it `qa`. *Apply the `qa` label and post the Builder's line* holds the shape. |
+| What it gained 2026-09-23 | **You decide when to cut a pull request and what goes in it.** Owner ruling. Default to one pull request per wave. *When to cut a pull request* is the source of record. |
 | What the Manager seat does not do | You do not build, enqueue, or merge. This stands until the owner moves one of the three to this seat. See *Never Do These*. |
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
@@ -45,6 +46,7 @@ Owner-set 2026-09-18. Fourteen steps run from the owner's assignment to a merged
 | 1 | **Receive the assignment** from the owner. |
 | 2 | **Brief the Builder or Builders.** Each brief names the backlog number, the worktree, and the code-review effort level. |
 | 9 | **Check the branch reached the remote, then open the pull request** when your own work is ready. **Apply the `qa` label and post the Builder's QA line on it.** |
+| 9, since 2026-09-23 | One pull request usually carries the whole wave. *When to cut a pull request* says when and how. |
 | 10 | **Tell the Lander**, by message or mail, and hand the pull request over. |
 
 Steps 3 to 8 are the Builder's, and 11 to 14 are the Lander's. Do not perform one of theirs because
@@ -143,13 +145,14 @@ result and requires it be reported, so "nothing found" and "nothing said" are di
 ### Do not check the pool before you open
 
 **Open when your own work is ready.** Do not count open pull requests, do not ask the Lander whether
-it has room, and do not hold a finished branch for a quiet window.
+it has room, and do not hold a finished branch for a quiet window. Holding one for its own wave is
+different, and bounded: *When to cut a pull request*.
 
 **Why the pool check was retired 2026-09-18.** Five Managers reading one shared pool all read "clear"
 at the same moment and all open together. The check manufactures the burst it exists to prevent,
 because none of the five can see the other four deciding.
 
-The lever that works is granularity, spent at dispatch. *The ledger tail is a serialisation point*
+The lever that works is granularity, spent at dispatch and again at step 9. *The ledger tail is a serialisation point*
 carries it: batch a wave of ledger-only rows into one pull request. That reduces total work; a pool
 check only reorders it, and reorders it wrongly.
 
@@ -178,6 +181,73 @@ before the pull request exists.
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
 the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
 
+
+### When to cut a pull request
+
+**Owner ruling 2026-09-23. This seat decides when a pull request is cut and which branches it
+carries.** No other seat does. A Builder cannot: it exits before any pull request exists. The Lander
+owns the pull request from the handover on, but it does not choose what goes in one.
+
+**A worktree needs its own branch, not its own pull request.** Git refuses one branch in two
+worktrees. A pull request is a review and merge unit, and choosing it is a separate decision.
+
+**Why one pull request per wave is the default.** On `MEFORORG/MessageFoundry` a feature-branch push
+runs one small leak scan. The required suite fires on `pull_request` and again on `merge_group`. So
+every extra pull request runs the required suite twice more, on a runner pool that is already the
+merge bottleneck. [LANDER.md](LANDER.md), *Throughput -- BATCH, do not serialise*, holds the
+measurements.
+
+| Item | Rule |
+| --- | --- |
+| The default | One pull request per wave. A wave is the set of Builders you dispatched together. |
+| Cut it at the FIRST of | Every Builder in the wave has reported and its branch is on the remote. Five items are ready. You are about to close this instance. |
+| A Builder still running | About 30 minutes after the rest reported, cut without it. It rides the next batch. |
+| Why five | One red item blocks the whole batch until it is dropped. Five bounds that and keeps the diff readable for the Lander. |
+| Its own pull request, never batched | An item that fixes a red `main` or a broken gate: ship it now. An item that changes a security control. |
+| Also its own pull request | An item that reverses a recorded posture or supersedes an ADR; [LANDER.md](LANDER.md) 4i requires its own title. An item that must land in order against another open pull request. |
+| But two items in one wave | Two items that must land in order may share one batch. |
+| Left out of the batch | An item that is red on its own. An item whose code conflicts with another item in the wave. Both go back to a Builder, below. |
+| Never mix | Ledger-only changes with code. [LANDER.md](LANDER.md) 7c carries why. |
+| **This replaced a line reading** | *"Batch items that share a file. Keep genuinely independent code changes separate."* That contradicted LANDER.md 4f, which says batch independent code changes. The owner ruled for batching. |
+
+**How to cut it.** Build each batch in its own throwaway worktree, never a Builder's and never your
+seat's own. Switching your own worktree onto a batch branch works, but the gate then refuses the
+switch back.
+
+1. Fetch. Create the worktree on a new branch from `origin/main`:
+   `git worktree add -b batch/<wave> <path> origin/main`. A stale base conflicts wholesale.
+2. Run `scripts/worktree/ensure-venv.ps1` in it before any `pytest`.
+3. Merge each Builder branch with `git merge --no-ff origin/<branch>`, in dispatch order. A merge
+   commit per item keeps each item readable inside the pull request.
+4. If a merge conflicts, run `git merge --abort` and leave that item out. **Do not write the
+   resolution.** That is building. Re-brief a Builder to rebase the item onto this batch branch, or
+   onto `main` after the batch lands. A separate pull request alone does not help: it goes DIRTY
+   the moment the batch lands.
+5. Run the checks on the combined tree: `ruff check`, `ruff format --check`, `mypy messagefoundry`,
+   and `pytest`. A merge stages nothing, so the pre-commit ledger gate sees nothing. Run
+   `python scripts/hooks/ledger_check.py --ci`, which compares against `origin/main`.
+6. If a check fails, find the item. Red on its own: leave it out. Green alone but red combined:
+   two items interact, so leave the later one out and re-brief a Builder against the batch branch.
+7. Push the batch branch, check it with `git ls-remote --heads origin`, and open one pull request.
+8. Title it with a short summary plus every backlog number it closes.
+9. In the body, give each item its own section: the Builder's report, its source branch, and that
+   branch's head SHA.
+10. Post each Builder's QA line as its own comment. Apply the `qa` label only if every item has
+    one; otherwise leave it off and name the item that has none.
+11. Hand it to the Lander with the five fields above. Name unread legs and known defects **per
+    item**.
+12. Delete the Builder branches and remove the throwaway worktree. `refs/pull/<N>/head` keeps every
+    merge parent, so the per-item SHAs survive without the branches.
+
+**Main lands every pull request as one squashed commit.** The merge queue's configured merge method
+is `SQUASH`. So after a batch lands, reverting one item is a hand revert, not a click. The per-item
+SHAs in the body are what make that revert possible.
+
+**A red batch comes back to you only if an item must be dropped.** The Lander triages a red check and
+routes a repair as it would for any other pull request. Removing an item is a re-cut, and a re-cut is
+this step. Ask the Lander to dequeue it, close the pull request, and cut a new one from a fresh batch
+branch. **Never force-push the batch branch.** If you are gone, the Lander may spawn a Manager to
+re-cut it.
 ---
 
 ## 1. This seat replaced the Console on 2026-09-10
@@ -227,7 +297,7 @@ What bound that run was the repository. See, in the constitution:
 
 **The queue half of this heading narrowed on 2026-09-18.** You no longer hold a pull request back on
 what the queue looks like. See *Do not check the pool before you open*. What survives is granularity,
-decided at dispatch in section 2a.
+decided at dispatch in section 2a and at step 9 in *When to cut a pull request*.
 
 CONFLICTS ARE NOT MISBEHAVIOUR. Nearly every open pull request edits docs/BACKLOG.md, because the
 method puts your ledger row in your own pull request. The Lander resolves those and expects to.
@@ -303,7 +373,7 @@ carried here rather than re-derived by this seat.
 | The measurement | Two dispatch waves added 17 pull requests in about 35 minutes. Open non-draft went 35 to 54 in one hour, and **zero** merged in it. **24 of the 54 were DIRTY**, overwhelmingly on the ledger tail. |
 | What those seven actually were | 13 to 69 lines each, of `docs/BACKLOG.md` only. They could have been one pull request. |
 | If an item must be its own pull request | The ledger edit is a FINAL COMMIT, ALONE. Section 2 states that rule, under *put your ledger row in its OWN commit, LAST*. |
-| What that rule does not say | **The author is GONE.** A Builder's process exits when its pull request opens. |
+| What that rule does not say | **The author is GONE.** A Builder's process exits before its pull request exists. |
 | So | A branch interleaving ledger and code commits can be rebased cleanly by nobody. |
 | The worked example | PR 832 spread its `docs/BACKLOG.md` edits through code commits and needed a hand-resolved merge. |
 | Announce the files the pull requests will CHANGE, never the items' SUBJECTS | A dispatch announce naming `auth/service.py`, `api/app.py` and `config/settings.py` was read downstream as a collision forecast. The pull requests touched `docs/BACKLOG.md` and one test file; those paths were what the items were ABOUT. |
@@ -323,9 +393,9 @@ already 15 hours and the oldest open item was two days. **At that point briefing
 subtracts from the fleet's throughput.**
 
 **Why this is a Manager rule and not a Builder one.** A Builder cannot batch its own output: it is
-dispatched against one item and its process ends when its pull request opens.
+dispatched against one item and its process ends before any pull request exists.
 
-**Granularity is decided at dispatch and nowhere else.** A convention written into a Builder brief
+**Granularity is decided at dispatch and at step 9, and nowhere else.** A convention written into a Builder brief
 binds nobody after the fact, because there is nobody left to bind.
 
 **What this does not say.** It does not say small pull requests are bad. [LANDER.md](LANDER.md),
@@ -334,7 +404,9 @@ the right shape" is *"correct for avoiding CONFLICTS and exactly wrong for a que
 COUNT"*, and the two pieces of advice *"look identical at the branch level and diverge only at the
 PR level"*.
 
-Batch items that share a file. Keep genuinely independent code changes separate.
+**CORRECTED 2026-09-23 by owner ruling.** This line read *"Batch items that share a file. Keep
+genuinely independent code changes separate."* Batch independent code changes too, by the rules in
+*When to cut a pull request*.
 
 ---
 
@@ -395,7 +467,7 @@ you can find later: nothing survives the moment you close the instance.
 branch survives anything, and an unopened pull request survives too, as long as somebody can read the
 branch and know what to do with it. That is what the last commit message buys.
 
-**Open the pull requests before you close the instance**, not after the last Builder reports.
+**Open the pull requests before you close the instance**, whether or not every Builder has reported.
 
 ---
 
