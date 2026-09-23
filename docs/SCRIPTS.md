@@ -45,12 +45,14 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 ## The fleet wiki
 
 One memory that every seat on every account can search. [The spec](../specs/002-fleet-wiki/spec.md)
-holds the design. These scripts write events; the query and the compile job come later.
+holds the design. These scripts write, guard and query; the compile job comes later.
 
 | Script | Does | Doc |
 |---|---|---|
 | `scripts/wiki/write.ps1` | The only way to add an event. Checks the fields, runs the leak scan, then drops one file in the shared inbox. No network, and no git call when `-StateRoot` is given | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/query.ps1` | Searches the inbox, and the record repository's log with `-RecordRepo`. Prints `no note` below the match floor. Says so when a store is unreachable, and still exits 0 | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by both scripts above, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/_guard.ps1` | The one filter every read passes through. Hides superseded and retired events; `-History` returns them labelled `historical` | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 
 ## To clean up and recover
 
