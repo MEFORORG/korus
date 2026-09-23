@@ -183,6 +183,22 @@ function Resolve-WikiDir {
     return [System.IO.Path]::GetFullPath($resolved)
 }
 
+function Format-WikiDirName {
+    <#
+    .SYNOPSIS
+        A directory as a message names it: the caller's own spelling, then the resolved one if it
+        differs.
+    .DESCRIPTION
+        `Resolve-WikiDir` can change the spelling as well as the form. On Windows GetFullPath expands
+        an 8.3 short name, so `C:\PROGRA~1\x` comes back as `C:\Program Files\x`. A refusal that
+        names only the resolved path names a string the caller never typed, and a typo is then hard
+        to spot in it.
+    #>
+    param([string] $Given, [string] $Resolved)
+    if ($Given -ceq $Resolved) { return "'$Resolved'" }
+    return "'$Given' (resolved to '$Resolved')"
+}
+
 function ConvertTo-WikiRelPath {
     <# Forward slashes, no leading `./`. Paths in an event are repository-relative. #>
     param([string] $Path)
@@ -356,7 +372,10 @@ function Read-WikiEventDir {
         return @{ Events = $events; Skipped = 0 }
     }
     $option = if ($Recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
-    $files = @([System.IO.Directory]::EnumerateFiles($Dir, '*.json', $option))
+    # Sorted, because Linux lists a directory in no fixed order and Windows lists it by name. A
+    # [string[]] is sorted in place; an [object[]] handed to [Array]::Sort is not (see _guard.ps1).
+    $files = [string[]]@([System.IO.Directory]::EnumerateFiles($Dir, '*.json', $option))
+    [System.Array]::Sort($files, [System.StringComparer]::Ordinal)
     if ($files.Count -eq 0) { return @{ Events = $events; Skipped = 0 } }
     $texts = [string[]]::new($files.Count)
     for ($i = 0; $i -lt $files.Count; $i++) {

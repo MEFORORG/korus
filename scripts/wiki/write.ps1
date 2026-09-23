@@ -137,11 +137,12 @@ if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     try { $StateRoot = Get-CcxStateRoot }
     catch { Stop-Write 2 "the inbox is not reachable: no -StateRoot, and $($_.Exception.Message)" }
 }
+$givenStateRoot = $StateRoot
 $StateRoot = Resolve-WikiDir $StateRoot
 # A missing state root is refused rather than created: a typo'd path would otherwise swallow the
 # event into a directory no reader looks in, which is worse than no memory (spec, Edge Cases).
 if (-not (Test-Path -LiteralPath $StateRoot -PathType Container)) {
-    Stop-Write 2 "the inbox is not reachable: state root '$StateRoot' does not exist."
+    Stop-Write 2 "the inbox is not reachable: state root $(Format-WikiDirName $givenStateRoot $StateRoot) does not exist."
 }
 $inbox = Get-WikiInboxDir -StateRoot $StateRoot
 $tmpDir = Get-WikiTmpDir -StateRoot $StateRoot

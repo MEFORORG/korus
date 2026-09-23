@@ -126,6 +126,45 @@ class TheNewestEventOnAKeyWins(_GuardCase):
                 supersedes=[a["id"]])
         self.assertEqual([c["id"]], [r["id"] for r in self.query_json("stranded original wording")])
 
+    def test_the_answer_does_not_depend_on_the_order_the_events_arrive_in(self):
+        """Windows lists files in name order, which is stamp order, so a guard that never sorted
+        passed every case there and failed at random on Linux. Hand it both orders explicitly.
+
+        One inbox exercises all three order-dependent rules: the newest content on a key wins
+        (rule 3), the NEWEST of two superseders is the pointer (rule 1), and a retire hides what
+        sorts before it (rule 2). Each printed line is `id status replaced_by`."""
+        old = w.plant(self.inbox, when=w.days_ago(5), key="k/order", summary="arrival order one")
+        mid = w.plant(self.inbox, when=w.days_ago(3), key="k/order", summary="arrival order two")
+        new = w.plant(self.inbox, when=w.days_ago(1), key="k/order", summary="arrival order three")
+        a = w.plant(self.inbox, when=w.days_ago(5), key="k/sup", summary="superseded twice")
+        w.plant(self.inbox, when=w.days_ago(4), type="supersede", key="k/sup", summary="first marker",
+                supersedes=[a["id"]])
+        s2 = w.plant(self.inbox, when=w.days_ago(3), type="supersede", key="k/sup", summary="second marker",
+                     supersedes=[a["id"]])
+        # Two retires with content between them. A single retire comes out right in any order even
+        # on the old guard, so only this shape tests that the NEWEST retire is the one applied.
+        w.plant(self.inbox, when=w.days_ago(5), type="retire", key="k/ret", summary="earlier withdrawal")
+        cc = w.plant(self.inbox, when=w.days_ago(4), key="k/ret", summary="retired content")
+        ret = w.plant(self.inbox, when=w.days_ago(2), type="retire", key="k/ret", summary="withdrawn")
+        show = "ForEach-Object { '{0} {1} {2}' -f $_.id, $_._status, $_._replacedBy }"
+        r = w.run_ps(
+            self.pwsh,
+            f"$r = Read-WikiEventDir -Dir '{self.inbox}' -Source inbox; "
+            "$asc = @($r.Events | Sort-Object { $_._tsKey }); "
+            "$desc = @($r.Events | Sort-Object { $_._tsKey } -Descending); "
+            f"(Select-WikiLiveEvent -Events $asc -History) | {show}; '---'; "
+            f"(Select-WikiLiveEvent -Events $desc -History) | {show}",
+        )
+        self.assertEqual(0, r.returncode, r.stderr)
+        for label, block in zip(("oldest-first input", "newest-first input"), r.stdout.split("---")):
+            rows = {parts[0]: parts[1:] for parts in (ln.split() for ln in block.strip().splitlines())}
+            self.assertEqual(9, len(rows), f"{label}: every planted event is in the history")
+            self.assertEqual(["live"], rows[new["id"]], f"{label}: rule 3 newest on the key")
+            self.assertEqual(["historical", new["id"]], rows[old["id"]], f"{label}: rule 3 oldest")
+            self.assertEqual(["historical", new["id"]], rows[mid["id"]], f"{label}: rule 3 middle")
+            self.assertEqual(["historical", s2["id"]], rows[a["id"]], f"{label}: rule 1 pointer")
+            self.assertEqual(["historical", ret["id"]], rows[cc["id"]], f"{label}: rule 2 retire")
+
     def test_the_same_stamp_is_broken_by_id(self):
         when = w.days_ago(1)
         low = w.plant(self.inbox, when=when, event_id=w.stamp_id(when, "aaaaaa"), key="k/tie", summary="tie breaker case")

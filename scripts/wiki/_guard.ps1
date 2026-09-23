@@ -55,12 +55,20 @@ function Select-WikiLiveEvent {
     )
 
     # Sorted by an ordinal key array rather than Sort-Object: it is the same order, a tenth the time.
+    #
+    # THE ITEMS ARRAY IS AN [int[]] OF POSITIONS, NEVER THE EVENTS. Handed an [object[]] of events,
+    # `[Array]::Sort($keys, $items, ...)` sorted the keys and left the events in arrival order,
+    # measured on pwsh 7.6. Windows hands files over in name order, which is stamp order, so every
+    # case passed there. Linux hands them over in no fixed order, so the newest event on a key
+    # changed from run to run. An [int[]] is sorted in place, and the events are then read by it.
     $present = [System.Collections.Generic.List[object]]::new()
     foreach ($ev in $Events) { if ($null -ne $ev) { $present.Add($ev) } }
-    $all = $present.ToArray()
-    $keys = [string[]]::new($all.Count)
-    for ($i = 0; $i -lt $all.Count; $i++) { $keys[$i] = [string]$all[$i]._tsKey }
-    [System.Array]::Sort($keys, $all, [System.StringComparer]::Ordinal)
+    $keys = [string[]]::new($present.Count)
+    $order = [int[]]::new($present.Count)
+    for ($i = 0; $i -lt $present.Count; $i++) { $keys[$i] = [string]$present[$i]._tsKey; $order[$i] = $i }
+    [System.Array]::Sort($keys, $order, [System.StringComparer]::Ordinal)
+    $all = [object[]]::new($present.Count)
+    for ($i = 0; $i -lt $order.Count; $i++) { $all[$i] = $present[$order[$i]] }
 
     # Rule 1. The newest superseder wins the pointer, so iterate oldest first and overwrite. Every
     # superseder is also kept, newest first, so a query can reach a live replacement even when a

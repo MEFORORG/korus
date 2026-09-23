@@ -246,6 +246,19 @@ class ItRefusesABadEvent(_WriteCase):
         self.assertIn(str(gone), r.stderr)
         self.assertFalse(gone.exists(), "a typo'd state root was created, swallowing the event")
 
+    def test_the_refusal_names_the_root_as_the_caller_spelled_it(self):
+        """Resolving can respell a path. CI's temp dir is an 8.3 short name (`RUNNER~1`), which
+        GetFullPath expands, and a refusal naming only the expanded form named a path the caller
+        never typed. A `..` segment respells it the same way on every platform, so it stands in.
+        The resolved half is matched loosely because on CI it is the expanded form of `self.root`."""
+        given = self.root / "state" / ".." / "no-such-state"
+        r = self.write(*self.good(), state=given)
+        self.assertEqual(2, r.returncode, r.stderr)
+        self.assertIn(f"'{given}'", r.stderr, "the refusal does not name the path the caller passed")
+        resolved = r.stderr.split("(resolved to '", 1)[-1] if "(resolved to '" in r.stderr else ""
+        self.assertIn("no-such-state'", resolved, "the resolved path went missing")
+        self.assertNotIn("..", resolved, "the resolved path is not resolved")
+
 
 class TheLeakScanRunsFirst(_WriteCase):
     def scan_directly(self, text: str) -> subprocess.CompletedProcess:

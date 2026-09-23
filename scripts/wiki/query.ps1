@@ -97,6 +97,7 @@ if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     }
 }
 if ($StateRoot) {
+    $givenStateRoot = $StateRoot
     $StateRoot = Resolve-WikiDir $StateRoot
     if (Test-Path -LiteralPath $StateRoot -PathType Container) {
         try {
@@ -108,21 +109,22 @@ if ($StateRoot) {
             $inboxLabel = 'inbox unreadable'
         }
     } else {
-        Write-Note "state root unreachable: '$StateRoot' does not exist; the inbox was not searched."
+        Write-Note "state root unreachable: $(Format-WikiDirName $givenStateRoot $StateRoot) does not exist; the inbox was not searched."
         $inboxLabel = 'inbox unreachable'
     }
 }
 
 $logLabel = 'log not requested'
 if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
+    $givenRecordRepo = $RecordRepo
     $RecordRepo = Resolve-WikiDir $RecordRepo
     if (-not (Test-Path -LiteralPath $RecordRepo -PathType Container)) {
-        Write-Note "record repository unreachable: '$RecordRepo' does not exist; searched the inbox only."
+        Write-Note "record repository unreachable: $(Format-WikiDirName $givenRecordRepo $RecordRepo) does not exist; searched the inbox only."
         $logLabel = 'log unreachable'
     } else {
         $eventsRoot = Get-WikiEventsRoot -RecordRepo $RecordRepo
         if (-not (Test-Path -LiteralPath $eventsRoot -PathType Container)) {
-            Write-Note "record repository has no wiki/events directory at '$RecordRepo'; searched the inbox only."
+            Write-Note "record repository has no wiki/events directory at $(Format-WikiDirName $givenRecordRepo $RecordRepo); searched the inbox only."
             $logLabel = 'log absent'
         } else {
             try {
