@@ -538,7 +538,7 @@ it gets **NO COMMAND** and a line to look with first:
 | It holds | What plain `git worktree remove` does | The line to look with |
 |---|---|---|
 | Changed or untracked files | Exits 128, and the next try is `--force`. An untracked file that `status.showUntrackedFiles=no` hides, it deletes. | `git -C "<path>" status --untracked-files=normal --ignored` |
-| An edit to a file flagged skip-worktree or assume-unchanged | Deletes it. `git status` does not check those files. | None. The refusal names up to three paths. |
+| An edit to a file flagged skip-worktree or assume-unchanged | Deletes it. `git status` does not check those files. | The same `status` line, which cannot show them. The refusal names up to three paths instead. |
 | Ignored files | Deletes them without asking. This repository ignores `*.local.*`, so a seat's `.claude/seat.local.txt` counts. | the same `status` line |
 | Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C "<primary>" log --oneline <sha> --not --exclude=refs/stash --glob="refs/*"` |
 | Commits only its HEAD reflog holds, such as one left behind on a detached HEAD | Deletes that reflog. | `git -C "<path>" reflog` |
@@ -584,8 +584,8 @@ cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_wor
 
 It returns `6 failed, 17 passed, 11 subtests passed`. The six are the five rows above and the
 target's own guard, which now refuses when `git status` on the target fails. Each fails on the loss
-itself. At `8f2e366` the same file returns `23
-passed, 11 subtests passed`.
+itself. At `8f2e366` the same file returns
+`23 passed, 11 subtests passed`.
 
 `3d778a0` closed the three the retracted text named. Review round one then found the reflog and
 skip-worktree rows and the target guard. Against an export of `fd7028f`, just before that round's

@@ -28,8 +28,9 @@ Most of the rest hold the REMEDY the refusal prints, which must not be a step th
   * Nor does a nested worktree holding what plain `git status` does not show: an untracked file
     `status.showUntrackedFiles=no` hides, an ignored file, or commits on a detached HEAD that no ref
     holds. Those three cases RUN the printed commands and assert the work survived. Against an
-    export of `a58981d` they are the three failures in `3 failed, 13 passed, 11 subtests passed`.
-
+    export of `a58981d`, this file as it stood at `3d778a0` returns `3 failed, 13 passed, 11
+    subtests passed`, and those three are the failures. The file as it stood at `8f2e366` returns
+    `6 failed, 17 passed, 11 subtests passed` there, as docs/WORKTREES.md publishes.
   * Nor does one holding a commit only its HEAD reflog keeps, or an edit to a skip-worktree file.
     The first review of the fix found both. Against an export of `fd7028f` those two cases fail,
     and so does the target guard's case below; nothing else in this file does.

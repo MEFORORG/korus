@@ -7,9 +7,10 @@ check read plain `git status --porcelain`, which obeys `status.showUntrackedFile
 `a58981d`: this file's first case removed the worktree and the file with it.
 
 `remove.ps1` had the same hole in the commands its refusal prints, and both scripts now read status
-through one function, `Read-WorktreeStatus` in `scripts/coord/occupancy.ps1`, which passes
-`--untracked-files=all`. That flag overrides the setting; the precondition below shows the setting
-hides the file from plain `git status`, so the case measures the override and not an empty fixture.
+through one function, `Read-WorktreeStatus` in `scripts/coord/occupancy.ps1`. The reaper calls it
+with `-UntrackedFiles normal`, and remove.ps1 with `all`; either flag overrides the setting. The
+precondition below shows the setting hides the file from plain `git status`, so the case measures
+the override and not an empty fixture.
 
 THE SAME HOLE, ONE FLAG OVER. `git status` does not check a tracked file flagged skip-worktree, so
 a local override written into one read as clean, and `-Apply` deleted it too. Measured 2026-09-23
