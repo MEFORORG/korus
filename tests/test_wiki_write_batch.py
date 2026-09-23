@@ -182,8 +182,11 @@ class AMemoryNoteIsEvidence(_BatchCase):
         # CONTROLS: a memory citation naming no file, and one naming no store, must still be refused.
         bare = dict(GOOD, evidence="memory:~")
         storeless = dict(GOOD, evidence="memory: see the note")
-        r, res = self.batch([good, bare, storeless])
-        self.assertEqual(["written", "refused", "refused"], [x["status"] for x in res])
+        # Both passed an unanchored first form of the pattern (round-2 review).
+        tilde_root = dict(GOOD, evidence="memory:~/x.md")
+        prose = dict(GOOD, evidence="memory:a/ trust me it is fine.md")
+        r, res = self.batch([good, bare, storeless, tilde_root, prose])
+        self.assertEqual(["written", "refused", "refused", "refused", "refused"], [x["status"] for x in res])
         for x in res[1:]:
             self.assertIn("evidence names no commit", x["reason"])
 
