@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -196,11 +198,28 @@ class LintChangesNothing(_LintCase):
         self.assertEqual(before, tree_hashes(self.state, self.vault))
         self.assertIn("## Totals", report.read_text(encoding="utf-8"))
 
-    def test_out_inside_the_inbox_is_refused(self):
+    def test_out_inside_either_wiki_tree_is_refused(self):
         self.build_clean_world()
-        r = self.lint("-Out", str(self.inbox / "report.md"), code=2)
-        self.assertIn("never writes to", r.stderr)
+        index = self.vault / "wiki" / "index.md"
+        before = index.read_bytes()
+        for target in (self.inbox / "report.md", index, self.vault / "wiki" / "pages" / "report.md",
+                       self.state / "wiki" / "report.md"):
+            r = self.lint("-Out", str(target), code=2)
+            self.assertIn("never writes to", r.stderr)
+        self.assertEqual(before, index.read_bytes())
         self.assertFalse((self.inbox / "report.md").exists())
+
+    def test_with_no_state_root_it_does_not_create_one(self):
+        """Get-CcxStateRoot creates the directory it names. Lint must find the inbox without it."""
+        clone = w.make_repo(self.root / "clone", "ccx")
+        self.log(2, key="a/one")
+        r = w.run(self.pwsh, LINT, "-RecordRepo", str(self.vault), "-Json", cwd=clone)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, json.loads(r.stdout)["inputs"]["events"])
+        self.assertFalse((clone / ".git" / "ccx-coord").exists(), "a report-only run created the state root")
+
+    def test_an_out_in_a_missing_directory_exits_2(self):
+        self.lint("-Out", str(self.root / "no-such-dir" / "r.md"), code=2)
 
 
 class Conflicts(_LintCase):
@@ -262,10 +281,71 @@ class Evidence(_LintCase):
         doc = self.lint_json()
         self.assertEqual((0, 2), (doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
 
+    def test_a_path_that_leaves_the_repo_does_not_turn_real_commits_dead(self):
+        """git cat-file --batch-check dies on `<sha>:../x`, and every line after it read missing."""
+        w.git(self.repo, "commit", "--allow-empty", "-m", "second")
+        second = w.git(self.repo, "rev-parse", "HEAD").stdout.strip()[:10]
+        self.log(2, key="l/one", evidence=f"{self.sha}:../other/x.md")
+        self.log(2, key="l/two", evidence=self.sha)
+        self.log(2, key="l/three", evidence=second)
+        doc = self.lint_json()
+        self.assertEqual((2, 0, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
+
+    def test_a_commit_between_two_owner_dates_is_still_looked_up(self):
+        e = self.log(2, key="o/two", evidence=f"Owner ruling 2026-09-20, see {MISSING_SHA}, amended 2026-09-21")
+        doc = self.lint_json()
+        self.assertEqual([f"dead-evidence:{e['id']}:{MISSING_SHA}"], [f["id"] for f in doc["findings"]])
+        self.assertEqual(1, doc["evidence"]["unchecked"])
+
+    def test_one_missing_commit_cited_twice_is_one_finding(self):
+        self.log(2, key="o/dup", evidence=f"{MISSING_SHA} and again {MISSING_SHA}")
+        doc = self.lint_json()
+        self.assertEqual((1, 1), (doc["totals"]["dead-evidence"], doc["evidence"]["dead"]))
+
     def test_an_all_digit_date_is_not_called_a_dead_commit(self):
         self.log(2, key="d/one", evidence="measured 20260921, see " + self.sha)
         doc = self.lint_json()
         self.assertEqual((1, 0, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
+
+
+class Online(_LintCase):
+    """-Online asks `gh pr view`. A stand-in `gh` first on PATH answers CLOSED for 13, MERGED for
+    anything else, and records every number it was asked, so no network is needed."""
+
+    def setUp(self):
+        super().setUp()
+        shim = self.root / "shim"
+        shim.mkdir()
+        self.asked = self.root / "asked.txt"
+        # gh is called as `gh pr view <n> --json state --jq .state`, so the number is argument 3.
+        (shim / "gh.cmd").write_text(
+            f'@echo %3>>"{self.asked}"\n@if "%3"=="13" (echo CLOSED) else (echo MERGED)\n', encoding="ascii")
+        posix = shim / "gh"
+        posix.write_text(
+            f'#!/bin/sh\necho "$3" >> "{self.asked}"\nif [ "$3" = "13" ]; then echo CLOSED; else echo MERGED; fi\n',
+            encoding="ascii")
+        posix.chmod(posix.stat().st_mode | stat.S_IEXEC)
+        self.env = {"PATH": str(shim) + os.pathsep + os.environ.get("PATH", "")}
+
+    def lint_online(self) -> dict:
+        r = w.run(self.pwsh, LINT, "-StateRoot", str(self.state), "-RecordRepo", str(self.vault),
+                  "-EvidenceRepo", str(self.repo), "-Online", "-Json", env=self.env)
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout)
+
+    def test_a_closed_pr_is_dead_and_a_merged_one_is_not(self):
+        closed = self.log(2, key="pr/closed", evidence="PR #13")
+        self.log(2, key="pr/merged", evidence="PR #14")
+        doc = self.lint_online()
+        self.assertEqual("on", doc["inputs"]["online"])
+        self.assertEqual([f"dead-evidence:{closed['id']}:PR #13"], [f["id"] for f in doc["findings"]])
+        self.assertEqual((1, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"]))
+
+    def test_a_backlog_number_is_not_looked_up_as_a_pr(self):
+        self.log(2, key="pr/backlog", evidence="vault BACKLOG #13, see " + self.sha)
+        doc = self.lint_online()
+        self.assertEqual(0, doc["evidence"]["dead"])
+        self.assertFalse(self.asked.exists() and "13" in self.asked.read_text(), "BACKLOG #13 was asked of gh")
 
 
 class Staleness(_LintCase):
@@ -318,6 +398,11 @@ class Promotion(_LintCase):
         self.log(3, key="memory/quote-paths", seat="builder", evidence="memory:acct-1/q.md", summary="Quote the Windows path")
         self.log(3, key="memory/windows-paths", seat="lander", evidence="memory:acct-2/w.md", summary="Escape the Windows path")
         self.assertEqual(0, self.lint_json()["totals"]["promotion-candidate"])
+
+    def test_one_importer_reading_two_stores_is_two_writers(self):
+        self.log(3, key="memory/quote-paths", seat="builder", evidence="memory:acct-1/q.md", summary="Quote the Windows path")
+        self.log(3, key="memory/windows-paths", seat="builder", evidence="memory:acct-2/w.md", summary="Quote the Windows path")
+        self.assertEqual(1, self.lint_json()["totals"]["promotion-candidate"])
 
     def test_one_seat_twice_is_not_a_candidate(self):
         a = self.log(5, key="lesson/once", seat="builder")
