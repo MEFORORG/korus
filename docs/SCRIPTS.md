@@ -53,6 +53,7 @@ holds the design. These scripts write, guard and query; the compile job comes la
 | `scripts/wiki/query.ps1` | Searches the inbox, and the record repository's log with `-RecordRepo`. Prints `no note` below the match floor. Says so when a store is unreachable, and still exits 0. Warns on stdout when an unreadable file may hide a retirement | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by both scripts above, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_guard.ps1` | The one filter every read passes through. Hides superseded and retired events; `-History` returns them labelled `historical` | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/import.ps1` | Folds the per-account memory stores into the wiki once. Reads only the directories named by `-Store`, records every merge as an event, and writes through `write.ps1 -FromJson`. A re-run adds nothing; `-WhatIf` writes nothing | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 
 ## To clean up and recover
 
