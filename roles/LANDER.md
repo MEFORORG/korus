@@ -1071,6 +1071,10 @@ record of what shipped. Three arming preconditions follow, all measured 2026-08-
 
 Source of record: `docs/LEDGER-GATE.md`. A pre-commit gate enforces this section.
 
+**The ledger lives in the vault since 2026-09-13 (BACKLOG #1250).** Run every ledger command in this
+section in a vault checkout. The engine's `docs/BACKLOG.md` is a stub, and no engine pull request
+edits it. Allocate backlog numbers in the vault; the engine refuses `-Kind backlog`.
+
 | Item | Rule |
 | --- | --- |
 | Never grep for the next number | Two sessions that grep pick the *same* number, create differently-named files, merge clean, and silently corrupt the ledger. It has fired more than once. |
@@ -1129,6 +1133,9 @@ single-writer: two sessions editing its tail merge clean while corrupting the le
 | The aggravating detail | The lander had merged #1229 themselves five hours earlier and had written it into their own episode note. |
 | Why the verification made it worse | Confirming the mechanism consumed the attention that would have asked whether the item existed, while producing the feeling of having checked. |
 | An unfiled number | A permanent HOLE, and holes are free, per `ledger_check.py`'s own header. So release the claim, leave the `alloc/` record, never reuse the number, and never file something else under it. |
+
+**On the engine repo this deadlock is gone.** Its copy of the check below has been a no-op since
+2026-09-13. The rest of this passage holds on the vault.
 
 **Closing banners on a worker's PR is the half that deadlocks.** The required check *"a PR that
 implements BACKLOG #N must update BACKLOG.md"* reads the **PR title and body** for the literal token
