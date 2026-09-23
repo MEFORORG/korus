@@ -69,6 +69,10 @@
     remove.ps1 hands it Get-RepoWorktrees alone and reads no session record, so the Available rule
     above binds prune-merged.ps1 and not it.
 
+    THE STATUS READ. Since 2026-09-23 the same two callers read `git status` through one function
+    here, Read-WorktreeStatus, because both already load this file. It reads no session record
+    either. Each caller keeps its own rule for what blocks a removal.
+
     The containment tests below compare ORDINALLY. Both sides are already folded by
     ConvertTo-CcxComparablePath, and a culture-aware StartsWith can call a path that begins with a
     combining mark "not inside", which for a destructive caller is a miss.
@@ -109,11 +113,14 @@ function Get-RepoWorktrees([string]$RepoHint) {
     foreach ($line in $porcelain) {
         if ($line -like "worktree *") {
             $cur = [pscustomobject]@{
-                Path = $line.Substring(9).Trim(); Branch = ""
+                Path = $line.Substring(9).Trim(); Branch = ""; Head = ""
                 Bare = $false; Detached = $false; Locked = $false; LockReason = ""; Prunable = ""
             }
             $out += $cur
         }
+        # The commit checked out there. git reads it from the admin directory, so it is known even
+        # where the worktree's own directory is gone.
+        elseif ($line -like "HEAD *" -and $cur) { $cur.Head = $line.Substring(5).Trim() }
         elseif ($line -like "branch *" -and $cur) {
             $cur.Branch = ($line.Substring(7).Trim() -replace '^refs/heads/', '')
         }
@@ -332,4 +339,45 @@ function Get-ContainingWorktrees {
             $p = ConvertTo-Norm $_.Path
             $p -ne $norm -and $norm.StartsWith("$p/", [StringComparison]::Ordinal)
         })
+}
+
+# What `git status` says a worktree holds, read so that no local setting can hide any of it. ONE
+# READER, shared by remove.ps1 and prune-merged.ps1. Each caller decides which of these blocks a
+# removal, because the two remove different things; see the note above remove.ps1's
+# Get-RemovalLoss.
+#
+# --untracked-files=all overrides status.showUntrackedFiles. With that set to `no`, plain
+# `git status --porcelain` printed nothing for an untracked file, both scripts called the worktree
+# clean, and removing it deleted the file. Measured 2026-09-23 with git 2.55.0.windows.5: the plain
+# read printed nothing and this one printed `?? <file>`. The flag also lists untracked files one by
+# one instead of collapsing a directory, and it stops at a nested repository, which it prints as a
+# single `<dir>/` entry. A nested worktree is one of those.
+#
+# -IncludeIgnored adds `!!` lines, one per file, stopping at a nested repository the same way. Plain
+# `git status` never shows ignored files, and `git worktree remove` deletes them without asking.
+#
+# Returns Exit, git's exit code, with every list empty unless it is 0. Tracked holds whole porcelain
+# lines. Untracked and Ignored hold paths relative to $Path as git printed them, so a path git had to
+# quote keeps its quotes and matches nothing a caller compares it with. That errs toward keeping it.
+function Read-WorktreeStatus {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$IncludeIgnored
+    )
+    $gitArgs = @('-C', $Path, '--no-optional-locks', 'status', '--porcelain', '--untracked-files=all')
+    if ($IncludeIgnored) { $gitArgs += '--ignored=traditional' }
+    $lines = @(& git @gitArgs 2>$null)
+    $out = [pscustomobject]@{ Exit = $LASTEXITCODE; Tracked = @(); Untracked = @(); Ignored = @() }
+    if ($out.Exit -ne 0) { return $out }
+    foreach ($line in $lines) {
+        if (-not $line) { continue }
+        $code = if ($line.Length -gt 3) { $line.Substring(0, 3) } else { '' }
+        # Anything that is not an untracked or ignored entry counts as a tracked change, including a
+        # line this parser does not recognise. Unknown must never read as clean.
+        if ($code -eq '?? ') { $out.Untracked += $line.Substring(3) }
+        elseif ($code -eq '!! ') { $out.Ignored += $line.Substring(3) }
+        else { $out.Tracked += $line }
+    }
+    return $out
 }

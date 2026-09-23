@@ -562,18 +562,23 @@ $idleCut = (Get-Date).AddHours(-1 * $IdleHours)
 # destructive run.
 # FAILS CLOSED: an unreadable status (a moved-away or half-deleted worktree exits 128 with no output)
 # used to be indistinguishable from "no changes" and pointed straight at destruction.
+#
+# The status read is occupancy.ps1's Read-WorktreeStatus, shared with remove.ps1. Until 2026-09-23 this
+# function ran plain `git status --porcelain`, which obeys status.showUntrackedFiles. Set to `no`, it
+# hid every untracked file, this returned Clean, and -Apply deleted them. The shared read overrides the
+# setting. It does not pass -IncludeIgnored: ignored files do not block this script, as the note below
+# says, so it does not pay to list them.
 function Test-WorktreeClean {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         return @{ Clean = $false; Reasons = @('directory is missing (already half-removed? investigate before pruning)') }
     }
-    $status = @(& git -C $Path --no-optional-locks status --porcelain 2>$null)
-    $statusExit = $LASTEXITCODE
-    if ($statusExit -ne 0) {
-        return @{ Clean = $false; Reasons = @("git status failed (exit $statusExit) -- cannot establish it is clean") }
+    $status = Read-WorktreeStatus -Path $Path
+    if ($status.Exit -ne 0) {
+        return @{ Clean = $false; Reasons = @("git status failed (exit $($status.Exit)) -- cannot establish it is clean") }
     }
-    $trackedChanges = @($status | Where-Object { $_ -notmatch '^\?\?' })
-    $untracked = @($status | Where-Object { $_ -match '^\?\?' })
+    $trackedChanges = @($status.Tracked)
+    $untracked = @($status.Untracked)
     $r = @()
     if ($trackedChanges.Count -gt 0) { $r += "dirty: $($trackedChanges.Count) uncommitted tracked change(s)" }
     # Untracked files are the one loss class with no recovery THROUGH GIT: not in the index, not in a
