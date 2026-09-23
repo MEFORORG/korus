@@ -462,6 +462,10 @@ pruner stricter; do not make the two policies agree.
 
 `remove.ps1` also refuses from inside its target worktree and explains that caller error.
 
+Here the two agree. Both refuse a worktree that contains another registered worktree, through the
+same `Get-NestedWorktrees` call. `-Force` does not override it. `remove.ps1` gained the check on
+2026-09-22; see [Worktrees](WORKTREES.md#two-layouts-coexist-and-only-one-has-scripted-teardown).
+
 ## Reference
 
 Remove finished worktrees while preserving unfinished ones.

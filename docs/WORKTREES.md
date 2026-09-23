@@ -428,6 +428,10 @@ delete the branch using `-d`.
 The script refuses if you stand inside the target worktree. Its message explains that location error
 before git attempts removal.
 
+It also refuses a worktree that contains another registered worktree, and names each one. `-Force`
+does not override that. Remove the nested worktrees first. See
+[Two layouts](#two-layouts-coexist-and-only-one-has-scripted-teardown).
+
 Uncommitted tracked changes block removal unless you pass `-Force`. Untracked dependencies, build
 output, and scratch databases do not block it.
 
@@ -513,6 +517,59 @@ Both sibling and nested worktrees were live together in the source project:
 `remove.ps1` never calls it; under `nested`, `remove.ps1 -Name x` removes that named nested
 worktree.
 
+`remove.ps1` refuses a target that contains another registered worktree, under either layout. It
+names each one, exits non-zero, and `-Force` does not override it. It uses the reaper's own check,
+`Get-NestedWorktrees` in `scripts/coord/occupancy.ps1`.
+
+The rule is containment, not path shape. A `.claude/worktrees/x` with nothing inside it is still
+removed, so the `nested` layout keeps its teardown.
+
+The target must be a registered worktree first. `-Name .` and `-Name ..` pass the name pattern,
+and under `nested` they resolve to `.claude/worktrees` and `.claude`, which hold every harness
+worktree. `remove.ps1` refuses both before the nested check runs.
+
+The refusal prints the commands that clear it, deepest first. `git worktree remove` without
+`--force` refuses modified or untracked files but deletes ignored ones. Where a child is ignored
+inside its parent, removing the parent first would delete the child.
+
+A worktree holding changed or untracked files gets no command, only a `git status` pointer. Plain
+`git worktree remove` exits 128 on it, and `--force` is the loss. Nor does a parent whose ignored
+child holds work: the parent reads clean, and removing it takes the child.
+
+That test is only as good as `git status`. A printed command still deletes ignored files, untracked
+files hidden by `status.showUntrackedFiles=no`, and commits on a detached HEAD that no branch holds.
+The refusal says so. Found by the third review round, 2026-09-22, and not fixed.
+
+**The nested row's "only for one you named" was false until 2026-09-22.** `remove.ps1` also deleted
+any registered worktree inside its target, exited 0, and left that worktree registered with no
+directory. This section did not say so.
+
+Measured at `05eb4a7` with git 2.55.0.windows.5, under `sibling`: removing `P-work` also deleted
+`P-work/.claude/worktrees/h`, and `h` stayed registered as prunable. The instrument is
+`tests/test_remove_never_deletes_a_nested_worktree.py`.
+
+The cause is the guard, not ignoring. `remove.ps1` read the parent's `git status` and dropped every
+`??` line, then always passed `--force`. With no ignore rule the parent reads `?? .claude/`, the
+filter drops it, and the loss happens all the same. The test's fixture is that case.
+
+Run it against the old script from an export:
+
+```bash
+git archive 05eb4a7 | tar -x -C <scratch>
+cp tests/test_remove_never_deletes_a_nested_worktree.py <scratch>/tests/
+cd <scratch> && python -m pytest -q tests/test_remove_never_deletes_a_nested_worktree.py
+```
+
+It returns `10 failed, 3 passed, 2 subtests passed`. Every refusal case fails. The two controls pass,
+so the fix does not refuse everything.
+
+The `.` and `..` case fails only in its two `nested` subtests, and only on the missing refusal
+message. At `05eb4a7` that typo already failed safely, with git exit 128. The hazard arrived with the
+first cut of this check.
+
+It sees only worktrees registered to this repository. A checkout of another repository inside the
+target is not in that list, and `remove.ps1` still deletes it.
+
 One helper handles two different requirements:
 
 - A gate protecting the primary must *not* govern a nested worktree. Its path starts with primary,
@@ -528,9 +585,13 @@ Two related path rules also apply:
   `<primary-leaf>-<something>`, and not a harness worktree.
 
   Even then it only *looks* like ours: removal turns on occupancy, cleanliness and merge state.
-- A nested checkout is git-ignored inside its parent. The parent therefore reads perfectly clean,
-  and a `--force` removal of the parent deletes both -- leaving the nested worktree registered with
-  no directory.
+- A nested checkout reads as untracked in its parent, or not at all where ignored. A guard that
+  skips untracked files passes the parent, and a `--force` removal of it deletes both, leaving the
+  nested worktree registered with no directory. Both removal scripts refuse such a parent.
+
+  **That bullet began "A nested checkout is git-ignored inside its parent. The parent therefore reads
+  perfectly clean" until 2026-09-22.** Ignoring is one case, not the cause. Without an ignore rule
+  the parent reads `?? .claude/`, which `remove.ps1`'s guard dropped.
 
 ### A wrong-cwd run must refuse loudly, never green no-op
 

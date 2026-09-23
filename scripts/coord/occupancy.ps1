@@ -64,6 +64,14 @@
     veto its ANCESTOR, whose --force removal deletes the nested tree with it. Get-WorktreeOccupants
     -IncludeNested folds descendants in for that reason, and Get-NestedWorktrees lists them so a caller
     can refuse outright.
+
+    Two callers refuse on Get-NestedWorktrees: prune-merged.ps1, and remove.ps1 since 2026-09-22.
+    remove.ps1 hands it Get-RepoWorktrees alone and reads no session record, so the Available rule
+    above binds prune-merged.ps1 and not it.
+
+    The containment tests below compare ORDINALLY. Both sides are already folded by
+    ConvertTo-CcxComparablePath, and a culture-aware StartsWith can call a path that begins with a
+    combining mark "not inside", which for a destructive caller is a miss.
 #>
 
 # The liveness fence, shared with presence.ps1 and sessions.ps1.
@@ -288,7 +296,7 @@ function Get-WorktreeOccupants {
     return @($Occupancy.Sessions | Where-Object {
             $wt = ConvertTo-Norm $_.WorktreePath
             (Test-OccupancyVeto $_.State) -and
-            ($wt -eq $norm -or ($IncludeNested -and $wt.StartsWith("$norm/")))
+            ($wt -eq $norm -or ($IncludeNested -and $wt.StartsWith("$norm/", [StringComparison]::Ordinal)))
         })
 }
 
@@ -304,7 +312,7 @@ function Get-NestedWorktrees {
     $norm = ConvertTo-Norm $Path
     return @($Occupancy.Worktrees | Where-Object {
             $p = ConvertTo-Norm $_.Path
-            $p -ne $norm -and $p.StartsWith("$norm/")
+            $p -ne $norm -and $p.StartsWith("$norm/", [StringComparison]::Ordinal)
         })
 }
 
@@ -322,6 +330,6 @@ function Get-ContainingWorktrees {
     $norm = ConvertTo-Norm $Path
     return @($Occupancy.Worktrees | Where-Object {
             $p = ConvertTo-Norm $_.Path
-            $p -ne $norm -and $norm.StartsWith("$p/")
+            $p -ne $norm -and $norm.StartsWith("$p/", [StringComparison]::Ordinal)
         })
 }
