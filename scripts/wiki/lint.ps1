@@ -14,11 +14,15 @@
         stale                past its stale_after date, or a gotcha or lesson 46 days old or more
         orphan-page          a page that wiki/index.md does not link and no other page links
         promotion-candidate  a key written by two or more distinct seats, or for memory/* keys the
-                             same summary text: a lesson learned twice
+                             same summary text: a lesson learned twice. An imported event's
+                             writer is its seat and its memory: store, so two stores count twice
 
     A LIVE CANDIDATE is a content event that no event supersedes and no retire withdraws. That is
     the guard's live set plus the events the guard hid only because a newer event on the same key
     exists (its rule 3). Those are exactly the events a conflict is made of.
+
+    A COMMIT OR REF:PATH IS DEAD WHEN IT IS ABSENT FROM EVERY -EvidenceRepo. So pass every
+    repository the evidence can cite: a citation from a repository left off the list reads dead.
 
     EVIDENCE LINT CANNOT CHECK IS COUNTED AS UNCHECKED, never as passing and never as dead: an Owner
     ruling, a `memory:` source, any citation when no -EvidenceRepo is given, and a pull request
@@ -62,6 +66,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Anything that fails without a message of its own -- an unreadable page, an -Out in a directory that
+# does not exist -- is still "could not run", and exits 2 as documented rather than pwsh's 1.
+trap {
+    [Console]::Error.WriteLine("wiki lint: cannot run: $($_.Exception.Message)")
+    exit 2
+}
 . (Join-Path $PSScriptRoot '_event.ps1')
 . (Join-Path $PSScriptRoot '_guard.ps1')
 
@@ -108,9 +118,13 @@ $logEvents = @()
 $skipped = 0
 
 if ([string]::IsNullOrWhiteSpace($StateRoot)) {
+    # The same path Get-CcxStateRoot returns, built without calling it: that function CREATES the
+    # directory when it is absent, and lint writes nothing.
     try {
         . (Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'coord') '_common.ps1')
-        $StateRoot = Get-CcxStateRoot
+        $common = Get-CcxGitCommonDir
+        if (-not $common) { throw 'not inside a git repository' }
+        $StateRoot = Join-Path $common "$((Get-CcxConfig -From $PWD.Path).prefix)-coord"
     } catch {
         $StateRoot = $null
         $inboxNote = "not read: no state root ($($_.Exception.Message))"
@@ -147,7 +161,12 @@ if (-not $StateRoot -and -not $RecordRepo) { Stop-Lint "no state root could be f
 
 if ($Out) {
     $Out = Resolve-WikiDir $Out
-    foreach ($forbidden in @($inboxDir, $eventsRoot)) {
+    # The whole wiki tree on both sides: the inbox, the log, the pages, the index and wiki/log.md.
+    $wikiTrees = @(
+        $(if ($StateRoot) { Join-Path $StateRoot 'wiki' }),
+        $(if ($RecordRepo) { Join-Path $RecordRepo 'wiki' })
+    )
+    foreach ($forbidden in $wikiTrees) {
         if (-not $forbidden) { continue }
         $f = [System.IO.Path]::GetFullPath($forbidden).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
         if ($Out.StartsWith($f, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -209,65 +228,70 @@ foreach ($k in $byKey.Keys) {
     if ($list.Count -lt 2) { continue }
     $ids = @($list | ForEach-Object { [string]$_.id } | Sort-Object)
     $newest = $ids[-1]
-    Add-Finding 'conflict' $k $ids "$($ids.Count) live events on key '$k' and none supersedes another; the guard shows only $newest"
+    Add-Finding 'conflict' $k $ids "$($ids.Count) live events on key '$k' and none supersedes another; a reader sees at most the newest, $newest"
 }
 
 # ------------------------------------------------------------------------------------ 2. dead evidence
 $shaRx = [regex]'\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b'
 $refPathRx = [regex]'(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+):([A-Za-z0-9_-]*[/.][A-Za-z0-9_./-]*[A-Za-z0-9_])'
-$prRx = [regex]'(?i)(?:#|\bPR\s*#?\s*|/pull/)(\d+)'
+# A bare `#N` after a word such as BACKLOG or ADR names a ledger row, not a pull request. Looking it
+# up with -Online would test an unrelated pull request that happens to carry the same number.
+$prRx = [regex]'(?i)(?:(?<!\b(?:backlog|item|items|issue|adr|row|rows)\s*)#|\bPR\s*#?\s*|/pull/)(\d+)'
 $urlRx = [regex]'(?i)\bhttps?://[^\s<>()]+'
 $memoryRx = [regex]'(?i)(?<![A-Za-z0-9_./-])memory:[^\s,;]+'
-$ownerRx = [regex]'(?i)\bowner\b.*\b\d{4}-\d{2}-\d{2}\b'
+# Lazy, so it runs from `owner` to the FIRST date and no further. Greedy, it blanked everything up to
+# the last date, and a commit cited between two dates was never looked up.
+$ownerRx = [regex]'(?i)\bowner\b.*?\b\d{4}-\d{2}-\d{2}\b'
 
 function Get-LintCitation {
     <#
     .SYNOPSIS
         Split one evidence string into citations, each of one kind. A matched span is blanked before
-        the next pattern runs, so a sha inside a ref:path or a URL is not counted twice.
+        the next pattern runs, so a sha inside a ref:path or a URL is not counted twice. The same
+        citation repeated in one string is kept once.
     #>
     param([string] $Evidence)
     $out = [System.Collections.Generic.List[object]]::new()
-    $work = $Evidence
-    foreach ($m in @($memoryRx.Matches($work))) {
-        $out.Add(@{ Kind = 'memory'; Text = $m.Value })
-        $work = $work.Remove($m.Index, $m.Length).Insert($m.Index, (' ' * $m.Length))
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $state = @{ Work = $Evidence }
+    $take = {
+        param($m, [hashtable] $Citation)
+        $state.Work = $state.Work.Remove($m.Index, $m.Length).Insert($m.Index, (' ' * $m.Length))
+        if ($seen.Add("$($Citation.Kind)|$($Citation.Text)")) { $out.Add($Citation) }
     }
 
-    foreach ($m in @($urlRx.Matches($work))) {
+    foreach ($m in @($memoryRx.Matches($state.Work))) { & $take $m @{ Kind = 'memory'; Text = $m.Value } }
+    foreach ($m in @($urlRx.Matches($state.Work))) {
         $u = $m.Value.TrimEnd('.', ',', ';')
-        if ($u -match '(?i)github\.com/[^/\s]+/[^/\s]+/pull/(\d+)') { $out.Add(@{ Kind = 'pr'; Text = $u; Number = $Matches[1]; Url = $u }) }
-        elseif ($u -match '(?i)/commit/([0-9a-f]{7,40})\b') { $out.Add(@{ Kind = 'commit'; Text = $Matches[1].ToLowerInvariant() }) }
-        else { $out.Add(@{ Kind = 'url'; Text = $u }) }
-        $work = $work.Remove($m.Index, $m.Length).Insert($m.Index, (' ' * $m.Length))
+        if ($u -match '(?i)github\.com/[^/\s]+/[^/\s]+/pull/(\d+)') { & $take $m @{ Kind = 'pr'; Text = $u; Number = $Matches[1]; Url = $u } }
+        elseif ($u -match '(?i)/commit/([0-9a-f]{7,40})\b') { & $take $m @{ Kind = 'commit'; Text = $Matches[1].ToLowerInvariant() } }
+        else { & $take $m @{ Kind = 'url'; Text = $u } }
     }
-    foreach ($m in @($refPathRx.Matches($work))) {
-        $out.Add(@{ Kind = 'refpath'; Text = $m.Value; Ref = $m.Groups[1].Value; Path = $m.Groups[2].Value })
-        $work = $work.Remove($m.Index, $m.Length).Insert($m.Index, (' ' * $m.Length))
+    foreach ($m in @($refPathRx.Matches($state.Work))) {
+        & $take $m @{ Kind = 'refpath'; Text = $m.Value; Ref = $m.Groups[1].Value; Path = $m.Groups[2].Value }
     }
-    foreach ($m in @($prRx.Matches($work))) {
-        $out.Add(@{ Kind = 'pr'; Text = $m.Value.Trim(); Number = $m.Groups[1].Value; Url = $null })
-        $work = $work.Remove($m.Index, $m.Length).Insert($m.Index, (' ' * $m.Length))
-    }
-    # An Owner ruling's date is taken BEFORE the sha pattern runs, so a date is never read as a sha.
-    $om = $ownerRx.Match($work)
-    if ($om.Success) {
-        $out.Add(@{ Kind = 'owner'; Text = $om.Value })
-        $work = $work.Remove($om.Index, $om.Length).Insert($om.Index, (' ' * $om.Length))
-    }
-    foreach ($m in @($shaRx.Matches($work))) {
+    foreach ($m in @($prRx.Matches($state.Work))) { & $take $m @{ Kind = 'pr'; Text = $m.Value.Trim(); Number = $m.Groups[1].Value; Url = $null } }
+    # An Owner ruling is taken BEFORE the sha pattern runs, so its date is never read as a sha.
+    foreach ($m in @($ownerRx.Matches($state.Work))) { & $take $m @{ Kind = 'owner'; Text = $m.Value } }
+    foreach ($m in @($shaRx.Matches($state.Work))) {
         $v = $m.Value
         # An all-digit yyyyMMdd reads as a date as readily as a sha, so it is not called dead.
         $d = [datetime]::MinValue
         if ($v -match '^\d{8}$' -and [datetime]::TryParseExact($v, 'yyyyMMdd', [cultureinfo]::InvariantCulture,
                 [System.Globalization.DateTimeStyles]::None, [ref]$d) -and $d.Year -ge 1990 -and $d.Year -le 2100) {
-            $out.Add(@{ Kind = 'ambiguous'; Text = $v })
+            & $take $m @{ Kind = 'ambiguous'; Text = $v }
         } else {
-            $out.Add(@{ Kind = 'commit'; Text = $v })
+            & $take $m @{ Kind = 'commit'; Text = $v }
         }
     }
     if ($out.Count -eq 0) { $out.Add(@{ Kind = 'unrecognised'; Text = $Evidence }) }
     return , $out
+}
+
+function Test-LeavesRepo {
+    <# A ref:path whose path climbs out of the repository or is absolute. git refuses it outright. #>
+    param([string] $Path)
+    return ($Path.StartsWith('/') -or @($Path -split '/') -contains '..')
 }
 
 # Every citation of every candidate, parsed once.
@@ -279,37 +303,56 @@ foreach ($e in $candidates) {
     }
 }
 
-# One `git cat-file --batch-check` per repository, answering every commit and ref:path at once.
-function Invoke-BatchCheck {
-    param([string] $Repo, [string[]] $Lines)
-    $result = @{}
-    if ($Lines.Count -eq 0) { return $result }
-    $answer = @($Lines | & git -C $Repo cat-file --batch-check 2>$null)
-    for ($i = 0; $i -lt $Lines.Count; $i++) {
-        $a = if ($i -lt $answer.Count) { [string]$answer[$i] } else { '' }
-        # Found: "<oid> <type> <size>". Not found: "<input> missing". Ambiguous short sha:
-        # "<input> ambiguous", which still proves the object exists.
-        $result[$Lines[$i]] = -not ($a.EndsWith(' missing') -or $a -eq '')
-    }
-    return $result
+function Test-GitObject {
+    <# One object name, one git process. $true when it exists, or is an ambiguous short sha. #>
+    param([string] $Repo, [string] $Line)
+    $said = & git -C $Repo cat-file -t $Line 2>&1
+    if ($LASTEXITCODE -eq 0) { return $true }
+    return (($said | Out-String) -match '(?i)ambiguous')
 }
 
-$found = @{}   # line -> $true when it resolved in at least one repository
+function Invoke-BatchCheck {
+    <#
+    .SYNOPSIS
+        Which object names exist in one repository. One `git cat-file --batch-check` answers them
+        all; if git dies partway, or returns a different number of lines than it was given, every
+        name is asked again, ONE PROCESS EACH. A fatal on one line must not read as "missing" for
+        every line after it -- that reported real commits dead.
+    #>
+    param([string] $Repo, [string[]] $Lines)
+    $result = [System.Collections.Generic.Dictionary[string, bool]]::new([System.StringComparer]::Ordinal)
+    if ($Lines.Count -eq 0) { return , $result }
+    $answer = @($Lines | & git -C $Repo cat-file --batch-check 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $answer.Count -eq $Lines.Count) {
+        for ($i = 0; $i -lt $Lines.Count; $i++) {
+            # Found: "<oid> <type> <size>". Not found: "<input> missing". An ambiguous short sha,
+            # "<input> ambiguous", still proves the object exists.
+            $result[$Lines[$i]] = -not ([string]$answer[$i]).EndsWith(' missing')
+        }
+        return , $result
+    }
+    foreach ($l in $Lines) { $result[$l] = Test-GitObject -Repo $Repo -Line $l }
+    return , $result
+}
+
+# line -> $true when it resolved in at least one repository. Ordinal: git names are case-sensitive.
+$found = [System.Collections.Generic.Dictionary[string, bool]]::new([System.StringComparer]::Ordinal)
 if ($repos.Count -gt 0) {
-    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($c in $cites) {
-        if ($c.Kind -eq 'commit') { $lines.Add("$($c.Text)^{commit}") }
-        elseif ($c.Kind -eq 'refpath' -and $c.Ref -notmatch '^(?i)(memory|https?)$') {
-            $lines.Add("$($c.Ref)^{commit}"); $lines.Add("$($c.Ref):$($c.Path)")
+        if ($c.Kind -eq 'commit') { [void]$lines.Add("$($c.Text)^{commit}") }
+        elseif ($c.Kind -eq 'refpath' -and -not (Test-LeavesRepo $c.Path)) {
+            [void]$lines.Add("$($c.Ref)^{commit}"); [void]$lines.Add("$($c.Ref):$($c.Path)")
         }
     }
-    $unique = @($lines | Sort-Object -Unique)
+    $unique = [string[]]@($lines)
     foreach ($l in $unique) { $found[$l] = $false }
     foreach ($repo in $repos) {
         $ans = Invoke-BatchCheck -Repo $repo -Lines $unique
         foreach ($l in $unique) { if ($ans[$l]) { $found[$l] = $true } }
     }
 }
+function Test-Found { param([string] $Line) return ($found.ContainsKey($Line) -and $found[$Line]) }
 
 $ghReady = $false
 $onlineNote = 'off'
@@ -350,15 +393,16 @@ foreach ($c in $cites) {
         'unrecognised' { Add-Unchecked 'no citation lint can parse'; continue }
         'commit' {
             if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
-            if ($found["$($c.Text)^{commit}"]) { $evResolved++; continue }
+            if (Test-Found "$($c.Text)^{commit}") { $evResolved++; continue }
             $dead = "commit $($c.Text) resolves in none of $($repos.Count) evidence repo(s)"
         }
         'refpath' {
-            if ($c.Ref -match '^(?i)(memory|https?)$') { Add-Unchecked 'memory: source'; continue }
             if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
-            if ($found["$($c.Ref):$($c.Path)"]) { $evResolved++; continue }
-            if ($found["$($c.Ref)^{commit}"]) { $dead = "path '$($c.Path)' does not exist at '$($c.Ref)' in any evidence repo" }
-            elseif ($shaRx.IsMatch($c.Ref) -and $shaRx.Match($c.Ref).Value -ceq $c.Ref) {
+            if (Test-LeavesRepo $c.Path) { Add-Unchecked 'a path that leaves the repository'; continue }
+            if (Test-Found "$($c.Ref):$($c.Path)") { $evResolved++; continue }
+            if (Test-Found "$($c.Ref)^{commit}") {
+                $dead = "path '$($c.Path)' is not at '$($c.Ref)' in any of $($repos.Count) evidence repo(s) where that ref resolves"
+            } elseif ($shaRx.Match($c.Ref).Value -ceq $c.Ref) {
                 $dead = "commit $($c.Ref) resolves in none of $($repos.Count) evidence repo(s)"
             } else { Add-Unchecked 'a ref that resolves in no evidence repo'; continue }
         }
@@ -469,9 +513,20 @@ foreach ($e in $labelled) {
     if (-not $promoKey.Contains($k)) { $promoKey[$k] = [System.Collections.Generic.List[object]]::new() }
     $promoKey[$k].Add($e)
 }
+function Get-Writer {
+    <#
+    An imported note is written by whichever seat ran the import, so its seat says nothing about
+    who learned it. Its `memory:<store>/` evidence does: two stores are two accounts. So an imported
+    event's writer is its seat AND its store, and one importer reading two stores is two writers.
+    #>
+    param($Item)
+    $m = [regex]::Match([string]$Item.evidence, '(?i)(?<![A-Za-z0-9_./-])memory:([^/\s,;]+)/')
+    if ($m.Success) { return "$([string]$Item.seat) (memory:$($m.Groups[1].Value))" }
+    return [string]$Item.seat
+}
 function Add-Promotion {
     param([string] $Id, $Events, [string] $What)
-    $seats = @($Events | ForEach-Object { [string]$_.seat } | Sort-Object -Unique)
+    $seats = @($Events | ForEach-Object { Get-Writer $_ } | Sort-Object -Unique -CaseSensitive)
     if ($seats.Count -lt 2) { return }
     $ids = @($Events | ForEach-Object { [string]$_.id } | Sort-Object)
     Add-Finding 'promotion-candidate' $Id $ids "$What written by $($seats.Count) seats: $($seats -join ', ')" @{ seats = $seats }
