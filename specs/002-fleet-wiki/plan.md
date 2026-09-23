@@ -8,7 +8,7 @@
 
 Build one memory that every seat on every account can search, in six pull requests. The first
 two deliver the P1 stories: write, guard, query, compile and the rebuild test. The rest add the
-playbook, the one-time import, lint and optional viewers.
+playbook, the weekly import, lint and optional viewers.
 
 The method and scripts land in this repository. The content lands in the adopter's private record
 repository, which is `MessageFoundry-vault` on the reference fleet.
@@ -48,8 +48,7 @@ for a few hundred pages.
 | XII. The shared write surface binds | One file per event, and one writer (compile) for pages. |
 | XIII. Work goes through Claude Code | Compile and lint run as Claude Code jobs, never as API calls. |
 
-No violation needs justifying. Open question 1 in the spec, who runs compile and lint, has to be
-answered before PR 2 merges.
+No violation needs justifying. Both Owner questions were answered 2026-09-23; the spec records them.
 
 ## Project Structure
 
@@ -67,7 +66,7 @@ scripts/wiki/
   write.ps1               the only write path (PR 1)
   query.ps1               search pages, index and inbox (PR 1)
   compile.ps1             inbox to log to pages to index (PR 2)
-  import.ps1              one-time ingest of Owner-listed stores (PR 4)
+  import.ps1              weekly ingest of Owner-listed stores (PR 4)
   lint.ps1                report-only health check (PR 5)
 
 tests/
@@ -124,7 +123,8 @@ has merged.
 4. Control for that test: run the same rebuild with the guard switched off. A MUST appear, or the
    test is not measuring anything.
 5. Test two live events on one key: newer wins, and a conflict is recorded for lint.
-6. Record in the pull request who runs compile, per the Owner's answer to open question 1.
+6. Wire compile as a scheduled Claude Code job (Owner ruling 2026-09-23). It opens pull requests
+   and never merges; the Lander lands them.
 
 ### PR 3 - The schema playbook (all stories)
 
@@ -143,8 +143,10 @@ has merged.
 3. Where two stores hold one name with the same text, keep one and write a merge event. Where the
    text differs, keep both and leave the pair for lint.
 4. Test with two small planted stores. Control: a third store not on the list MUST NOT be read.
-5. The Owner supplies the list and runs the import once. The pull request records the counts it
-   printed and the command that printed them.
+5. The Owner supplies the list. The import runs weekly on the compile schedule (Owner ruling
+   2026-09-23), so re-running over an unchanged store MUST add nothing. Test that with a control.
+6. A note changed since the last run adds a new event on the same key, superseding the old one.
+7. The first pull request records the counts it printed and the command that printed them.
 
 ### PR 5 - Lint and promotion (Story 5, P2)
 
@@ -164,7 +166,6 @@ has merged.
 
 ## What would stop this plan
 
-- **No answer to open question 1.** PR 1 can land, because it needs no compile. PR 2 cannot.
 - **The leak scan cannot read a JSON event.** Then PR 1 adds a thin adapter and says so.
 - **The import finds far more conflicts than expected.** Then PR 4 lands the import and a lint
   pass is run by hand before PR 5.
