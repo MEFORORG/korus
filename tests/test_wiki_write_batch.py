@@ -175,6 +175,19 @@ class ABatchRefusesWhatASingleWriteCannotCarry(_BatchCase):
         self.assertEqual([], self.inbox())
 
 
+class AMemoryNoteIsEvidence(_BatchCase):
+    def test_a_memory_citation_with_a_tilde_label_is_accepted_and_a_bare_one_is_not(self):
+        """The import cites `memory:<root>/~-<project>/<file>.md`. The ref:path shape refused the `~`."""
+        good = dict(GOOD, evidence="memory:.claude-account-3/~-Code-Thing/a note.md")
+        # CONTROLS: a memory citation naming no file, and one naming no store, must still be refused.
+        bare = dict(GOOD, evidence="memory:~")
+        storeless = dict(GOOD, evidence="memory: see the note")
+        r, res = self.batch([good, bare, storeless])
+        self.assertEqual(["written", "refused", "refused"], [x["status"] for x in res])
+        for x in res[1:]:
+            self.assertIn("evidence names no commit", x["reason"])
+
+
 class CheckOnlyWritesNothing(_BatchCase):
     def test_it_reports_what_a_write_would_do_and_touches_no_state(self):
         events = [GOOD, dict(GOOD, key="check/two", body=f"token {forge_token()}")]

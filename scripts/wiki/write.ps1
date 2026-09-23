@@ -39,7 +39,12 @@
 
     One event refused does not stop the others. Stdout is a JSON array with one entry per input, in
     input order: `{ index, status, id, code, reason }`. Status is `written`, `passed` (with
-    -CheckOnly) or `refused`. The exit code is the worst code of any entry.
+    -CheckOnly), `refused` (code 1, the event itself was wrong) or `failed` (code 2, it passed
+    every check and the file could not be written). The exit code is the worst code of any entry.
+
+    SO A BATCH EXIT 2 MEANS ONE OF TWO THINGS, AND STDOUT SAYS WHICH. With the JSON array, the batch
+    ran and each entry says what happened to its event; some may be written. With nothing on
+    stdout, the batch stopped before writing anything.
 
     -CheckOnly, with -FromJson only, runs every check and writes nothing. Its scan files go to the
     system temp directory, so the state root is not touched.
@@ -48,8 +53,8 @@
         0  written; the event id is the only thing on stdout (batch: every event written or passed)
         1  refused: a field is missing or malformed, or the leak scan fired (batch: at least one)
         2  could not run: no inbox, no python for the leak scan, or the scan itself failed. In batch
-           mode also an unreadable -FromJson file, or -FromJson mixed with single-event parameters.
-           When a batch could not run, nothing was written.
+           mode also an unreadable -FromJson file, -FromJson mixed with single-event parameters, or
+           no seat. When a batch could not run, stdout is empty and nothing was written.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/write.ps1 -Type gotcha -Key git/show/dotpath-msys `
@@ -156,7 +161,7 @@ function Set-Refused {
 }
 # In single mode the first refusal ends the run, exactly as it did before batch mode existed.
 function Stop-IfSingleRefused {
-    if (-not $batch -and $results[0] -and $results[0].status -ceq 'refused') { Stop-Write $results[0].code $results[0].reason }
+    if (-not $batch -and $results[0] -and $results[0].status -cin @('refused', 'failed')) { Stop-Write $results[0].code $results[0].reason }
 }
 
 # ------------------------------------------------------------------------------------ required
@@ -195,7 +200,8 @@ if ([string]::IsNullOrWhiteSpace($Seat)) {
     if ($marker) { $Seat = ([System.IO.File]::ReadAllText($marker)).Trim() }
     if ([string]::IsNullOrWhiteSpace($Seat)) { $Seat = $env:KORUS_SEAT }
     if ([string]::IsNullOrWhiteSpace($Seat)) {
-        Stop-Write 1 ("no -Seat given, no .claude/seat.local.txt in this checkout, and no KORUS_SEAT. " +
+        # In a batch this is the whole run failing, not one event refused, so it is exit 2 there.
+        Stop-Write $(if ($batch) { 2 } else { 1 }) ("no -Seat given, no .claude/seat.local.txt in this checkout, and no KORUS_SEAT. " +
             "Declare with scripts/coord/seat.ps1 -Declare, or pass -Seat.")
     }
 }
@@ -263,10 +269,9 @@ if (-not (Test-Path -LiteralPath $StateRoot -PathType Container)) {
 }
 $inbox = Get-WikiInboxDir -StateRoot $StateRoot
 if ($CheckOnly) {
-    # A check creates nothing under the state root.
-    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ('wiki-check-' + [guid]::NewGuid().ToString('N'))
-    try { New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null }
-    catch { Stop-Write 2 "could not create a scratch directory for the leak scan: $($_.Exception.Message)" }
+    # A check creates nothing under the state root. Its scratch directory is made just before the
+    # scan, after every check that can stop the run, so no early exit leaves it behind.
+    $tmpDir = $null
 } else {
     $tmpDir = Get-WikiTmpDir -StateRoot $StateRoot
     try {
@@ -289,6 +294,11 @@ foreach ($name in @('python', 'python3')) {
     if ($cmd) { $python = $cmd.Source; break }
 }
 if (-not $python) { Stop-Write 2 "no python on PATH to run the leak scan, so nothing is written." }
+if ($CheckOnly) {
+    $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ('wiki-check-' + [guid]::NewGuid().ToString('N'))
+    try { New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null }
+    catch { Stop-Write 2 "could not create a scratch directory for the leak scan: $($_.Exception.Message)" }
+}
 
 function Get-ScanText {
     <#
@@ -335,6 +345,9 @@ for ($c = 0; $c -lt $pending.Count; $c += $chunkSize) {
     try {
         foreach ($i in $pending[$c..$last]) {
             $scanName = ".$($records[$i].id).scan.txt"
+            # Two events with one id would share a scan file, and the second would overwrite the
+            # first, leaving it unscanned. Fail closed rather than write an event nobody scanned.
+            if ($names.Contains($scanName)) { throw "two events were minted the same id '$($records[$i].id)'" }
             $names[$scanName] = $i
             [System.IO.File]::WriteAllText((Join-Path $tmpDir $scanName), (Get-ScanText $records[$i]), [System.Text.UTF8Encoding]::new($false))
         }
@@ -421,6 +434,7 @@ for ($i = 0; $i -lt $inputs.Count; $i++) {
     } catch {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
         Set-Refused $i 2 "could not write '$final': $($_.Exception.Message)"
+        $results[$i].status = 'failed'
     }
 }
 Stop-IfSingleRefused

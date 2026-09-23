@@ -65,11 +65,16 @@ $script:WikiLimits = @{ key = 200; summary = 400; evidence = 500; body = 20000; 
 # path needs `/` or `.` so a clock time (`14:05`) is not a ref:path. A sha may be all digits --
 # `9379109` is a real one in this repository -- so an eight-digit date also passes as one; refusing
 # it would refuse a real citation, and that is the worse error for this check.
+#
+# The fifth shape is the note a memory store holds, as `import.ps1` cites it. The ref:path shape
+# passed most of those by accident and refused a store label holding `~`, which the home directory
+# becomes in a project folder's name.
 $script:WikiEvidencePatterns = @(
     '\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b',                  # a commit sha, at least one digit
     '(?i)(#|\bPR\s*#?\s*|/pull/)\d+',                          # a pull request
     '[A-Za-z0-9_./-]+:[A-Za-z0-9_-]*[/.][A-Za-z0-9_./-]*[A-Za-z0-9_]',  # ref:path, the path has / or .
-    '(?i)\bowner\b.*\b\d{4}-\d{2}-\d{2}\b'               # an Owner ruling with its date
+    '(?i)\bowner\b.*\b\d{4}-\d{2}-\d{2}\b',              # an Owner ruling with its date
+    '\bmemory:[^\s/]+/.*[^/\s]\.md\b'                    # a memory note: memory:<store label>/<file>.md
 )
 
 $script:WikiStopwords = [System.Collections.Generic.HashSet[string]]::new(
