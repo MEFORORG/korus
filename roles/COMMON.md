@@ -576,6 +576,14 @@ a relayed LIFT. The reconciliation it carries answers a different rule. Route it
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds
 none. Adding one is an owner decision, not a splitter's.
 
+## Query the fleet wiki before you act, write after
+
+Before you act on a fact you remember or were told, query the fleet wiki for its subject. After a
+decision, a fix, a lesson or a correction, write one event. Cite the event id when you act on a note.
+
+[WIKI.md](WIKI.md) is the schema and owns the reading rules. `fleet-use-the-wiki` carries the
+commands.
+
 ## Task rules live in skills, loaded at their trigger
 
 Split out on 2026-09-05. Each loads when its trigger fires. Load one deliberately if it does not load
@@ -593,5 +601,6 @@ itself: a skill no trigger matches is silent, and nothing reports that.
 | You are writing a report, handoff or episode note | `fleet-write-a-report-or-handoff` |
 | You are about to read, edit or cite a file under `roles/` | `fleet-edit-a-playbook` |
 | You are about to spawn workers or create a Workflow | `fleet-spawn-workers` |
+| You are about to act on a remembered fact, or have just decided, fixed, learned or corrected something | `fleet-use-the-wiki` |
 
 Sections belonging to one seat, or firing never, moved to [COMMON-STAGED.md](COMMON-STAGED.md), pending a destination.
