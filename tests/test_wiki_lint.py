@@ -215,7 +215,11 @@ class LintChangesNothing(_LintCase):
         self.log(2, key="a/one")
         r = w.run(self.pwsh, LINT, "-RecordRepo", str(self.vault), "-Json", cwd=clone)
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertEqual(1, json.loads(r.stdout)["inputs"]["events"])
+        inputs = json.loads(r.stdout)["inputs"]
+        self.assertEqual(1, inputs["events"])
+        # The inbox it looked in is the one Get-CcxStateRoot would name, so the path was resolved
+        # rather than skipped.
+        self.assertTrue(Path(inputs["inbox"]).as_posix().lower().endswith("clone/.git/ccx-coord/wiki/inbox"), inputs)
         self.assertFalse((clone / ".git" / "ccx-coord").exists(), "a report-only run created the state root")
 
     def test_an_out_in_a_missing_directory_exits_2(self):
@@ -291,6 +295,17 @@ class Evidence(_LintCase):
         doc = self.lint_json()
         self.assertEqual((2, 0, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
 
+    def test_a_missing_sha_before_a_path_that_leaves_the_repo_is_still_dead(self):
+        e = self.log(2, key="l/gone", evidence=f"{MISSING_SHA}:../other/x.md")
+        doc = self.lint_json()
+        self.assertEqual([[e["id"]]], [f["events"] for f in doc["findings"]])
+
+    def test_a_commit_between_owner_and_the_date_is_still_looked_up(self):
+        e = self.log(2, key="o/one", evidence=f"owner cited {MISSING_SHA} in the 2026-09-20 ruling")
+        doc = self.lint_json()
+        self.assertEqual([f"dead-evidence:{e['id']}:{MISSING_SHA}"], [f["id"] for f in doc["findings"]])
+        self.assertEqual(1, doc["evidence"]["unchecked"])
+
     def test_a_commit_between_two_owner_dates_is_still_looked_up(self):
         e = self.log(2, key="o/two", evidence=f"Owner ruling 2026-09-20, see {MISSING_SHA}, amended 2026-09-21")
         doc = self.lint_json()
@@ -319,7 +334,7 @@ class Online(_LintCase):
         self.asked = self.root / "asked.txt"
         # gh is called as `gh pr view <n> --json state --jq .state`, so the number is argument 3.
         (shim / "gh.cmd").write_text(
-            f'@echo %3>>"{self.asked}"\n@if "%3"=="13" (echo CLOSED) else (echo MERGED)\n', encoding="ascii")
+            f'@>>"{self.asked}" echo %3\n@if "%3"=="13" (echo CLOSED) else (echo MERGED)\n', encoding="ascii")
         posix = shim / "gh"
         posix.write_text(
             f'#!/bin/sh\necho "$3" >> "{self.asked}"\nif [ "$3" = "13" ]; then echo CLOSED; else echo MERGED; fi\n',
@@ -342,10 +357,16 @@ class Online(_LintCase):
         self.assertEqual((1, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"]))
 
     def test_a_backlog_number_is_not_looked_up_as_a_pr(self):
-        self.log(2, key="pr/backlog", evidence="vault BACKLOG #13, see " + self.sha)
+        self.log(2, key="pr/backlog", evidence="vault BACKLOG #1250, #13, see " + self.sha)
+        # CONTROL in the same run: a real pull request citation, so gh demonstrably ran.
+        self.log(2, key="pr/real", evidence="PR #14")
         doc = self.lint_online()
+        self.assertEqual("on", doc["inputs"]["online"])
+        asked = self.asked.read_text().split()
+        self.assertIn("14", asked, "gh was never asked, so the absence below would measure nothing")
+        self.assertNotIn("13", asked, "a number in a BACKLOG run was asked of gh as a pull request")
+        self.assertNotIn("1250", asked)
         self.assertEqual(0, doc["evidence"]["dead"])
-        self.assertFalse(self.asked.exists() and "13" in self.asked.read_text(), "BACKLOG #13 was asked of gh")
 
 
 class Staleness(_LintCase):
@@ -403,6 +424,11 @@ class Promotion(_LintCase):
         self.log(3, key="memory/quote-paths", seat="builder", evidence="memory:acct-1/q.md", summary="Quote the Windows path")
         self.log(3, key="memory/windows-paths", seat="builder", evidence="memory:acct-2/w.md", summary="Quote the Windows path")
         self.assertEqual(1, self.lint_json()["totals"]["promotion-candidate"])
+
+    def test_one_seat_that_imports_then_supersedes_is_not_a_candidate(self):
+        a = self.log(4, key="memory/quote-paths", seat="builder", evidence="memory:acct-1/q.md", summary="Quote paths")
+        self.log(3, key="memory/quote-paths", seat="builder", summary="Quote paths, always", supersedes=[a["id"]])
+        self.assertEqual(0, self.lint_json()["totals"]["promotion-candidate"])
 
     def test_one_seat_twice_is_not_a_candidate(self):
         a = self.log(5, key="lesson/once", seat="builder")

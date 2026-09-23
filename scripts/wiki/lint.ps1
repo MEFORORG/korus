@@ -14,8 +14,8 @@
         stale                past its stale_after date, or a gotcha or lesson 46 days old or more
         orphan-page          a page that wiki/index.md does not link and no other page links
         promotion-candidate  a key written by two or more distinct seats, or for memory/* keys the
-                             same summary text: a lesson learned twice. An imported event's
-                             writer is its seat and its memory: store, so two stores count twice
+                             same summary text: a lesson learned twice. Two memory: stores count
+                             as two learners too, since one importer seat reads every store
 
     A LIVE CANDIDATE is a content event that no event supersedes and no retire withdraws. That is
     the guard's live set plus the events the guard hid only because a newer event on the same key
@@ -33,13 +33,14 @@
     Code job's work, and it opens that pull request as a DRAFT that only the Owner decides (FR-022).
 
     IT WRITES NOTHING UNDER THE STATE ROOT OR THE RECORD REPOSITORY. No inbox file, no event, no
-    page, no line in wiki/log.md. The only file it may write is -Out, and it refuses an -Out inside
-    the inbox or the event log.
+    page, no line in wiki/log.md. The only file it may write is -Out, and it refuses an -Out
+    anywhere under <StateRoot>/wiki or <RecordRepo>/wiki.
 
     Exit codes:
         0  the report was produced, whether or not it holds findings
-        2  it could not run: a bad argument, a store that does not exist, or an evidence repository
-           that is not a git repository. A parameter pwsh itself cannot bind exits 1 first.
+        2  it could not run: a bad argument, a store that does not exist, an evidence repository
+           that is not a git repository, or any unexpected failure (a trap turns it into 2). A
+           parameter pwsh itself cannot bind exits 1 before the script starts.
 
 .PARAMETER EvidenceRepo
     Git repositories in which to resolve commits and ref:paths, e.g. the engine and korus clones.
@@ -234,13 +235,15 @@ foreach ($k in $byKey.Keys) {
 # ------------------------------------------------------------------------------------ 2. dead evidence
 $shaRx = [regex]'\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b'
 $refPathRx = [regex]'(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+):([A-Za-z0-9_-]*[/.][A-Za-z0-9_./-]*[A-Za-z0-9_])'
-# A bare `#N` after a word such as BACKLOG or ADR names a ledger row, not a pull request. Looking it
-# up with -Online would test an unrelated pull request that happens to carry the same number.
-$prRx = [regex]'(?i)(?:(?<!\b(?:backlog|item|items|issue|adr|row|rows)\s*)#|\bPR\s*#?\s*|/pull/)(\d+)'
+# A `#N` after a word such as BACKLOG or ADR names a ledger row, not a pull request, and so does
+# every number in the run that follows it: `BACKLOG #1250, #1754`, `items #1089-#1093`. Looked up
+# with -Online, each would test an unrelated pull request that happens to carry the same number.
+$ledgerRx = [regex]'(?i)\b(?:backlog|items?|issues?|adrs?|rows?)\b(?:[\s,*/&-]|\band\b|#\d+|\b\d+\b)*'
+$prRx = [regex]'(?i)(?:#|\bPR\s*#?\s*|/pull/)(\d+)'
 $urlRx = [regex]'(?i)\bhttps?://[^\s<>()]+'
 $memoryRx = [regex]'(?i)(?<![A-Za-z0-9_./-])memory:[^\s,;]+'
-# Lazy, so it runs from `owner` to the FIRST date and no further. Greedy, it blanked everything up to
-# the last date, and a commit cited between two dates was never looked up.
+# An Owner ruling is RECORDED and never blanked. Its date carries hyphens, so the sha pattern cannot
+# read it as a commit, and blanking the span hid every commit cited between `owner` and the date.
 $ownerRx = [regex]'(?i)\bowner\b.*?\b\d{4}-\d{2}-\d{2}\b'
 
 function Get-LintCitation {
@@ -270,9 +273,13 @@ function Get-LintCitation {
     foreach ($m in @($refPathRx.Matches($state.Work))) {
         & $take $m @{ Kind = 'refpath'; Text = $m.Value; Ref = $m.Groups[1].Value; Path = $m.Groups[2].Value }
     }
+    foreach ($m in @($ledgerRx.Matches($state.Work))) {
+        if ($m.Value -match '\d') { & $take $m @{ Kind = 'ledger'; Text = $m.Value.Trim(' ', ',', '*', '/', '&', '-') } }
+    }
     foreach ($m in @($prRx.Matches($state.Work))) { & $take $m @{ Kind = 'pr'; Text = $m.Value.Trim(); Number = $m.Groups[1].Value; Url = $null } }
-    # An Owner ruling is taken BEFORE the sha pattern runs, so its date is never read as a sha.
-    foreach ($m in @($ownerRx.Matches($state.Work))) { & $take $m @{ Kind = 'owner'; Text = $m.Value } }
+    foreach ($m in @($ownerRx.Matches($state.Work))) {
+        if ($seen.Add("owner|$($m.Value)")) { $out.Add(@{ Kind = 'owner'; Text = $m.Value }) }
+    }
     foreach ($m in @($shaRx.Matches($state.Work))) {
         $v = $m.Value
         # An all-digit yyyyMMdd reads as a date as readily as a sha, so it is not called dead.
@@ -306,7 +313,10 @@ foreach ($e in $candidates) {
 function Test-GitObject {
     <# One object name, one git process. $true when it exists, or is an ambiguous short sha. #>
     param([string] $Repo, [string] $Line)
-    $said = & git -C $Repo cat-file -t $Line 2>&1
+    # The word `ambiguous` below is git's English message; a translated git would hide it.
+    $saved = $env:LC_ALL
+    $env:LC_ALL = 'C'
+    try { $said = & git -C $Repo cat-file -t $Line 2>&1 } finally { $env:LC_ALL = $saved }
     if ($LASTEXITCODE -eq 0) { return $true }
     return (($said | Out-String) -match '(?i)ambiguous')
 }
@@ -341,8 +351,9 @@ if ($repos.Count -gt 0) {
     $lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($c in $cites) {
         if ($c.Kind -eq 'commit') { [void]$lines.Add("$($c.Text)^{commit}") }
-        elseif ($c.Kind -eq 'refpath' -and -not (Test-LeavesRepo $c.Path)) {
-            [void]$lines.Add("$($c.Ref)^{commit}"); [void]$lines.Add("$($c.Ref):$($c.Path)")
+        elseif ($c.Kind -eq 'refpath') {
+            [void]$lines.Add("$($c.Ref)^{commit}")
+            if (-not (Test-LeavesRepo $c.Path)) { [void]$lines.Add("$($c.Ref):$($c.Path)") }
         }
     }
     $unique = [string[]]@($lines)
@@ -390,6 +401,7 @@ foreach ($c in $cites) {
         'owner' { Add-Unchecked 'Owner ruling'; continue }
         'url' { Add-Unchecked 'URL that names no pull request or commit'; continue }
         'ambiguous' { Add-Unchecked 'eight digits that read as a date as well as a commit'; continue }
+        'ledger' { Add-Unchecked 'a ledger or ADR number, not a pull request'; continue }
         'unrecognised' { Add-Unchecked 'no citation lint can parse'; continue }
         'commit' {
             if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
@@ -398,9 +410,14 @@ foreach ($c in $cites) {
         }
         'refpath' {
             if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
-            if (Test-LeavesRepo $c.Path) { Add-Unchecked 'a path that leaves the repository'; continue }
-            if (Test-Found "$($c.Ref):$($c.Path)") { $evResolved++; continue }
-            if (Test-Found "$($c.Ref)^{commit}") {
+            if (Test-LeavesRepo $c.Path) {
+                # The path cannot be asked, but a sha ref can: a missing commit is dead either way.
+                if ($shaRx.Match($c.Ref).Value -ceq $c.Ref -and -not (Test-Found "$($c.Ref)^{commit}")) {
+                    $dead = "commit $($c.Ref) resolves in none of $($repos.Count) evidence repo(s)"
+                } else { Add-Unchecked 'a path that leaves the repository'; continue }
+            }
+            elseif (Test-Found "$($c.Ref):$($c.Path)") { $evResolved++; continue }
+            elseif (Test-Found "$($c.Ref)^{commit}") {
                 $dead = "path '$($c.Path)' is not at '$($c.Ref)' in any of $($repos.Count) evidence repo(s) where that ref resolves"
             } elseif ($shaRx.Match($c.Ref).Value -ceq $c.Ref) {
                 $dead = "commit $($c.Ref) resolves in none of $($repos.Count) evidence repo(s)"
@@ -513,23 +530,29 @@ foreach ($e in $labelled) {
     if (-not $promoKey.Contains($k)) { $promoKey[$k] = [System.Collections.Generic.List[object]]::new() }
     $promoKey[$k].Add($e)
 }
-function Get-Writer {
-    <#
-    An imported note is written by whichever seat ran the import, so its seat says nothing about
-    who learned it. Its `memory:<store>/` evidence does: two stores are two accounts. So an imported
-    event's writer is its seat AND its store, and one importer reading two stores is two writers.
-    #>
+function Get-MemoryStore {
+    <# The store named in an imported event's `memory:<store>/` evidence, lower-cased, or $null. #>
     param($Item)
     $m = [regex]::Match([string]$Item.evidence, '(?i)(?<![A-Za-z0-9_./-])memory:([^/\s,;]+)/')
-    if ($m.Success) { return "$([string]$Item.seat) (memory:$($m.Groups[1].Value))" }
-    return [string]$Item.seat
+    if ($m.Success) { return $m.Groups[1].Value.ToLowerInvariant() }
+    return $null
 }
 function Add-Promotion {
+    <#
+    Two distinct seats, or two distinct memory stores. An imported note carries the seat that ran
+    the import, so one importer reading two accounts' stores would otherwise hide a lesson learned
+    on both. Seats and stores are counted apart and never fused, so a seat that imports a note and
+    later supersedes it is still one seat.
+    #>
     param([string] $Id, $Events, [string] $What)
-    $seats = @($Events | ForEach-Object { Get-Writer $_ } | Sort-Object -Unique -CaseSensitive)
-    if ($seats.Count -lt 2) { return }
+    $seats = @($Events | ForEach-Object { [string]$_.seat } | Sort-Object -Unique)
+    $stores = @($Events | ForEach-Object { Get-MemoryStore $_ } | Where-Object { $_ } | Sort-Object -Unique)
+    if ($seats.Count -lt 2 -and $stores.Count -lt 2) { return }
     $ids = @($Events | ForEach-Object { [string]$_.id } | Sort-Object)
-    Add-Finding 'promotion-candidate' $Id $ids "$What written by $($seats.Count) seats: $($seats -join ', ')" @{ seats = $seats }
+    $by = @()
+    if ($seats.Count -ge 2) { $by += "$($seats.Count) seats ($($seats -join ', '))" }
+    if ($stores.Count -ge 2) { $by += "$($stores.Count) memory stores ($($stores -join ', '))" }
+    Add-Finding 'promotion-candidate' $Id $ids "$What written by $($by -join ' and ')" @{ seats = $seats; stores = $stores }
 }
 foreach ($k in $promoKey.Keys) { Add-Promotion "key:$k" $promoKey[$k] "key '$k'" }
 
