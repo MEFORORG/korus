@@ -19,6 +19,10 @@
     IT REFUSES A WORKTREE THAT CONTAINS ANOTHER REGISTERED WORKTREE, and -Force does not override
     that. It names each one and exits non-zero. Remove the nested worktrees first. The note above the
     check says why, and why the rule is containment rather than a `.claude/worktrees/` path shape.
+    It prints a removal command only for a nested worktree whose removal loses nothing it can read:
+    no changed, untracked or ignored file, no hidden edit to a skip-worktree or assume-unchanged
+    file, and no commit that only its detached HEAD or its HEAD reflog holds. The note above
+    Get-RemovalLoss says how each is read, and what it does not read.
 
     Run it from any checkout EXCEPT the one being removed (git cannot remove the worktree you are
     standing in).
@@ -128,6 +132,134 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 #
 # It sees only worktrees registered to THIS repository. A checkout of some other repository sitting
 # inside the target is not in this list, and the removal below deletes it.
+
+# WHAT REMOVING ONE NESTED WORKTREE WOULD LOSE, as the reasons its command is withheld. The refusal
+# prints `git worktree remove` for a nested worktree only when this returns nothing.
+#
+# Plain `git worktree remove` deletes without asking in each case below. A printed command did the
+# first three until 3d778a0, and the last two until that change's first review round, the same day.
+# tests/test_remove_never_deletes_a_nested_worktree.py reproduces each one:
+#
+#   * Untracked files that status.showUntrackedFiles=no hides. git's own clean check obeys the
+#     setting. Read-WorktreeStatus overrides it.
+#   * Ignored files. git never counts them, so any one withholds the command. This repository ignores
+#     *.local.*, so a seat's .claude/seat.local.txt is one. So is a cache, and this cannot tell a
+#     cache from a local database, so nearly every used worktree is withheld. That is deliberate.
+#   * Commits on a detached HEAD that no ref holds. The removal deletes the last thing pointing at
+#     them, and gc can then collect them.
+#   * Commits only this worktree's HEAD reflog holds: a session that committed on a detached HEAD
+#     and switched back to its branch. The removal deletes that reflog.
+#   * Edits to a tracked file flagged skip-worktree or assume-unchanged, which git status does not
+#     check. Read-WorktreeStatus lists those as Flagged.
+#
+# A registered worktree nested inside this one shows in its status as a single `<dir>/` entry. That
+# entry is not counted: it gets its own row, deepest first, and the caller withholds a parent whose
+# child holds work. Only an entry ending in `/` can be one, so only those are compared, and the
+# compare is case-sensitive, because the folded form keeps case where the filesystem does.
+#
+# THE REFS ARE READ WITH `rev-list --not --glob=refs/*`, and two obvious reads are wrong. `git branch
+# --contains` sees branches only, so a commit a tag holds reads as lost. `--not --all` is blind the
+# other way: it adds every worktree's HEAD, this one's included, so it never finds anything lost.
+# Measured 2026-09-23 on git 2.55.0.windows.5, on a detached commit: held only by a tag, `branch
+# --contains` printed nothing and this read printed 0; held by nothing, `--not --all` printed 0 and
+# this read printed 1. refs/stash is left out because every worktree shares it, and any session's
+# next stash moves it.
+#
+# THE REFLOG READ SUBTRACTS EVERY REF'S OWN REFLOG, which survives the removal. Without that, a
+# commit amended or rebased away on a branch counts as lost, although the branch's reflog still
+# holds it. Measured the same day: after an amend, the plain read counted 1 and this one 0; after a
+# commit left behind on a detached HEAD, this one counted 1. `--reflog` cannot stand in for it,
+# because it adds every worktree's HEAD reflog, this one's included, and counted 0 there.
+#
+# WHAT IT DOES NOT READ. A worktree whose directory is gone (prunable) has its HEAD checked but not
+# its HEAD reflog, which lives in an admin directory `git worktree list` does not name.
+#
+# WHY NOT prune-merged.ps1's Test-WorktreeClean. The two share the status read and deliberately not
+# the policy. The reaper removes only merged, idle, unoccupied siblings, never a detached one, and
+# docs/PRUNING.md says it deletes ignored files. This names nested worktrees that may belong to a
+# live session, so everything above withholds the command here.
+#
+# Each reason carries what to look with: 'status' for files, 'log' for a detached HEAD's commits,
+# 'reflog' for commits only the reflog holds.
+function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
+    $why = @()
+    if ($Wt.Detached -and -not $Wt.Head) {
+        $why += [pscustomobject]@{ Look = 'status'; Text = "its detached HEAD could not be read, so what it holds is unknown" }
+    }
+    elseif ($Wt.Detached) {
+        $lost = @(& git -C $Primary rev-list --count $Wt.Head --not --exclude=refs/stash '--glob=refs/*' 2>$null)
+        $code = $LASTEXITCODE
+        if ($code -ne 0 -or "$lost" -notmatch '\A\d+\z') {
+            $why += [pscustomobject]@{ Look = 'log'
+                Text = "git could not tell which refs hold its detached HEAD $($Wt.Head) (exit $code), so what it holds is unknown" }
+        }
+        elseif ([int]"$lost" -gt 0) {
+            $why += [pscustomobject]@{ Look = 'log'
+                Text = "its detached HEAD $($Wt.Head) has $lost commit(s) that no branch, tag or other ref holds" }
+        }
+    }
+    # A missing directory has no files to lose. Its HEAD, read above, lives in the admin directory.
+    if ($Wt.Prunable) { return $why }
+
+    # Skipped where the HEAD read above already withheld the command: that commit heads the reflog.
+    if ($why.Count -eq 0) {
+        # Read once per run: every ref's reflog, as `^<sha>` lines that rev-list reads as exclusions.
+        if ($null -eq $script:KeptByRefReflogs) {
+            $kept = @(& git -C $Primary log -g '--format=^%H' --exclude=refs/stash '--glob=refs/*' 2>$null)
+            $script:KeptByRefReflogs = [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Lines = $kept }
+        }
+        $mine = @(& git -C $Wt.Path log -g --format=%H HEAD 2>$null)
+        $code = $LASTEXITCODE
+        $lost = ''
+        if ($code -eq 0 -and $script:KeptByRefReflogs.Ok) {
+            $lost = @(@($mine) + @($script:KeptByRefReflogs.Lines) |
+                    & git -C $Primary rev-list --count --ignore-missing --stdin --not --exclude=refs/stash '--glob=refs/*' 2>$null)
+            $code = $LASTEXITCODE
+        }
+        if ($code -ne 0 -or "$lost" -notmatch '\A\d+\z') {
+            $why += [pscustomobject]@{ Look = 'reflog'
+                Text = "git could not read which commits only its HEAD reflog holds, so what it holds is unknown" }
+        }
+        elseif ([int]"$lost" -gt 0) {
+            $why += [pscustomobject]@{ Look = 'reflog'
+                Text = "its HEAD reflog holds $lost commit(s) that no ref or ref reflog holds, and removing it deletes that reflog" }
+        }
+    }
+
+    $status = Read-WorktreeStatus -Path $Wt.Path -IncludeIgnored
+    if ($status.Exit -ne 0) {
+        return $why + [pscustomobject]@{ Look = 'status'
+            Text = "git status failed on it (exit $($status.Exit)), so what it holds is unknown" }
+    }
+    $children = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($c in @(Get-NestedWorktrees -Occupancy ([pscustomobject]@{ Worktrees = $Registered }) -Path $Wt.Path)) {
+        $folded = ConvertTo-CcxComparablePath $c.Path
+        if ($folded) { [void]$children.Add($folded) }
+    }
+    $isChild = { param($rel) $rel.EndsWith('/') -and $children.Contains((ConvertTo-CcxComparablePath -Path $rel -Base $Wt.Path)) }
+    $untracked = @($status.Untracked | Where-Object { -not (& $isChild $_) })
+    $ignored = @($status.Ignored | Where-Object { -not (& $isChild $_) })
+    $counts = @()
+    if ($status.Tracked.Count -gt 0) { $counts += "$($status.Tracked.Count) changed tracked file(s)" }
+    if ($status.Flagged.Count -gt 0) {
+        $counts += "$($status.Flagged.Count) tracked file(s) flagged skip-worktree or assume-unchanged, whose edits git status does not show"
+    }
+    if ($untracked.Count -gt 0) { $counts += "$($untracked.Count) untracked file(s)" }
+    if ($ignored.Count -gt 0) { $counts += "$($ignored.Count) ignored file(s), which plain git status does not show" }
+    if ($counts.Count -gt 0) {
+        # A few paths, so an operator can tell a cache from a database without running anything.
+        $some = @(@($status.Tracked | ForEach-Object { if ($_.Length -gt 3) { $_.Substring(3) } else { $_ } }) +
+                @($status.Flagged) + $untracked + $ignored |
+                Select-Object -First 3)
+        $why += [pscustomobject]@{ Look = 'status'
+            Text = "it holds $($counts -join ' and ') (among them: $($some -join ', '))" }
+    }
+    return $why
+}
+
+# Filled on first use by Get-RemovalLoss.
+$script:KeptByRefReflogs = $null
+
 function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
     $registered = @(Read-RegisteredWorktrees -Primary $Primary -Target $Target)
     # Get-NestedWorktrees reads only .Worktrees off its -Occupancy argument.
@@ -141,24 +273,21 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
     $nested = @($nested | Sort-Object { (ConvertTo-CcxComparablePath $_.Path).Length } -Descending)
 
     # NO COMMAND FOR A WORKTREE HOLDING WORK. Plain `git worktree remove` exits 128 on changed or
-    # untracked files, and an operator's next try is --force: the loss this check prevents. Nor for a
-    # parent whose ignored child holds work, because the parent then reads clean and removing it takes
-    # the child. Children come first in this order, so their verdicts are known by the parent's turn.
+    # untracked files, and an operator's next try is --force: the loss this check prevents. What it
+    # does not refuse, it deletes, so Get-RemovalLoss counts that too. Nor for a parent whose ignored
+    # child holds work, because removing the parent takes the child. Children come first in this
+    # order, so their verdicts are known by the parent's turn.
     $rows = @()
     foreach ($n in $nested) {
-        $why = ''
-        if (-not $n.Prunable) {
-            $status = @(& git -C $n.Path --no-optional-locks status --porcelain 2>$null)
-            $code = $LASTEXITCODE
-            if ($code -ne 0) { $why = "git status failed on it (exit $code), so what it holds is unknown" }
-            elseif ($status.Count -gt 0) {
-                $why = "it holds $($status.Count) changed or untracked path(s), so git worktree remove refuses it"
-            }
-        }
-        if (-not $why) {
-            $heldBelow = @($rows | Where-Object { $_.Why } | ForEach-Object { $_.Wt })
+        $why = @(Get-RemovalLoss -Wt $n -Registered $registered -Primary $Primary)
+        if ($why.Count -eq 0) {
+            $heldBelow = @($rows | Where-Object { $_.Why.Count -gt 0 } | ForEach-Object { $_.Wt })
             $inside = @(Get-NestedWorktrees -Occupancy ([pscustomobject]@{ Worktrees = $heldBelow }) -Path $n.Path)
-            if ($inside.Count -gt 0) { $why = "it contains $($inside[0].Path), which holds work, and removing this deletes that" }
+            if ($inside.Count -gt 0) {
+                # No pointer of its own: the child's row, printed above this one, carries it.
+                $why = @([pscustomobject]@{ Look = ''
+                        Text = "it contains $($inside[0].Path), which holds work, and removing this deletes that" })
+            }
         }
         $rows += [pscustomobject]@{ Wt = $n; Why = $why }
     }
@@ -177,12 +306,23 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
         "deepest first:") -ForegroundColor Red
     foreach ($row in $rows) {
         $p = $row.Wt.Path
-        if ($row.Why) {
-            Write-Host "  NO COMMAND for $p -- $($row.Why)." -ForegroundColor Red
-            if ($row.Why -notlike 'it contains *') {
+        if ($row.Why.Count -gt 0) {
+            Write-Host "  NO COMMAND for $p -- $(($row.Why | ForEach-Object Text) -join '; ')." -ForegroundColor Red
+            $looks = @($row.Why | ForEach-Object Look | Where-Object { $_ } | Select-Object -Unique)
+            if ($looks.Count -gt 0) {
                 Write-Host "    Decide whether that work is wanted before anything deletes it. Look first:" -ForegroundColor Red
-                Write-Host "    git -C `"$p`" status" -ForegroundColor Red
             }
+            # Plain `git status` hides ignored files, and hides untracked ones where
+            # status.showUntrackedFiles is no. Both flags override that. `normal` rather than the
+            # check's `all`, so a cache directory reads as one line and not twenty thousand.
+            if ($looks -contains 'status') {
+                Write-Host "    git -C `"$p`" status --untracked-files=normal --ignored" -ForegroundColor Red
+            }
+            if ($looks -contains 'log') {
+                Write-Host ("    git -C `"$Primary`" log --oneline $($row.Wt.Head) --not --exclude=refs/stash " +
+                    "--glob=`"refs/*`"") -ForegroundColor Red
+            }
+            if ($looks -contains 'reflog') { Write-Host "    git -C `"$p`" reflog" -ForegroundColor Red }
             continue
         }
         # A locked worktree refuses `remove` until it is unlocked. The lock is its owner saying "in
@@ -190,11 +330,20 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
         if ($row.Wt.Locked) { Write-Host "  git -C `"$Primary`" worktree unlock `"$p`"" -ForegroundColor Red }
         Write-Host "  git -C `"$Primary`" worktree remove `"$p`"" -ForegroundColor Red
     }
-    if (@($rows | Where-Object { $_.Why }).Count -gt 0) {
+    if (@($rows | Where-Object { $_.Why.Count -gt 0 }).Count -gt 0) {
         Write-Host ("Keep, move or discard that work yourself once you have looked at it.") -ForegroundColor Red
     }
-    Write-Host ("A printed command can still delete what git status does not show: ignored files, " +
-        "and commits on a detached HEAD that no branch holds. Look before you run one.") -ForegroundColor Red
+    # RETRACTED 2026-09-23. This printed "A printed command can still delete what git status does not
+    # show: ignored files, and commits on a detached HEAD that no branch holds. Look before you run
+    # one." Get-RemovalLoss now withholds the command in each case, and in a third the warning did not
+    # name: untracked files that status.showUntrackedFiles=no hides. Against a58981d, following the
+    # printed command lost the work in all three test cases. At 3d778a0 no command is printed.
+    #
+    # What replaced it is a limit rather than a warning, and it prints only where a command did.
+    if (@($rows | Where-Object { $_.Why.Count -eq 0 }).Count -gt 0) {
+        Write-Host ("Each command was checked against what that worktree holds now, not when you run " +
+            "it.") -ForegroundColor Red
+    }
     Write-Host "Then re-run this command. It checks again, and -Force does not override it." -ForegroundColor Red
     throw "Worktree contains $($nested.Count) registered worktree(s). Nothing was removed."
 }
@@ -203,8 +352,18 @@ Assert-NoNestedWorktree -Target $WorktreePath -Primary $PrimaryRoot
 
 # Guard against losing committed-but-unpushed or modified tracked work. Untracked entries ('??') are
 # expected and do not block removal.
-$tracked = & git -C $WorktreePath status --porcelain | Where-Object { $_ -notmatch '^\?\?' }
-if ($tracked -and -not $Force) {
+#
+# Read through Read-WorktreeStatus since 2026-09-23, the read the nested check uses. The raw read it
+# replaced ignored git's exit code, so a status that failed read as no changes and the --force removal
+# below went ahead. It also missed edits to files flagged skip-worktree or assume-unchanged, which
+# count here as the tracked changes they are. -Force still discards all of it, as it always has.
+$targetStatus = Read-WorktreeStatus -Path $WorktreePath -UntrackedFiles normal
+$tracked = @($targetStatus.Tracked) + @($targetStatus.Flagged | ForEach-Object { "$_ (skip-worktree or assume-unchanged)" })
+if ($targetStatus.Exit -ne 0 -and -not $Force) {
+    throw ("git status failed on '$WorktreePath' (exit $($targetStatus.Exit)), so its uncommitted tracked " +
+        "changes are unknown. Nothing was removed. Re-run with -Force to discard them anyway.")
+}
+if ($tracked.Count -gt 0 -and -not $Force) {
     Write-Host ($tracked -join "`n")
     throw "Worktree has uncommitted tracked changes. Commit/push them, or re-run with -Force."
 }
