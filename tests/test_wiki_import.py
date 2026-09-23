@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import tempfile
 import time
 import unittest
@@ -105,7 +104,7 @@ class OneNoteBecomesOneEvent(_ImportCase):
         self.assertEqual("lesson", ev["type"])
         self.assertEqual("Retire by key, never by text", ev["summary"])
         self.assertEqual("Why it matters.\n\nDetail.", ev["body"])
-        self.assertEqual("memory:.claude-account-3/shaped.md", ev["evidence"])
+        self.assertEqual("memory:.claude-account-3/proj/shaped.md", ev["evidence"])
         self.assertEqual("import", ev["seat"])
         self.assertEqual(1, rep["counts"]["imported"])
 
@@ -185,7 +184,7 @@ class OnlyTheListedStoresAreRead(_ImportCase):
         self.assertEqual(0, r.returncode, r.stderr)
         blob = "".join(p.read_text(encoding="utf-8") for p in w.inbox_dir(self.state).glob("*.json"))
         self.assertNotIn(token, blob + r.stdout + r.stderr)
-        self.assertEqual(["acct-a", "acct-b"], [s["label"] for s in rep["stores"]])
+        self.assertEqual(["acct-a/proj", "acct-b/proj"], [s["label"] for s in rep["stores"]])
         self.assertEqual(2, rep["counts"]["seen"])
         # CONTROL: the same note, listed, is found by the same search, so the absence above is armed.
         r2, _ = self.run_import(a, b, c)
@@ -211,7 +210,7 @@ class OnlyTheListedStoresAreRead(_ImportCase):
         r, rep = self.run_import(a)
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertEqual(2, rep["counts"]["no_front_matter"])
-        self.assertEqual(["acct/bare.md", "acct/open.md"], rep["no_front_matter"])
+        self.assertEqual(["acct/proj/bare.md", "acct/proj/open.md"], rep["no_front_matter"])
         self.assertEqual([], self.inbox())
 
     def test_a_subdirectory_of_a_store_is_not_read(self):
@@ -234,6 +233,8 @@ class OnlyTheListedStoresAreRead(_ImportCase):
             "a pattern": ["-Store", str(self.root / "roots" / "*"), "-StateRoot", str(self.state)],
             "one label twice": ["-Store", f"{a},{twin}", "-StateRoot", str(self.state)],
             "missing record repo": ["-Store", str(a), "-StateRoot", str(self.state), "-RecordRepo", str(self.root / "nope")],
+            "record repo with no log": ["-Store", str(a), "-StateRoot", str(self.state), "-RecordRepo", str(self.root)],
+            "a bad seat": ["-Store", str(a), "-StateRoot", str(self.state), "-Seat", "Not A Seat"],
         }
         for name, argv in cases.items():
             with self.subTest(case=name):
@@ -289,7 +290,7 @@ class ARerunAddsNothingItAlreadyAdded(_ImportCase):
         self.note(a, "x.md", "logged", "already in the log", "log body")
         repo = self.root / "record"
         w.plant(w.log_dir(repo, w.days_ago(3)), when=w.days_ago(3), type="lesson", key="memory/logged",
-                seat="import", summary="already in the log", body="log body", evidence="memory:acct/x.md")
+                seat="import", summary="already in the log", body="log body", evidence="memory:acct/proj/x.md")
         r, rep = self.run_import(a, extra=("-RecordRepo", str(repo)))
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertEqual(1, rep["counts"]["unchanged"])
@@ -308,13 +309,13 @@ class NotesThatShareAName(_ImportCase):
         r, rep = self.run_import(a, b)
         self.assertEqual(0, r.returncode, r.stderr)
         [kept] = self.on_key("memory/shared-lesson")
-        [merge] = self.on_key("memory/shared-lesson/merge")
-        self.assertEqual("memory:acct-a/n.md", kept["evidence"])
+        [merge] = self.on_key("memory-merge/shared-lesson")
+        self.assertEqual("memory:acct-a/proj/n.md", kept["evidence"])
         self.assertEqual("decision", merge["type"])
         self.assertEqual(kept["evidence"], merge["evidence"])
         self.assertIn("acct-a", merge["summary"])
         self.assertIn("acct-b", merge["summary"])
-        self.assertEqual("kept: memory:acct-a/n.md\nmerged: memory:acct-b/n.md", merge["body"])
+        self.assertEqual("kept: memory:acct-a/proj/n.md\nmerged: memory:acct-b/proj/n.md", merge["body"])
         self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
 
     def test_same_name_different_text_keeps_both_and_supersedes_neither(self):
@@ -327,7 +328,7 @@ class NotesThatShareAName(_ImportCase):
         both = self.on_key("memory/split-lesson")
         self.assertEqual(2, len(both))
         self.assertTrue(all("supersedes" not in e for e in both), "a different store's note superseded another")
-        self.assertEqual([], self.on_key("memory/split-lesson/merge"))
+        self.assertEqual([], self.on_key("memory-merge/split-lesson"))
         self.assertEqual(1, rep["counts"]["conflicts"])
 
 
@@ -340,7 +341,7 @@ class TheLeakScanStillDecides(_ImportCase):
         r, rep = self.run_import(a)
         self.assertEqual(1, r.returncode, r.stderr)
         self.assertNotIn(secret, r.stdout + r.stderr)
-        self.assertEqual([{"note": "acct/leak.md", "class": "forge access token"}], rep["refused_notes"])
+        self.assertEqual([{"note": "acct/proj/leak.md", "class": "forge access token"}], rep["refused_notes"])
         # CONTROL: the harmless twin in the same store was written, so the refusal is the scan's.
         self.assertEqual(["memory/twin"], [e["key"] for e in self.inbox()])
 
@@ -352,7 +353,7 @@ class TheLeakScanStillDecides(_ImportCase):
         r, rep = self.run_import(a, b)
         self.assertEqual(1, r.returncode)
         self.assertEqual([], self.inbox(), "a merge record pointed at an event that was never written")
-        self.assertEqual({"acct-a/n.md", "acct-b/n.md"}, {x["note"] for x in rep["refused_notes"]})
+        self.assertEqual({"acct-a/proj/n.md", "acct-b/proj/n.md"}, {x["note"] for x in rep["refused_notes"]})
         self.assertNotIn(secret, r.stdout + r.stderr)
 
 
@@ -390,7 +391,7 @@ class TheHomeDirectoryBecomesATilde(_ImportCase):
         self.note(a, "o.md", "other", "other account", "C:" + BACKSLASH + "Users" + BACKSLASH + "alice2" + BACKSLASH + "x")
         r, rep = self.run_import(a, extra=("-HomeDir", fake_home()))
         self.assertEqual(1, r.returncode)
-        self.assertEqual("acct/o.md", rep["refused_notes"][0]["note"])
+        self.assertEqual("acct/proj/o.md", rep["refused_notes"][0]["note"])
         self.assertIn("home path", rep["refused_notes"][0]["class"])
         self.assertEqual(0, rep["counts"]["home_normalised"])
 
@@ -447,6 +448,181 @@ class AnImportOfTheReferenceSizeIsQuick(_ImportCase):
         self.assertEqual(1000, rep["counts"]["imported"])
         self.assertEqual(1000, len(self.inbox()))
         self.assertLess(elapsed, 120, f"1000 notes took {elapsed:.1f}s")
+
+
+class StoresUnderOneAccountStayApart(_ImportCase):
+    def test_two_projects_under_one_root_get_distinct_evidence(self):
+        """One account holds a store per project. Labelled by the root alone, both files were `x.md`
+        under one label, and the second project's note superseded the first's."""
+        p1 = self.root / "roots" / "acct" / "projects" / "one" / "memory"
+        p2 = self.root / "roots" / "acct" / "projects" / "two" / "memory"
+        p1.mkdir(parents=True)
+        p2.mkdir(parents=True)
+        self.note(p1, "x.md", "same-name", "text in project one")
+        self.note(p2, "x.md", "same-name", "text in project two")
+        r, rep = self.run_import(p1, p2)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual({"memory:acct/one/x.md", "memory:acct/two/x.md"},
+                         {e["evidence"] for e in self.on_key("memory/same-name")})
+        self.assertTrue(all("supersedes" not in e for e in self.inbox()))
+        _, rep2 = self.run_import(p2)
+        self.assertEqual(1, rep2["counts"]["unchanged"], "a later run of one project disturbed the other")
+
+    def test_the_home_directory_in_a_project_folder_becomes_a_tilde(self):
+        """A project folder spells its path with dashes, `C--Users-<u>-Code-X`, account name included."""
+        folder = "C--Users-alice-Code-Thing"
+        d = self.root / "roots" / "acct" / "projects" / folder / "memory"
+        d.mkdir(parents=True)
+        self.note(d, "x.md", "labelled", "label case")
+        r, rep = self.run_import(d, extra=("-HomeDir", fake_home()))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("acct/~-Code-Thing", rep["stores"][0]["label"])
+        self.assertEqual("memory:acct/~-Code-Thing/x.md", self.inbox()[0]["evidence"])
+        self.assertNotIn("alice", self.inbox()[0]["evidence"])
+
+
+class AReplacedTextIsNotMergedInto(_ImportCase):
+    def test_a_note_matching_only_a_superseded_event_is_written(self):
+        """Rule 2 compares with CURRENT events. Matched against a replaced one, the third store's note
+        counted as merged, then as unchanged on every run, and never reached the wiki."""
+        a, b = self.store("acct-a"), self.store("acct-b")
+        p = self.note(a, "n.md", "moving", "the first wording", "body")
+        self.run_import(a)
+        p.write_text(note_text("moving", "the second wording", "body"), encoding="utf-8")
+        self.run_import(a)
+        self.note(b, "n.md", "moving", "the first wording", "body")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 0), (rep["counts"]["imported"], rep["counts"]["merged"]))
+        self.assertEqual(["memory:acct-b/proj/n.md"],
+                         [e["evidence"] for e in self.on_key("memory/moving") if "supersedes" not in e and
+                          e["evidence"].startswith("memory:acct-b")])
+
+    def test_control_the_same_note_merges_while_the_text_is_current(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "n.md", "moving", "the first wording", "body")
+        self.run_import(a)
+        self.note(b, "n.md", "moving", "the first wording", "body")
+        _, rep = self.run_import(a, b)
+        self.assertEqual((0, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
+
+
+class ARerunStaysQuietInTheEdgeCases(_ImportCase):
+    def rerun_writes_nothing(self, *stores: Path):
+        r, _ = self.run_import(*stores)
+        self.assertIn(r.returncode, (0, 1), r.stderr)
+        before = sorted(p.name for p in w.inbox_dir(self.state).iterdir())
+        self.assertTrue(before, "the first run wrote nothing, so a quiet re-run proves nothing")
+        r2, rep2 = self.run_import(*stores)
+        self.assertEqual(before, sorted(p.name for p in w.inbox_dir(self.state).iterdir()))
+        return rep2
+
+    def test_a_note_named_merge_is_a_note_not_a_merge_record(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "merge.md", "merge", "a note about merging")
+        self.note(a, "s.md", "shared", "same", "same")
+        self.note(b, "s.md", "shared", "same", "same")
+        rep = self.rerun_writes_nothing(a, b)
+        self.assertEqual(3, rep["counts"]["unchanged"])
+        self.assertEqual(1, len(self.on_key("memory/merge")))
+
+    def test_a_merged_file_name_with_a_space_is_recognised_as_merged(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "my note.md", "spaced", "same", "same")
+        self.note(b, "my note.md", "spaced", "same", "same")
+        rep = self.rerun_writes_nothing(a, b)
+        self.assertEqual(2, rep["counts"]["unchanged"])
+        self.assertEqual(1, len(self.on_key("memory-merge/spaced")))
+
+    def test_a_description_shaped_like_a_timestamp_is_unchanged_on_a_rerun(self):
+        """The shared reader turns such a string into a date, and the date never equals the note."""
+        a = self.store("acct")
+        self.note(a, "t.md", "stamped", "2026-09-07T03:01:44.051Z", "2026-09-07T03:01:44.051Z")
+        rep = self.rerun_writes_nothing(a)
+        self.assertEqual(1, rep["counts"]["unchanged"])
+        self.assertEqual("2026-09-07T03:01:44.051Z", self.inbox()[0]["summary"])
+
+
+class TheHomeDirectoryEdges(_ImportCase):
+    def test_a_home_path_ending_a_sentence_is_normalised_and_a_sibling_file_is_not(self):
+        a = self.store("acct")
+        self.note(a, "end.md", "ends", "the home is " + fake_home() + ".", "body")
+        self.note(a, "bak.md", "bak", "a sibling", fake_home() + ".bak")
+        r, rep = self.run_import(a, extra=("-HomeDir", fake_home()))
+        got = {e["key"]: e for e in self.inbox()}
+        self.assertEqual("the home is ~.", got["memory/ends"]["summary"])
+        # `alice.bak` is another directory, not the home, so it is left as it is and the scan decides.
+        self.assertNotIn("memory/bak", got)
+        self.assertEqual(["acct/proj/bak.md"], [x["note"] for x in rep["refused_notes"]])
+
+
+class TheExitCodeSaysWhenToLook(_ImportCase):
+    def test_an_unreadable_existing_event_makes_the_run_exit_1(self):
+        a = self.store("acct")
+        self.note(a, "x.md", "x", "x")
+        w.inbox_dir(self.state).mkdir(parents=True)
+        (w.inbox_dir(self.state) / "torn.json").write_text("{not json", encoding="utf-8")
+        r, rep = self.run_import(a)
+        self.assertEqual(1, r.returncode, r.stderr)
+        self.assertEqual(1, rep["existing_unreadable"])
+        # CONTROL: the same run over a clean inbox exits 0.
+        (w.inbox_dir(self.state) / "torn.json").unlink()
+        r2, _ = self.run_import(a)
+        self.assertEqual(0, r2.returncode, r2.stderr)
+
+    def test_no_record_repo_is_warned_about(self):
+        a = self.store("acct")
+        self.note(a, "x.md", "x", "x")
+        r, _ = self.run_import(a)
+        self.assertIn("no -RecordRepo", r.stderr)
+
+    def test_an_empty_seat_falls_back_to_import(self):
+        a = self.store("acct")
+        self.note(a, "x.md", "x", "x")
+        r, _ = self.run_import(a, extra=("-Seat", ""))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(["import"], [e["seat"] for e in self.inbox()])
+
+
+class APartWrittenBatchIsReportedAsSuch(_ImportCase):
+    """write.ps1 exits 2 both when it wrote nothing and when one write failed after others landed.
+    Only its stdout tells the two apart. A stub write.ps1 stands in for a disk fault, which a real
+    write cannot be made to hit on demand."""
+
+    def stub_tree(self) -> Path:
+        tree = self.root / "tree"
+        wiki = tree / "scripts" / "wiki"
+        wiki.mkdir(parents=True)
+        for name in ("import.ps1", "_event.ps1"):
+            (wiki / name).write_text((w.WIKI / name).read_text(encoding="utf-8"), encoding="utf-8")
+        (wiki / "write.ps1").write_text(
+            "param([string]$FromJson, [string]$Seat, [string]$StateRoot, [switch]$CheckOnly)\n"
+            "$items = @(Get-Content -Raw -LiteralPath $FromJson | ConvertFrom-Json)\n"
+            "if ($env:WIKI_STUB -eq 'nothing') { [Console]::Error.WriteLine('stub: stopped'); exit 2 }\n"
+            "$out = for ($i = 0; $i -lt $items.Count; $i++) {\n"
+            "  [pscustomobject]@{ index = $i; status = 'failed'; id = $null; code = 2; reason = 'could not write x' } }\n"
+            "ConvertTo-Json -InputObject @($out)\n"
+            "exit 2\n", encoding="utf-8")
+        return wiki / "import.ps1"
+
+    def run_stub(self, mode: str):
+        a = self.store("acct")
+        self.note(a, "x.md", "x", "x")
+        script = self.stub_tree()
+        return w.run(self.pwsh, script, "-Store", str(a), "-StateRoot", str(self.state), "-Json",
+                     env={"WIKI_STUB": mode})
+
+    def test_per_event_failures_are_listed_not_called_nothing_written(self):
+        r = self.run_stub("failed")
+        self.assertEqual(1, r.returncode, r.stderr)
+        rep = json.loads(r.stdout)
+        self.assertEqual(1, rep["counts"]["not_written"])
+        self.assertNotIn("Nothing was written", r.stderr)
+
+    def test_control_a_batch_that_stopped_early_is_exit_2(self):
+        r = self.run_stub("nothing")
+        self.assertEqual(2, r.returncode)
+        self.assertIn("Nothing was written", r.stderr)
 
 
 if __name__ == "__main__":

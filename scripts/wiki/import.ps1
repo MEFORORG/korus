@@ -25,10 +25,14 @@
                   the top of the body so nothing is lost.
         body      the note's body. Over 20000 characters it is cut, with a line saying the full
                   note is the evidence file.
-        evidence  memory:<store label>/<file name>. The label is the config root's folder name
-                  when the store sits at <root>/projects/<project>/memory, such as
-                  `.claude-account-3`, and the store's own folder name otherwise.
-        seat      -Seat, default `import`.
+        evidence  memory:<store label>/<file name>. When the store sits at
+                  <root>/projects/<project>/memory the label is <root>/<project>, such as
+                  `.claude-account-3/~-Code-MessageFoundry`. The project folder is part of it
+                  because one account holds a store per project, and two stores under one root
+                  must not share evidence. The project folder spells the home directory in it,
+                  as `C--Users-<u>-...`, so that prefix becomes `~` too. Any other store is
+                  labelled by its own folder name.
+        seat      -Seat, default `import`. Always passed to write.ps1, never left to its fallback.
 
     `MEMORY.md` is an index, not a note, and is never imported. A file with no front matter is
     skipped and counted.
@@ -43,10 +47,11 @@
     -RecordRepo. For each note:
       1. The newest event on its key with the SAME evidence is the note's own earlier import. Same
          summary and body: skipped. Different: a new event that supersedes it.
-      2. Otherwise, an event on the key with the same summary and body is a MERGE. The note is not
-         written again. Instead a `decision` on memory/<slug>/merge records it (FR-024): its
-         summary names both stores, its evidence is the kept event's, and its body carries
-         `kept:` and `merged:` lines. A merge already recorded is skipped.
+      2. Otherwise, a CURRENT event on the key with the same summary and body is a MERGE. Current
+         means no event supersedes it and no `retire` withdrew it; a replaced text is not one to
+         merge into. The note is not written again. Instead a `decision` on memory-merge/<slug>
+         records it (FR-024): its summary names both stores, its evidence is the kept event's,
+         and its body carries `kept:` and `merged:` lines. A merge already recorded is skipped.
       3. Otherwise the note is written. If the key already holds different text from another
          store, both are kept and neither supersedes the other: the newer is live, and lint files
          the pair (Story 4, scenario 2). The report counts these as conflicts.
@@ -56,13 +61,19 @@
     -WhatIf writes nothing. It runs every check, the leak scan included, through `write.ps1
     -CheckOnly`, and prints the same report.
 
+    WITHOUT -RecordRepo, events already compiled into the log are not seen, and a re-run after a
+    compile would import every note again. The run says so on stderr. A -RecordRepo that is named
+    but holds no wiki/events directory is refused, because a wrong path would do the same silently.
+
     Exit codes:
-        0  finished, nothing refused
-        1  finished, and at least one note was refused (listed in the report)
+        0  finished, and every note was imported, merged or already there
+        1  finished, and something needs a look: a note refused or not written, or a note or an
+           existing event that could not be read. Each is listed in the report.
         2  could not run: no -Store, a store that is not a directory, a pattern in -Store, two
-           stores with one label, an unreadable -RecordRepo, or `write.ps1` could not run.
-           Nothing was written in any of these cases, except when `write.ps1` failed on the
-           second (merge) batch, which the message says.
+           stores with one label, a bad -Seat, a -RecordRepo that is missing or holds no
+           wiki/events, or `write.ps1` could not run a batch. Nothing was written in any of these
+           cases, except when `write.ps1` failed on the second (merge) batch, which the message
+           says.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/import.ps1 -Store <dir1>,<dir2> -WhatIf
@@ -95,7 +106,7 @@ $TypeMap = @{ feedback = 'lesson'; project = 'decision'; reference = 'gotcha'; u
 $SummaryMax = $script:WikiLimits.summary
 $BodyMax = $script:WikiLimits.body
 $TruncatedMarker = "`n`n[truncated at import; the full note is the evidence file]"
-# A slug leaves room for `memory/` in front and `/merge` behind inside the 200-character key limit.
+# A slug leaves room for `memory-merge/` in front inside the 200-character key limit.
 $SlugMax = 180
 
 # ------------------------------------------------------------------------------------ home path
@@ -115,13 +126,20 @@ function New-HomePattern {
     # A bare drive or root is not a home directory, and replacing it would rewrite every path.
     if ($rest.Count -eq 0) { return $null }
     $body = ($rest | ForEach-Object { [regex]::Escape($_) }) -join '[\\/]+'
-    # The look-ahead keeps `<home>2` or `<home>ish` from losing its prefix.
-    return [regex]::new('(?i)' + $prefix + $body + '(?![A-Za-z0-9._-])')
+    # The look-ahead keeps `<home>2`, `<home>ish` or `<home>.bak` from losing its prefix, and
+    # still matches a home path that ends a sentence with a full stop.
+    return [regex]::new('(?i)' + $prefix + $body + '(?![A-Za-z0-9_-]|\.[A-Za-z0-9])')
 }
 
 if ([string]::IsNullOrWhiteSpace($HomeDir)) { $HomeDir = [Environment]::GetFolderPath('UserProfile') }
 if ([string]::IsNullOrWhiteSpace($HomeDir)) { $HomeDir = $HOME }
 $homePattern = New-HomePattern $HomeDir
+# The home directory as a project folder spells it: every `:`, `\` and `/` becomes `-`.
+$homeSlug = if ([string]::IsNullOrWhiteSpace($HomeDir)) { '' } else { $HomeDir.Trim().TrimEnd('\', '/') -replace '[:\\/]', '-' }
+
+if ([string]::IsNullOrWhiteSpace($Seat)) { $Seat = 'import' }
+$Seat = $Seat.Trim().ToLowerInvariant()
+if ($Seat -cnotmatch $script:WikiSeatPattern) { Stop-Import "-Seat '$Seat' is not a lower-case seat name." }
 
 function Hide-Home {
     param([string] $Text)
@@ -147,8 +165,17 @@ foreach ($s in $storeArgs) {
     }
     if (-not $seenPaths.Add($full)) { continue }
     $parts = @($full -split '[\\/]+' | Where-Object { $_ -ne '' })
-    $label = if ($parts.Count -ge 4 -and $parts[-3] -ieq 'projects') { $parts[-4] } else { $parts[-1] }
-    $label = $label -replace '[^A-Za-z0-9._-]', '-'
+    if ($parts.Count -ge 4 -and $parts[-3] -ieq 'projects') {
+        $project = $parts[-2]
+        if ($homeSlug -and $project.Length -ge $homeSlug.Length -and
+            $project.StartsWith($homeSlug, [System.StringComparison]::OrdinalIgnoreCase) -and
+            ($project.Length -eq $homeSlug.Length -or $project[$homeSlug.Length] -eq '-')) {
+            $project = '~' + $project.Substring($homeSlug.Length)
+        }
+        $label = ($parts[-4] -replace '[^A-Za-z0-9._~-]', '-') + '/' + ($project -replace '[^A-Za-z0-9._~-]', '-')
+    } else {
+        $label = $parts[-1] -replace '[^A-Za-z0-9._~-]', '-'
+    }
     if ($seenLabels.ContainsKey($label)) {
         Stop-Import ("stores '$(Hide-Home $seenLabels[$label])' and '$(Hide-Home $full)' both take the label " +
             "'$label', so their evidence could not be told apart. Nothing was read or written.")
@@ -169,7 +196,8 @@ if (-not (Test-Path -LiteralPath $StateRoot -PathType Container)) {
 }
 
 # Every existing event, so a re-run can tell what it already wrote. A -RecordRepo that is named and
-# missing stops the run: importing without the log would write every note a second time.
+# missing, or that holds no log, stops the run: importing without the log would write every note a
+# second time, and a wrong path would do it silently.
 $existing = @()
 $unreadableEvents = 0
 $r = Read-WikiEventDir -Dir (Get-WikiInboxDir -StateRoot $StateRoot) -Source inbox
@@ -181,9 +209,18 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
     if (-not (Test-Path -LiteralPath $RecordRepo -PathType Container)) {
         Stop-Import "record repository '$(Hide-Home $RecordRepo)' does not exist. Nothing was read or written."
     }
-    $r = Read-WikiEventDir -Dir (Get-WikiEventsRoot -RecordRepo $RecordRepo) -Source log -Recurse
+    $eventsRoot = Get-WikiEventsRoot -RecordRepo $RecordRepo
+    if (-not (Test-Path -LiteralPath $eventsRoot -PathType Container)) {
+        Stop-Import ("record repository '$(Hide-Home $RecordRepo)' holds no wiki/events directory, so it is not " +
+            'the record, or it has never been compiled. Pass the right one, or leave -RecordRepo out. Nothing was read or written.')
+    }
+    $r = Read-WikiEventDir -Dir $eventsRoot -Source log -Recurse
     $logEvents = @($r.Events)
     $unreadableEvents += $r.Skipped
+}
+if ([string]::IsNullOrWhiteSpace($RecordRepo)) {
+    [Console]::Error.WriteLine(('wiki import: WARNING: no -RecordRepo, so events already compiled into the log are not ' +
+            'seen. After a compile, a re-run without it imports every note again.'))
 }
 $existing = @(Merge-WikiEvent -Log $logEvents -Inbox $inboxEvents)
 
@@ -194,6 +231,39 @@ function ConvertTo-Text {
     return [string]$Value
 }
 
+function Get-EventText {
+    <#
+    .SYNOPSIS
+        An event's summary and body exactly as its file holds them.
+    .DESCRIPTION
+        The shared reader parses with ConvertFrom-Json, which turns a string shaped like an ISO stamp
+        into a [datetime]. Cast back, it renders in the current culture, compares unequal to the
+        note, and every run would supersede the note again. So when either field came back as a
+        date, the file is read again with System.Text.Json, which leaves strings alone.
+    #>
+    param($Item)
+    $summary = $Item.summary
+    $body = $Item.body
+    if ($summary -is [datetime] -or $body -is [datetime]) {
+        $path = if ([string]$Item._source -ceq 'log') {
+            Join-Path (Get-WikiLogDir -RecordRepo $RecordRepo -Utc $Item._utc) "$($Item.id).json"
+        } else { Join-Path (Get-WikiInboxDir -StateRoot $StateRoot) "$($Item.id).json" }
+        try {
+            $doc = [System.Text.Json.JsonDocument]::Parse([System.IO.File]::ReadAllText($path))
+            try {
+                $prop = [System.Text.Json.JsonElement]::new()
+                if ($doc.RootElement.TryGetProperty('summary', [ref]$prop)) { $summary = $prop.GetString() }
+                if ($doc.RootElement.TryGetProperty('body', [ref]$prop)) { $body = $prop.GetString() }
+            } finally { $doc.Dispose() }
+        } catch {
+            # The log may file an event elsewhere than its stamp's month. The cast is then the best
+            # left, and the worst it costs is one needless supersede.
+            $null = $_
+        }
+    }
+    return @((ConvertTo-Text $summary), (ConvertTo-Text $body))
+}
+
 # key -> list of @{ Id; Evidence; Summary; Body; TsKey; Planned }
 $byKey = @{}
 function Add-KeyEntry {
@@ -201,21 +271,41 @@ function Add-KeyEntry {
     if (-not $byKey.ContainsKey($Key)) { $byKey[$Key] = [System.Collections.Generic.List[object]]::new() }
     $byKey[$Key].Add($Entry)
 }
+# An event is CURRENT unless another event supersedes it or a later `retire` withdrew its key: the
+# guard's first two rules. Its third rule, the newer event on a key hiding the older, is left out
+# on purpose, so both sides of a conflict pair still count as current and a third store holding
+# either text merges into it.
+$supersededIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$retiredAt = @{}
+foreach ($ev in $existing) {
+    foreach ($x in @($ev.supersedes)) { if ($null -ne $x) { [void]$supersededIds.Add([string]$x) } }
+    if ([string]$ev.type -ceq 'retire') {
+        $k = [string]$ev.key
+        if (-not $retiredAt.ContainsKey($k) -or [string]::CompareOrdinal([string]$ev._tsKey, $retiredAt[$k]) -gt 0) {
+            $retiredAt[$k] = [string]$ev._tsKey
+        }
+    }
+}
+
 # "<key>|<evidence>" for every note a merge record already covers.
 $mergedSources = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 foreach ($ev in $existing) {
     $k = [string]$ev.key
     if ([string]$ev.type -cin $script:WikiMarkerTypes) { continue }
-    if ($k.StartsWith('memory/') -and $k.EndsWith('/merge')) {
-        $base = $k.Substring(0, $k.Length - '/merge'.Length)
+    if ($k.StartsWith('memory-merge/')) {
+        $base = 'memory/' + $k.Substring('memory-merge/'.Length)
         foreach ($line in ((ConvertTo-Text $ev.body) -split "`n")) {
-            if ($line -match '^merged: (\S+)\s*$') { [void]$mergedSources.Add("$base|$($Matches[1])") }
+            # To the end of the line, not to the first space: a file name may hold one.
+            if ($line -match '^merged: (.+?)\s*$') { [void]$mergedSources.Add("$base|$($Matches[1])") }
         }
         continue
     }
+    $text = Get-EventText $ev
+    $current = -not $supersededIds.Contains([string]$ev.id) -and
+        -not ($retiredAt.ContainsKey($k) -and [string]::CompareOrdinal([string]$ev._tsKey, $retiredAt[$k]) -lt 0)
     Add-KeyEntry $k ([pscustomobject]@{
-            Id = [string]$ev.id; Evidence = [string]$ev.evidence; Summary = ConvertTo-Text $ev.summary
-            Body = ConvertTo-Text $ev.body; TsKey = [string]$ev._tsKey; Planned = $null
+            Id = [string]$ev.id; Evidence = [string]$ev.evidence; Summary = $text[0]
+            Body = $text[1]; TsKey = [string]$ev._tsKey; Planned = $null; Current = $current
         })
 }
 
@@ -364,7 +454,7 @@ function Get-Cut {
 
 # ------------------------------------------------------------------------------------ plan
 $counts = [ordered]@{
-    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; refused = 0
+    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; refused = 0; not_written = 0
     no_front_matter = 0; unreadable = 0; conflicts = 0; home_normalised = 0
     summary_truncated = 0; body_truncated = 0; type_defaulted = 0
 }
@@ -431,7 +521,7 @@ foreach ($st in $stores) {
         }
         $item = [ordered]@{ type = $type; key = $key; summary = $summary; evidence = $evidence }
         if ($body) { $item.body = $body }
-        $entry = [pscustomobject]@{ Id = $null; Evidence = $evidence; Summary = $summary; Body = $body; TsKey = ''; Planned = $noteItems.Count }
+        $entry = [pscustomobject]@{ Id = $null; Evidence = $evidence; Summary = $summary; Body = $body; TsKey = ''; Planned = $noteItems.Count; Current = $true }
 
         if ($null -ne $prior) {
             # Rule 1: this note's own earlier import.
@@ -443,15 +533,15 @@ foreach ($st in $stores) {
             continue
         }
         $same = $null
-        foreach ($e in $entries) { if ($e.Summary -ceq $summary -and $e.Body -ceq $body) { $same = $e; break } }
+        foreach ($e in $entries) { if ($e.Current -and $e.Summary -ceq $summary -and $e.Body -ceq $body) { $same = $e; break } }
         if ($null -ne $same) {
-            # Rule 2: the same text is already on this key, from somewhere else.
+            # Rule 2: the same text is current on this key, from somewhere else.
             if ($mergedSources.Contains("$key|$evidence")) { $counts.unchanged++; continue }
             [void]$mergedSources.Add("$key|$evidence")
-            $keptLabel = if ($same.Evidence -match '^memory:([^/]+)/') { $Matches[1] } else { $same.Evidence }
+            $keptLabel = if ($same.Evidence -match '^memory:(.+)/[^/]+$') { $Matches[1] } else { $same.Evidence }
             $mergeItems.Add([ordered]@{
                     type     = 'decision'
-                    key      = "$key/merge"
+                    key      = "memory-merge/$slug"
                     summary  = "Merged memory note '$slug' from $($st.Label) into $keptLabel`: same name, same text"
                     evidence = $same.Evidence
                     body     = "kept: $($same.Evidence)`nmerged: $evidence"
@@ -469,29 +559,50 @@ foreach ($st in $stores) {
 
 # ------------------------------------------------------------------------------------ write
 $writeScript = Join-Path $PSScriptRoot 'write.ps1'
-$pwshExe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+# The pwsh that ships beside this one, not the host process: a script hosted in another program
+# would otherwise start that program.
+$pwshExe = Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })
 
 function Invoke-WriteBatch {
-    <# Hand a list of events to write.ps1 -FromJson and return its per-event results. #>
+    <#
+    .SYNOPSIS
+        Hand a list of events to write.ps1 -FromJson and return its per-event results.
+    .DESCRIPTION
+        write.ps1 prints one result per event whenever it got as far as writing, including when
+        one write failed and it exits 2. So the results decide, not the exit code. No results at all
+        means it stopped before writing anything.
+    #>
     param($Items, [string] $Stage)
     if ($Items.Count -eq 0) { return @() }
+    $before = if ($Stage -eq 'merge') { 'The notes batch was already written; the merge records were not.' } else { 'Nothing was written.' }
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('wiki-import-' + [guid]::NewGuid().ToString('N') + '.json')
+    $out = @()
+    $code = -1
     try {
         $payload = ConvertTo-Json -InputObject @($Items) -Depth 5
         [System.IO.File]::WriteAllText($tmp, $payload, [System.Text.UTF8Encoding]::new($false))
         $argv = @('-NoProfile', '-File', $writeScript, '-FromJson', $tmp, '-Seat', $Seat, '-StateRoot', $StateRoot)
         if ($WhatIf) { $argv += '-CheckOnly' }
+        # A non-zero exit is data here, never a thrown error, whatever the caller's preference.
+        $PSNativeCommandUseErrorActionPreference = $false
+        $ErrorActionPreference = 'Continue'
         $out = @(& $pwshExe @argv)
         $code = $LASTEXITCODE
+    } catch {
+        Stop-Import "write.ps1 could not be started for the $Stage batch: $($_.Exception.Message). $before"
     } finally {
+        $ErrorActionPreference = 'Stop'
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
     }
-    if ($code -ge 2 -or $code -lt 0) {
-        $what = if ($Stage -eq 'merge') { 'The notes batch was already written; the merge records were not.' } else { 'Nothing was written.' }
-        Stop-Import "write.ps1 could not run the $Stage batch (exit $code). $what"
+    $results = $null
+    $text = ($out | ForEach-Object { [string]$_ }) -join "`n"
+    if ($text.TrimStart().StartsWith('[')) {
+        try { $results = @($text | ConvertFrom-Json -ErrorAction Stop) } catch { $results = $null }
     }
-    $results = @(($out -join "`n") | ConvertFrom-Json)
-    if ($results.Count -ne $Items.Count) { Stop-Import "write.ps1 returned $($results.Count) results for $($Items.Count) events in the $Stage batch." }
+    if ($null -eq $results) { Stop-Import "write.ps1 could not run the $Stage batch (exit $code). $before" }
+    if ($results.Count -ne $Items.Count) {
+        Stop-Import "write.ps1 returned $($results.Count) results for $($Items.Count) events in the $Stage batch; check the inbox by hand."
+    }
     return $results
 }
 
@@ -514,6 +625,13 @@ for ($i = 0; $i -lt $noteResults.Count; $i++) {
         $refusedNotes.Add([pscustomobject]@{ note = $meta.Where; class = $class })
         continue
     }
+    if ($res.status -ceq 'failed') {
+        # Passed every check and could not be written: a disk or permission fault, not the note.
+        $refusedPlanned[$i] = 'not written: ' + (Hide-Home ([string]$res.reason))
+        $counts.not_written++
+        $refusedNotes.Add([pscustomobject]@{ note = $meta.Where; class = $refusedPlanned[$i] })
+        continue
+    }
     if ($meta.Action -ceq 'superseded') { $counts.superseded++ } else { $counts.imported++ }
     if ($meta.Conflict) { $counts.conflicts++ }
 }
@@ -525,7 +643,7 @@ $mergeToWriteMeta = [System.Collections.Generic.List[object]]::new()
 for ($i = 0; $i -lt $mergeItems.Count; $i++) {
     $kp = $mergeMeta[$i].KeptPlanned
     if ($null -ne $kp -and $refusedPlanned.ContainsKey($kp)) {
-        $counts.refused++
+        if ($refusedPlanned[$kp].StartsWith('not written: ')) { $counts.not_written++ } else { $counts.refused++ }
         $refusedNotes.Add([pscustomobject]@{ note = $mergeMeta[$i].Where; class = $refusedPlanned[$kp] })
         continue
     }
@@ -537,6 +655,9 @@ for ($i = 0; $i -lt $mergeResults.Count; $i++) {
     if ($mergeResults[$i].status -ceq 'refused') {
         $counts.refused++
         $refusedNotes.Add([pscustomobject]@{ note = $mergeToWriteMeta[$i].Where; class = 'merge record: ' + (Get-RefusalClass ([string]$mergeResults[$i].reason)) })
+    } elseif ($mergeResults[$i].status -ceq 'failed') {
+        $counts.not_written++
+        $refusedNotes.Add([pscustomobject]@{ note = $mergeToWriteMeta[$i].Where; class = 'merge record not written: ' + (Hide-Home ([string]$mergeResults[$i].reason)) })
     } else {
         $counts.merged++
     }
@@ -575,4 +696,5 @@ if ($Json) {
     }
     Write-Output "  seconds            $seconds"
 }
-exit $(if ($counts.refused -gt 0) { 1 } else { 0 })
+$needsLook = $counts.refused + $counts.not_written + $counts.unreadable + $unreadableEvents
+exit $(if ($needsLook -gt 0) { 1 } else { 0 })
