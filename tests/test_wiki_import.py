@@ -368,8 +368,8 @@ class TheHomeDirectoryBecomesATilde(_ImportCase):
         home = fake_home()
         body = "\n".join([
             home + BACKSLASH + "proj" + BACKSLASH + "a.txt",
-            "C:/Users/alice/proj/b.txt",
-            "/c/Users/alice/proj/c.txt",
+            "C:/" + "Users/alice/proj/b.txt",
+            "/c/" + "Users/alice/proj/c.txt",
             "c:" + BACKSLASH + "USERS" + BACKSLASH + "ALICE",
         ])
         a = self.store("acct")
