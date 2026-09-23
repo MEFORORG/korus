@@ -42,6 +42,16 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 | `scripts/coord/seat.ps1` | Write this session's episode record -- seat, goal, handoff -- so the next session is not guessing. `-Declare` also writes the role-card marker and refuses an unrostered seat; `-Record` never invents a goal | [Role cards](ROLE-CARDS.md) |
 | `bin/ccx-steer.ps1` | Queue a steering note from a second terminal while a session is mid-task | [Steering](STEERING.md) |
 
+## The fleet wiki
+
+One memory that every seat on every account can search. [The spec](../specs/002-fleet-wiki/spec.md)
+holds the design. These scripts write events; the query and the compile job come later.
+
+| Script | Does | Doc |
+|---|---|---|
+| `scripts/wiki/write.ps1` | The only way to add an event. Checks the fields, runs the leak scan, then drops one file in the shared inbox. No network, and no git call when `-StateRoot` is given | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by both scripts above, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+
 ## To clean up and recover
 
 | Script | Does | Doc |
