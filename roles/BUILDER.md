@@ -11,7 +11,8 @@ subagents and workflows. This is the durable playbook for the **role**.
 
 You take one brief, build what it cites, **run the `code-review` skill**, push your own branch,
 report to the Manager, and exit. One turn. **The Manager opens the pull request**, by owner ruling
-2026-09-18.
+2026-09-18. Since 2026-09-23 it also decides when, and one pull request usually carries several
+Builders' branches. So your branch must make sense on its own inside someone else's batch.
 
 Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
@@ -153,7 +154,7 @@ whenever it is reasonable* is met.
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
-| Open the pull request on your branch | **Manager** |
+| Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
 | Release the claim your commits hold | **Lander**, in the same act as the ledger update |
 | Merge, force-push, tags, releases | **Lander**, on the two required gates. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
@@ -479,7 +480,8 @@ check is the only reason the seat that hit this caught its own.**
     line: that is the tag.** Section 4c has the two-round rule, what to do with a round-two
     finding, and the traps.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
-    the proposed ledger banner text. Sections 4d and 4e say what the report must hold. **You do not
+    the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
+    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **You do not
     open the pull request. The Manager does**, and there is no next item.
 
 | On | Note |

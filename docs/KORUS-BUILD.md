@@ -10,7 +10,7 @@ first; this procedure assumes installed and proven gates.
 
 The console seat was meant to oversee many parts of the build. That did not work, so the manager replaced it and the console retired on 2026-09-10.
 
-The manager assigns work to its builders, reads their results, and opens the pull request for each. A builder can run as a subagent or in its own session.
+The manager assigns work to its builders, reads their results, and opens the pull requests. It decides when to cut one, and one usually carries a whole wave of builders. A builder can run as a subagent or in its own session.
 
 Name that choice in each brief. Subagents return results to the manager; separate sessions need an explicit message route.
 
@@ -44,7 +44,7 @@ A role name grants no merge permission. The operator must give the Lander author
 
 | Session | Owns | Must not |
 |---|---|---|
-| **Manager** | Its builders, their briefs, their results, and the pull request it opens for each | Write application code, or check the pool before opening |
+| **Manager** | Its builders, their briefs, their results, and when to cut a pull request and what goes in it | Write application code, or check the pool before opening |
 | **Builder** | The change, the review, the commit, and the push for one brief | Guess at what the brief left open, wait for an answer, or open the pull request |
 | **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review step that no longer exists |
 
@@ -77,7 +77,7 @@ and 9 gained the QA line on 2026-09-20; the fourteen and their order did not cha
 | 6 | Builder | Applies confirmed fixes and reviews again. Two rounds maximum. |
 | 7 | Builder | Commits, pushes its branch, exits. |
 | 8 | Builder | Reports to the manager, and writes the QA line for the manager to post. |
-| 9 | Manager | Checks the branch is on the remote, opens the pull request, applies the `qa` label and posts the QA line. |
+| 9 | Manager | Checks each branch is on the remote, cuts the pull request, applies the `qa` label and posts each QA line. One pull request usually carries the whole wave. |
 | 10 | Manager | Messages or mails the lander. |
 | 11 | Lander | Owns the pull request. Triages a red check and dispatches any repair. |
 | 12 | Lander | Enqueues as it judges best. |
@@ -163,13 +163,22 @@ When a builder reports a blocker, read it, update the backlog, and revise the br
 
 Read each builder's result. Check the branch reached the remote yourself:
   git ls-remote --heads origin
-Then open the pull request. Do not count open pull requests first: every manager reading one
-shared pool sees "clear" at the same moment, and they all open together.
+You decide when to cut a pull request. Default to one per wave: merge the wave's branches onto a
+fresh branch from origin/main with git merge --no-ff, run the checks once on the combined tree,
+and open one pull request. Build the batch in a throwaway worktree, never your own. Cut it when
+every builder has reported, when it holds five items, or before you close, whichever comes first.
+Give an item its own pull request if it fixes a red main, changes a security control, supersedes
+an ADR, or must land in order against another open pull request. Send an item that is red or
+conflicts back to a builder. Never write a conflict resolution yourself. roles/MANAGER.md, "When to cut a pull request", holds
+the steps. Do not count open pull requests first: every manager reading one shared pool sees
+"clear" at the same moment, and they all open together.
 
-Put the builder's report in the pull request body. It cannot post there itself. Read the
-builder's last commit message for the proposed title and the proposed ledger banner text.
+Put each builder's report in the pull request body, one section per item, with its branch and
+head SHA. A builder cannot post there itself. Read each builder's last commit message for the
+proposed title and the proposed ledger banner text.
 
-Label the pull request qa and post the builder's QA line on it, verbatim:
+Post each builder's QA line on it, verbatim, one comment per item. Label it qa only if every
+item has a line:
   gh pr edit <N> --add-label qa
   gh pr comment <N> --body "<the builder's QA line>"
 The label records that the builder's check ran. It gates nothing: main requires only
@@ -178,7 +187,8 @@ gates (ubuntu-latest) and gates (windows-latest). No line means no label.
 Message the lander with five fields: pull request number, head SHA, unread legs, known defects,
 and any landing-order constraint. The pull request is the lander's from that message on.
 
-Remove your builders' worktrees once their pull requests are open.
+Remove your builders' worktrees and delete their remote branches once the pull request is open.
+refs/pull/<N>/head keeps every merge parent, so each item's SHA survives a squashed landing.
 
 Do not build. Do not merge. Do not enqueue.
 ```
@@ -285,7 +295,8 @@ while its own children were still queued reports on legs that never ran.
 For a genuine failure, dispatch a repair. Prefer a spawned session over a subagent when the
 fix is non-trivial: a subagent dies with you, and this is someone else's branch.
 
-When it merges, update the backlog and release the builder's claim in the same act:
+When it merges, update the backlog and release each item's claim in the same act. A batch pull
+request closes every item it names:
   pwsh -NoProfile -File scripts/coord/claim.ps1 -Release <N>
 The claim is another worktree's, so the script refuses and probes the holder. Read that line
 before you reach for -Force.
