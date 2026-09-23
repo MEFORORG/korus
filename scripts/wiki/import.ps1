@@ -45,18 +45,23 @@
 
     RE-RUNNING IS SAFE (FR-027). The existing events are read from the inbox, and from the log with
     -RecordRepo. For each note:
-      1. The newest event on its key with the SAME evidence is the note's own earlier import. Same
-         summary and body: skipped. Different: a new event that supersedes it.
-      2. Otherwise, a CURRENT event on the key with the same summary and body is a MERGE. Current
-         means no event supersedes it and no `retire` withdrew it; a replaced text is not one to
-         merge into. The note is not written again. Instead a `decision` on memory-merge/<slug>
-         records it (FR-024): its summary names both stores, its evidence is the kept event's,
-         and its body carries `kept:` and `merged:` lines. A merge already recorded is skipped.
-      3. Otherwise the note is written. If the key already holds different text from another
+      1. The newest event with the SAME evidence, on any key, is the note's own earlier import.
+         Same key, summary and body: skipped, even if someone has since superseded or retired it.
+         Otherwise, a text edit or a rename: a new event that supersedes it.
+      2. Otherwise, a note merged before whose text has not changed since is skipped, again
+         whatever became of the event it merged into. An Owner who withdrew that text has
+         withdrawn the copy too.
+      3. Otherwise, a CURRENT event on the key with the same summary and body is a MERGE. Current
+         means no event supersedes it and no `retire` withdrew it. The note is not written.
+         Instead a `decision` on memory-merge/<slug>/<store> records it (FR-024): its summary
+         names both stores, its evidence is the kept event's, and its body carries `kept:`,
+         `merged:` and `text:` lines, the last a hash of the merged note's text.
+      4. Otherwise the note is written. If the key holds different current text from another
          store, both are kept and neither supersedes the other: the newer is live, and lint files
          the pair (Story 4, scenario 2). The report counts these as conflicts.
-    Rule 1 goes first so that two stores holding different text under one name do not trade
-    places on every run.
+    Rule 1 runs over every note before rules 2 to 4 run over any, so a text this run replaces is
+    no longer current when a later note looks for one to merge into. It goes first at all so that
+    two stores holding different text under one name do not trade places on every run.
 
     -WhatIf writes nothing. It runs every check, the leak scan included, through `write.ps1
     -CheckOnly`, and prints the same report.
@@ -106,8 +111,9 @@ $TypeMap = @{ feedback = 'lesson'; project = 'decision'; reference = 'gotcha'; u
 $SummaryMax = $script:WikiLimits.summary
 $BodyMax = $script:WikiLimits.body
 $TruncatedMarker = "`n`n[truncated at import; the full note is the evidence file]"
-# A slug leaves room for `memory-merge/` in front inside the 200-character key limit.
-$SlugMax = 180
+# A merge record's key is memory-merge/<slug>/<store>, which must fit the 200-character key limit.
+$SlugMax = 140
+$StoreSlugMax = 40
 
 # ------------------------------------------------------------------------------------ home path
 function New-HomePattern {
@@ -134,8 +140,10 @@ function New-HomePattern {
 if ([string]::IsNullOrWhiteSpace($HomeDir)) { $HomeDir = [Environment]::GetFolderPath('UserProfile') }
 if ([string]::IsNullOrWhiteSpace($HomeDir)) { $HomeDir = $HOME }
 $homePattern = New-HomePattern $HomeDir
-# The home directory as a project folder spells it: every `:`, `\` and `/` becomes `-`.
-$homeSlug = if ([string]::IsNullOrWhiteSpace($HomeDir)) { '' } else { $HomeDir.Trim().TrimEnd('\', '/') -replace '[:\\/]', '-' }
+# The home directory as a project folder spells it: every character but a letter or digit becomes
+# `-`. Not only the separators: `john.smith` is spelled `john-smith` there, and missing it shipped
+# the account name in every event's evidence.
+$homeSlug = if ([string]::IsNullOrWhiteSpace($HomeDir)) { '' } else { $HomeDir.Trim().TrimEnd('\', '/') -replace '[^A-Za-z0-9]', '-' }
 
 if ([string]::IsNullOrWhiteSpace($Seat)) { $Seat = 'import' }
 $Seat = $Seat.Trim().ToLowerInvariant()
@@ -245,9 +253,17 @@ function Get-EventText {
     $summary = $Item.summary
     $body = $Item.body
     if ($summary -is [datetime] -or $body -is [datetime]) {
-        $path = if ([string]$Item._source -ceq 'log') {
-            Join-Path (Get-WikiLogDir -RecordRepo $RecordRepo -Utc $Item._utc) "$($Item.id).json"
-        } else { Join-Path (Get-WikiInboxDir -StateRoot $StateRoot) "$($Item.id).json" }
+        if ([string]$Item._source -ceq 'log') {
+            # Found by file name, not rebuilt from the stamp's month: the compile job may file an
+            # event elsewhere, and a missed file here would supersede the note on every run.
+            if ($null -eq $script:LogFiles) {
+                $script:LogFiles = @{}
+                foreach ($f in [System.IO.Directory]::EnumerateFiles((Get-WikiEventsRoot -RecordRepo $RecordRepo), '*.json', [System.IO.SearchOption]::AllDirectories)) {
+                    $script:LogFiles[[System.IO.Path]::GetFileNameWithoutExtension($f)] = $f
+                }
+            }
+            $path = $script:LogFiles[[string]$Item.id]
+        } else { $path = Join-Path (Get-WikiInboxDir -StateRoot $StateRoot) "$($Item.id).json" }
         try {
             $doc = [System.Text.Json.JsonDocument]::Parse([System.IO.File]::ReadAllText($path))
             try {
@@ -256,16 +272,26 @@ function Get-EventText {
                 if ($doc.RootElement.TryGetProperty('body', [ref]$prop)) { $body = $prop.GetString() }
             } finally { $doc.Dispose() }
         } catch {
-            # The log may file an event elsewhere than its stamp's month. The cast is then the best
-            # left, and the worst it costs is one needless supersede.
+            # The file went between the read and now. The cast is the best left.
             $null = $_
         }
     }
     return @((ConvertTo-Text $summary), (ConvertTo-Text $body))
 }
+$script:LogFiles = $null
 
-# key -> list of @{ Id; Evidence; Summary; Body; TsKey; Planned }
+function Get-TextHash {
+    <# A note's text as one short, stable token, so a merge record can say which text it merged. #>
+    param([string] $Summary, [string] $Body)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Summary + "`n" + $Body)
+    return 'sha256:' + [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
+}
+
+# key -> list of @{ Id; Key; Evidence; Summary; Body; TsKey; Planned; Current }
 $byKey = @{}
+# evidence -> the newest existing event citing it, on ANY key. Evidence names one note file, so this
+# is the note's own last import even after its name, and so its key, changed.
+$byEvidence = @{}
 function Add-KeyEntry {
     param([string] $Key, $Entry)
     if (-not $byKey.ContainsKey($Key)) { $byKey[$Key] = [System.Collections.Generic.List[object]]::new() }
@@ -287,26 +313,37 @@ foreach ($ev in $existing) {
     }
 }
 
-# "<key>|<evidence>" for every note a merge record already covers.
-$mergedSources = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+# "<key>|<evidence>|<text hash>" for every note a merge record covers, as it read when merged. Keyed
+# on the MERGED note's own text, not on whether the event it merged into is still current: an Owner
+# who retires or supersedes that event has withdrawn the text, and the merged copy must not come
+# back on the next run.
+$mergedTexts = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 foreach ($ev in $existing) {
     $k = [string]$ev.key
     if ([string]$ev.type -cin $script:WikiMarkerTypes) { continue }
     if ($k.StartsWith('memory-merge/')) {
-        $base = 'memory/' + $k.Substring('memory-merge/'.Length)
+        $segments = $k.Split('/')
+        $base = 'memory/' + $segments[1]
+        $merged = $null
+        $hash = $null
         foreach ($line in ((ConvertTo-Text $ev.body) -split "`n")) {
             # To the end of the line, not to the first space: a file name may hold one.
-            if ($line -match '^merged: (.+?)\s*$') { [void]$mergedSources.Add("$base|$($Matches[1])") }
+            if ($line -match '^merged: (.+?)\s*$') { $merged = $Matches[1] }
+            elseif ($line -match '^text: (\S+)\s*$') { $hash = $Matches[1] }
         }
+        if ($merged -and $hash) { [void]$mergedTexts.Add("$base|$merged|$hash") }
         continue
     }
     $text = Get-EventText $ev
     $current = -not $supersededIds.Contains([string]$ev.id) -and
         -not ($retiredAt.ContainsKey($k) -and [string]::CompareOrdinal([string]$ev._tsKey, $retiredAt[$k]) -lt 0)
-    Add-KeyEntry $k ([pscustomobject]@{
-            Id = [string]$ev.id; Evidence = [string]$ev.evidence; Summary = $text[0]
-            Body = $text[1]; TsKey = [string]$ev._tsKey; Planned = $null; Current = $current
-        })
+    $entry = [pscustomobject]@{
+        Id = [string]$ev.id; Key = $k; Evidence = [string]$ev.evidence; Summary = $text[0]
+        Body = $text[1]; TsKey = [string]$ev._tsKey; Planned = $null; Current = $current
+    }
+    Add-KeyEntry $k $entry
+    $prev = $byEvidence[$entry.Evidence]
+    if ($null -eq $prev -or [string]::CompareOrdinal($entry.TsKey, $prev.TsKey) -gt 0) { $byEvidence[$entry.Evidence] = $entry }
 }
 
 # ------------------------------------------------------------------------------------ parsing
@@ -468,6 +505,8 @@ $noteItems = [System.Collections.Generic.List[object]]::new()
 $noteMeta = [System.Collections.Generic.List[object]]::new()
 $mergeItems = [System.Collections.Generic.List[object]]::new()
 $mergeMeta = [System.Collections.Generic.List[object]]::new()
+# Notes with no import of their own, held for pass 2.
+$pending = [System.Collections.Generic.List[object]]::new()
 
 foreach ($st in $stores) {
     $files = @([System.IO.Directory]::EnumerateFiles($st.Path, '*', [System.IO.SearchOption]::TopDirectoryOnly) |
@@ -514,47 +553,68 @@ foreach ($st in $stores) {
             $counts.body_truncated++
         }
 
-        $entries = if ($byKey.ContainsKey($key)) { $byKey[$key] } else { @() }
-        $prior = $null
-        foreach ($e in $entries) {
-            if ($null -eq $e.Planned -and $e.Evidence -ceq $evidence -and ($null -eq $prior -or [string]::CompareOrdinal($e.TsKey, $prior.TsKey) -gt 0)) { $prior = $e }
-        }
         $item = [ordered]@{ type = $type; key = $key; summary = $summary; evidence = $evidence }
         if ($body) { $item.body = $body }
-        $entry = [pscustomobject]@{ Id = $null; Evidence = $evidence; Summary = $summary; Body = $body; TsKey = ''; Planned = $noteItems.Count; Current = $true }
 
+        # Rule 1, in the first pass: this note's own earlier import, found by evidence on any key.
+        # Every supersede is planned before any merge is decided, so a text this run replaces is no
+        # longer current when pass 2 looks for one to merge into.
+        $prior = $byEvidence[$evidence]
         if ($null -ne $prior) {
-            # Rule 1: this note's own earlier import.
-            if ($prior.Summary -ceq $summary -and $prior.Body -ceq $body) { $counts.unchanged++; continue }
+            if ($prior.Key -ceq $key -and $prior.Summary -ceq $summary -and $prior.Body -ceq $body) { $counts.unchanged++; continue }
+            # Changed text, or a changed name and so a changed key: the new event replaces the old.
             $item.supersedes = @($prior.Id)
+            $prior.Current = $false
+            Add-KeyEntry $key ([pscustomobject]@{
+                    Id = $null; Key = $key; Evidence = $evidence; Summary = $summary; Body = $body; TsKey = ''
+                    Planned = $noteItems.Count; Current = $true
+                })
             $noteItems.Add($item)
             $noteMeta.Add([pscustomobject]@{ Where = $where; Action = 'superseded'; Conflict = $false })
-            Add-KeyEntry $key $entry
             continue
         }
-        $same = $null
-        foreach ($e in $entries) { if ($e.Current -and $e.Summary -ceq $summary -and $e.Body -ceq $body) { $same = $e; break } }
-        if ($null -ne $same) {
-            # Rule 2: the same text is current on this key, from somewhere else.
-            if ($mergedSources.Contains("$key|$evidence")) { $counts.unchanged++; continue }
-            [void]$mergedSources.Add("$key|$evidence")
-            $keptLabel = if ($same.Evidence -match '^memory:(.+)/[^/]+$') { $Matches[1] } else { $same.Evidence }
-            $mergeItems.Add([ordered]@{
-                    type     = 'decision'
-                    key      = "memory-merge/$slug"
-                    summary  = "Merged memory note '$slug' from $($st.Label) into $keptLabel`: same name, same text"
-                    evidence = $same.Evidence
-                    body     = "kept: $($same.Evidence)`nmerged: $evidence"
-                })
-            $mergeMeta.Add([pscustomobject]@{ Where = $where; KeptPlanned = $same.Planned })
-            continue
-        }
-        # Rule 3: new to this key. Different text already there is a conflict for lint, kept as is.
-        $conflict = $entries.Count -gt 0
-        $noteItems.Add($item)
-        $noteMeta.Add([pscustomobject]@{ Where = $where; Action = 'imported'; Conflict = $conflict })
-        Add-KeyEntry $key $entry
+        $pending.Add([pscustomobject]@{
+                Where = $where; Label = $st.Label; Key = $key; Slug = $slug; Evidence = $evidence
+                Summary = $summary; Body = $body; Item = $item
+            })
     }
+}
+
+# Pass 2: notes with no import of their own yet.
+foreach ($n in $pending) {
+    $entries = if ($byKey.ContainsKey($n.Key)) { $byKey[$n.Key] } else { @() }
+    $hash = Get-TextHash $n.Summary $n.Body
+    # Merged before, and unchanged since: nothing to do, whatever became of the event it joined.
+    if ($mergedTexts.Contains("$($n.Key)|$($n.Evidence)|$hash")) { $counts.unchanged++; continue }
+    $same = $null
+    foreach ($e in $entries) { if ($e.Current -and $e.Summary -ceq $n.Summary -and $e.Body -ceq $n.Body) { $same = $e; break } }
+    if ($null -ne $same) {
+        # Rule 2: the same text is current on this key, from somewhere else. One merge record per
+        # merged store, on its own key, so a third store's record does not hide a second's.
+        [void]$mergedTexts.Add("$($n.Key)|$($n.Evidence)|$hash")
+        $keptLabel = if ($same.Evidence -match '^memory:(.+)/[^/]+$') { $Matches[1] } else { $same.Evidence }
+        $storeSlug = ($n.Label.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+        if ($storeSlug.Length -gt $StoreSlugMax) { $storeSlug = $storeSlug.Substring(0, $StoreSlugMax).TrimEnd('-') }
+        if (-not $storeSlug) { $storeSlug = 'store' }
+        $mergeItems.Add([ordered]@{
+                type     = 'decision'
+                key      = "memory-merge/$($n.Slug)/$storeSlug"
+                summary  = "Merged memory note '$($n.Slug)' from $($n.Label) into $keptLabel`: same name, same text"
+                evidence = $same.Evidence
+                body     = "kept: $($same.Evidence)`nmerged: $($n.Evidence)`ntext: $hash"
+            })
+        $mergeMeta.Add([pscustomobject]@{ Where = $n.Where; KeptPlanned = $same.Planned })
+        continue
+    }
+    # Rule 3: new to this key. Different CURRENT text already there is a conflict for lint, kept as
+    # is; a withdrawn one is not.
+    $conflict = @($entries | Where-Object { $_.Current }).Count -gt 0
+    Add-KeyEntry $n.Key ([pscustomobject]@{
+            Id = $null; Key = $n.Key; Evidence = $n.Evidence; Summary = $n.Summary; Body = $n.Body; TsKey = ''
+            Planned = $noteItems.Count; Current = $true
+        })
+    $noteItems.Add($n.Item)
+    $noteMeta.Add([pscustomobject]@{ Where = $n.Where; Action = 'imported'; Conflict = $conflict })
 }
 
 # ------------------------------------------------------------------------------------ write
@@ -562,6 +622,8 @@ $writeScript = Join-Path $PSScriptRoot 'write.ps1'
 # The pwsh that ships beside this one, not the host process: a script hosted in another program
 # would otherwise start that program.
 $pwshExe = Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })
+# Installed as a .NET tool, PSHOME holds no pwsh executable. This process is then the best left.
+if (-not (Test-Path -LiteralPath $pwshExe -PathType Leaf)) { $pwshExe = (Get-Process -Id $PID).Path }
 
 function Invoke-WriteBatch {
     <#

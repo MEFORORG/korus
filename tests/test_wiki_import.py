@@ -87,6 +87,9 @@ class _ImportCase(unittest.TestCase):
     def on_key(self, key: str) -> list[dict]:
         return [e for e in self.inbox() if e["key"] == key]
 
+    def under(self, prefix: str) -> list[dict]:
+        return [e for e in self.inbox() if e["key"].startswith(prefix)]
+
     def query(self, text: str, *extra: str) -> list[dict]:
         r = w.run(self.pwsh, w.QUERY, "-Text", text, "-StateRoot", str(self.state), "-Json", *extra)
         self.assertEqual(0, r.returncode, r.stderr)
@@ -309,13 +312,16 @@ class NotesThatShareAName(_ImportCase):
         r, rep = self.run_import(a, b)
         self.assertEqual(0, r.returncode, r.stderr)
         [kept] = self.on_key("memory/shared-lesson")
-        [merge] = self.on_key("memory-merge/shared-lesson")
+        [merge] = self.on_key("memory-merge/shared-lesson/acct-b-proj")
         self.assertEqual("memory:acct-a/proj/n.md", kept["evidence"])
         self.assertEqual("decision", merge["type"])
         self.assertEqual(kept["evidence"], merge["evidence"])
         self.assertIn("acct-a", merge["summary"])
         self.assertIn("acct-b", merge["summary"])
-        self.assertEqual("kept: memory:acct-a/proj/n.md\nmerged: memory:acct-b/proj/n.md", merge["body"])
+        kept_line, merged_line, text_line = merge["body"].split("\n")
+        self.assertEqual("kept: memory:acct-a/proj/n.md", kept_line)
+        self.assertEqual("merged: memory:acct-b/proj/n.md", merged_line)
+        self.assertRegex(text_line, r"^text: sha256:[0-9a-f]{64}$")
         self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
 
     def test_same_name_different_text_keeps_both_and_supersedes_neither(self):
@@ -328,7 +334,7 @@ class NotesThatShareAName(_ImportCase):
         both = self.on_key("memory/split-lesson")
         self.assertEqual(2, len(both))
         self.assertTrue(all("supersedes" not in e for e in both), "a different store's note superseded another")
-        self.assertEqual([], self.on_key("memory-merge/split-lesson"))
+        self.assertEqual([], self.under("memory-merge/split-lesson/"))
         self.assertEqual(1, rep["counts"]["conflicts"])
 
 
@@ -532,7 +538,7 @@ class ARerunStaysQuietInTheEdgeCases(_ImportCase):
         self.note(b, "my note.md", "spaced", "same", "same")
         rep = self.rerun_writes_nothing(a, b)
         self.assertEqual(2, rep["counts"]["unchanged"])
-        self.assertEqual(1, len(self.on_key("memory-merge/spaced")))
+        self.assertEqual(1, len(self.under("memory-merge/spaced/")))
 
     def test_a_description_shaped_like_a_timestamp_is_unchanged_on_a_rerun(self):
         """The shared reader turns such a string into a date, and the date never equals the note."""
@@ -623,6 +629,142 @@ class APartWrittenBatchIsReportedAsSuch(_ImportCase):
         r = self.run_stub("nothing")
         self.assertEqual(2, r.returncode)
         self.assertIn("Nothing was written", r.stderr)
+
+
+class WhatTheOwnerWithdrewStaysWithdrawn(_ImportCase):
+    """Round-2 review: rule 2 matched only CURRENT events, so a merged copy whose kept event was later
+    retired or superseded found no match and was written again, newer than the retire."""
+
+    def owner_write(self, *args: str) -> str:
+        r = w.run(self.pwsh, w.WRITE, *args, "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager",
+                  "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        return r.stdout.strip()
+
+    def shared_pair(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "foo.md", "foo", "shared text", "body")
+        self.note(b, "foo.md", "foo", "shared text", "body")
+        _, rep = self.run_import(a, b)
+        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
+        return a, b
+
+    def test_a_retire_of_the_kept_event_is_not_undone_by_a_rerun(self):
+        a, b = self.shared_pair()
+        self.owner_write("-Type", "retire", "-Key", "memory/foo", "-Summary", "withdrawn")
+        before = len(self.inbox())
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(before, len(self.inbox()), "a re-run wrote over an Owner retire")
+        self.assertEqual(2, rep["counts"]["unchanged"])
+        # CONTROL: the query shows nothing on the key, so the retire is in force.
+        self.assertEqual([], [h for h in self.query("shared text") if h["key"] == "memory/foo"])
+
+    def test_a_supersede_of_the_kept_event_is_not_undone_by_a_rerun(self):
+        a, b = self.shared_pair()
+        [kept] = self.on_key("memory/foo")
+        self.owner_write("-Type", "supersede", "-Key", "memory/foo", "-Summary", "replaced", "-Supersedes", kept["id"])
+        before = len(self.inbox())
+        _, rep = self.run_import(a, b)
+        self.assertEqual(before, len(self.inbox()))
+        self.assertEqual(2, rep["counts"]["unchanged"])
+
+    def test_a_merged_note_that_changes_is_imported_again(self):
+        """CONTROL for the two above: the skip is keyed on the merged note's text, not on its name."""
+        a, b = self.shared_pair()
+        self.note(b, "foo.md", "foo", "text b now says", "body")
+        _, rep = self.run_import(a, b)
+        self.assertEqual(1, rep["counts"]["imported"])
+
+
+class ASupersedeInThisRunCountsForThisRun(_ImportCase):
+    def test_a_note_holding_the_text_this_run_replaces_is_not_merged_into_it(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "moving", "old text", "body")
+        self.run_import(a)
+        pa.write_text(note_text("moving", "new text", "body"), encoding="utf-8")
+        self.note(b, "n.md", "moving", "old text", "body")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 1, 0), (rep["counts"]["superseded"], rep["counts"]["imported"], rep["counts"]["merged"]))
+        self.assertEqual([], self.under("memory-merge/"), "a merge record points at the text this run replaced")
+        _, rep3 = self.run_import(a, b)
+        self.assertEqual(2, rep3["counts"]["unchanged"])
+
+    def test_both_stores_start_equal_then_one_edits(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "moving", "old text", "body")
+        self.note(b, "n.md", "moving", "old text", "body")
+        self.run_import(a, b)
+        pa.write_text(note_text("moving", "new text", "body"), encoding="utf-8")
+        _, rep2 = self.run_import(a, b)
+        self.assertEqual((1, 1), (rep2["counts"]["superseded"], rep2["counts"]["unchanged"]))
+        before = len(self.inbox())
+        _, rep3 = self.run_import(a, b)
+        self.assertEqual(before, len(self.inbox()), "the third run, with nothing changed, wrote an event")
+        self.assertEqual(2, rep3["counts"]["unchanged"])
+
+
+class ARenamedNoteReplacesItsOldImport(_ImportCase):
+    def test_a_new_name_supersedes_the_event_on_the_old_key(self):
+        a = self.store("acct")
+        p = self.note(a, "f.md", "old-name", "the text", "body")
+        self.run_import(a)
+        [old] = self.inbox()
+        p.write_text(note_text("new-name", "the text", "body"), encoding="utf-8")
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        [new] = self.on_key("memory/new-name")
+        self.assertEqual([old["id"]], new["supersedes"])
+        self.assertEqual(1, rep["counts"]["superseded"])
+        self.assertEqual([new["id"]], [h["id"] for h in self.query("the text")])
+        _, rep3 = self.run_import(a)
+        self.assertEqual(1, rep3["counts"]["unchanged"])
+
+
+class TheHomeInAProjectFolderWithPunctuation(_ImportCase):
+    def test_an_account_name_with_a_dot_is_hidden_in_the_label(self):
+        home = "C:" + BACKSLASH + "Users" + BACKSLASH + "john.smith"
+        d = self.root / "roots" / "acct" / "projects" / "C--Users-john-smith-Code-X" / "memory"
+        d.mkdir(parents=True)
+        self.note(d, "x.md", "x", "x")
+        r, rep = self.run_import(d, extra=("-HomeDir", home))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("acct/~-Code-X", rep["stores"][0]["label"])
+        self.assertNotIn("john", self.inbox()[0]["evidence"])
+
+
+class ConflictsCountOnlyCurrentText(_ImportCase):
+    def test_a_withdrawn_event_is_not_a_conflict(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "n.md", "gone", "a says this")
+        self.run_import(a)
+        r = w.run(self.pwsh, w.WRITE, "-Type", "retire", "-Key", "memory/gone", "-Summary", "withdrawn",
+                  "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.note(b, "n.md", "gone", "b says that")
+        _, rep = self.run_import(a, b)
+        self.assertEqual((1, 0), (rep["counts"]["imported"], rep["counts"]["conflicts"]))
+
+    def test_control_a_current_different_text_is_a_conflict(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(a, "n.md", "here", "a says this")
+        self.run_import(a)
+        self.note(b, "n.md", "here", "b says that")
+        _, rep = self.run_import(a, b)
+        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["conflicts"]))
+
+
+class EachMergedStoreHasItsOwnRecord(_ImportCase):
+    def test_three_stores_give_two_merge_records_on_two_keys(self):
+        """On one key, the newer merge record hid the older from a default query."""
+        stores = [self.store(f"acct-{c}") for c in "abc"]
+        for s in stores:
+            self.note(s, "n.md", "trio", "same text", "same body")
+        _, rep = self.run_import(*stores)
+        self.assertEqual((1, 2), (rep["counts"]["imported"], rep["counts"]["merged"]))
+        keys = sorted(e["key"] for e in self.under("memory-merge/trio/"))
+        self.assertEqual(["memory-merge/trio/acct-b-proj", "memory-merge/trio/acct-c-proj"], keys)
 
 
 if __name__ == "__main__":
