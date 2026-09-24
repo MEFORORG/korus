@@ -197,10 +197,14 @@ ticks is evidence the seat is gone, not merely quiet.
 #### What "drained" means, and it is three repositories
 
 The target is every repository in *The three repositories do not behave the same*: the engine
-`MEFORORG/MessageFoundry`, the vault `wshallwshall/MessageFoundry-vault`, and `wshallwshall/korus`.
+`MEFORORG/MessageFoundry`, the vault `MEFORORG/MessageFoundry-vault`, and `MEFORORG/korus`.
 
-`scripts/board/collect.py` reads all three. Measured at `efd7b42`: its `REPOS` list holds those three
+`scripts/board/collect.py` reads all three. Measured at `9c26644`: its `REPOS` list holds those three
 tuples and the literal closes on the third.
+
+**CORRECTED 2026-09-24: this line named the vault and korus under `wshallwshall/` until then.** Both
+moved to `MEFORORG`, and `collect.py` followed in #139. `gh repo view` in each checkout confirms it.
+The old slugs still redirect.
 
 | State | Counts against the drain? |
 | --- | --- |
@@ -1072,9 +1076,28 @@ record of what shipped. Three arming preconditions follow, all measured 2026-08-
 
 Source of record: `docs/LEDGER-GATE.md`. A pre-commit gate enforces this section.
 
-**The ledger lives in the vault since 2026-09-13 (BACKLOG #1250).** Run every ledger command in this
-section in a vault checkout. The engine's `docs/BACKLOG.md` is a stub, and no engine pull request
-edits it. Allocate backlog numbers in the vault; the engine refuses `-Kind backlog`.
+**The ledger lives in the vault since 2026-09-13 (BACKLOG #1250).** The engine's `docs/BACKLOG.md`
+is a stub, and no engine pull request edits it. The commands in this section do not all run there,
+though. The table names where each one runs.
+
+| Command | Run it in | The reading behind it |
+| --- | --- | --- |
+| Editing `docs/BACKLOG.md`, a banner or a row | A vault checkout | The engine's copy is a stub. |
+| `alloc.ps1 -Kind backlog` | A vault checkout | The engine's copy refuses it at parameter binding: its `-Kind` is `ValidateSet("adr")`. |
+| `alloc.ps1 -Kind adr` | The engine | ADRs are committed there. Its `docs/adr/` reaches 0193 at `5ccff7cb3`; the vault's stops at 0188 at `2e6e86eea`. |
+| `claim.ps1 -Take`, `-Release`, `-List` | The engine | Each clone keeps its own registry under `<git-common-dir>/mefor-coord/claims`. A claim taken or released in the vault never reaches the engine's. |
+
+**The vault does not refuse either wrong case, so a wrong checkout fails silently.** Its `alloc.ps1`
+has issued ADR numbers since vault #1600, from its own records. Its `claim.ps1` is a 165-line copy
+from 2026-07-24; the engine's is 781 lines.
+
+Read 2026-09-24: `claim.ps1 -List` showed 46 claims in the engine clone and 13 in the vault clone,
+most of the vault's marked STALE. *Coordination scripts* in [COMMON.md](COMMON.md) routes every
+`scripts/coord` script to the engine, and backlog allocation is the one exception.
+
+**CORRECTED 2026-09-24.** This read *"Run every ledger command in this section in a vault
+checkout."* That sent claims to the wrong registry. A claim taken or released in the vault does
+nothing to the engine's.
 
 | Item | Rule |
 | --- | --- |
@@ -1297,6 +1320,10 @@ Owner-set 2026-09-18, step 14 of the build-to-land flow. The ledger update and t
 workflow reads the claim registry, no check fails, and the only surface that would tell you is
 `claim.ps1 -List`, which nobody runs until they are already stopped.
 
+**Run both in an engine checkout, even when the banner you just wrote is in the vault.** The Builder
+took the claim in the engine's registry, and the vault's is a different one. *7. Ledger discipline*
+holds the reading.
+
 ```powershell
 pwsh -NoProfile -File scripts/coord/claim.ps1 -Release <N>
 pwsh -NoProfile -File scripts/coord/claim.ps1 -List
@@ -1507,6 +1534,7 @@ no longer the PR's.
 | Re-ask when content changes class | On 2026-08-12 one lander was granted vault access three times in escalating scope: a bookkeeping-only branch push, then the same branch once it carried a **verdict move**, then push and merge generally. |
 | Why the middle ask happened | The branch's content had outgrown its description while keeping its name. That is the standard, even when the branch, the task and the authorization all still look the same. |
 | Confirm the remote before every vault push | Read `git remote get-url origin` and refuse on anything unrecognised. `wshallwshall` and `MEFORORG` are two remotes for repositories of the same name, and pushing security documents to the public mirror is the one mistake with no undo. |
+| **CORRECTED 2026-09-24: `wshallwshall` holds no MessageFoundry repository now** | `gh repo list wshallwshall` returns none. `gh repo list MEFORORG` shows the vault PRIVATE and the engine PUBLIC. So the public repository a vault push can reach by mistake is the engine. Accept only `MEFORORG/MessageFoundry-vault`. |
 | The tell | *"I am in the vault checkout"* is an assumption, not a check. |
 | A coupled engine/vault pair | Still wants the owner present for BOTH halves. The route grant covers *operating* the vault; it does not convert a two-repo change into a one-session decision. |
 
