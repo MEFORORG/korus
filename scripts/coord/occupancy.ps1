@@ -73,6 +73,9 @@
     here, Read-WorktreeStatus, because both already load this file. It reads no session record
     either. Each caller keeps its own rule for what blocks a removal.
 
+    THE LOSS READ. The same day, both began reading the commits only a worktree holds through
+    Get-WorktreeOnlyCommits: its HEAD reflog and its own per-worktree refs, all deleted with it.
+
     The containment tests below compare ORDINALLY. Both sides are already folded by
     ConvertTo-CcxComparablePath, and a culture-aware StartsWith can call a path that begins with a
     combining mark "not inside", which for a destructive caller is a miss.

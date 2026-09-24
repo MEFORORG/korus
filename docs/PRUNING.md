@@ -173,6 +173,14 @@ in `scripts/coord/occupancy.ps1`, whose `--untracked-files=normal` overrides the
 not check those files, so the edit read as clean. The same read now lists them from `git ls-files
 -v`, and they block as tracked changes. Measured against `fd7028f`: `-Apply` deleted one.
 
+**A commit only the worktree itself held was lost too, until 2026-09-23.** Removing a worktree
+deletes its HEAD reflog and its own `refs/worktree/*`, `refs/bisect/*` and `refs/rewritten/*`. A
+commit left on a detached HEAD before a switch back to the branch is held by that reflog alone.
+
+Measured against `06e8ca3` with `tests/test_the_reaper_keeps_commits_only_a_worktree_holds.py`:
+`-Apply` pruned such a sibling, and `git fsck` then listed the commit as unreachable. Such a commit
+now blocks, through `Get-WorktreeOnlyCommits` in `scripts/coord/occupancy.ps1`.
+
 Ignored files still do not block the reaper, and it still deletes them, as the policy above says.
 `remove.ps1` shares the status read but withholds its printed command for them, because it names
 nested worktrees that may belong to a live session.
