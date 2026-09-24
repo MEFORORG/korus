@@ -53,6 +53,9 @@ holds the design. These scripts write, guard and query; the compile job comes la
 | `scripts/wiki/query.ps1` | Searches the inbox, and the record repository's log with `-RecordRepo`. Prints `no note` below the match floor. Says so when a store is unreachable, and still exits 0. Warns on stdout when an unreadable file may hide a retirement | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by both scripts above, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_guard.ps1` | The one filter every read passes through. Hides superseded and retired events; `-History` returns them labelled `historical` | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/compile.ps1` | Folds the inbox into the record repository's log, rebuilds pages and index through the guard, and force-pushes `wiki/compile` with one pull request. Never merges. Clears an inbox file once it lands. `-RebuildOnly` rebuilds from the log alone | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/_render.ps1` | Renders the pages and the index from a set of events, and lists keys held by two events where neither supersedes the other. Dot-sourced by `compile.ps1`, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/lint.ps1` | Report only; changes no event. Finds conflicts, dead evidence, stale events, orphan pages and lessons two seats wrote. Counts the evidence it could not check, so zero dead is not read as clean | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 
 ## To clean up and recover
 
