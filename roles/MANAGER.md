@@ -249,37 +249,35 @@ this step. Ask the Lander to dequeue it, close the pull request, and cut a new o
 branch. **Never force-push the batch branch.** If you are gone, the Lander may spawn a Manager to
 re-cut it.
 
-### A session started from your chip opens its own pull request unless it reaches you live
+### A session started from a chip opens its own pull request
 
-**Owner ruling 2026-09-23.** A chip you raise with `spawn_task` starts a separate session, not a
-subagent. Its final report never reaches you. It may start hours later, after you are gone. So it
-fits neither rule above: it has your brief, but it has no channel back to you.
+**Owner ruling 2026-09-23.** A chip raised with `spawn_task` starts a separate session, not a
+subagent. Its final report reaches nobody, and it may start hours later, after the seat that raised
+it is gone. So the batch rule above does not reach it, even when you raised the chip and wrote its
+brief. **The exception to "every seat opens its own pull request" is a Builder running as a
+Manager's SUBAGENT, and nothing else.**
 
-When you raise the chip, put two things in its prompt: your own `local_` session id, and your
-worktree path. Tell it to follow the four steps below.
-
-The session started from the chip:
+The session started from a chip:
 
 1. Pushes its branch.
-2. Sends its branch name and head SHA to your `local_` id, with `SendMessage` or the session
-   `send_message` tool.
-3. If the result says **delivered**, you own the pull request. It reports and stops.
-4. On any other result -- **queued**, an error, or no id in its prompt -- it opens its own pull
-   request for that one item. The body says it could not reach the Manager, and names the id it
-   tried.
+2. Opens one pull request for its item. It does for that pull request what steps 9 and 10 have you
+   do for a batch: its report and head SHA in the body, its QA line as a comment, and the handover
+   to the Lander.
+3. Messages the seat that raised the chip with the pull request number, if it can reach it. It does
+   not wait for an answer.
 
-**Why only "delivered" hands the item to you.** The tool's own result text for **queued** reads
-*"a turn is in progress there, or its host or process is away"*. It cannot tell a busy Manager from
-a dead one. A branch handed to a dead Manager sits on the remote with no pull request, and nothing
-reports it. An extra pull request costs two runs of the required suite. A stranded branch costs the
-work. So the rule fails toward the pull request.
+When you raise a chip, say this in its prompt. Before you batch any branch, run
+`gh pr list --head <branch> --state all`. If the branch already has a pull request, leave it out.
 
-When the message reaches you, treat it as a Builder's report. Check the branch with
-`git ls-remote --heads origin`, and put it in the next batch.
+**Why the chip session does not hand the pull request to you.** A draft of this rule did: it handed
+over when a `send_message` result said "delivered", and opened its own pull request otherwise.
+Adversarial review found two failures in it, and it never shipped. A **queued** message is still
+delivered later, so the chip session would open its own pull request and you would then batch the
+same branch. And **delivered** proves only that your turn started. A Manager that crashed, or was
+closed before the next cut, would leave a branch with no pull request. `stalled-prs.yml` scans pull
+requests, not branches, so nothing would report it. An extra pull request costs two runs of
+the required suite, and spawning is rare by design, so that cost is small.
 
-**A chip raised by any other seat has no batch to join.** A session started from a Lander's,
-Builder's or Special's chip opens its own pull request, like every seat except a Builder under a
-Manager's brief.
 ---
 
 ## 1. This seat replaced the Console on 2026-09-10

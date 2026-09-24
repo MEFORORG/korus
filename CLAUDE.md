@@ -255,6 +255,9 @@ the Owner's here.
 **NARROWED 2026-09-18, by Owner ruling: a Builder working to a Manager's brief does not open the
 PR.** It pushes, reports and exits, and the **Manager** opens the PR after checking the branch
 reached the remote with `git ls-remote --heads origin`. Every other seat still opens its own.
+**Since 2026-09-23, "working to a Manager's brief" means running as the Manager's SUBAGENT.** A
+session started from a chip is not one, even when a Manager raised it, so it opens its own; see
+`roles/MANAGER.md`, *A session started from a chip opens its own pull request*.
 
 The push did not move. The 2026-08-29 ruling behind it says *"Sessions push their own"* and never
 named the pull request, so the opening was an inference this ruling withdraws.
