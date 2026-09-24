@@ -664,6 +664,30 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                         # The path exists here, so this refusal is the one that must answer.
                         self.assertIn("not a registered worktree", said, said)
 
+    def test_a_trailing_dot_does_not_resolve_to_another_worktree(self):
+        """Windows drops a trailing dot, so `-Name a.` read as worktree `a` and removed it, exit 0.
+
+        Red at 06e8ca3 on Windows. Elsewhere `P-a.` is its own path and does not exist here, so this
+        case passes there before and after the fix.
+        """
+        top = self.base
+        for layout in ("sibling", "nested"):
+            with self.subTest(layout=layout):
+                self.base = top / layout
+                self.base.mkdir()
+                primary = self.primary(layout)
+                a = (primary / ".claude" / "worktrees" / "a") if layout == "nested" else (self.base / "P-a")
+                self.worktree(primary, a, "a")
+                (a / "live.txt").write_text("a session is writing here\n", encoding="utf-8")
+
+                r = self.remove(primary, "a.", "-DeleteBranch")
+                said = r.stdout + r.stderr
+
+                self.assertTrue((a / "live.txt").is_file(), f"-Name a. removed worktree a\n{said}")
+                self.assertIn(fold(a), self.registered(primary), said)
+                self.assertNotEqual(0, r.returncode, said)
+                self.assertIn("a", git("branch", "--format=%(refname:short)", cwd=primary).split())
+
     # --- the controls: a fix that refuses everything fails these ----------------------------------
 
     def test_control_a_sibling_with_nothing_nested_is_removed(self):

@@ -86,9 +86,19 @@ function Read-RegisteredWorktrees([string]$Primary, [string]$Target) {
 # .claude, the directories that hold every harness worktree, and the nested check below would list
 # each of them with the commands to delete it. The primary is excluded too. No -Name reaches it
 # today, and this keeps it that way.
+#
+# THE LAST COMPONENT MUST MATCH AS SPELLED. Windows drops a trailing dot from a path component, so
+# `-Name a.` resolved to `<primary>-a.`, and Test-Path, GetFullPath and git all read that as
+# `<primary>-a`. The check below then matched worktree `a`, and the script removed it and exited 0.
+# Measured 2026-09-23 at 06e8ca3 on git 2.55.0.windows.5. Only the leaf is compared as spelled, since
+# -Name is one component and the rest of the path comes from git. Case still folds where the
+# filesystem folds it.
 $there = ConvertTo-CcxComparablePath $WorktreePath
+$leafRule = if ($script:CcxCaseInsensitiveFs) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$leaf = Split-Path -Leaf $WorktreePath
 $linked = @(Read-RegisteredWorktrees -Primary $PrimaryRoot -Target $WorktreePath | Select-Object -Skip 1 |
-        Where-Object { $there -and (ConvertTo-CcxComparablePath $_.Path) -eq $there })
+        Where-Object { $there -and (ConvertTo-CcxComparablePath $_.Path) -eq $there -and
+            [string]::Equals((Split-Path -Leaf $_.Path), $leaf, $leafRule) })
 if ($linked.Count -eq 0) {
     Write-Host "REFUSED: '$WorktreePath' is not a registered worktree of this repository." -ForegroundColor Red
     Write-Host ("-Name is the directory name new.ps1 was given. List them with:  git -C `"$PrimaryRoot`" " +
