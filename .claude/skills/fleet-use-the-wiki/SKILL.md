@@ -11,8 +11,11 @@ disable-model-invocation: false
 > rule this file applies. Prohibitions that bind before this task starts stay in
 > [COMMON.md](../../../roles/COMMON.md). Read it first.
 
-Stand in a worktree of the repository your fleet coordinates in before either command. Each clone
-has its own inbox. WIKI.md, *Two scripts are the whole interface a seat touches*, says why.
+Run both scripts by path from a korus checkout at `origin/main`. Pass `-StateRoot <coord>`, the
+engine clone's coordination directory on the reference fleet, every time, and `-RecordRepo <vault>` on a query. The default
+state root is the wrong inbox or none.
+
+WIKI.md, *Run them from korus by path, and name both stores*, names each placeholder.
 
 ### Query before you act on a fact you remember or were told
 
@@ -20,8 +23,10 @@ has its own inbox. WIKI.md, *Two scripts are the whole interface a seat touches*
 2. Run the query:
 
    ```powershell
-   pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<subject words>"
-   pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<subject words>" -Path <file>
+   pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
+     -Text "<subject words>"
+   pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
+     -Text "<subject words>" -Path <file>
    ```
 
 3. Act on each result as its label says. WIKI.md, *Query before you act on anything you remember*,
@@ -37,8 +42,8 @@ has its own inbox. WIKI.md, *Two scripts are the whole interface a seat touches*
 4. Run the write. Add `-Supersedes <id>` when the event replaces or corrects one:
 
    ```powershell
-   pwsh -NoProfile -File scripts/wiki/write.ps1 -Type <type> -Key <key> `
-     -Summary "<one line>" -Evidence "<evidence>" -Seat <your seat>
+   pwsh -NoProfile -File <korus>/scripts/wiki/write.ps1 -StateRoot <coord> -Type <type> `
+     -Key <key> -Summary "<one line>" -Evidence "<evidence>" -Seat <your seat>
    ```
 
 5. Record the id it prints in your report. On a refusal, follow WIKI.md, *The optional flags*.

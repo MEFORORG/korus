@@ -92,6 +92,7 @@ your playbook. Never copy a literal path out of a document, because a stale path
 | What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
 | `-Release` is worktree-scoped | It acts on the worktree your shell stands in. Releasing another worktree's claim needs `-Force`, and the script refuses first and probes the holder. Read the probe line; do not skip to `-Force`. |
 | Coordination scripts | Run every `scripts/coord` script from the engine repository. The vault holds no `fleet.ps1` or `mail.ps1`, and its `claim.ps1` is a stale copy. |
+| The one exception, added 2026-09-24 | `alloc.ps1 -Kind backlog` runs in a vault checkout, because the ledger lives there. The engine's `alloc.ps1` takes only `-Kind adr` and refuses `backlog` at parameter binding. `roles/LANDER.md`, *7. Ledger discipline*, names where each ledger command runs. |
 | Paths | List the directory. Never take a path out of a document. |
 | Relayed lists | Examine each open item before you relay a work list, and escalate when you are unsure. |
 | Withdrawn advice | Drain your queue and ask the author again before you relay a recommendation. |

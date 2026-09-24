@@ -173,7 +173,8 @@ a clean control log.
 
 ### User Story 6 - The Owner reads the wiki like a website (Priority: P3)
 
-The Owner opens `wiki/pages/` in Obsidian or any Markdown viewer and follows links between pages.
+The Owner opens the vault's `wiki/` folder in Obsidian or any Markdown viewer and follows links
+between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sits there.
 
 **Why this priority**: Useful and cheap, but no seat depends on it.
 
@@ -234,7 +235,9 @@ The Owner opens `wiki/pages/` in Obsidian or any Markdown viewer and follows lin
 
 **Querying**
 
-- **FR-013**: `scripts/wiki/query.ps1` MUST search the pages, the index and the uncompiled inbox.
+- **FR-013**: `scripts/wiki/query.ps1` MUST search the event log and the uncompiled inbox, through
+  the guard. Pages and the index are for people. Amended 2026-09-24: this read "the pages, the
+  index and the uncompiled inbox", but the built query reads events, which the guard can filter.
 - **FR-014**: Every result MUST show id, date, seat, evidence and one label: `fresh` (under 14
   days), `aging` (14 to 45), `stale` (46 or more), `historical` (retired), or `inbox`.
 - **FR-015**: A query with no result above the match floor MUST print `no note` rather than the

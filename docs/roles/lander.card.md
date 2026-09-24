@@ -101,7 +101,7 @@ still the Owner's, and you may not decide to force-push over published refs.
    unblock what is not, and check the Watchdog is still alive.`
    A tick is a wakeup. Send no ACK; do not stop on an empty queue.
 3. Query the fleet wiki. A miss never blocks:
-   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
+   Run korus `query.ps1` with the stores `roles/WIKI.md` names.
 4. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
 5. Check the merge base before you read a diff: `git merge-base --is-ancestor origin/main HEAD`.
    Exit 0 means the branch contains the trunk tip. That direction only; see the trap below.

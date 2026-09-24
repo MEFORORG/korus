@@ -14,7 +14,7 @@ shared helpers.
 
 ---
 
-You can also read the source on [GitHub](https://github.com/wshallwshall/korus).
+You can also read the source on [GitHub](https://github.com/MEFORORG/korus).
 
 For manual downloads, also fetch `ccx.config.json` and the seven shared modules listed under
 [Internals and installers](#internals-and-installers).
@@ -45,17 +45,22 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 ## The fleet wiki
 
 One memory that every seat on every account can search. [The spec](../specs/002-fleet-wiki/spec.md)
-holds the design. These scripts write, guard and query; the compile job comes later.
+holds the design. These scripts write, guard, query, compile, render, import and lint. `write.ps1`
+also takes a batch of events with `-FromJson`, which is how the import writes.
+
+Run them by path from a korus checkout, and pass each store by flag: the default state root does not
+resolve in the engine repository. [The wiki schema](../roles/WIKI.md) names the stores for a write
+and a query.
 
 | Script | Does | Doc |
 |---|---|---|
 | `scripts/wiki/write.ps1` | The only way to add an event. Checks the fields, runs the leak scan, then drops one file in the shared inbox. No network, and no git call when `-StateRoot` is given | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/query.ps1` | Searches the inbox, and the record repository's log with `-RecordRepo`. Prints `no note` below the match floor. Says so when a store is unreachable, and still exits 0. Warns on stdout when an unreadable file may hide a retirement | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
-| `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by both scripts above, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/_event.ps1` | The event schema, the id and clock, the paths, the reader and the scorer. Dot-sourced by `write.ps1`, `query.ps1`, `compile.ps1`, `import.ps1` and `lint.ps1`, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_guard.ps1` | The one filter every read passes through. Hides superseded and retired events; `-History` returns them labelled `historical` | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/compile.ps1` | Folds the inbox into the record repository's log, rebuilds pages and index through the guard, and force-pushes `wiki/compile` with one pull request. Never merges. Clears an inbox file once it lands. `-RebuildOnly` rebuilds from the log alone | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_render.ps1` | Renders the pages and the index from a set of events, and lists keys held by two events where neither supersedes the other. Dot-sourced by `compile.ps1`, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
-| `scripts/wiki/import.ps1` | Folds the per-account memory stores into the wiki once. Reads only the directories named by `-Store`, records every merge as an event, and writes through `write.ps1 -FromJson`. A re-run adds nothing; `-WhatIf` writes nothing | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/import.ps1` | Folds the per-account memory stores into the inbox; the scheduled job runs it weekly. Reads only the directories named by `-Store`, records every merge as an event, and writes through `write.ps1 -FromJson`. An unchanged store adds nothing; `-WhatIf` writes nothing | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/lint.ps1` | Report only; changes no event. Finds conflicts, dead evidence, stale events, orphan pages and lessons two seats wrote. Counts the evidence it could not check, so zero dead is not read as clean | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 
 ## To clean up and recover

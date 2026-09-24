@@ -103,7 +103,7 @@ adds nothing. A note that has changed adds a new event on its key, which replace
 | Who | Does | Never does |
 | --- | --- | --- |
 | Any seat | Queries before acting; writes decisions, lessons, gotchas and corrections | Edits the log, the pages or the index |
-| Scheduled Claude Code job | Compiles the inbox, runs the weekly import and lint, opens vault pull requests | Merges anything |
+| Scheduled Claude Code job | Compiles and lints daily, imports weekly, opens vault pull requests | Merges anything |
 | Lander | Merges the job's vault pull requests like any other | Picks a winner when two notes conflict |
 | Owner | Lists which memory folders the import reads; approves or closes playbook changes lint proposes | Hand-edits the log |
 
@@ -121,7 +121,7 @@ Both Owner rulings behind this table were given on 2026-09-23 and are recorded i
 | OKF Agent Memory | Its search never checks whether a note is deprecated, it retires by editing in place, and every writer edits one shared file per concept. We borrow its `stale_after` date, its generated/verified trust split and search by file path. |
 | Content in the korus repo | korus is public and the notes name accounts, branches and internal detail. korus holds the method and scripts; the vault holds the notes. |
 
-Obsidian works as an optional viewer: point it at `wiki/pages/` in the vault. No seat depends on
+Obsidian works as an optional viewer: point it at the vault's `wiki/` folder. No seat depends on
 it.
 
 ## Sources
