@@ -597,6 +597,22 @@ function Test-WorktreeClean {
     if ($untracked.Count -gt 0) {
         $r += "$($untracked.Count) untracked file(s) present -- --force would delete them unrecoverably"
     }
+    # Commits only this worktree holds: its HEAD reflog, and its own refs/worktree/*, refs/bisect/* and
+    # refs/rewritten/*. The removal deletes all of those. A session that committed on a detached HEAD
+    # and switched back to its branch leaves such a commit. Measured 2026-09-23 at 06e8ca3: -Apply
+    # pruned that sibling, and `git fsck --unreachable --no-reflogs` then listed the commit. The read is
+    # occupancy.ps1's Get-WorktreeOnlyCommits, shared with remove.ps1, and it takes the holders from
+    # $RepoRoot, the primary, because a worktree's own refs go with it.
+    $only = Get-WorktreeOnlyCommits -Path $Path -Primary $RepoRoot
+    if (-not $only.Ok) {
+        $r += "could not read which commits only its HEAD reflog or its own refs hold -- cannot establish removing it loses none"
+    }
+    elseif ($only.Count -gt 0) {
+        # The skip lasts until those commits are on a ref or their reflog entries expire, so the reason
+        # names where to look. Keeping the wanted ones on a ref clears it and deletes nothing.
+        $r += ("$($only.Count) commit(s) only its HEAD reflog or its own per-worktree refs hold -- removing it " +
+            "would leave them on no ref. Look with: git -C $(Format-CcxLiteral $Path) reflog")
+    }
     return @{ Clean = ($r.Count -eq 0); Reasons = $r }
 }
 

@@ -457,6 +457,13 @@ function Get-CcxTrunk {
 # together would make the gate govern a directory it was never pointed at.
 $script:CcxCaseInsensitiveFs = $IsWindows -or $IsMacOS
 
+# Does the filesystem treat two Unicode spellings of one name, such as `e` with an acute accent as
+# one character and as `e` followed by U+0301, as the same name? macOS does, so there the folded form
+# is normalised to NFC as well. NTFS and ext4 store them as two names, so they are left alone there:
+# normalising would make two directories compare as one. Added 2026-09-23 with the ordinal
+# Test-CcxPathUnder, whose culture-aware compare had been doing this fold everywhere by accident.
+$script:CcxUnicodeFoldingFs = $IsMacOS
+
 function ConvertTo-CcxComparablePath {
     <#
     .SYNOPSIS
@@ -494,6 +501,29 @@ function ConvertTo-CcxComparablePath {
         return ''
     }
     $norm = ($full -replace '\\', '/').TrimEnd('/')
+    if ($script:CcxUnicodeFoldingFs) {
+        # Normalize throws on an unpaired surrogate, which GetFullPath accepts. Under a caller's
+        # ErrorActionPreference of Stop that threw, against this function's own rule; under
+        # SilentlyContinue the statement was skipped. Measured 2026-09-23 at 5a2167e with the flag
+        # forced on. So each unpaired surrogate becomes U+FFFD first, which pwsh's ConvertFrom-Json
+        # does to one anyway.
+        #
+        # NEVER '' HERE. The worktree gate reads '' as "not governed" and allows, and the occupancy
+        # fence reads it as "in no worktree" and vetoes nothing, so '' would fail open for both. A
+        # comparable path fails closed: it still reads as inside the primary.
+        #
+        # ONE COMPONENT AT A TIME. U+FFFE makes Normalize throw too, and ConvertFrom-Json keeps it.
+        # Kept whole, one such character left the whole path un-normalised, so a decomposed spelling
+        # of the primary read as outside its NFC root, and the gate allowed. Measured 2026-09-23 at
+        # 7cef6b2 with the flag forced on. Folded per component, only the component holding it stays
+        # as written. No composition crosses a '/', so the result is otherwise the same.
+        $norm = $norm -replace '[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]', [string][char]0xFFFD
+        $parts = $norm.Split('/')
+        for ($i = 0; $i -lt $parts.Count; $i++) {
+            try { $parts[$i] = $parts[$i].Normalize([System.Text.NormalizationForm]::FormC) } catch { }
+        }
+        $norm = $parts -join '/'
+    }
     if ($script:CcxCaseInsensitiveFs) { return $norm.ToLowerInvariant() }
     return $norm
 }
@@ -507,11 +537,37 @@ function Test-CcxPathUnder {
         directory: a sibling worktree named `<primary>-<task>` has a path that literally starts with
         the primary's, so a raw prefix test claims every sibling is inside the primary. Requiring the
         separator makes it a directory-boundary test.
+
+        ORDINAL, as occupancy.ps1's containment tests have been since #158. Both sides are already
+        folded, so nothing is left for a culture to decide. Until 2026-09-23 this used `-eq` and a
+        culture-aware StartsWith. Measured at 06e8ca3, pwsh 7.6.6 under en-US: a path whose part
+        below the root starts with U+0301 read as NOT inside, and the worktree gate let a Write there
+        into its primary through. And `e` with an acute accent as one character compared EQUAL to `e`
+        followed by U+0301, which NTFS stores as a different name.
+        tests/test_path_containment_is_ordinal.py holds both. macOS treats those two spellings as one
+        name, so there ConvertTo-CcxComparablePath folds both to NFC first, and the ordinal compare
+        then sees one path. That test simulates the macOS flag on Windows; no macOS run was made.
     #>
     [CmdletBinding()]
     param([string]$Path, [string]$Root)
     if (-not $Path -or -not $Root) { return $false }
-    return ($Path -eq $Root -or $Path.StartsWith("$Root/"))
+    return ([string]::Equals($Path, $Root, [StringComparison]::Ordinal) -or
+        $Path.StartsWith("$Root/", [StringComparison]::Ordinal))
+}
+
+# One argument of a command a script prints for an operator to run, in PowerShell single quotes, which expand nothing.
+# Double quotes expand `$name` and read a backtick as an escape, so a path holding either printed a
+# command that ran somewhere else. Measured 2026-09-23 at 06e8ca3: under a directory named `d$x`, a
+# printed `git -C "<...>/d$x/P" worktree remove "<...>/d$x/P-work/..."` ran in pwsh against
+# `<...>/d/P`, and where a second clone sat there it removed that clone's worktree.
+#
+# PowerShell's own escaper doubles each quote inside. It knows that PowerShell also reads U+2018,
+# U+2019, U+201A and U+201B as single quotes, which doubling only `'` missed: a path holding one broke
+# out of the quotes, so a nested worktree named with one could run a second command. A POSIX shell
+# reads a doubled quote differently, and these scripts are PowerShell. Used by remove.ps1 and
+# prune-merged.ps1.
+function Format-CcxLiteral([string]$Text) {
+    return "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($Text) + "'"
 }
 
 function ConvertTo-CcxSafeName {

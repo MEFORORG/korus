@@ -449,8 +449,9 @@ reflog nor `fsck` can recover them.
 Deleting a worktree and its branch can leave commits in no ref or reflog. The interface then offers
 no evidence that the work existed.
 
-Resolve and print the tip before deleting anything. With `-DeleteBranch`, save it in a keep-ref
-before removing the branch:
+Resolve and print the tip first, and with `-DeleteBranch` keep it on a keep-ref. A detached tip
+on no ref, or a commit only the worktree's HEAD reflog or own refs hold, is kept without it. A name
+in use gets the short SHA added, and no write replaces a ref:
 
 ```text
 List them:    git for-each-ref refs/<prefix>/removed/
@@ -537,11 +538,17 @@ it gets **NO COMMAND** and a line to look with first:
 
 | It holds | What plain `git worktree remove` does | The line to look with |
 |---|---|---|
-| Changed or untracked files | Exits 128, and the next try is `--force`. An untracked file that `status.showUntrackedFiles=no` hides, it deletes. | `git -C "<path>" status --untracked-files=normal --ignored` |
+| Changed or untracked files | Exits 128, and the next try is `--force`. An untracked file that `status.showUntrackedFiles=no` hides, it deletes. | `git -C '<path>' status --untracked-files=normal --ignored` |
 | An edit to a file flagged skip-worktree or assume-unchanged | Deletes it. `git status` does not check those files. | The same `status` line, which cannot show them. The refusal names up to three paths instead. |
 | Ignored files | Deletes them without asking. This repository ignores `*.local.*`, so a seat's `.claude/seat.local.txt` counts. | the same `status` line |
-| Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C "<primary>" log --oneline <sha> --not --exclude=refs/stash --glob="refs/*"` |
-| Commits only its HEAD reflog holds, such as one left behind on a detached HEAD | Deletes that reflog. | `git -C "<path>" reflog` |
+| Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C '<primary>' log --oneline <sha> --not --exclude=refs/stash --glob='refs/*'` |
+| Commits only its HEAD reflog or its own `refs/worktree/*`, `refs/bisect/*` or `refs/rewritten/*` hold, such as one left behind on a detached HEAD | Deletes that reflog and those refs. The primary's own per-worktree refs survive, so they hold. | `git -C '<path>' reflog` and `git -C '<path>' for-each-ref refs/worktree/ refs/bisect/ refs/rewritten/` |
+| A checked-out submodule | Exits 128 whether or not the submodule holds anything, and the next try is `--force`. That deletes the submodule's repository, which lives in this worktree's admin directory. | `git -C '<path>' submodule foreach --recursive git log --oneline HEAD --branches --not --remotes` |
+| Files, where git calls it prunable because its `.git` file is gone | Exits 128 with or without `--force`. `git worktree prune` gets past that, and removing the parent then deletes the files. | `Get-ChildItem -Force -LiteralPath '<path>'`, then `git -C '<primary>' worktree repair`, which deletes nothing, and a re-run |
+
+Every path in a printed command sits in single quotes, which PowerShell expands nothing inside.
+Until 2026-09-23 they sat in double quotes. There a `$name` in a path expanded, and the command ran
+on a different path, which could be another clone's worktree.
 
 **Nearly every worktree a session has used holds an ignored file, so nearly every one gets NO
 COMMAND.** A cache, a seat marker and a local settings file all count. That is deliberate: the script
