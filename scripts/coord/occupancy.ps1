@@ -417,3 +417,44 @@ function Read-WorktreeStatus {
     }
     return $out
 }
+
+# Commits that removing the worktree at $Path would leave with no hold at all: the ones its HEAD
+# reflog or its own per-worktree refs hold, less every ref and every ref's reflog that the primary
+# sees. ONE READ, shared by remove.ps1 and prune-merged.ps1, since both remove worktrees.
+#
+# THE HOLDERS ARE READ FROM $Primary, NEVER FROM $Path. refs/worktree/*, refs/bisect/* and
+# refs/rewritten/* belong to one worktree, and removing it deletes them. Read from $Path they would
+# count as holders of the very commits the removal loses. Read from the primary they are the
+# primary's own, and those survive. Measured 2026-09-23 at 06e8ca3 on git 2.55.0.windows.5: a commit
+# only a nested worktree's refs/worktree/keep held was unreachable after remove.ps1's printed command
+# ran, and one the primary's refs/worktree/keep also held was not. A third worktree's own refs are
+# not seen from the primary, so a commit only they hold counts here as lost, which errs toward
+# keeping. `git fsck` in the primary does not count them either.
+#
+# `rev-list --not --glob=refs/*`, not `git branch --contains`, which sees no tag. refs/stash is left
+# out because every worktree shares it, and any session's next stash moves it. EVERY REF'S OWN REFLOG
+# is subtracted, because it outlives the removal: after an amend on a branch, the branch's reflog
+# holds the old commit. `--reflog` cannot stand in, because it adds every worktree's HEAD reflog,
+# this one's included.
+#
+# Returns Ok, false where any read failed, and Count. Nothing is cached: the reaper deletes branches
+# between removals, and a branch's reflog goes with it.
+function Get-WorktreeOnlyCommits {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Primary
+    )
+    $unknown = [pscustomobject]@{ Ok = $false; Count = 0 }
+    $mine = @(& git -C $Path log -g --format=%H HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $unknown }
+    $own = @(& git -C $Path for-each-ref '--format=%(objectname)' refs/worktree/ refs/bisect/ refs/rewritten/ 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $unknown }
+    # Every ref's reflog, as `^<sha>` lines that rev-list reads as exclusions.
+    $kept = @(& git -C $Primary log -g '--format=^%H' --exclude=refs/stash '--glob=refs/*' 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $unknown }
+    $n = @(@($mine) + @($own) + @($kept) |
+            & git -C $Primary rev-list --count --ignore-missing --stdin --not --exclude=refs/stash '--glob=refs/*' 2>$null)
+    if ($LASTEXITCODE -ne 0 -or "$n" -notmatch '\A\d+\z') { return $unknown }
+    return [pscustomobject]@{ Ok = $true; Count = [int]"$n" }
+}

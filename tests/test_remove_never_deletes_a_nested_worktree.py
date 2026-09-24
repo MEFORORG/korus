@@ -578,6 +578,48 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertNotEqual(0, r.returncode, said)
         self.assertEqual(1, len(self.printed_for(said, h)), "an amend on a branch withheld the command\n" + said)
 
+    def commit_on_no_branch(self, where: Path) -> str:
+        """A commit on top of `where`'s HEAD that no branch and no reflog holds."""
+        tree = git("rev-parse", "HEAD^{tree}", cwd=where).strip()
+        parent = git("rev-parse", "HEAD", cwd=where).strip()
+        return git("commit-tree", tree, "-p", parent, "-m", "held by a per-worktree ref", cwd=where).strip()
+
+    def test_a_commit_only_the_nested_worktrees_own_per_worktree_ref_holds_gets_no_command(self):
+        """`refs/worktree/*` belongs to one worktree, and removing it deletes them. Red at 06e8ca3."""
+        primary, work, h = self.nested_in_work()
+        sha = self.commit_on_no_branch(h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=h)
+        self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: the primary sees no ref")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn(
+            sha, git("for-each-ref", "--format=%(objectname)", "refs/worktree/", cwd=h) if h.is_dir() else "",
+            f"following the printed commands deleted the only ref holding commit {sha}\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_control_a_commit_the_primarys_own_per_worktree_ref_also_holds_gets_a_command(self):
+        """The primary's `refs/worktree/*` survive the removal, so they hold. A read that took only
+        branches and tags as holders would withhold this command."""
+        primary, work, h = self.nested_in_work()
+        sha = self.commit_on_no_branch(h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=primary)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(1, len(self.printed_for(said, h)), "a commit the primary's own ref holds withheld the command\n" + said)
+        self.assertFalse(h.exists(), f"the printed command did not remove it\n{ran}")
+        self.assertIn(sha, git("for-each-ref", "--format=%(objectname)", "refs/worktree/", cwd=primary),
+                      "the primary's own per-worktree ref did not survive the removal, so it does not hold")
+
     def test_an_edit_a_skip_worktree_flag_hides_gets_no_command(self):
         """`git status` does not check a skip-worktree file, so a local override reads as clean."""
         primary, work, h = self.nested_in_work()

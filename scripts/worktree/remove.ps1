@@ -202,6 +202,12 @@ function Get-UnheldCount([string]$Primary, [string]$Commit) {
 # commit left behind on a detached HEAD, this one counted 1. `--reflog` cannot stand in for it,
 # because it adds every worktree's HEAD reflog, this one's included, and counted 0 there.
 #
+# THE WORKTREE'S OWN PER-WORKTREE REFS PUT COMMITS AT RISK, and never hold them. refs/worktree/*,
+# refs/bisect/* and refs/rewritten/* go with the worktree. Until 2026-09-23 nothing read them, so a
+# commit only one of them held got a command, and running it lost the commit. The primary's own do
+# hold, since they survive. The reflog read and this one are Get-WorktreeOnlyCommits in
+# occupancy.ps1, shared with prune-merged.ps1.
+#
 # WHAT IT DOES NOT READ. A worktree whose directory is gone (prunable) has its HEAD checked but not
 # its HEAD reflog, which lives in an admin directory `git worktree list` does not name.
 #
@@ -246,27 +252,18 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     }
 
     # Skipped where the HEAD read above already withheld the command: that commit heads the reflog.
+    # Get-WorktreeOnlyCommits in occupancy.ps1 reads this worktree's HEAD reflog and its own
+    # per-worktree refs, and the note above it says why the holders come from the primary.
     if ($why.Count -eq 0) {
-        # Read once per run: every ref's reflog, as `^<sha>` lines that rev-list reads as exclusions.
-        if ($null -eq $script:KeptByRefReflogs) {
-            $kept = @(& git -C $Primary log -g '--format=^%H' --exclude=refs/stash '--glob=refs/*' 2>$null)
-            $script:KeptByRefReflogs = [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Lines = $kept }
-        }
-        $mine = @(& git -C $Wt.Path log -g --format=%H HEAD 2>$null)
-        $code = $LASTEXITCODE
-        $lost = ''
-        if ($code -eq 0 -and $script:KeptByRefReflogs.Ok) {
-            $lost = @(@($mine) + @($script:KeptByRefReflogs.Lines) |
-                    & git -C $Primary rev-list --count --ignore-missing --stdin --not --exclude=refs/stash '--glob=refs/*' 2>$null)
-            $code = $LASTEXITCODE
-        }
-        if ($code -ne 0 -or "$lost" -notmatch '\A\d+\z') {
+        $only = Get-WorktreeOnlyCommits -Path $Wt.Path -Primary $Primary
+        if (-not $only.Ok) {
             $why += [pscustomobject]@{ Look = 'reflog'
-                Text = "git could not read which commits only its HEAD reflog holds, so what it holds is unknown" }
+                Text = "git could not read which commits only its HEAD reflog or its own refs hold, so what it holds is unknown" }
         }
-        elseif ([int]"$lost" -gt 0) {
+        elseif ($only.Count -gt 0) {
             $why += [pscustomobject]@{ Look = 'reflog'
-                Text = "its HEAD reflog holds $lost commit(s) that no ref or ref reflog holds, and removing it deletes that reflog" }
+                Text = ("its HEAD reflog or its own per-worktree refs hold $($only.Count) commit(s) that no other ref " +
+                    "or ref reflog holds, and removing it deletes those") }
         }
     }
 
@@ -326,9 +323,6 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     }
     return $why
 }
-
-# Filled on first use by Get-RemovalLoss.
-$script:KeptByRefReflogs = $null
 
 function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
     $registered = @(Read-RegisteredWorktrees -Primary $Primary -Target $Target)
@@ -395,7 +389,10 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
                 Write-Host ("    git -C $(Format-Literal $Primary) log --oneline $($row.Wt.Head) --not " +
                     "--exclude=refs/stash --glob='refs/*'") -ForegroundColor Red
             }
-            if ($looks -contains 'reflog') { Write-Host "    git -C $(Format-Literal $p) reflog" -ForegroundColor Red }
+            if ($looks -contains 'reflog') {
+                Write-Host "    git -C $(Format-Literal $p) reflog" -ForegroundColor Red
+                Write-Host "    git -C $(Format-Literal $p) for-each-ref refs/worktree/ refs/bisect/ refs/rewritten/" -ForegroundColor Red
+            }
             # The commits in each submodule that no remote-tracking branch holds: the ones a forced
             # removal would take with the submodule's repository.
             if ($looks -contains 'submodule') {
