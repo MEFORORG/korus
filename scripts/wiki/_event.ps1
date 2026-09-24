@@ -60,16 +60,23 @@ $script:WikiBodyControl = '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'
 
 $script:WikiLimits = @{ key = 200; summary = 400; evidence = 500; body = 20000; path = 400 }
 
-# FR-005: evidence names a commit, a pull request, a file path at a ref, or an Owner ruling with its
-# date. Deliberately loose -- it refuses "trust me", not an unusual spelling of a real citation. A
+# FR-005: evidence names a commit, a pull request, a file path at a ref, a memory note, or an Owner
+# ruling with its date. Deliberately loose -- it refuses "trust me", not an unusual spelling of a real citation. A
 # path needs `/` or `.` so a clock time (`14:05`) is not a ref:path. A sha may be all digits --
 # `9379109` is a real one in this repository -- so an eight-digit date also passes as one; refusing
 # it would refuse a real citation, and that is the worse error for this check.
+#
+# The fifth shape is the note a memory store holds, as `import.ps1` cites it. The ref:path shape
+# passed most of those by accident and refused a store label holding `~`, which the home directory
+# becomes in a project folder's name. It is ANCHORED to the whole field and to the import's own
+# shape, memory:<root>[/<project>]/<file>.md, because an unanchored form let prose that merely
+# ended in `.md` pass as a citation.
 $script:WikiEvidencePatterns = @(
     '\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b',                  # a commit sha, at least one digit
     '(?i)(#|\bPR\s*#?\s*|/pull/)\d+',                          # a pull request
     '[A-Za-z0-9_./-]+:[A-Za-z0-9_-]*[/.][A-Za-z0-9_./-]*[A-Za-z0-9_]',  # ref:path, the path has / or .
-    '(?i)\bowner\b.*\b\d{4}-\d{2}-\d{2}\b'               # an Owner ruling with its date
+    '(?i)\bowner\b.*\b\d{4}-\d{2}-\d{2}\b',              # an Owner ruling with its date
+    '^memory:[A-Za-z0-9.][A-Za-z0-9._~-]*(?:/[A-Za-z0-9._~-]+)?/[^/\s][^/\r\n]*\.md\z'  # a memory note
 )
 
 $script:WikiStopwords = [System.Collections.Generic.HashSet[string]]::new(
@@ -300,7 +307,7 @@ function Test-WikiEvent {
     $evidence = [string]$Item.evidence
     if ($evidence.Length -gt $script:WikiLimits.evidence) { return "evidence is longer than $($script:WikiLimits.evidence) characters" }
     if (-not (Test-WikiEvidence $evidence)) {
-        return "evidence names no commit, pull request, ref:path, or Owner ruling with its date"
+        return "evidence names no commit, pull request, ref:path, memory note, or Owner ruling with its date"
     }
 
     $trust = [string]$Item.trust
