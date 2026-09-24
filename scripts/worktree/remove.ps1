@@ -21,8 +21,9 @@
     check says why, and why the rule is containment rather than a `.claude/worktrees/` path shape.
     It prints a removal command only for a nested worktree whose removal loses nothing it can read:
     no changed, untracked or ignored file, no hidden edit to a skip-worktree or assume-unchanged
-    file, and no commit that only its detached HEAD or its HEAD reflog holds. The note above
-    Get-RemovalLoss says how each is read, and what it does not read.
+    file, no commit that only its detached HEAD, its HEAD reflog or its own per-worktree refs hold,
+    no checked-out submodule, and a directory git still links to it. The note above Get-RemovalLoss
+    says how each is read, and what it does not read.
 
     Run it from any checkout EXCEPT the one being removed (git cannot remove the worktree you are
     standing in).

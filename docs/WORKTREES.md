@@ -542,7 +542,7 @@ it gets **NO COMMAND** and a line to look with first:
 | An edit to a file flagged skip-worktree or assume-unchanged | Deletes it. `git status` does not check those files. | The same `status` line, which cannot show them. The refusal names up to three paths instead. |
 | Ignored files | Deletes them without asking. This repository ignores `*.local.*`, so a seat's `.claude/seat.local.txt` counts. | the same `status` line |
 | Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C '<primary>' log --oneline <sha> --not --exclude=refs/stash --glob='refs/*'` |
-| Commits only its HEAD reflog holds, such as one left behind on a detached HEAD | Deletes that reflog. | `git -C '<path>' reflog` |
+| Commits only its HEAD reflog or its own `refs/worktree/*`, `refs/bisect/*` or `refs/rewritten/*` hold, such as one left behind on a detached HEAD | Deletes that reflog and those refs. The primary's own per-worktree refs survive, so they hold. | `git -C '<path>' reflog` and `git -C '<path>' for-each-ref refs/worktree/ refs/bisect/ refs/rewritten/` |
 | A checked-out submodule | Exits 128 whether or not the submodule holds anything, and the next try is `--force`. That deletes the submodule's repository, which lives in this worktree's admin directory. | `git -C '<path>' submodule foreach --recursive git log --oneline HEAD --branches --not --remotes` |
 | Files, where git calls it prunable because its `.git` file is gone | Exits 128 with or without `--force`. `git worktree prune` gets past that, and removing the parent then deletes the files. | `Get-ChildItem -Force -LiteralPath '<path>'`, then `git -C '<primary>' worktree repair`, which deletes nothing, and a re-run |
 

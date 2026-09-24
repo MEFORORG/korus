@@ -62,6 +62,9 @@ passes every remedy case:
     command. `git branch --contains` sees no tag, so a check built on it fails here.
   * A nested worktree whose commit was amended away on its branch gets its command. The branch's own
     reflog keeps the original, so a reflog read that does not subtract it fails here.
+  * Added 2026-09-23 with the korus issue #165 cases: a nested worktree whose submodule is not
+    checked out gets its command, and so does one whose commit the primary's own
+    `refs/worktree/keep` also holds. A detached target whose tip `main` holds gets no keep-ref.
 
 WHAT THIS DOES NOT PROVE. It sees only worktrees registered to the fixture repository. A checkout of
 another repository inside the target is not in `git worktree list`, and the script still deletes it.
