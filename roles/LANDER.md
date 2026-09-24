@@ -291,7 +291,7 @@ restates them; the routing does not.
 | --- | --- |
 | Who pushes -- SURVIVES | **Every seat pushes its own branch, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. It covered the push, never the pull request. |
 | Who OPENS -- NARROWED 2026-09-18 | That row read *"and opens its own PR"*. It still holds for every seat except a **Builder working to a Manager's brief**: that Builder pushes and reports, and **the Manager opens the pull request**. |
-| Who OPENS -- NARROWED again 2026-09-23 | That exception is a Manager's SUBAGENT only. A Builder in its own session, chip-started or spawned, opens its own, and hands it to you directly. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
+| Who OPENS -- NARROWED again 2026-09-24, owner ruling | That exception is a Manager's SUBAGENT only. A Builder in its own session, chip-started or spawned, opens its own, and hands it to you directly. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN -- ADDED 2026-09-23 | **The Manager.** Owner ruling. It cuts one pull request per wave by default. [MANAGER.md](MANAGER.md), *When to cut a pull request*. You own the pull request from the handover on, and you do not choose what goes in one. |
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
