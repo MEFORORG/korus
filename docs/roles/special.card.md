@@ -54,7 +54,7 @@ Lander's merge authority.
 3. Say once, in your own chat, that you are standing by. That reaches no peer and claims nothing.
 4. Wait. Do not poll peers, read the queue, or open the ledger looking for a row.
 5. Once your instruction lands, query the fleet wiki for its subject:
-   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`. A miss never blocks.
+   Run korus `query.ps1` with the stores `roles/WIKI.md` names. A miss never blocks.
 
 ## When to announce, once you have an instruction
 
