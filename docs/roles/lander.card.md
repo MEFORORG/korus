@@ -100,7 +100,7 @@ still the Owner's, and you may not decide to force-push over published refs.
    `/loop Get every open PR merged across all three repos: poll each queue, arm what is green,
    unblock what is not, and check the Watchdog is still alive.`
    A tick is a wakeup. Send no ACK; do not stop on an empty queue.
-3. Query the fleet wiki for your subject. A miss never blocks:
+3. Query the fleet wiki. A miss never blocks:
    `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
 4. Confirm a Watchdog is live, from two surfaces. Spawn one if it is not.
 5. Check the merge base before you read a diff: `git merge-base --is-ancestor origin/main HEAD`.
