@@ -53,6 +53,8 @@ Lander's merge authority.
 2. Do not announce yourself, and do not declare into the seat registry.
 3. Say once, in your own chat, that you are standing by. That reaches no peer and claims nothing.
 4. Wait. Do not poll peers, read the queue, or open the ledger looking for a row.
+5. Once your instruction lands, query the fleet wiki for its subject:
+   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`. A miss never blocks.
 
 ## When to announce, once you have an instruction
 

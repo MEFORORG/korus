@@ -66,6 +66,7 @@ numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 | Not a seat | [COMMON-STAGED.md](COMMON-STAGED.md) | **Staging, not a playbook.** Sections split out of COMMON.md on 2026-09-05 that belong to one seat or fire never. Unedited, awaiting a destination. |
 | Not a seat | [LANDER-ROUTED-OUT.md](LANDER-ROUTED-OUT.md) | **Staging, not a playbook.** Sections split out of LANDER.md on 2026-09-05 that belong to another seat. Unedited, and awaiting a destination. Do not read it as rules for any seat. |
 | Every seat | [COMMON.md](COMMON.md) | The rules and instrument failures that belong to no single seat. **Read this first, whichever seat you hold.** |
+| Every seat | [WIKI.md](WIKI.md) | **The fleet wiki schema, not a seat.** When to query and write shared memory, which type and key to use, and how to read a result. Added 2026-09-23. |
 
 ### 1b. The retired seats keep their files so a reader finds them retired, not absent
 
