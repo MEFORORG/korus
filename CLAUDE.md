@@ -34,7 +34,7 @@ Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
-| Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR and hands it to the Lander.** |
+| Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs its Builders as subagents or as separate sessions. **Opens the PR for its subagents and hands it to the Lander**; a Builder in its own session opens its own. |
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill, commits, pushes, reports with its QA line, exits. |
 | Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** **A content conflict on that PR is the Lander's to resolve, never a Builder's.** |
@@ -256,8 +256,8 @@ the Owner's here.
 PR.** It pushes, reports and exits, and the **Manager** opens the PR after checking the branch
 reached the remote with `git ls-remote --heads origin`. Every other seat still opens its own.
 **Since 2026-09-23, "working to a Manager's brief" means running as the Manager's SUBAGENT.** A
-session started from a chip is not one, even when a Manager raised it, so it opens its own; see
-`roles/MANAGER.md`, *A session started from a chip opens its own pull request*.
+Builder in its own session, whether a chip started it or the Manager spawned it, opens its own;
+see `roles/MANAGER.md`, *A Builder in its own session opens its own pull request*.
 
 The push did not move. The 2026-08-29 ruling behind it says *"Sessions push their own"* and never
 named the pull request, so the opening was an inference this ruling withdraws.

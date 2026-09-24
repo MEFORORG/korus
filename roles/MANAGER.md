@@ -249,34 +249,33 @@ this step. Ask the Lander to dequeue it, close the pull request, and cut a new o
 branch. **Never force-push the batch branch.** If you are gone, the Lander may spawn a Manager to
 re-cut it.
 
-### A session started from a chip opens its own pull request
+### A Builder in its own session opens its own pull request
 
-**Owner ruling 2026-09-23.** A chip raised with `spawn_task` starts a separate session, not a
-subagent. Its final report reaches nobody, and it may start hours later, after the seat that raised
-it is gone. So the batch rule above does not reach it, even when you raised the chip and wrote its
-brief. **The exception to "every seat opens its own pull request" is a Builder running as a
-Manager's SUBAGENT, and nothing else.**
+**Owner ruling 2026-09-23.** The batch rule above covers a Builder running as your SUBAGENT, and
+nothing else. A Builder in its own session -- one a chip started, or one you spawned so its work
+would outlive you -- is not covered, even though you wrote its brief. Its final report reaches
+nobody, and it may finish after you are gone.
 
-The session started from a chip:
+That Builder:
 
 1. Pushes its branch.
 2. Opens one pull request for its item. It does for that pull request what steps 9 and 10 have you
-   do for a batch: its report and head SHA in the body, its QA line as a comment, and the handover
-   to the Lander.
-3. Messages the seat that raised the chip with the pull request number, if it can reach it. It does
-   not wait for an answer.
+   do for a batch: its report and head SHA in the body, its QA line as a comment, the `qa` label if
+   it has a QA line, and the handover to the Lander.
 
-When you raise a chip, say this in its prompt. Before you batch any branch, run
-`gh pr list --head <branch> --state all`. If the branch already has a pull request, leave it out.
+When you raise a chip or spawn a Builder session, write into its prompt that it opens its own pull
+request. **Batch only branches your own subagents reported to you.** Never batch a branch you found
+on the remote: a Builder in its own session may be between its push and its pull request, and
+`gh pr list --head` returns nothing in that gap.
 
-**Why the chip session does not hand the pull request to you.** A draft of this rule did: it handed
-over when a `send_message` result said "delivered", and opened its own pull request otherwise.
-Adversarial review found two failures in it, and it never shipped. A **queued** message is still
-delivered later, so the chip session would open its own pull request and you would then batch the
-same branch. And **delivered** proves only that your turn started. A Manager that crashed, or was
-closed before the next cut, would leave a branch with no pull request. `stalled-prs.yml` scans pull
-requests, not branches, so nothing would report it. An extra pull request costs two runs of
-the required suite, and spawning is rare by design, so that cost is small.
+**Why a Builder in its own session does not hand the pull request to you.** A draft of this rule
+did: it handed over when a `send_message` result said "delivered", and opened its own pull request
+otherwise. Adversarial review found two failures in it, and it never shipped. A **queued** message
+is still delivered later, so the Builder would open its own pull request and you would then batch
+the same branch. And **delivered** proves only that your turn started. A Manager that crashed, or
+was closed before the next cut, would leave a branch with no pull request. `stalled-prs.yml` scans
+pull requests, not branches, so nothing would report it. An extra pull request costs two runs of the
+required suite, and spawning is rare by design, so that cost is small.
 
 ---
 
