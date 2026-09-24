@@ -62,6 +62,15 @@ $ErrorActionPreference = 'Stop'
 # of a safety check, not two.
 . (Join-Path $PSScriptRoot '../coord/occupancy.ps1')
 
+# One argument of a command this script prints, in PowerShell single quotes, which expand nothing.
+# Double quotes expand `$name` and read a backtick as an escape, so a path holding either printed a
+# command that ran somewhere else. Measured 2026-09-23 at 06e8ca3: under a directory named `d$x`, a
+# printed `git -C "<...>/d$x/P" worktree remove "<...>/d$x/P-work/..."` ran in pwsh against
+# `<...>/d/P`, and where a second clone sat there it removed that clone's worktree. PowerShell reads
+# a doubled single quote inside single quotes as one; a POSIX shell does not, and this script is
+# PowerShell.
+function Format-Literal([string]$Text) { return "'" + ($Text -replace "'", "''") + "'" }
+
 $PrimaryRoot = Get-CcxPrimaryRoot
 if (-not $PrimaryRoot) { throw "Not inside a git repository (could not locate the primary checkout)." }
 
@@ -101,8 +110,8 @@ $linked = @(Read-RegisteredWorktrees -Primary $PrimaryRoot -Target $WorktreePath
             [string]::Equals((Split-Path -Leaf $_.Path), $leaf, $leafRule) })
 if ($linked.Count -eq 0) {
     Write-Host "REFUSED: '$WorktreePath' is not a registered worktree of this repository." -ForegroundColor Red
-    Write-Host ("-Name is the directory name new.ps1 was given. List them with:  git -C `"$PrimaryRoot`" " +
-        "worktree list") -ForegroundColor Red
+    Write-Host ("-Name is the directory name new.ps1 was given. List them with:  git -C " +
+        "$(Format-Literal $PrimaryRoot) worktree list") -ForegroundColor Red
     throw "Not a registered worktree. Nothing was removed."
 }
 
@@ -326,19 +335,21 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
             # status.showUntrackedFiles is no. Both flags override that. `normal` rather than the
             # check's `all`, so a cache directory reads as one line and not twenty thousand.
             if ($looks -contains 'status') {
-                Write-Host "    git -C `"$p`" status --untracked-files=normal --ignored" -ForegroundColor Red
+                Write-Host "    git -C $(Format-Literal $p) status --untracked-files=normal --ignored" -ForegroundColor Red
             }
             if ($looks -contains 'log') {
-                Write-Host ("    git -C `"$Primary`" log --oneline $($row.Wt.Head) --not --exclude=refs/stash " +
-                    "--glob=`"refs/*`"") -ForegroundColor Red
+                Write-Host ("    git -C $(Format-Literal $Primary) log --oneline $($row.Wt.Head) --not " +
+                    "--exclude=refs/stash --glob='refs/*'") -ForegroundColor Red
             }
-            if ($looks -contains 'reflog') { Write-Host "    git -C `"$p`" reflog" -ForegroundColor Red }
+            if ($looks -contains 'reflog') { Write-Host "    git -C $(Format-Literal $p) reflog" -ForegroundColor Red }
             continue
         }
         # A locked worktree refuses `remove` until it is unlocked. The lock is its owner saying "in
         # use", so the unlock is printed as a step to take deliberately, never folded into a --force.
-        if ($row.Wt.Locked) { Write-Host "  git -C `"$Primary`" worktree unlock `"$p`"" -ForegroundColor Red }
-        Write-Host "  git -C `"$Primary`" worktree remove `"$p`"" -ForegroundColor Red
+        if ($row.Wt.Locked) {
+            Write-Host "  git -C $(Format-Literal $Primary) worktree unlock $(Format-Literal $p)" -ForegroundColor Red
+        }
+        Write-Host "  git -C $(Format-Literal $Primary) worktree remove $(Format-Literal $p)" -ForegroundColor Red
     }
     if (@($rows | Where-Object { $_.Why.Count -gt 0 }).Count -gt 0) {
         Write-Host ("Keep, move or discard that work yourself once you have looked at it.") -ForegroundColor Red
@@ -423,7 +434,7 @@ if ($DeleteBranch -and $tip) {
         # against it), but a recovery hint that renames a namespaced branch back to its directory
         # component hands you a differently-named branch and does not say so.
         $recoverAs = if ($branchToDelete) { $branchToDelete } else { $Name }
-        Write-Host "Kept the tip as '$keepRef' (recover with: git branch $recoverAs $keepRef)." -ForegroundColor DarkGray
+        Write-Host "Kept the tip as '$keepRef' (recover with: git branch $(Format-Literal $recoverAs) $keepRef)." -ForegroundColor DarkGray
     }
 }
 
@@ -473,7 +484,8 @@ if ($DeleteBranch) {
             Write-Warning ("  If that reason is 'not fully merged', the branch holds commits no other " +
                 "ref has, and the refusal is the signal -- not an obstacle to get past.")
             if ($tip) { Write-Warning "  its tip: $tip" }
-            Write-Warning "  If you are certain it is disposable:  git -C `"$PrimaryRoot`" branch -D $branchToDelete"
+            Write-Warning ("  If you are certain it is disposable:  git -C $(Format-Literal $PrimaryRoot) branch -D " +
+                "$(Format-Literal $branchToDelete)")
         }
         else {
             foreach ($line in @($refusal)) { Write-Host $line }

@@ -257,32 +257,42 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
     # --- the remedy it prints must not cause the loss it refuses ----------------------------------
 
+    # One printed argument. The script prints single quotes since the `$` fix and printed double
+    # quotes before it. Both are read, so a red run against an older script names the loss and not
+    # the quoting.
+    ARG = r"""(?:"[^"]*"|'(?:[^']|'')*')"""
+    ARGS = re.compile(r""""([^"]*)"|'((?:[^']|'')*)'""")
+
+    def args_of(self, line: str) -> list[str]:
+        """The quoted arguments of a printed line, unquoted."""
+        return [d if d is not None else s.replace("''", "'") for d, s in
+                ((m.group(1), m.group(2)) for m in self.ARGS.finditer(line))]
+
     def remove_lines(self, said: str) -> list[str]:
-        """The `git -C "..." worktree remove "..."` commands the refusal prints, and nothing else.
+        """The `git -C <path> worktree remove <path>` commands the refusal prints, and nothing else.
 
         Anchored on the printed shape, so git's own error text or a throw naming the command is not
         mistaken for a command the operator is told to run.
         """
         return [
             line.strip() for line in said.splitlines()
-            if line.strip().startswith('git -c "') and '" worktree remove "' in line
+            if re.match(rf"^git -c {self.ARG} worktree remove {self.ARG}$", line.strip())
         ]
-
-    PRINTED = re.compile(r'^git -C "([^"]+)" worktree (remove|unlock) "([^"]+)"$')
 
     def run_printed(self, r: subprocess.CompletedProcess) -> str:
         """Run every command the refusal printed, in order, as an operator following it would.
 
-        Read from the output in its own case, because the fixture paths are case-sensitive off
-        Windows. Returns a log of what ran, for the failure message.
+        Each line runs in pwsh, as typed, so its quoting is part of what is tested. Read from the
+        output in its own case, because the fixture paths are case-sensitive off Windows. Returns a
+        log of what ran, for the failure message.
         """
         log = []
+        printed = re.compile(rf"^git -C {self.ARG} worktree (remove|unlock) {self.ARG}$")
         for line in (r.stdout + r.stderr).splitlines():
-            m = self.PRINTED.match(line.strip())
-            if not m:
+            if not printed.match(line.strip()):
                 continue
             ran = subprocess.run(
-                ["git", "-C", m.group(1), "worktree", m.group(2), m.group(3)],
+                [self.pwsh, "-NoProfile", "-NonInteractive", "-Command", line.strip()],
                 capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
             )
             log.append(f"ran: {line.strip()} -> exit {ran.returncode} {ran.stderr.strip()}")
@@ -290,11 +300,14 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
     def printed_for(self, said: str, n: Path) -> list[str]:
         """The remove commands printed for `n`. `said` is the folded, lower-cased output."""
-        return [line for line in self.remove_lines(said) if line.endswith(fold(n) + '"')]
+        return [line for line in self.remove_lines(said) if self.args_of(line)[-1:] == [fold(n)]]
 
     def pointer_for(self, said: str, n: Path) -> list[str]:
-        """The `git -C "<n>" ...` lines the refusal prints for the operator to look with."""
-        return [line.strip() for line in said.splitlines() if line.strip().startswith(f'git -c "{fold(n)}" ')]
+        """The `git -C <n> ...` lines the refusal prints for the operator to look with."""
+        return [
+            line.strip() for line in said.splitlines()
+            if line.strip().startswith("git -c ") and self.args_of(line)[:1] == [fold(n)]
+        ]
 
     def test_the_printed_commands_remove_the_deepest_worktree_first(self):
         """A parent removed before its child deletes the child when the child is ignored in it.
@@ -315,7 +328,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, alpha, zeta)
         self.assertNotEqual(0, r.returncode, said)
         order = [
-            next((i for i, line in enumerate(self.remove_lines(said)) if fold(n) + '"' in line), None)
+            next((i for i, line in enumerate(self.remove_lines(said)) if self.args_of(line)[-1:] == [fold(n)]), None)
             for n in (zeta, alpha)
         ]
         self.assertNotIn(None, order, "a nested worktree has no remove command:\n" + said)
@@ -335,7 +348,11 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, held)
         self.assertNotEqual(0, r.returncode, said)
         self.assertIn("locked: harness", said)
-        self.assertIn(f'worktree unlock "{fold(held)}"', said, "no unlock step for a locked worktree")
+        unlocks = [line for line in said.splitlines() if " worktree unlock " in line]
+        self.assertTrue(
+            any(self.args_of(line)[-1:] == [fold(held)] for line in unlocks),
+            "no unlock step for a locked worktree\n" + said,
+        )
         self.assertNotIn("branch (detached)", said, "a detached worktree is labelled as a branch")
 
     def test_a_nested_worktree_holding_work_gets_no_remove_command(self):
@@ -348,7 +365,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, h)
         self.assertNotEqual(0, r.returncode, said)
         self.assertEqual(
-            [], [line for line in self.remove_lines(said) if fold(h) + '"' in line],
+            [], self.printed_for(said, h),
             "the refusal prints a remove command for a worktree holding untracked work. git refuses "
             "it with exit 128, and the next thing an operator tries is --force.\n" + said,
         )
@@ -356,7 +373,9 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
             [], [line for line in said.splitlines() if line.strip().startswith("git ") and "--force" in line],
             "--force is printed as a step to run\n" + said,
         )
-        self.assertIn(f'git -c "{fold(h)}" status', said, "no pointer to look at the work first")
+        self.assertTrue(
+            any(" status " in p for p in self.pointer_for(said, h)), "no pointer to look at the work first\n" + said
+        )
 
     def test_a_parent_gets_no_command_while_an_ignored_child_holds_work(self):
         """`alpha` reads clean because `zeta` is ignored inside it, and removing it deletes `zeta`."""
@@ -373,13 +392,35 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
         self.assert_untouched(primary, work, alpha, zeta)
         self.assertNotEqual(0, r.returncode, said)
-        printed = self.remove_lines(said)
         for n in (alpha, zeta):
             with self.subTest(nested=n.name):
                 self.assertEqual(
-                    [], [line for line in printed if fold(n) + '"' in line],
+                    [], self.printed_for(said, n),
                     f"a remove command is printed for {n.name}, and running it deletes zeta's work\n" + said,
                 )
+
+    def test_a_dollar_sign_in_a_path_does_not_send_a_printed_command_elsewhere(self):
+        """Double quotes let PowerShell expand `$name`, so a printed command ran on another path.
+
+        A decoy clone sits where `d$ccx165` lands once `$ccx165` expands to nothing. At 06e8ca3 the
+        printed command, run in pwsh, removed the decoy's worktree and left the named one.
+        """
+        top = self.base
+        self.base = top / "d"
+        self.base.mkdir()
+        _, _, decoy = self.nested_in_work()
+        self.base = top / "d$ccx165"
+        self.base.mkdir()
+        primary, work, h = self.nested_in_work()
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(1, len(self.printed_for(said, h)), "a clean nested worktree got no command\n" + said)
+        self.assertTrue(decoy.is_dir(), f"the printed command removed another clone's worktree\n{ran}\n{said}")
+        self.assertFalse(h.exists(), f"the printed command did not remove the worktree it names\n{ran}")
 
     # --- what plain `git status` does not show ----------------------------------------------------
     #
