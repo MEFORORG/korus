@@ -97,11 +97,11 @@ RETIREMENT_MARKER = re.compile(
 )
 
 
-#: A line scoped to a Builder in its OWN SESSION. Owner ruling 2026-09-23: the Manager opens the
-#: pull request only for a Builder that is its subagent. A Builder a chip started, or the Manager
-#: spawned, opens its own, so a line naming that scope is the live rule, not the retired one. The
-#: scope must be on the same line, as the retirement marker must: an unscoped line still reads as
-#: the old rule.
+#: A line scoped to a Builder in its OWN SESSION. Decided 2026-09-23 under the owner's delegation:
+#: the Manager opens the pull request only for a Builder that is its subagent. A Builder a chip
+#: started, or the Manager spawned, opens its own, so a line naming that scope is the live rule, not
+#: the retired one. The scope must be on the same line, as the retirement marker must: an unscoped
+#: line still reads as the old rule.
 OWN_SESSION_SCOPE = re.compile(r"own session|spawned you|a chip started", re.IGNORECASE)
 
 
@@ -215,9 +215,9 @@ class TheRuleIsStatedOnce(unittest.TestCase):
         self.assertEqual(
             {},
             offenders,
-            "The Manager opens the pull request for its subagent Builders (owner rulings "
-            "2026-09-18 and 2026-09-23). These lines instruct a Builder to open its own, with no "
-            "retirement marker and no own-session scope on the line. Either mark the line "
+            "The Manager opens the pull request for its subagent Builders (owner ruling "
+            "2026-09-18, narrowed 2026-09-23). These lines instruct a Builder to open its own, "
+            "with no retirement marker and no own-session scope on the line. Either mark the line "
             "as retired text or repoint it: " + repr(offenders),
         )
 

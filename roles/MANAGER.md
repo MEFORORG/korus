@@ -252,8 +252,9 @@ Ask the Lander to dequeue it, close the pull request, and cut a new one from a f
 
 ### A Builder in its own session opens its own pull request
 
-**Owner ruling 2026-09-23.** The batch rule above covers a Builder running as your SUBAGENT, and
-nothing else. A Builder in its own session is not covered, even though you wrote its brief.
+**Decided 2026-09-23 under the owner's delegation.** The batch rule above covers a Builder running
+as your SUBAGENT, and nothing else. A Builder in its own session is not covered, even though you
+wrote its brief.
 
 That means one a chip started, or one you spawned so its work would outlive you. Its final report
 reaches nobody, and it may finish after you are gone.
