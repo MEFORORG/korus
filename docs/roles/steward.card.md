@@ -31,7 +31,7 @@ Give the Owner evidence for a decision. The report does not make the decision.
 
 1. Read `roles/COMMON.md`, then `roles/STEWARD.md`.
 2. Query the fleet wiki for your subject. A miss never blocks:
-   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
+   Run korus `query.ps1` with the stores `roles/WIKI.md` names.
 3. Read your own configuration before assuming which roots exist. The roster is assigned, not
    inferable, and a guess here is wrong in a way nothing downstream can catch.
 4. Record the time and the command beside every figure you publish.

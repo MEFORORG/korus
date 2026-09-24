@@ -14,17 +14,38 @@ The fleet wiki is one memory that every seat on every account can search. This f
 | Script | What it does |
 | --- | --- |
 | `scripts/wiki/write.ps1` | The only write path. Checks the fields, runs the leak scan, stamps the UTC time itself, drops one file in the inbox, and prints the new id. No git, no network. |
-| `scripts/wiki/query.ps1` | Searches the pages, the index and the uncompiled inbox. Every result passes the guard that hides superseded and retired events. |
+| `scripts/wiki/query.ps1` | Searches the uncompiled inbox and, with `-RecordRepo`, the compiled log. Every result passes the guard that hides superseded and retired events. |
 
-**Run both from a worktree of the repository the fleet coordinates in**, the engine repository on
-the reference fleet. Each clone has its own inbox, so a write from another clone lands where no
-query looks. COMMON, *Your cwd, not your seat, decides which coordination record you touch*.
+### Run them from korus by path, and name both stores
 
-**If a script is missing from your tree, carry on without it and say so in your report.** A memory
+The scripts exist only in korus. The engine repository has no `ccx.config.json`, so the default
+state root does not resolve there: a write exits 2, and a query reports the state root unreachable.
+
+With a korus cwd and no `-StateRoot`, a script uses korus's own coordination directory, which is
+not the shared inbox. So pass every path yourself:
+
+| Placeholder | What it names |
+| --- | --- |
+| `<korus>` | A korus checkout at `origin/main`. |
+| `<coord>` | `<engine clone>/.git/mefor-coord` on the reference fleet: the engine clone's coordination directory, which holds the one inbox every account shares. In any engine worktree, `git rev-parse --path-format=absolute --git-common-dir` prints the `.git` part. |
+| `<vault>` | A checkout of the record repository at `origin/main`, `MessageFoundry-vault` on the reference fleet. A query reads the compiled log from it; a write does not use it. |
+
+```powershell
+pwsh -NoProfile -File <korus>/scripts/wiki/write.ps1 -StateRoot <coord> -Type gotcha `
+  -Key git/show/msys-dotpath -Summary "git show ref:.dotpath returns empty under MSYS" `
+  -Evidence "<commit, PR, path@ref>" -Seat <your seat>
+pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
+  -Text "ascii gate exit code on windows"
+```
+
+Each clone has its own coordination directory, so its own inbox. `Get-CcxStateRoot` in
+`scripts/coord/_common.ps1` says why.
+
+**If a script is missing from your korus checkout, carry on without it and say so in your report.** A memory
 that cannot be reached never blocks work.
 
-**Compile, import and lint are not a seat's to run.** A scheduled Claude Code job runs
-`compile.ps1`, the weekly `import.ps1` and `lint.ps1` (Owner ruling 2026-09-23).
+**Compile, import and lint are not a seat's to run.** A scheduled Claude Code job runs them (Owner
+ruling 2026-09-23): `compile.ps1` and `lint.ps1` daily, `import.ps1` weekly.
 [The plan](../specs/002-fleet-wiki/plan.md) orders their build.
 
 The job opens pull requests and never merges them. The Lander lands the compile and import pull
@@ -36,8 +57,8 @@ the Lander does not land it.
 ## Query before you act on anything you remember
 
 ```powershell
-pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "ascii gate exit code on windows"
-pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "exit code" -Path scripts/quality/check-ascii.ps1
+pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
+  -Text "exit code" -Path scripts/quality/check-ascii.ps1
 ```
 
 | Flag | Use |
@@ -47,8 +68,8 @@ pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "exit code" -Path scripts/qua
 | `-History` | Also return superseded and retired events, labelled `historical`. A superseded event points at its replacement; a retired one has none. |
 | `-Limit <n>` | Cap the result count. |
 | `-Json` | Machine-readable output. |
-| `-StateRoot <dir>` | Read an inbox other than the default coordination directory. Tests use it. |
-| `-RecordRepo <dir>` | Read pages from a record repository clone other than the default. |
+| `-StateRoot <dir>` | The coordination directory that holds `wiki/inbox/`. Pass `<coord>`, never the inbox itself. |
+| `-RecordRepo <dir>` | The record repository whose compiled log to search. Pass `<vault>`. Without it, only the inbox is searched. |
 
 Every result carries an id, a date, the writing seat, its evidence and one label.
 
@@ -79,11 +100,8 @@ body or the report, so a reader can check what you relied on.
 
 ## Write after a decision, a fix, a lesson or a correction
 
-```powershell
-pwsh -NoProfile -File scripts/wiki/write.ps1 -Type gotcha -Key git/show/msys-dotpath `
-  -Summary "git show ref:.dotpath returns empty under MSYS" -Evidence "<commit, PR, path@ref>" `
-  -Seat <your seat>
-```
+The write command is under *Run them from korus by path, and name both stores*. This section picks
+its fields.
 
 ### Pick the type by what happened
 
@@ -150,7 +168,7 @@ tree or an instrument, and cite what you read.
 | `-StaleAfter yyyy-MM-dd` | The date after which the fact must be re-checked. A reader past it treats the event as `stale`, whatever its label. |
 | `-Trust generated\|verified` | `generated` by default. `verified` only when a person or a second seat confirmed it, never your own check. |
 | `-Seat <seat>` | The seat writing the event. Pass it, because every event must record one. |
-| `-StateRoot <dir>` | Write to an inbox other than the default. Tests use it. |
+| `-StateRoot <dir>` | The coordination directory that holds `wiki/inbox/`. Pass `<coord>`, never the inbox itself. |
 
 **A refused write blocks nothing.** Fix the cause it names, or name the refusal in your report and
 carry on. Never reword an event to slip past the leak scan.
@@ -165,6 +183,27 @@ carry on. Never reword an event to slip past the leak scan.
 - **No secrets**: tokens, keys, passwords, connection strings.
 
 The leak scan refuses a hit and names the class, never the value. It is a backstop, not the rule.
+
+## Optional readers sit beside `query.ps1`, never in its place
+
+**Obsidian is a viewer, and no seat depends on it.** Open the `wiki/` directory of a `<vault>`
+checkout as an Obsidian vault. It holds `wiki/pages/` and, beside them, the `index.md` that lists
+every page.
+
+Read there, never edit. A hand edit breaks reading rule 4, and compile replaces the page from the
+log the next time it renders.
+
+Obsidian writes its settings to `wiki/.obsidian/`. Open a checkout of your own rather than a shared
+one, and never commit that folder.
+
+**`qmd` or `okf` may add a search, and a seat still acts only on `query.ps1`** (FR-017). Only
+`query.ps1` passes every read through the guard that hides superseded and retired events (FR-011).
+
+A search over the pages misses the inbox, so a correction written today stays hidden from it until
+compile lands. A search over `wiki/events/` returns what the guard would hide.
+
+`okf`'s own search ignores status. [The spec](../specs/002-fleet-wiki/spec.md) records the reading,
+under *Considered and not adopted: OKF Agent Memory as the store*.
 
 ## The content lives in the record repository, never in korus
 

@@ -497,6 +497,106 @@ class TheRecordClonesWorkingTreeIsUntouched(_CompileCase):
         self.assertFalse((self.record / "wiki").exists(), "compile wrote into the clone's working tree")
 
 
+_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
+# Two characters or more before the colon, so a drive letter such as `C:` is checked, not skipped.
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]+:")
+
+
+def check_links(wiki: Path) -> tuple[list[tuple[str, str]], list[str]]:
+    """Every relative link in every page and in `index.md`, and those that do not resolve.
+
+    A link resolves when its target is a file that exists INSIDE `wiki/`. The second half matters
+    to a viewer: opened on `wiki/`, it cannot follow a link that climbs out, even to a real file.
+    Returns (checked, broken): each checked link as (source, target), each broken one as a line.
+    """
+    root = wiki.resolve()
+    checked: list[tuple[str, str]] = []
+    broken: list[str] = []
+    for page in [*sorted(wiki.joinpath("pages").glob("*.md")), wiki / "index.md"]:
+        source = page.relative_to(wiki).as_posix()
+        for target in _LINK.findall(page.read_text(encoding="utf-8")):
+            if _SCHEME.match(target) or target.startswith("#"):
+                continue
+            checked.append((source, target))
+            resolved = (page.parent / target.split("#", 1)[0]).resolve()
+            if not resolved.is_file() or not resolved.is_relative_to(root):
+                broken.append(f"{source} -> {target}")
+    return checked, broken
+
+
+class EveryLinkOnEveryPageResolves(_CompileCase):
+    """Story 6 and plan PR 6 step 1. The world plants one of every link the renderer writes: a live
+    event, `replaced by`, `withdrawn by`, `now live`, a `Related` sibling, an index line, a conflict,
+    and page names built by each of `Get-WikiPageFileName`'s rules. The pages are read from a checkout
+    of `wiki/compile`, which is what a reader opens.
+
+    Zero broken is armed three ways: each link kind is among the links read, a planted dead link, a
+    link that leaves `wiki/` and a drive-letter link are each reported, and a removed event file
+    breaks exactly the links to it.
+    """
+
+    def setUp(self):
+        super().setUp()
+        p = self.inbox
+        w.plant(p, when=w.days_ago(9), key="gate/ascii/one", summary="a plain live event")
+        x = w.plant(p, when=w.days_ago(8), key="gate/ascii/chain", summary="the first take")
+        y = w.plant(p, when=w.days_ago(7), type="correction", key="gate/ascii/chain", summary="the second take",
+                    supersedes=[x["id"]])
+        # The live end of a chain: its own id link, `replaced by` from Y and `now live` from X point here.
+        self.z = w.plant(p, when=w.days_ago(6), type="correction", key="gate/ascii/chain", summary="the third take",
+                         supersedes=[y["id"]])
+        w.plant(p, when=w.days_ago(6), key="gate/leak/home", summary="a key that is later withdrawn")
+        w.plant(p, when=w.days_ago(5), type="retire", key="gate/leak/home", summary="withdrawn")
+        m = w.plant(p, when=w.days_ago(5), key="ruling/merge-owner", summary="replaced from another key")
+        w.plant(p, when=w.days_ago(4), type="supersede", key="ruling/landing", summary="marker", supersedes=[m["id"]])
+        w.plant(p, when=w.days_ago(4), key="k/x", summary="one take")
+        w.plant(p, when=w.days_ago(3), key="k/x", summary="another take")
+        w.plant(p, when=w.days_ago(3), key="aux/thing", summary="a key under a device name")
+        w.plant(p, when=w.days_ago(2), key="a--b/x", summary="a key with a double dash")
+        w.plant(p, when=w.days_ago(1), key="/".join(["seg"] * 40) + "/leaf", summary="a very deep key")
+        self.compile()
+        self.wiki = self.checkout_of("wiki/compile", "links") / "wiki"
+
+    def test_every_link_resolves_inside_the_wiki(self):
+        checked, broken = check_links(self.wiki)
+        self.assertEqual([], broken)
+        # Each kind the renderer writes is found on its page AND among the links the checker read, so
+        # the empty list above covers it, not a link the pattern skipped.
+        for source, kind in (("pages/gate--ascii.md", "replaced by"), ("pages/gate--ascii.md", "now live:"),
+                             ("pages/gate--leak.md", "withdrawn by"), ("pages/ruling.md", "replaced by")):
+            page = self.wiki.joinpath(source).read_text(encoding="utf-8")
+            targets = re.findall(re.escape(kind) + r" \[[^\]]+\]\(([^)]+)\)", page)
+            self.assertTrue(targets, f"no `{kind}` link on {source}")
+            for target in targets:
+                self.assertIn((source, target), checked)
+        self.assertIn(("pages/gate--ascii.md", "gate--leak.md"), checked)
+        self.assertIn(("index.md", "pages/_aux.md"), checked)
+        self.assertIn(("index.md", "pages/a--b~.md"), checked)
+        self.assertTrue(any(s == "index.md" and re.fullmatch(r"pages/(seg--){16}~h[0-9a-f]{12}\.md", t)
+                            for s, t in checked), "no link to a shortened long-name page")
+        self.assertTrue(any(s == "index.md" and t.startswith("events/") for s, t in checked), "no conflict link")
+        self.assertTrue(any(s.startswith("pages/") and t.startswith("../events/") for s, t in checked))
+
+    def test_control_a_dead_link_and_a_link_out_of_the_wiki_are_reported(self):
+        self.wiki.joinpath("pages", "zz-planted.md").write_text(
+            "- [dead](nowhere.md)\n- [out](../../a.txt)\n- [drive](C:/x.md)\n- [site](https://example.com/x)\n",
+            encoding="utf-8")
+        self.assertTrue(self.wiki.parent.joinpath("a.txt").is_file(), "the out-of-wiki target must exist")
+        _, broken = check_links(self.wiki)
+        self.assertEqual(["pages/zz-planted.md -> nowhere.md", "pages/zz-planted.md -> ../../a.txt",
+                          "pages/zz-planted.md -> C:/x.md"], broken)
+
+    def test_control_a_removed_event_file_breaks_exactly_its_links(self):
+        """Three links point at Z, so a checker that reported each dead target once would fail here."""
+        ts = self.z["ts"]
+        rel = f"events/{ts[:4]}/{ts[5:7]}/{self.z['id']}.json"
+        self.wiki.joinpath(rel).unlink()
+        _, broken = check_links(self.wiki)
+        self.assertEqual(3, len(broken), broken)
+        for line in broken:
+            self.assertEqual(f"pages/gate--ascii.md -> ../{rel}", line)
+
+
 class RebuildOnlyNeedsALog(_CompileCase):
     def test_no_events_directory_is_exit_2(self):
         r = w.run(self.pwsh, COMPILE, "-RecordRepo", str(self.record), "-RebuildOnly")
