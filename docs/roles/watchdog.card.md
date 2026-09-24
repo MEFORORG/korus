@@ -103,7 +103,7 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
    wake the Lander if it has stopped.`
 2. Read `roles/COMMON.md`, then `roles/WATCHDOG.md`.
 3. Query the fleet wiki for your subject. A miss never blocks:
-   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`.
+   Run korus `query.ps1` with the stores `roles/WIKI.md` names.
 4. **Establish the Lander is alive, from two surfaces.** An agent listing can omit a live seat. The
    presence script, run from the watched repository, found one it missed. Spawn if it is gone.
 5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
