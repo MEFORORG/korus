@@ -14,7 +14,7 @@ shared helpers.
 
 ---
 
-You can also read the source on [GitHub](https://github.com/wshallwshall/korus).
+You can also read the source on [GitHub](https://github.com/MEFORORG/korus).
 
 For manual downloads, also fetch `ccx.config.json` and the seven shared modules listed under
 [Internals and installers](#internals-and-installers).

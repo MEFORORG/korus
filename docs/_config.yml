@@ -82,7 +82,7 @@ baseurl: ""
 # Used by the layout instead of site.github.*, which is empty in a local build without a token and
 # populated in production -- an instrument that answers a different question depending on where it
 # runs.
-repo_url: https://github.com/wshallwshall/korus
+repo_url: https://github.com/MEFORORG/korus
 
 markdown: kramdown
 

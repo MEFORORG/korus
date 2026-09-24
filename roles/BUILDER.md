@@ -70,7 +70,7 @@ moment they can win.
 | You push your own branch, then report and exit | Owner ruling 2026-08-29, in their words: *"Sessions push their own."* The PUSH is yours. You do not merge, and you do not close ledger items. |
 | **RETIRED 2026-09-18: the half of that row that had you open the pull request** | It read *"You push your own branch and open your own pull request."* Owner ruling. The **Manager** opens it now. See *The loop*, step 12. |
 | What the 2026-08-29 ruling actually covered | The push. It never named the pull request, so the opening was an inference. This row withdraws it. |
-| Your claim is taken at one end and released at the other | **You** take it with `claim.ps1 -Take <N>` before your first commit. The **Lander** releases it, with the ledger update, once the work lands. See 5d. |
+| Your claim is taken at one end and released at the other | **You** take it with `claim.ps1 -Take <N>` in an engine checkout, before your first commit. The **Lander** releases it, with the ledger update, once the work lands. See 5d. |
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
@@ -220,7 +220,8 @@ pwsh -NoProfile -File scripts\coord\alloc.ps1 -Kind adr -Title "<title>"
 
 | Flag | What it does |
 | --- | --- |
-| `-Kind` | `adr` or `backlog`. Defaults to `adr`. |
+| `-Kind` | `adr` or `backlog`. Defaults to `adr` in the engine, which refuses `backlog`. |
+| **CORRECTED 2026-09-24: run this in the engine** | It read *"`adr` or `backlog`. Defaults to `adr`."* No single checkout does that. The engine's `-Kind` is `ValidateSet("adr")`. The vault's takes both and defaults to `backlog`. ADRs are committed in the engine. |
 | `-Title` | The ADR title. |
 | `-List` | What this worktree currently holds, then exits. |
 | `-ShowFloor` | The computed floor and the paths it swept, without allocating. |
