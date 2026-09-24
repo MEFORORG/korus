@@ -562,20 +562,33 @@ $idleCut = (Get-Date).AddHours(-1 * $IdleHours)
 # destructive run.
 # FAILS CLOSED: an unreadable status (a moved-away or half-deleted worktree exits 128 with no output)
 # used to be indistinguishable from "no changes" and pointed straight at destruction.
+#
+# The status read is occupancy.ps1's Read-WorktreeStatus, shared with remove.ps1. Until 2026-09-23 this
+# function ran plain `git status --porcelain`, which obeys status.showUntrackedFiles. Set to `no`, it
+# hid every untracked file, this returned Clean, and -Apply deleted them. The shared read overrides the
+# setting. It also reports tracked files flagged skip-worktree or assume-unchanged, whose edits git
+# status does not show, and those block like any other tracked change.
+#
+# It passes -UntrackedFiles normal, which collapses an untracked directory to one entry: this only
+# counts, and so did the read it replaced. It does not pass -IncludeIgnored: ignored files do not block
+# this script, as the note below says, so it does not pay to list them.
 function Test-WorktreeClean {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         return @{ Clean = $false; Reasons = @('directory is missing (already half-removed? investigate before pruning)') }
     }
-    $status = @(& git -C $Path --no-optional-locks status --porcelain 2>$null)
-    $statusExit = $LASTEXITCODE
-    if ($statusExit -ne 0) {
-        return @{ Clean = $false; Reasons = @("git status failed (exit $statusExit) -- cannot establish it is clean") }
+    $status = Read-WorktreeStatus -Path $Path -UntrackedFiles normal
+    if ($status.Exit -ne 0) {
+        return @{ Clean = $false; Reasons = @("git status failed (exit $($status.Exit)) -- cannot establish it is clean") }
     }
-    $trackedChanges = @($status | Where-Object { $_ -notmatch '^\?\?' })
-    $untracked = @($status | Where-Object { $_ -match '^\?\?' })
+    $trackedChanges = @($status.Tracked)
+    $untracked = @($status.Untracked)
     $r = @()
     if ($trackedChanges.Count -gt 0) { $r += "dirty: $($trackedChanges.Count) uncommitted tracked change(s)" }
+    if ($status.Flagged.Count -gt 0) {
+        $r += ("dirty: $($status.Flagged.Count) tracked file(s) flagged skip-worktree or assume-unchanged -- " +
+            "git status hides their edits, and --force would delete them")
+    }
     # Untracked files are the one loss class with no recovery THROUGH GIT: not in the index, not in a
     # stash, not in the reflog. (--force also deletes IGNORED files -- a dependency tree, a local
     # database, a generated fixture set -- which git status never shows here; those are unrecoverable

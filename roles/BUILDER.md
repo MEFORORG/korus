@@ -11,10 +11,15 @@ subagents and workflows. This is the durable playbook for the **role**.
 
 You take one brief, build what it cites, **run the `code-review` skill**, push your own branch,
 report to the Manager, and exit. One turn. **The Manager opens the pull request**, by owner ruling
-2026-09-18.
+2026-09-18. Since 2026-09-23 it also decides when, and one pull request usually carries several
+Builders' branches. So your branch must make sense on its own inside someone else's batch.
 
-Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the engine repo, and the issues in
+Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the vault repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
+
+**The item ledger left the engine repo on 2026-09-13 (BACKLOG #1250).** It lives in
+`MEFORORG/MessageFoundry-vault`; the engine's `docs/BACKLOG.md` is a stub. Read the ledger at the
+vault's `origin/main`. This line named the engine repo until 2026-09-23.
 
 **The review is in this sentence because step 11 and section 4c were not enough.** Reported by a
 Manager on 2026-09-18 and not re-measured here: it briefed eight Builders from the seat table and
@@ -153,7 +158,7 @@ whenever it is reasonable* is met.
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
-| Open the pull request on your branch | **Manager** |
+| Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
 | Release the claim your commits hold | **Lander**, in the same act as the ledger update |
 | Merge, force-push, tags, releases | **Lander**, on the two required gates. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
@@ -232,7 +237,11 @@ ledger gate, with the work already finished.
 
 ### 1d. The banner requirement is CONDITIONAL, and this section used to state it as absolute
 
-`.github/workflows/backlog-hygiene.yml` demands a same-PR `docs/BACKLOG.md` banner **only when the
+**On the engine repo there is no banner requirement any more.** Since 2026-09-13 its
+`backlog-hygiene.yml` is a no-op, kept only because its name is a required context. No engine pull
+request edits the ledger. What follows holds on the vault, whose copy of the check still runs.
+
+The vault's `.github/workflows/backlog-hygiene.yml` demands a same-PR `docs/BACKLOG.md` banner **only when the
 PR's three-dot diff touches `messagefoundry/`, `ide/` or `messagefoundry_webconsole/`**. Otherwise it
 exits 0 with "no banner update required".
 
@@ -479,7 +488,8 @@ check is the only reason the seat that hit this caught its own.**
     line: that is the tag.** Section 4c has the two-round rule, what to do with a round-two
     finding, and the traps.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
-    the proposed ledger banner text. Sections 4d and 4e say what the report must hold. **You do not
+    the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
+    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **You do not
     open the pull request. The Manager does**, and there is no next item.
 
 | On | Note |

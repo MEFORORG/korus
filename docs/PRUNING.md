@@ -157,6 +157,22 @@ Any uncertain check produces SKIP. Cleanup must never take priority over preserv
 One routine supplies reasons for both the decision and pre-removal check. It distinguishes a missing
 directory, status exit 128, untracked files, and tracked edits.
 
+**The untracked-files rule above was false until 2026-09-23 wherever `status.showUntrackedFiles`
+was `no`.** The check read plain `git status --porcelain`, which obeys that setting. An untracked
+file read as clean, and `-Apply` deleted it.
+
+Measured against `a58981d` with `tests/test_the_reaper_sees_untracked_files_a_setting_hides.py`: the
+row read `Clean: True` and the file was gone. The check now reads status through `Read-WorktreeStatus`
+in `scripts/coord/occupancy.ps1`, whose `--untracked-files=normal` overrides the setting.
+
+**An edit to a file flagged skip-worktree or assume-unchanged was the same hole.** `git status` does
+not check those files, so the edit read as clean. The same read now lists them from `git ls-files
+-v`, and they block as tracked changes. Measured against `fd7028f`: `-Apply` deleted one.
+
+Ignored files still do not block the reaper, and it still deletes them, as the policy above says.
+`remove.ps1` shares the status read but withholds its printed command for them, because it names
+nested worktrees that may belong to a live session.
+
 ## Occupancy is a veto, never a permission
 
 Occupancy checks whether someone works in the directory. There is no heartbeat, so it can block
@@ -461,6 +477,10 @@ The manual command relies on the human checking which files are disposable. Keep
 pruner stricter; do not make the two policies agree.
 
 `remove.ps1` also refuses from inside its target worktree and explains that caller error.
+
+**Since 2026-09-23 its tracked-changes guard uses the same read as the reaper.** It refuses, without
+`-Force`, when `git status` on its target fails. Before, it ignored the exit code, so a corrupt index
+read as no changes, and the `--force` removal deleted an uncommitted edit.
 
 Here the two agree. Both refuse a worktree that contains another registered worktree, through the
 same `Get-NestedWorktrees` call. `-Force` does not override it. `remove.ps1` gained the check on

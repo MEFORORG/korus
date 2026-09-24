@@ -132,9 +132,9 @@ event arrives before any compile has run.
 
 ---
 
-### User Story 4 - The existing memory stores are folded in once (Priority: P2)
+### User Story 4 - The existing memory stores are folded in, and kept in step (Priority: P2)
 
-The Owner names the memory directories to import. A one-time ingest turns each note into an event,
+The Owner names the memory directories to import. A weekly ingest turns each note into an event,
 merges notes that share a name and a meaning, and records every merge in the log.
 
 **Why this priority**: The fleet already holds 964 notes. Starting empty throws them away.
@@ -261,6 +261,8 @@ The Owner opens `wiki/pages/` in Obsidian or any Markdown viewer and follows lin
 - **FR-023**: The ingest MUST read only directories the Owner lists by path. It MUST NOT discover
   account roots by pattern (Article VIII).
 - **FR-024**: Every merge the ingest makes MUST be recorded as an event.
+- **FR-027**: The ingest MUST run weekly on the schedule that runs compile, and MUST be idempotent
+  over an unchanged store.
 
 **Reading rules for seats**
 
@@ -309,13 +311,13 @@ The Owner opens `wiki/pages/` in Obsidian or any Markdown viewer and follows lin
 
 ---
 
-## Open questions for the Owner
+## Owner rulings, 2026-09-23
 
-1. **Which seat runs compile and lint?** Both need a model call, so the Steward, which makes none,
-   cannot. The draft recommendation: a scheduled Claude Code job that opens pull requests and never
-   merges. The Lander lands them. The roster is the Owner's, so this is asked, not assumed.
-2. **Does the per-account memory tool stay on after the import?** Keeping it on means two stores
-   again. Turning it off is a change to every config root.
+1. **A scheduled Claude Code job runs compile and lint.** It opens pull requests in the record
+   repository and never merges them; the Lander lands them. No new seat.
+2. **The per-account memory tool stays on, and the import re-runs weekly.** So the import MUST be
+   idempotent: a note already imported, unchanged, adds no event. A changed note adds a new event
+   on the same key, which supersedes the old one.
 
 ---
 

@@ -50,7 +50,7 @@ numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 | Seat | File | What it owns |
 |---|---|---|
 | Manager | [MANAGER.md](MANAGER.md) | The plan and the brief. Reads the ledger, picks the row, writes a brief that holds for one turn, and reads what comes back. **Replaces the Dispatcher, the Liaison and the Console.** |
-| | | **Opens the pull request and hands it to the Lander**, added 2026-09-18. Does not build, enqueue or merge. |
+| | | **Opens the pull request and hands it to the Lander**, added 2026-09-18. **Decides when to cut it and what goes in it**, usually one per wave, added 2026-09-23. Does not build, enqueue or merge. |
 | | | Added 2026-09-04. Owner-spawned and bound to ONE account. Its workers are subagents or separate sessions. Several Managers run at once, sharing only the repository. |
 | Builder | [BUILDER.md](BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill over its own diff, commits, pushes, reports with its QA line, then exits. **It no longer opens the PR**, changed 2026-09-18. |
 | | | It never guesses at what the brief left open and never waits: it writes the question to the Manager, which carries it onto the PR, then stops. |
@@ -121,6 +121,7 @@ the answer closed it rather than the question expiring.
 | --- | --- |
 | What routes a PR now | Push your own branch, open your own PR, and the Lander merges it. No seat reads the diff first. |
 | **NARROWED 2026-09-18** | A Builder under a Manager pushes and reports; the **Manager** opens the PR and hands it to the Lander with five fields. Every other seat still opens its own. |
+| **ADDED 2026-09-23** | The Manager decides when to cut the PR. One PR usually carries a whole wave of Builders' branches. |
 | So one seat IS notified now | The Lander, by the Manager, as a courtesy. It still polls: nothing pushes a PR to it. |
 | The Lander still owns the merge | It holds its standing grant for it. |
 | Handing work over needs no permission | It is the default action, and no seat asks. |
