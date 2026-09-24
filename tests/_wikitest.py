@@ -76,6 +76,20 @@ def plant(directory: Path, *, when: datetime | None = None, event_id: str | None
     return event
 
 
+def missing_drive(tail: str) -> str:
+    """A path on a drive letter this machine does not have, such as `Q:` then `tail`.
+
+    Resolving it makes PowerShell throw "Cannot find drive" on every platform: on Linux `Q:` still
+    parses as a drive qualifier, and no such drive exists there either. The letter is chosen at run
+    time, because a fixed one could be a real mapped drive on some machine.
+    """
+    for letter in "QRSTUVWXYZ":
+        root = letter + ":" + chr(92)
+        if not os.path.exists(root):
+            return root + tail
+    raise AssertionError("every drive letter from Q to Z exists here; no unreachable drive to test with")
+
+
 def inbox_dir(state_root: Path) -> Path:
     return state_root / "wiki" / "inbox"
 

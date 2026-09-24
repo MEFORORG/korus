@@ -24,7 +24,26 @@
 
     A MEMORY MISS NEVER BLOCKS WORK (FR-016). An unreachable record repository or state root is
     reported on one line on stderr, the search goes on with whatever it could reach, and the exit
-    is 0. Stdout carries only results, or exactly `no note`.
+    is 0. Stdout carries only results, or exactly `no note`, with one exception below.
+
+    A FILE THAT MAY HAVE BEEN A RETIREMENT IS NOT READ PAST QUIETLY (FR-011). A `supersede` or
+    `retire` marker that fails the full schema is still honoured when the fields the guard acts on
+    are sound (`Test-WikiMarkerLoose` in `_event.ps1`). A file that is not a JSON object at all, a
+    marker that fails even that check, or a content event that names `supersedes` and fails the
+    schema, could have hidden something that now shows. So the first line of stdout is then
+
+        warning: <n> event file(s) unreadable; a retirement may be missing
+
+    and `-Json` prints an object in place of the bare array:
+
+        { "warning": "<that line>", "unreadable": <n>, "results": [ ... ] }
+
+    The shape changes only then, so a caller that reads an array fails loudly rather than reading a
+    result that may carry a withdrawn fact. The exit is still 0.
+
+    The reach of that warning is the files it names. A file whose `type` is damaged into a word
+    that is not a marker, and that names no `supersedes`, reads as broken content: it is counted
+    in the receipt on stderr and does not warn.
 
     A receipt goes to stderr on every run: how many events were searched from each source, and how
     many files could not be read. `no note` over zero events and `no note` over a thousand are
@@ -56,8 +75,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_guard.ps1')
 
 function Write-Note {
-    # A one-line notice, always on stderr. Stdout carries only results or exactly `no note`, so a
-    # caller testing for `no note` is never misled by a notice printed above it.
+    # A one-line notice, always on stderr. Stdout carries only results or `no note`, plus the one
+    # unreadable-file warning described above, so no other notice is ever printed above a result.
     param([string] $Message)
     [Console]::Error.WriteLine($Message)
 }
@@ -84,6 +103,8 @@ if ($Limit -lt 1) {
 $inboxEvents = @()
 $logEvents = @()
 $skipped = 0
+$unreadable = 0
+$loose = 0
 $inboxLabel = 'inbox'
 
 if ([string]::IsNullOrWhiteSpace($StateRoot)) {
@@ -98,12 +119,23 @@ if ([string]::IsNullOrWhiteSpace($StateRoot)) {
 }
 if ($StateRoot) {
     $givenStateRoot = $StateRoot
-    $StateRoot = Resolve-WikiDir $StateRoot
+    # Resolving can throw, for a drive that does not exist (`Q:\coord`). FR-016 says a store the query
+    # cannot reach is reported and the search goes on, so a throw here is an unreachable store too.
+    try { $StateRoot = Resolve-WikiDir $StateRoot }
+    catch {
+        $StateRoot = $null
+        Write-Note "state root unreachable: '$givenStateRoot' cannot be resolved ($($_.Exception.Message)); the inbox was not searched."
+        $inboxLabel = 'inbox unreachable'
+    }
+}
+if ($StateRoot) {
     if (Test-Path -LiteralPath $StateRoot -PathType Container) {
         try {
             $r = Read-WikiEventDir -Dir (Get-WikiInboxDir -StateRoot $StateRoot) -Source inbox
             $inboxEvents = @($r.Events)
             $skipped += $r.Skipped
+            $unreadable += $r.Unreadable
+            $loose += $r.Loose
         } catch {
             Write-Note "inbox unreadable ($($_.Exception.Message)); the inbox was not searched."
             $inboxLabel = 'inbox unreadable'
@@ -117,8 +149,13 @@ if ($StateRoot) {
 $logLabel = 'log not requested'
 if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
     $givenRecordRepo = $RecordRepo
-    $RecordRepo = Resolve-WikiDir $RecordRepo
-    if (-not (Test-Path -LiteralPath $RecordRepo -PathType Container)) {
+    $resolved = $false
+    $resolveError = ''
+    try { $RecordRepo = Resolve-WikiDir $RecordRepo; $resolved = $true } catch { $resolveError = $_.Exception.Message }
+    if (-not $resolved) {
+        Write-Note "record repository unreachable: '$givenRecordRepo' cannot be resolved ($resolveError); searched the inbox only."
+        $logLabel = 'log unreachable'
+    } elseif (-not (Test-Path -LiteralPath $RecordRepo -PathType Container)) {
         Write-Note "record repository unreachable: $(Format-WikiDirName $givenRecordRepo $RecordRepo) does not exist; searched the inbox only."
         $logLabel = 'log unreachable'
     } else {
@@ -131,6 +168,8 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
                 $r = Read-WikiEventDir -Dir $eventsRoot -Source log -Recurse
                 $logEvents = @($r.Events)
                 $skipped += $r.Skipped
+                $unreadable += $r.Unreadable
+                $loose += $r.Loose
                 $logLabel = "log $($logEvents.Count)"
             } catch {
                 Write-Note "record repository unreadable ($($_.Exception.Message)); searched the inbox only."
@@ -142,7 +181,9 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
 
 $all = @(Merge-WikiEvent -Log $logEvents -Inbox $inboxEvents)
 $inboxPart = if ($inboxLabel -eq 'inbox') { "inbox $($inboxEvents.Count)" } else { $inboxLabel }
-[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped")
+$looseNote = if ($loose -gt 0) { "; $loose marker(s) honoured on the loose check" } else { '' }
+[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped$looseNote")
+$warning = if ($unreadable -gt 0) { "warning: $unreadable event file(s) unreadable; a retirement may be missing" } else { $null }
 
 # ------------------------------------------------------------------------------------ guard
 # Labelled once, with every event, so a hidden hit can be followed to its replacement.
@@ -223,13 +264,19 @@ if ($Json) {
                 source      = [string]$e._source
                 replaced_by = $e._replacedBy
                 found_via   = $r.Via
+                loose       = [bool]$e._loose
                 score       = [math]::Round($r.Score, 3)
             }
         })
-    ConvertTo-Json -InputObject $rows -Depth 5
+    if ($warning) {
+        ConvertTo-Json -InputObject ([ordered]@{ warning = $warning; unreadable = $unreadable; results = $rows }) -Depth 6
+    } else {
+        ConvertTo-Json -InputObject $rows -Depth 5
+    }
     exit 0
 }
 
+if ($warning) { Write-Output $warning }
 if ($ordered.Count -eq 0) {
     Write-Output 'no note'
     exit 0
@@ -244,5 +291,6 @@ foreach ($r in $ordered) {
     $rb = $e._replacedBy
     if ($rb) { Write-Output "  replaced by: $rb" }
     if ($r.Via) { Write-Output "  found through: $($r.Via), which this event replaced" }
+    if ($e._loose) { Write-Output "  loose: failed the full schema; honoured for its effect only" }
 }
 exit 0

@@ -18,6 +18,7 @@ Run: python -m pytest tests/test_wiki_write.py
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -258,6 +259,50 @@ class ItRefusesABadEvent(_WriteCase):
         resolved = r.stderr.split("(resolved to '", 1)[-1] if "(resolved to '" in r.stderr else ""
         self.assertIn("no-such-state'", resolved, "the resolved path went missing")
         self.assertNotIn("..", resolved, "the resolved path is not resolved")
+
+    def test_a_state_root_on_a_missing_drive_is_could_not_run_not_refused(self):
+        """Resolving a path on a drive that does not exist throws. Uncaught, that exited 1, which
+        this script reserves for a bad event; an inbox it cannot reach is exit 2."""
+        r = self.write(*self.good(), state=w.missing_drive("coord"))
+        self.assertEqual(2, r.returncode, r.stderr)
+        self.assertIn("not reachable", r.stderr)
+        self.assertIn("cannot be resolved", r.stderr)
+        self.assertEqual("", r.stdout.strip())
+
+
+class AWriteWithAStateRootRunsNoGit(_WriteCase):
+    """FR-007: with -StateRoot given, a write makes no git call at all.
+
+    A `git` shim sits first on PATH and records every call to a file. THE CONTROL is the default
+    state root, which does call git; the shim must record that call, or it could not see one here.
+
+    ITS REACH IS PWSH'S. On Windows the shim is `git.cmd`, which PowerShell resolves and Python's
+    `subprocess` does not, so a git call from the leak scanner would pass unseen. The scanner is
+    handed a file, and it runs git only when it is handed nothing."""
+
+    def setUp(self):
+        super().setUp()
+        self.calls = self.root / "git-calls.txt"
+        shim_dir = self.root / "shim"
+        shim_dir.mkdir()
+        if os.name == "nt":
+            (shim_dir / "git.cmd").write_text(f'@echo called>>"{self.calls}"\r\n@exit /b 1\r\n', encoding="ascii")
+        else:
+            shim = shim_dir / "git"
+            shim.write_text(f'#!/bin/sh\necho called >> "{self.calls}"\nexit 1\n', encoding="ascii")
+            shim.chmod(0o755)
+        self.env = {"PATH": str(shim_dir) + os.pathsep + os.environ.get("PATH", "")}
+
+    def test_an_explicit_state_root_calls_no_git(self):
+        r = self.write(*self.good(), env=self.env)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, len(self.inbox_files()))
+        self.assertFalse(self.calls.exists(), "a write given -StateRoot called git")
+
+    def test_control_the_default_state_root_is_seen_calling_git(self):
+        repo = w.make_repo(self.root / "repo", prefix="zzq")
+        r = self.write(*self.good(), cwd=repo, use_state=False, env=self.env)
+        self.assertTrue(self.calls.exists(), f"the shim saw no git call, so it proves nothing: {r.stderr}")
 
 
 class TheLeakScanRunsFirst(_WriteCase):

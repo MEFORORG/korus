@@ -128,6 +128,35 @@ class TheRecordRepository(_QueryCase):
         self.assertNotIn("unreachable", r.stdout, "the notice belongs on stderr; stdout is results only")
         self.assertEqual([planted["id"]], w.ids_in(r.stdout), "the inbox was not searched after the miss")
 
+    def test_a_record_repo_on_a_missing_drive_is_one_line_and_exit_zero(self):
+        """FR-016. Resolving a path on a drive that does not exist throws, and that throw once
+        escaped the query as exit 1 with nothing said. It is an unreachable store like any other."""
+        planted = w.plant(self.inbox, key="k/drive-inbox", summary="missing drive inbox search")
+        r = self.query("-Text", "missing drive inbox search", "-RecordRepo", w.missing_drive("vault"))
+        lines = [ln for ln in r.stderr.splitlines() if ln.startswith("record repository unreachable")]
+        self.assertEqual(1, len(lines), r.stderr)
+        self.assertIn("searched the inbox only", lines[0])
+        self.assertIn("cannot be resolved", lines[0], "the old does-not-exist branch printed this, not the catch")
+        self.assertEqual([planted["id"]], w.ids_in(r.stdout), "the inbox was not searched after the miss")
+
+    def test_a_state_root_on_a_missing_drive_is_one_line_and_the_log_is_still_searched(self):
+        vault = self.root / "vault"
+        logged = w.plant(w.log_dir(vault, w.days_ago(1)), when=w.days_ago(1), key="k/drive-log",
+                         summary="missing drive log search")
+        r = self.query("-Text", "missing drive log search", "-RecordRepo", str(vault),
+                       state=w.missing_drive("coord"))
+        lines = [ln for ln in r.stderr.splitlines() if ln.startswith("state root unreachable")]
+        self.assertEqual(1, len(lines), r.stderr)
+        self.assertIn("the inbox was not searched", lines[0])
+        self.assertIn("cannot be resolved", lines[0])
+        self.assertEqual([logged["id"]], w.ids_in(r.stdout), "the log was not searched after the miss")
+
+    def test_both_stores_on_a_missing_drive_is_still_exit_zero_and_no_note(self):
+        r = self.query("-Text", "missing drive anything", "-RecordRepo", w.missing_drive("vault"),
+                       state=w.missing_drive("coord"))
+        self.assertEqual("no note", r.stdout.strip())
+        self.assertIn("inbox unreachable, log unreachable", r.stderr)
+
     def test_log_events_are_read_and_labelled_by_age(self):
         vault = self.root / "vault"
         fresh = w.plant(w.log_dir(vault, w.days_ago(2)), when=w.days_ago(2), key="age/fresh", summary="calendar marker fresh")

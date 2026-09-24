@@ -26,6 +26,14 @@
          So superseding the newest event on a key leaves nothing live there (an older event the
          newest had already replaced never comes back), while a correction that names its target
          is never hidden BY that target, even when clock skew stamped the target later.
+         ONE FLOOR: rule 3 alone never empties a key that a correction on the same key was meant to
+         fill. With skew, A at ts 1 supersedes C, B at ts 2, C at ts 3: rule 1 hides C, C hides B,
+         B hides A, and nothing is live. So when every content event on a key is hidden, and rule 3
+         alone hid a correction that replaced the newest one (directly, or through other
+         corrections on the key), the newest content event hidden by rule 3 alone stays live. It
+         must be newer than every event on the key that a marker or another key's correction
+         superseded, so the floor never undoes a withdrawal. A key emptied by a marker, a retire,
+         or a correction on another key stays empty, as above.
       4. `supersede` and `retire` events carry an effect, not content. They are never returned as
          a default result.
 
@@ -114,6 +122,7 @@ function Select-WikiLiveEvent {
         if (-not $byKey.ContainsKey($k)) { $byKey[$k] = [System.Collections.Generic.List[object]]::new() }
         $byKey[$k].Add($ev)   # ascending, because $all is
     }
+    $byRule3 = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($list in $byKey.Values) {
         for ($i = 0; $i -lt $list.Count; $i++) {
             $ev = $list[$i]
@@ -122,8 +131,52 @@ function Select-WikiLiveEvent {
             $mine = @($ev.supersedes | ForEach-Object { [string]$_ })
             for ($j = $list.Count - 1; $j -gt $i; $j--) {
                 $newer = [string]$list[$j].id
-                if ($mine -cnotcontains $newer) { $hiddenBy[$id] = $newer; break }
+                if ($mine -cnotcontains $newer) { $hiddenBy[$id] = $newer; [void]$byRule3.Add($id); break }
             }
+        }
+    }
+
+    # The rule 3 floor (see rule 3 above). Only when rule 3 is why the correction is lost.
+    foreach ($list in $byKey.Values) {
+        $anyLive = $false
+        $onKey = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($ev in $list) {
+            [void]$onKey.Add([string]$ev.id)
+            if (-not $hiddenBy.ContainsKey([string]$ev.id)) { $anyLive = $true }
+        }
+        if ($anyLive) { continue }
+        # The correction chain: content events on this key that replaced the newest one, directly or
+        # through each other. The floor applies only when rule 3 alone hid one of them.
+        $chain = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $queue = [System.Collections.Generic.Queue[string]]::new()
+        $queue.Enqueue([string]$list[$list.Count - 1].id)
+        $lostCorrection = $false
+        while ($queue.Count -gt 0) {
+            $cur = $queue.Dequeue()
+            if (-not $allSuperseders.ContainsKey($cur)) { continue }
+            foreach ($sid in $allSuperseders[$cur]) {
+                if ($onKey.Contains($sid) -and $chain.Add($sid)) {
+                    if ($byRule3.Contains($sid)) { $lostCorrection = $true }
+                    $queue.Enqueue($sid)
+                }
+            }
+        }
+        if (-not $lostCorrection) { continue }
+        # The floor never reaches back past a withdrawal. An event on this key that a marker, or a
+        # correction on another key, superseded had outranked everything older than it, and bringing
+        # one of those back would undo that withdrawal.
+        $bar = ''
+        foreach ($ev in $list) {
+            $id = [string]$ev.id
+            if (-not $allSuperseders.ContainsKey($id)) { continue }
+            foreach ($sid in $allSuperseders[$id]) {
+                if (-not $onKey.Contains($sid) -and [string]::CompareOrdinal([string]$ev._tsKey, $bar) -gt 0) { $bar = [string]$ev._tsKey }
+            }
+        }
+        for ($j = $list.Count - 1; $j -ge 0; $j--) {
+            $ev = $list[$j]
+            if ([string]::CompareOrdinal([string]$ev._tsKey, $bar) -le 0) { break }
+            if ($byRule3.Contains([string]$ev.id)) { $hiddenBy.Remove([string]$ev.id); break }
         }
     }
 

@@ -344,6 +344,63 @@ function Test-WikiEvent {
     return $null
 }
 
+function Test-WikiMarkerLoose {
+    <#
+    .SYNOPSIS
+        Can a `supersede` or `retire` marker that failed the full schema still be honoured? Returns
+        the UTC stamp in its id when it can, else $null.
+    .DESCRIPTION
+        A marker carries an effect, and dropping it undoes that effect: what it hid comes back live
+        (spec FR-011). One torn field, or a later tightening of a pattern such as evidence, would do
+        that silently. So a marker is honoured when the fields the guard acts on are sound, whatever
+        the rest says:
+
+          * the type is `supersede` or `retire`;
+          * the id is in the id form, is the file's own name, and is not dated ahead of the clock;
+          * the key is a valid key;
+          * `supersedes`, where present, holds only ids, and a `supersede` names at least one;
+          * `stale_after`, where present, is a date, because `-History` labels a marker by it;
+          * no field carries a control character, because `-History` prints a marker.
+
+        The stamp in the id orders it, so a bad `ts` does not stop it.
+    .PARAMETER Stem
+        The file name without `.json`.
+    #>
+    param($Item, [string] $Stem)
+    $type = [string]$Item.type
+    if ($type -cnotin $script:WikiMarkerTypes) { return $null }
+    $id = [string]$Item.id
+    if ($id -cnotmatch $script:WikiIdPattern -or $id -cne $Stem) { return $null }
+    $idUtc = [datetime]::MinValue
+    if (-not [datetime]::TryParseExact($id.Substring(0, 19), 'yyyyMMdd\THHmmssfff\Z', [cultureinfo]::InvariantCulture,
+            ([System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal),
+            [ref]$idUtc)) { return $null }
+    if ($idUtc -gt [datetime]::UtcNow.AddDays(1)) { return $null }
+    $key = [string]$Item.key
+    if ($key.Length -gt $script:WikiLimits.key -or $key -cnotmatch $script:WikiKeyPattern) { return $null }
+    $supCount = 0
+    foreach ($s in @($Item.supersedes)) {
+        if ($null -eq $s) { continue }
+        if ($s -isnot [string] -or $s -cnotmatch $script:WikiIdPattern) { return $null }
+        $supCount++
+    }
+    if ($type -ceq 'supersede' -and $supCount -eq 0) { return $null }
+    # `-History` labels every result from `stale_after`, and a value it cannot read would throw there.
+    $sa = $Item.stale_after
+    if ($null -ne $sa -and $sa -isnot [datetime]) {
+        $saDate = [datetime]::MinValue
+        if (-not [datetime]::TryParseExact([string]$sa, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture,
+                [System.Globalization.DateTimeStyles]::None, [ref]$saDate)) { return $null }
+    }
+    foreach ($p in $Item.PSObject.Properties) {
+        $bad = if ($p.Name -ceq 'body') { $script:WikiBodyControl } else { $script:WikiControl }
+        foreach ($v in @($p.Value)) {
+            if ($null -ne $v -and $v -isnot [datetime] -and [string]$v -match $bad) { return $null }
+        }
+    }
+    return $idUtc
+}
+
 # ------------------------------------------------------------------------------------------------
 # Reading
 # ------------------------------------------------------------------------------------------------
@@ -351,15 +408,29 @@ function Test-WikiEvent {
 function Read-WikiEventDir {
     <#
     .SYNOPSIS
-        Every valid event under one directory, each tagged with where it came from.
+        Every valid event under one directory, and every marker the loose check honours, each
+        tagged with where it came from.
     .DESCRIPTION
-        Returns @{ Events = <list>; Skipped = <int> }. A file that does not parse, or fails the
-        schema, or whose name is not its own id, is COUNTED and skipped -- never dropped in silence,
-        because a reader that loses a file reports the same "nothing here" as a reader that found
-        nothing.
+        Returns @{ Events = <list>; Skipped = <int>; Unreadable = <int>; Loose = <int> }. A file that
+        does not parse, or fails the schema, or whose name is not its own id, is COUNTED and skipped
+        -- never dropped in silence, because a reader that loses a file reports the same "nothing
+        here" as a reader that found nothing.
+
+        A `supersede` or `retire` MARKER IS NEVER DROPPED ON THE FULL SCHEMA ALONE (spec FR-011). A
+        skipped marker never reaches the guard, so what it hid comes back live. A marker that fails
+        the full schema but passes `Test-WikiMarkerLoose` is returned and counted in `Loose`.
+        Such a marker carries a `_loose` note of $true, because it did NOT pass the schema, and a
+        caller that files or republishes events must decide what to do with it.
+
+        `Unreadable` counts the skipped files whose effect may be missing: a file that is not a JSON
+        object at all, a file whose type reads as a marker and fails even the loose check, and a
+        content event that names `supersedes` and fails the schema. A reader shows that count where
+        a caller will see it, because a retirement may be missing. `Skipped` counts every file not
+        returned, those included.
 
         Adds three note properties: _source ('inbox' or 'log'), _utc (the parsed [datetime]) and
-        _tsKey (a sortable string, so ordering never depends on culture).
+        _tsKey (a sortable string, so ordering never depends on culture). A file cannot plant
+        `_loose`, since every underscore name it carries is stripped first.
     #>
     param(
         [Parameter(Mandatory)][string] $Dir,
@@ -368,15 +439,17 @@ function Read-WikiEventDir {
     )
     $events = [System.Collections.Generic.List[object]]::new()
     $skipped = 0
+    $unreadable = 0
+    $loose = 0
     if (-not (Test-Path -LiteralPath $Dir -PathType Container)) {
-        return @{ Events = $events; Skipped = 0 }
+        return @{ Events = $events; Skipped = 0; Unreadable = 0; Loose = 0 }
     }
     $option = if ($Recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
     # Sorted, because Linux lists a directory in no fixed order and Windows lists it by name. A
     # [string[]] is sorted in place; an [object[]] handed to [Array]::Sort is not (see _guard.ps1).
     $files = [string[]]@([System.IO.Directory]::EnumerateFiles($Dir, '*.json', $option))
     [System.Array]::Sort($files, [System.StringComparer]::Ordinal)
-    if ($files.Count -eq 0) { return @{ Events = $events; Skipped = 0 } }
+    if ($files.Count -eq 0) { return @{ Events = $events; Skipped = 0; Unreadable = 0; Loose = 0 } }
     $texts = [string[]]::new($files.Count)
     for ($i = 0; $i -lt $files.Count; $i++) {
         try { $texts[$i] = [System.IO.File]::ReadAllText($files[$i]) } catch { $texts[$i] = $null }
@@ -404,21 +477,40 @@ function Read-WikiEventDir {
 
     for ($i = 0; $i -lt $files.Count; $i++) {
         $ev = $parsed[$i]
-        if ($null -eq $ev -or $ev -isnot [System.Management.Automation.PSCustomObject]) { $skipped++; continue }
+        # Not a JSON object at all: a torn write, say. It may have been a marker, and nothing in it
+        # can say it was not, so it counts as unreadable as well as skipped.
+        if ($null -eq $ev -or $ev -isnot [System.Management.Automation.PSCustomObject]) { $skipped++; $unreadable++; continue }
         # Underscore names are the reader's own bookkeeping (_source, _utc, _hay, _status). A file
         # that carries one must not be able to set it: a planted `_hay` made a note match every
         # query, and a malformed one made every query throw.
         $props = $ev.PSObject.Properties
         foreach ($name in @($props.Name)) { if ($name.StartsWith('_')) { $props.Remove($name) } }
-        if ($null -ne (Test-WikiEvent $ev)) { $skipped++; continue }
-        if ([System.IO.Path]::GetFileNameWithoutExtension($files[$i]) -cne [string]$ev.id) { $skipped++; continue }
-        $utc = ConvertTo-WikiUtc $ev.ts
+        $stem = [System.IO.Path]::GetFileNameWithoutExtension($files[$i])
+        $isLoose = $false
+        if ($null -ne (Test-WikiEvent $ev) -or $stem -cne [string]$ev.id) {
+            if ([string]$ev.type -cnotin $script:WikiMarkerTypes) {
+                # Content is never honoured loosely, since it would be shown. But one that named
+                # `supersedes` hid something, and that something is now live.
+                $skipped++
+                if (@($ev.supersedes | Where-Object { $null -ne $_ }).Count -gt 0) { $unreadable++ }
+                continue
+            }
+            $idUtc = Test-WikiMarkerLoose -Item $ev -Stem $stem
+            if ($null -eq $idUtc) { $skipped++; $unreadable++; continue }
+            # Honoured. It is ordered by the stamp in its id, because its own `ts` may be what failed.
+            $loose++
+            $isLoose = $true
+            $utc = $idUtc
+        } else {
+            $utc = ConvertTo-WikiUtc $ev.ts
+        }
+        if ($isLoose) { Set-WikiNote $ev '_loose' $true }
         Set-WikiNote $ev '_source' $Source
         Set-WikiNote $ev '_utc' $utc
         Set-WikiNote $ev '_tsKey' ($utc.Ticks.ToString('D19') + '|' + [string]$ev.id)
         $events.Add($ev)
     }
-    return @{ Events = $events; Skipped = $skipped }
+    return @{ Events = $events; Skipped = $skipped; Unreadable = $unreadable; Loose = $loose }
 }
 
 function Merge-WikiEvent {

@@ -138,7 +138,10 @@ if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     catch { Stop-Write 2 "the inbox is not reachable: no -StateRoot, and $($_.Exception.Message)" }
 }
 $givenStateRoot = $StateRoot
-$StateRoot = Resolve-WikiDir $StateRoot
+# A drive that does not exist (`Q:\coord`) makes resolving throw. That is an unreachable inbox, so it
+# exits 2 like one, not 1 as an uncaught error would.
+try { $StateRoot = Resolve-WikiDir $StateRoot }
+catch { Stop-Write 2 "the inbox is not reachable: state root '$givenStateRoot' cannot be resolved ($($_.Exception.Message))." }
 # A missing state root is refused rather than created: a typo'd path would otherwise swallow the
 # event into a directory no reader looks in, which is worse than no memory (spec, Edge Cases).
 if (-not (Test-Path -LiteralPath $StateRoot -PathType Container)) {
