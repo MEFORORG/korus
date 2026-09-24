@@ -73,6 +73,9 @@
     here, Read-WorktreeStatus, because both already load this file. It reads no session record
     either. Each caller keeps its own rule for what blocks a removal.
 
+    THE LOSS READ. The same day, both began reading the commits only a worktree holds through
+    Get-WorktreeOnlyCommits: its HEAD reflog and its own per-worktree refs, all deleted with it.
+
     The containment tests below compare ORDINALLY. Both sides are already folded by
     ConvertTo-CcxComparablePath, and a culture-aware StartsWith can call a path that begins with a
     combining mark "not inside", which for a destructive caller is a miss.
@@ -388,7 +391,12 @@ function Read-WorktreeStatus {
     $lines = @(& git @gitArgs 2>$null)
     $out.Exit = $LASTEXITCODE
     if ($out.Exit -ne 0) { return $out }
-    $flags = @(& git -C $Path ls-files -v 2>$null)
+    # core.quotePath=true, whatever the repository sets. With `false` git prints a non-ASCII name raw,
+    # and pwsh on Windows decodes it in the console code page, so the name is wrong and Test-Path
+    # below calls the file absent. Measured 2026-09-23 at 06e8ca3: a skip-worktree edit to `<e-acute>.txt`
+    # read as clean, and running remove.ps1's printed command deleted it. Quoted, the name keeps its
+    # leading `"` and always counts.
+    $flags = @(& git -C $Path -c core.quotePath=true ls-files -v 2>$null)
     $out.Exit = $LASTEXITCODE
     if ($out.Exit -ne 0) { return $out }
 
@@ -411,4 +419,98 @@ function Read-WorktreeStatus {
         }
     }
     return $out
+}
+
+# WHAT HOLDS A COMMIT once a worktree is gone: every ref the primary sees, less refs/stash, and every
+# one of those refs' own reflogs. ONE RULE, used by both functions below and so by remove.ps1 and
+# prune-merged.ps1. Read from the primary, never from the worktree being removed: see the note on
+# Get-WorktreeOnlyCommits.
+#
+# `rev-list --not --glob=refs/*`, not `git branch --contains`, which sees no tag. `--not --all` is
+# blind the other way: it adds every worktree's HEAD, the removed one's included. refs/stash is left
+# out because every worktree shares it, and any session's next stash moves it.
+$script:CcxHeldBy = @('--not', '--exclude=refs/stash', '--glob=refs/*')
+
+# Every ref's own reflog, as `^<sha>` lines that rev-list reads as exclusions. A reflog outlives the
+# removal: after an amend on a branch, the branch's reflog holds the old commit. `--reflog` cannot
+# stand in, because it adds every worktree's HEAD reflog, the removed one's included. A caller that
+# checks several worktrees while nothing is deleted reads this once and passes it on.
+function Get-RefReflogHolds {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Primary)
+    $lines = @(& git -C $Primary log -g '--format=^%H' --exclude=refs/stash '--glob=refs/*' 2>$null)
+    return [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Lines = $lines }
+}
+
+# Commits reachable from $Commit that no ref holds. Count is $null where git could not say, with its
+# exit code in Exit. remove.ps1 reads a detached HEAD with it, nested or its own target.
+function Get-UnheldCount {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Primary, [Parameter(Mandatory)][string]$Commit)
+    $n = @(& git -C $Primary rev-list --count $Commit @script:CcxHeldBy 2>$null)
+    $code = $LASTEXITCODE
+    if ($code -ne 0 -or "$n" -notmatch '\A\d+\z') { return [pscustomobject]@{ Count = $null; Exit = $code } }
+    return [pscustomobject]@{ Count = [int]"$n"; Exit = 0 }
+}
+
+# Commits that removing the worktree at $Path would leave with no hold at all: the ones its HEAD
+# reflog or its own per-worktree refs hold, less every ref and every ref's reflog.
+#
+# THE HOLDERS ARE READ FROM $Primary, NEVER FROM $Path. refs/worktree/*, refs/bisect/* and
+# refs/rewritten/* belong to one worktree, and removing it deletes them. Read from $Path they would
+# count as holders of the very commits the removal loses. Read from the primary they are the
+# primary's own, and those survive. Measured 2026-09-23 at 06e8ca3 on git 2.55.0.windows.5: a commit
+# only a nested worktree's refs/worktree/keep held was unreachable after remove.ps1's printed command
+# ran, and one the primary's refs/worktree/keep also held was not. A third worktree's own refs are
+# not seen from the primary, so a commit only they hold counts here as lost, which errs toward
+# keeping. `git fsck` in the primary does not count them either.
+#
+# Returns Ok, false where any read failed, Count, and Tips: the commits among them that no other of
+# them descends from, which is what a caller keeping them on refs needs. -Holds takes a
+# Get-RefReflogHolds result read earlier. Pass one only while nothing is deleted in between: the
+# reaper deletes branches between removals, and a branch's reflog goes with it.
+function Get-WorktreeOnlyCommits {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Primary,
+        [object]$Holds
+    )
+    $unknown = [pscustomobject]@{ Ok = $false; Count = 0; Tips = @() }
+    $null = & git -C $Path rev-parse --verify --quiet HEAD 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $mine = @(& git -C $Path log -g --format=%H HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0) { return $unknown }
+    }
+    else {
+        # AN UNBORN HEAD: an orphan branch, fresh or switched to after use. `git log -g HEAD` exits 128
+        # there, so every orphan worktree read as unknown, and remove.ps1 refused it for good. Measured
+        # 2026-09-23 on git 2.55.0.windows.5, for both. Its reflog can still hold commits from before
+        # the switch, so the file is read directly: each line's old and new SHA. Only the files backend
+        # keeps it as a file; any other reads as unknown.
+        $format = @(& git -C $Path rev-parse --show-ref-format 2>$null)
+        if ($LASTEXITCODE -ne 0 -or "$format" -ne 'files') { return $unknown }
+        $log = @(& git -C $Path rev-parse --path-format=absolute --git-path logs/HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0 -or -not "$log") { return $unknown }
+        $mine = @()
+        if (Test-Path -LiteralPath "$log") {
+            try { $entries = @(Get-Content -LiteralPath "$log" -ErrorAction Stop) } catch { return $unknown }
+            $mine = @($entries | ForEach-Object { @($_ -split ' ', 3)[0..1] } |
+                    Where-Object { $_ -match '\A[0-9a-f]{40,64}\z' -and $_ -notmatch '\A0+\z' })
+        }
+    }
+    $own = @(& git -C $Path for-each-ref '--format=%(objectname)' refs/worktree/ refs/bisect/ refs/rewritten/ 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $unknown }
+    if ($null -eq $Holds) { $Holds = Get-RefReflogHolds -Primary $Primary }
+    if (-not $Holds.Ok) { return $unknown }
+    # One line per lost commit: its SHA, then its parents'. A tip is one no other lost commit names
+    # as a parent. Read here rather than with `merge-base --independent`, whose argument list a long
+    # detached history would overflow.
+    $lost = @(@($mine) + @($own) + @($Holds.Lines) |
+            & git -C $Primary rev-list --parents --ignore-missing --stdin @script:CcxHeldBy 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $unknown }
+    $parents = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($line in $lost) { foreach ($sha in @(-split $line | Select-Object -Skip 1)) { [void]$parents.Add($sha) } }
+    $tips = @($lost | ForEach-Object { (-split $_)[0] } | Where-Object { -not $parents.Contains($_) })
+    return [pscustomobject]@{ Ok = $true; Count = $lost.Count; Tips = $tips }
 }

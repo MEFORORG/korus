@@ -62,6 +62,10 @@ passes every remedy case:
     command. `git branch --contains` sees no tag, so a check built on it fails here.
   * A nested worktree whose commit was amended away on its branch gets its command. The branch's own
     reflog keeps the original, so a reflog read that does not subtract it fails here.
+  * Added 2026-09-23 with the korus issue #165 cases: a nested worktree whose submodule is not
+    checked out gets its command, and so does one whose commit the primary's own
+    `refs/worktree/keep` also holds. A detached target whose tip `main` holds gets no keep-ref. A
+    target named `.foo`, which no keep-ref name can hold, is still removed where no keep-ref is due.
 
 WHAT THIS DOES NOT PROVE. It sees only worktrees registered to the fixture repository. A checkout of
 another repository inside the target is not in `git worktree list`, and the script still deletes it.
@@ -151,15 +155,25 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                 out[current] = True
         return out
 
-    def remove(self, primary: Path, name: str, *flags: str) -> subprocess.CompletedProcess:
+    def remove(self, primary: Path, name: str, *flags: str, decode_as: str = "") -> subprocess.CompletedProcess:
+        """Run remove.ps1. `decode_as` names the encoding pwsh reads git's output in, and writes its
+        own in, where a case depends on it: otherwise it is whatever console the test runner has,
+        which differs by host."""
         env = dict(os.environ)
         # The developer's own settings must not reach the fixture.
         for leak in ("CCX_CONFIG", "CCX_TRUNK"):
             env.pop(leak, None)
+        argv = [self.pwsh, "-NoProfile", "-File", str(t.WORKTREE_REMOVE), "-Name", name, *flags]
+        encoding = None
+        if decode_as:
+            argv = [self.pwsh, "-NoProfile", "-Command",
+                    f"[Console]::OutputEncoding = [Text.Encoding]::{decode_as}; "
+                    f"& '{t.WORKTREE_REMOVE}' -Name {name} {' '.join(flags)}; exit $LASTEXITCODE"]
+            encoding = {"Latin1": "latin-1"}[decode_as]
         # cwd is the primary: remove.ps1 refuses to remove the checkout it is standing in.
         return subprocess.run(
-            [self.pwsh, "-NoProfile", "-File", str(t.WORKTREE_REMOVE), "-Name", name, *flags],
-            capture_output=True, text=True, env=env, cwd=str(primary), timeout=TIMEOUT_SECONDS,
+            argv, capture_output=True, text=True, encoding=encoding, env=env, cwd=str(primary),
+            timeout=TIMEOUT_SECONDS,
         )
 
     def exclude(self, primary: Path, pattern: str) -> None:
@@ -257,32 +271,42 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
     # --- the remedy it prints must not cause the loss it refuses ----------------------------------
 
+    # One printed argument. The script prints single quotes since the `$` fix and printed double
+    # quotes before it. Both are read, so a red run against an older script names the loss and not
+    # the quoting.
+    ARG = r"""(?:"[^"]*"|'(?:[^']|'')*')"""
+    ARGS = re.compile(r""""([^"]*)"|'((?:[^']|'')*)'""")
+
+    def args_of(self, line: str) -> list[str]:
+        """The quoted arguments of a printed line, unquoted."""
+        return [d if d is not None else s.replace("''", "'") for d, s in
+                ((m.group(1), m.group(2)) for m in self.ARGS.finditer(line))]
+
     def remove_lines(self, said: str) -> list[str]:
-        """The `git -C "..." worktree remove "..."` commands the refusal prints, and nothing else.
+        """The `git -C <path> worktree remove <path>` commands the refusal prints, and nothing else.
 
         Anchored on the printed shape, so git's own error text or a throw naming the command is not
         mistaken for a command the operator is told to run.
         """
         return [
             line.strip() for line in said.splitlines()
-            if line.strip().startswith('git -c "') and '" worktree remove "' in line
+            if re.match(rf"^git -c {self.ARG} worktree remove {self.ARG}$", line.strip())
         ]
-
-    PRINTED = re.compile(r'^git -C "([^"]+)" worktree (remove|unlock) "([^"]+)"$')
 
     def run_printed(self, r: subprocess.CompletedProcess) -> str:
         """Run every command the refusal printed, in order, as an operator following it would.
 
-        Read from the output in its own case, because the fixture paths are case-sensitive off
-        Windows. Returns a log of what ran, for the failure message.
+        Each line runs in pwsh, as typed, so its quoting is part of what is tested. Read from the
+        output in its own case, because the fixture paths are case-sensitive off Windows. Returns a
+        log of what ran, for the failure message.
         """
         log = []
+        printed = re.compile(rf"^git -C {self.ARG} worktree (remove|unlock) {self.ARG}$")
         for line in (r.stdout + r.stderr).splitlines():
-            m = self.PRINTED.match(line.strip())
-            if not m:
+            if not printed.match(line.strip()):
                 continue
             ran = subprocess.run(
-                ["git", "-C", m.group(1), "worktree", m.group(2), m.group(3)],
+                [self.pwsh, "-NoProfile", "-NonInteractive", "-Command", line.strip()],
                 capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
             )
             log.append(f"ran: {line.strip()} -> exit {ran.returncode} {ran.stderr.strip()}")
@@ -290,11 +314,14 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
     def printed_for(self, said: str, n: Path) -> list[str]:
         """The remove commands printed for `n`. `said` is the folded, lower-cased output."""
-        return [line for line in self.remove_lines(said) if line.endswith(fold(n) + '"')]
+        return [line for line in self.remove_lines(said) if self.args_of(line)[-1:] == [fold(n)]]
 
     def pointer_for(self, said: str, n: Path) -> list[str]:
-        """The `git -C "<n>" ...` lines the refusal prints for the operator to look with."""
-        return [line.strip() for line in said.splitlines() if line.strip().startswith(f'git -c "{fold(n)}" ')]
+        """The `git -C <n> ...` lines the refusal prints for the operator to look with."""
+        return [
+            line.strip() for line in said.splitlines()
+            if line.strip().startswith("git -c ") and self.args_of(line)[:1] == [fold(n)]
+        ]
 
     def test_the_printed_commands_remove_the_deepest_worktree_first(self):
         """A parent removed before its child deletes the child when the child is ignored in it.
@@ -315,7 +342,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, alpha, zeta)
         self.assertNotEqual(0, r.returncode, said)
         order = [
-            next((i for i, line in enumerate(self.remove_lines(said)) if fold(n) + '"' in line), None)
+            next((i for i, line in enumerate(self.remove_lines(said)) if self.args_of(line)[-1:] == [fold(n)]), None)
             for n in (zeta, alpha)
         ]
         self.assertNotIn(None, order, "a nested worktree has no remove command:\n" + said)
@@ -335,7 +362,11 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, held)
         self.assertNotEqual(0, r.returncode, said)
         self.assertIn("locked: harness", said)
-        self.assertIn(f'worktree unlock "{fold(held)}"', said, "no unlock step for a locked worktree")
+        unlocks = [line for line in said.splitlines() if " worktree unlock " in line]
+        self.assertTrue(
+            any(self.args_of(line)[-1:] == [fold(held)] for line in unlocks),
+            "no unlock step for a locked worktree\n" + said,
+        )
         self.assertNotIn("branch (detached)", said, "a detached worktree is labelled as a branch")
 
     def test_a_nested_worktree_holding_work_gets_no_remove_command(self):
@@ -348,7 +379,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assert_untouched(primary, work, h)
         self.assertNotEqual(0, r.returncode, said)
         self.assertEqual(
-            [], [line for line in self.remove_lines(said) if fold(h) + '"' in line],
+            [], self.printed_for(said, h),
             "the refusal prints a remove command for a worktree holding untracked work. git refuses "
             "it with exit 128, and the next thing an operator tries is --force.\n" + said,
         )
@@ -356,7 +387,9 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
             [], [line for line in said.splitlines() if line.strip().startswith("git ") and "--force" in line],
             "--force is printed as a step to run\n" + said,
         )
-        self.assertIn(f'git -c "{fold(h)}" status', said, "no pointer to look at the work first")
+        self.assertTrue(
+            any(" status " in p for p in self.pointer_for(said, h)), "no pointer to look at the work first\n" + said
+        )
 
     def test_a_parent_gets_no_command_while_an_ignored_child_holds_work(self):
         """`alpha` reads clean because `zeta` is ignored inside it, and removing it deletes `zeta`."""
@@ -373,13 +406,55 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
 
         self.assert_untouched(primary, work, alpha, zeta)
         self.assertNotEqual(0, r.returncode, said)
-        printed = self.remove_lines(said)
         for n in (alpha, zeta):
             with self.subTest(nested=n.name):
                 self.assertEqual(
-                    [], [line for line in printed if fold(n) + '"' in line],
+                    [], self.printed_for(said, n),
                     f"a remove command is printed for {n.name}, and running it deletes zeta's work\n" + said,
                 )
+
+    def test_a_dollar_sign_in_a_path_does_not_send_a_printed_command_elsewhere(self):
+        """Double quotes let PowerShell expand `$name`, so a printed command ran on another path.
+
+        A decoy clone sits where `d$ccx165` lands once `$ccx165` expands to nothing. At 06e8ca3 the
+        printed command, run in pwsh, removed the decoy's worktree and left the named one.
+        """
+        top = self.base
+        self.base = top / "d"
+        self.base.mkdir()
+        _, _, decoy = self.nested_in_work()
+        self.base = top / "d$ccx165"
+        self.base.mkdir()
+        primary, work, h = self.nested_in_work()
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(1, len(self.printed_for(said, h)), "a clean nested worktree got no command\n" + said)
+        self.assertTrue(decoy.is_dir(), f"the printed command removed another clone's worktree\n{ran}\n{said}")
+        self.assertFalse(h.exists(), f"the printed command did not remove the worktree it names\n{ran}")
+
+    def test_a_quote_of_any_kind_cannot_break_out_of_a_printed_path(self):
+        """PowerShell reads U+2018, U+2019, U+201A and U+201B as single quotes too. Doubling only the
+        ASCII one let a path break out of its quotes, so a nested worktree named with one could run a
+        second command. Found by review round 1 of this change.
+
+        Called directly rather than through the refusal: under a console code page such as 437, pwsh
+        misreads a non-ASCII path in git's output before any quoting happens. The probe travels in an
+        environment variable and the verdict comes back as ASCII, so no code page touches either."""
+        probe = "C:/o\u2019brien/it's; Write-Output INJECTED; \u2018x\u201a\u201by"
+        common = t.REPO_ROOT / "scripts" / "coord" / "_common.ps1"
+        script = (
+            f". '{common}'; $p = $env:CCX_PROBE; $out = @(Invoke-Expression \"Write-Output $(Format-CcxLiteral $p)\"); "
+            "[Console]::Out.Write([string]($out.Count -eq 1 -and [string]::Equals([string]$out[0], $p, 'Ordinal')))"
+        )
+        r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                           capture_output=True, text=True, env=dict(os.environ, CCX_PROBE=probe),
+                           timeout=TIMEOUT_SECONDS)
+        self.assertEqual("True", r.stdout.strip(),
+                         f"a quoted path did not come back as one argument, unchanged\n{r.stdout}\n{r.stderr}")
 
     # --- what plain `git status` does not show ----------------------------------------------------
     #
@@ -531,6 +606,48 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertNotEqual(0, r.returncode, said)
         self.assertEqual(1, len(self.printed_for(said, h)), "an amend on a branch withheld the command\n" + said)
 
+    def commit_on_no_branch(self, where: Path) -> str:
+        """A commit on top of `where`'s HEAD that no branch and no reflog holds."""
+        tree = git("rev-parse", "HEAD^{tree}", cwd=where).strip()
+        parent = git("rev-parse", "HEAD", cwd=where).strip()
+        return git("commit-tree", tree, "-p", parent, "-m", "held by a per-worktree ref", cwd=where).strip()
+
+    def test_a_commit_only_the_nested_worktrees_own_per_worktree_ref_holds_gets_no_command(self):
+        """`refs/worktree/*` belongs to one worktree, and removing it deletes them. Red at 06e8ca3."""
+        primary, work, h = self.nested_in_work()
+        sha = self.commit_on_no_branch(h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=h)
+        self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: the primary sees no ref")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertIn(
+            sha, git("for-each-ref", "--format=%(objectname)", "refs/worktree/", cwd=h) if h.is_dir() else "",
+            f"following the printed commands deleted the only ref holding commit {sha}\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_control_a_commit_the_primarys_own_per_worktree_ref_also_holds_gets_a_command(self):
+        """The primary's `refs/worktree/*` survive the removal, so they hold. A read that took only
+        branches and tags as holders would withhold this command."""
+        primary, work, h = self.nested_in_work()
+        sha = self.commit_on_no_branch(h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=h)
+        git("update-ref", "refs/worktree/keep", sha, cwd=primary)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertEqual(1, len(self.printed_for(said, h)), "a commit the primary's own ref holds withheld the command\n" + said)
+        self.assertFalse(h.exists(), f"the printed command did not remove it\n{ran}")
+        self.assertIn(sha, git("for-each-ref", "--format=%(objectname)", "refs/worktree/", cwd=primary),
+                      "the primary's own per-worktree ref did not survive the removal, so it does not hold")
+
     def test_an_edit_a_skip_worktree_flag_hides_gets_no_command(self):
         """`git status` does not check a skip-worktree file, so a local override reads as clean."""
         primary, work, h = self.nested_in_work()
@@ -545,6 +662,34 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertNotEqual(0, r.returncode, said)
         self.assertTrue(
             (h / "a.txt").is_file() and "override" in (h / "a.txt").read_text(encoding="utf-8"),
+            f"following the printed commands deleted an edit a skip-worktree flag hid\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_a_skip_worktree_edit_to_a_non_ascii_name_gets_no_command_under_quote_path_false(self):
+        """`core.quotePath=false` makes git print the name raw, and pwsh decodes it in the console's
+        code page. Where that is not UTF-8 the name came out wrong, the file read as absent, and the
+        flag did not count. Measured 2026-09-23 at 06e8ca3: red under code page 437, green under
+        65001. So this case pins the decoding to Latin-1 rather than trust the runner's console."""
+        primary = self.primary()
+        name = "\u00e9.txt"
+        (primary / name).write_text("tracked\n", encoding="utf-8")
+        git("add", "-A", cwd=primary)
+        git("commit", "-qm", "a non-ASCII name", cwd=primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        h = self.worktree(work, work / ".claude" / "worktrees" / "h", "h")
+        git("update-index", "--skip-worktree", name, cwd=h)
+        (h / name).write_text("a local override\n", encoding="utf-8")
+        git("config", "core.quotePath", "false", cwd=primary)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: git status hides it")
+
+        r = self.remove(primary, "work", decode_as="Latin1")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue(
+            (h / name).is_file() and "override" in (h / name).read_text(encoding="utf-8"),
             f"following the printed commands deleted an edit a skip-worktree flag hid\n{ran}\n{said}",
         )
         self.assertEqual([], self.printed_for(said, h), said)
@@ -612,6 +757,114 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertEqual(0, again.returncode, "the re-run the refusal asks for failed\n" + again.stdout + again.stderr)
         self.assertFalse(work.exists())
 
+    # --- where plain `git worktree remove` exits 128 whatever the worktree holds -------------------
+
+    def with_a_submodule(self, check_out: bool) -> tuple[Path, Path, Path]:
+        """P with a submodule `sub`, then P-work, then P-work/.claude/worktrees/h, clean."""
+        src = self.base / "subsrc"
+        src.mkdir()
+        git("init", "-q", "-b", "main", cwd=src)
+        (src / "s.txt").write_text("the submodule's file\n", encoding="utf-8")
+        git("add", "-A", cwd=src)
+        git("commit", "-qm", "sub init", cwd=src)
+        primary = self.primary()
+        # A local path is a `file` transport, which git refuses for a submodule by default.
+        git("-c", "protocol.file.allow=always", "submodule", "add", "-q", str(src), "sub", cwd=primary)
+        git("commit", "-qm", "add sub", cwd=primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        h = self.worktree(work, work / ".claude" / "worktrees" / "h", "h")
+        if check_out:
+            git("-c", "protocol.file.allow=always", "submodule", "update", "--init", "-q", cwd=h)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: it reads clean")
+        return primary, work, h
+
+    def test_a_nested_worktree_holding_a_submodule_gets_no_command(self):
+        """git refuses to remove a worktree holding a submodule, clean or not, and forcing it deletes
+        the submodule's repository. Red at 06e8ca3: a command was printed, and it exited 128."""
+        primary, work, h = self.with_a_submodule(check_out=True)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((h / "sub" / "s.txt").is_file(), ran)
+        self.assertEqual(
+            [], self.printed_for(said, h),
+            "a command is printed that git refuses for a worktree holding a submodule, and the next "
+            f"try is --force\n{ran}\n{said}",
+        )
+        self.assertTrue(any(" submodule " in p for p in self.pointer_for(said, h)), "no pointer into the submodule\n" + said)
+
+    def test_a_nested_worktree_holding_a_gitlink_no_gitmodules_names_gets_no_command(self):
+        """An embedded repository committed as a gitlink, with no .gitmodules entry and no `modules`
+        directory. git still refuses the removal, because the gitlink's directory has its own `.git`.
+        Found by review round 1 of this change: a read of .gitmodules alone printed the command."""
+        primary, work, h = self.nested_in_work()
+        inner = h / "inner"
+        inner.mkdir()
+        git("init", "-q", "-b", "main", cwd=inner)
+        (inner / "x.txt").write_text("the embedded repository's file\n", encoding="utf-8")
+        git("add", "-A", cwd=inner)
+        git("commit", "-qm", "inner", cwd=inner)
+        git("add", "inner", cwd=h)
+        git("commit", "-qm", "add inner as a gitlink", cwd=h)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: it reads clean")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((inner / "x.txt").is_file(), ran)
+        self.assertEqual([], self.printed_for(said, h), f"a command is printed that git refuses\n{ran}\n{said}")
+
+    def test_control_a_nested_worktree_whose_submodule_is_not_checked_out_gets_its_command(self):
+        """An uninitialised submodule is an empty directory, and git removes the worktree."""
+        primary, work, h = self.with_a_submodule(check_out=False)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        self.assertEqual(1, len(self.printed_for(said, h)), "an empty submodule directory withheld the command\n" + said)
+
+        ran = self.run_printed(r)
+        self.assertFalse(h.exists(), f"the printed command did not remove it\n{ran}")
+
+    def test_a_prunable_nested_worktree_whose_directory_holds_files_gets_no_command(self):
+        """Its `.git` file is gone, so git calls it prunable while its files are still there.
+
+        Red at 06e8ca3: the refusal called the directory "already missing" and printed a command
+        that exits 128 with or without --force. `git worktree prune` gets past that, and the next
+        removal of the parent then deletes the files. The repair step it prints now deletes nothing,
+        and the re-run then reads the file.
+        """
+        primary, work, h = self.nested_in_work()
+        (h / "notes.txt").write_text("a session wrote this\n", encoding="utf-8")
+        (h / ".git").unlink()
+        self.assertTrue(self.registered(primary)[fold(h)], "precondition: git calls it prunable")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((h / "notes.txt").is_file(), ran)
+        self.assertEqual([], self.printed_for(said, h), f"a command is printed that git refuses\n{ran}\n{said}")
+        self.assertNotIn("directory already missing", said, "the refusal calls a directory holding files missing")
+        repair = [line.strip() for line in said.splitlines() if line.strip().endswith(" worktree repair")]
+        self.assertEqual(1, len(repair), "no repair step\n" + said)
+
+        subprocess.run(
+            [self.pwsh, "-NoProfile", "-NonInteractive", "-Command",
+             next(line.strip() for line in (r.stdout + r.stderr).splitlines() if line.strip().lower() == repair[0])],
+            capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
+        )
+        again = self.remove(primary, "work")
+        said = (again.stdout + again.stderr).replace("\\", "/").lower()
+        self.assertFalse(self.registered(primary)[fold(h)], "the printed repair step did not restore the link")
+        self.assertEqual([], self.printed_for(said, h), said)
+        self.assertIn("untracked", said, "after the repair the re-run does not read the file\n" + said)
+
     # --- the target's own guard ---------------------------------------------------------------------
 
     def test_a_target_whose_status_fails_is_refused_without_force(self):
@@ -627,6 +880,211 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertTrue(work.is_dir(), "the worktree was removed although its status could not be read\n" + r.stdout + r.stderr)
         self.assertIn("edited", (work / "a.txt").read_text(encoding="utf-8"))
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
+
+    def test_force_on_a_target_whose_status_fails_says_so(self):
+        """-Force still discards what git status could not read. Red at 06e8ca3: it said nothing."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        index = Path(git("rev-parse", "--path-format=absolute", "--git-path", "index", cwd=work).strip())
+        index.write_bytes(b"not an index")
+
+        r = self.remove(primary, "work", "-Force")
+        said = (r.stdout + r.stderr).lower()
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertIn("git status failed", said, "-Force skipped a failed status without a word")
+
+    def detached_target(self, commit: bool = True) -> tuple[Path, Path, str]:
+        primary = self.primary() if not (self.base / "P").exists() else self.base / "P"
+        work = self.base / "P-work"
+        git("worktree", "add", "-q", "--detach", str(work), "HEAD", cwd=primary)
+        if commit:
+            # A different file each life, so two lives in one second still make two commits.
+            self.lives = getattr(self, "lives", 0) + 1
+            (work / "b.txt").write_text(f"committed on a detached HEAD, life {self.lives}\n", encoding="utf-8")
+            git("add", "b.txt", cwd=work)
+            git("commit", "-qm", "detached work", cwd=work)
+        return primary, work, git("rev-parse", "HEAD", cwd=work).strip()
+
+    def test_the_targets_detached_commits_are_kept_on_a_ref(self):
+        """Red at 06e8ca3: without -DeleteBranch nothing held them, and fsck listed them unreachable."""
+        primary, work, sha = self.detached_target()
+
+        r = self.remove(primary, "work")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertFalse(work.exists(), said)
+        held = git("for-each-ref", "--contains", sha, "--format=%(refname)", cwd=primary).split()
+        self.assertTrue(held, "the removal left the target's detached commit on no ref\n" + said)
+        self.assertIn(held[0], said, "the output does not name the ref that keeps it")
+
+    def test_a_keep_ref_already_taken_is_not_overwritten(self):
+        """Two lives of `work`, each with a detached commit only it holds. Red at 06e8ca3 with
+        -DeleteBranch: the second keep-ref write replaced the first, and nothing held the first."""
+        primary, _, first = self.detached_target()
+        self.assertEqual(0, self.remove(primary, "work", "-DeleteBranch").returncode)
+        _, _, second = self.detached_target()
+        self.assertNotEqual(first, second, "precondition: the two lives made two different commits")
+        r = self.remove(primary, "work", "-DeleteBranch")
+
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        for sha in (first, second):
+            with self.subTest(sha=sha[:12]):
+                self.assertTrue(
+                    git("for-each-ref", "--contains", sha, cwd=primary).strip(),
+                    f"commit {sha} is on no ref after both removals\n{r.stdout}{r.stderr}",
+                )
+
+    def test_a_commit_only_the_targets_head_reflog_holds_is_kept_on_a_ref(self):
+        """Committed on a detached HEAD, then back on the branch: the target's HEAD reflog alone holds it,
+        and the removal deletes that reflog. Found by review round 1 of this change."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        git("checkout", "-q", "--detach", cwd=work)
+        (work / "b.txt").write_text("left behind on a detached HEAD\n", encoding="utf-8")
+        git("add", "b.txt", cwd=work)
+        git("commit", "-qm", "left behind", cwd=work)
+        sha = git("rev-parse", "HEAD", cwd=work).strip()
+        git("switch", "-q", "work", cwd=work)
+        self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
+
+        r = self.remove(primary, "work")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertFalse(work.exists(), said)
+        held = git("for-each-ref", "--contains", sha, "--format=%(refname)", cwd=primary).split()
+        self.assertTrue(held, f"the removal left commit {sha}, which only the target's HEAD reflog held, on no ref\n" + said)
+        self.assertIn(held[0], said, "the output does not name the ref that keeps it")
+
+    def dot_named_target(self, holds: str) -> tuple[Path, Path, str]:
+        """P, then P-.foo. `holds` picks what only the worktree holds: a detached commit, a commit only
+        its HEAD reflog holds, or nothing. A ref component cannot start with a dot, so every keep-ref
+        name under `refs/ccx/removed/.foo` is invalid and every write fails."""
+        primary = self.primary()
+        work = self.base / "P-.foo"
+        if holds == "detached":
+            git("worktree", "add", "-q", "--detach", str(work), "HEAD", cwd=primary)
+        else:
+            self.worktree(primary, work, "foo")
+        if holds in ("detached", "reflog"):
+            if holds == "reflog":
+                git("checkout", "-q", "--detach", cwd=work)
+            (work / "b.txt").write_text(f"only this worktree holds this, {holds}\n", encoding="utf-8")
+            git("add", "b.txt", cwd=work)
+            git("commit", "-qm", "only here", cwd=work)
+        sha = git("rev-parse", "HEAD", cwd=work).strip()
+        if holds == "reflog":
+            git("switch", "-q", "foo", cwd=work)
+        return primary, work, sha
+
+    def test_a_keep_ref_that_cannot_be_written_refuses_the_removal(self):
+        """Rebrief fix 2. At 5a2167e every subtest exits 0 with the commit on no ref: the failed write
+        only warned. Now the script refuses, and the branch step it prints lets the re-run through.
+        -Force does not change that, since -Force discards uncommitted tracked changes, never commits."""
+        for holds, flags in (("detached", ()), ("reflog", ()), ("detached", ("-Force",))):
+            with self.subTest(holds=holds, flags=" ".join(flags) or "none"):
+                self.base = Path(self.tmp.name).resolve() / (holds + "".join(flags))
+                self.base.mkdir()
+                primary, work, sha = self.dot_named_target(holds)
+                self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
+
+                r = self.remove(primary, ".foo", *flags)
+                said = r.stdout + r.stderr
+
+                self.assertTrue(work.is_dir(), f"the worktree was removed although commit {sha} could not be kept\n{said}")
+                self.assertIn(fold(work), self.registered(primary), said)
+                self.assertNotEqual(0, r.returncode, said)
+                self.assertIn("REFUSED", said)
+
+                steps = [line.strip() for line in said.splitlines()
+                         if line.strip().startswith("git -C ") and " branch removed-" in line]
+                self.assertEqual(1, len(steps), "no branch step to keep the commit\n" + said)
+                ran = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", steps[0]],
+                                     capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+                self.assertEqual(0, ran.returncode, ran.stderr)
+                again = self.remove(primary, ".foo")
+                self.assertEqual(0, again.returncode, "the re-run after the printed step failed\n" + again.stdout + again.stderr)
+                self.assertFalse(work.exists())
+                self.assertTrue(git("for-each-ref", "--contains", sha, cwd=primary).strip(), "the commit ended on no ref")
+
+    def test_an_orphan_target_is_removed_and_what_its_reflog_alone_held_is_kept(self):
+        """`git log -g HEAD` exits 128 on an unborn HEAD, so at 5103dd0 an orphan worktree read as
+        unknown and was refused for good, fresh or switched to after use. Found by the review round
+        on the rebrief. Its reflog file is now read directly."""
+        for case in ("fresh", "switched"):
+            with self.subTest(orphan=case):
+                self.base = Path(self.tmp.name).resolve() / case
+                self.base.mkdir()
+                primary = self.primary()
+                work = self.base / "P-o"
+                sha = None
+                if case == "fresh":
+                    git("worktree", "add", "-q", "--orphan", "-b", "o", str(work), cwd=primary)
+                else:
+                    self.worktree(primary, work, "o")
+                    git("checkout", "-q", "--detach", cwd=work)
+                    (work / "b.txt").write_text("left behind before the orphan switch\n", encoding="utf-8")
+                    git("add", "b.txt", cwd=work)
+                    git("commit", "-qm", "left behind", cwd=work)
+                    sha = git("rev-parse", "HEAD", cwd=work).strip()
+                    git("switch", "-q", "--orphan", "o2", cwd=work)
+
+                r = self.remove(primary, "o")
+                said = r.stdout + r.stderr
+
+                self.assertEqual(0, r.returncode, "an orphan worktree was refused" + "\n" + said)
+                self.assertFalse(work.exists(), said)
+                if sha:
+                    self.assertTrue(git("for-each-ref", "--contains", sha, cwd=primary).strip(),
+                                    f"commit {sha}, which only the orphan's reflog held, ended on no ref" + "\n" + said)
+
+    def test_the_tip_takes_the_keep_ref_the_recovery_recipe_names(self):
+        """`git branch <name> refs/ccx/removed/<Name>` must bring the deleted branch back at its tip.
+        At 5103dd0 a commit left on a detached HEAD was written first and took that name. Found by
+        the review round on the rebrief."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        tip = git("rev-parse", "HEAD", cwd=work).strip()
+        git("checkout", "-q", "--detach", cwd=work)
+        (work / "b.txt").write_text("left behind\n", encoding="utf-8")
+        git("add", "b.txt", cwd=work)
+        git("commit", "-qm", "left behind", cwd=work)
+        stray = git("rev-parse", "HEAD", cwd=work).strip()
+        git("switch", "-q", "work", cwd=work)
+
+        r = self.remove(primary, "work", "-DeleteBranch")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertEqual(tip, git("rev-parse", "refs/ccx/removed/work", cwd=primary).strip(),
+                         "the plain keep-ref does not hold the deleted branch's tip" + "\n" + said)
+        self.assertTrue(git("for-each-ref", "--contains", stray, cwd=primary).strip(), "the stray commit ended on no ref")
+
+    def test_control_a_dot_named_target_whose_commits_a_branch_holds_is_removed(self):
+        """No commit needs a keep-ref, so the failed name does not stop it. With -DeleteBranch the
+        branch tip's keep-ref is best effort, since `git branch -d` refuses an unmerged branch."""
+        for flags in ((), ("-DeleteBranch",)):
+            with self.subTest(flags=" ".join(flags) or "none"):
+                self.base = Path(self.tmp.name).resolve() / ("delete" if flags else "plain")
+                self.base.mkdir()
+                primary, work, _ = self.dot_named_target("nothing")
+
+                r = self.remove(primary, ".foo", *flags)
+
+                self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+                self.assertFalse(work.exists(), r.stdout + r.stderr)
+                branches = git("branch", "--format=%(refname:short)", cwd=primary).split()
+                self.assertEqual(not flags, "foo" in branches, branches)
+
+    def test_control_a_detached_target_whose_commit_a_branch_holds_writes_no_keep_ref(self):
+        primary, work, sha = self.detached_target(commit=False)
+
+        r = self.remove(primary, "work")
+
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        self.assertEqual("", git("for-each-ref", "refs/ccx/removed/", cwd=primary).strip(), "a keep-ref for a commit main holds")
 
     # --- a name that is not a registered worktree ---------------------------------------------------
 
@@ -663,6 +1121,30 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                     if layout == "nested":
                         # The path exists here, so this refusal is the one that must answer.
                         self.assertIn("not a registered worktree", said, said)
+
+    def test_a_trailing_dot_does_not_resolve_to_another_worktree(self):
+        """Windows drops a trailing dot, so `-Name a.` read as worktree `a` and removed it, exit 0.
+
+        Red at 06e8ca3 on Windows. Elsewhere `P-a.` is its own path and does not exist here, so this
+        case passes there before and after the fix.
+        """
+        top = self.base
+        for layout in ("sibling", "nested"):
+            with self.subTest(layout=layout):
+                self.base = top / layout
+                self.base.mkdir()
+                primary = self.primary(layout)
+                a = (primary / ".claude" / "worktrees" / "a") if layout == "nested" else (self.base / "P-a")
+                self.worktree(primary, a, "a")
+                (a / "live.txt").write_text("a session is writing here\n", encoding="utf-8")
+
+                r = self.remove(primary, "a.", "-DeleteBranch")
+                said = r.stdout + r.stderr
+
+                self.assertTrue((a / "live.txt").is_file(), f"-Name a. removed worktree a\n{said}")
+                self.assertIn(fold(a), self.registered(primary), said)
+                self.assertNotEqual(0, r.returncode, said)
+                self.assertIn("a", git("branch", "--format=%(refname:short)", cwd=primary).split())
 
     # --- the controls: a fix that refuses everything fails these ----------------------------------
 

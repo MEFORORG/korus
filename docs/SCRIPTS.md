@@ -61,7 +61,7 @@ holds the design. These scripts write, guard and query; the compile job comes la
 
 | Script | Does | Doc |
 |---|---|---|
-| `scripts/worktree/remove.ps1` | Remove one worktree, referencing its tip before anything is removed, and writing a keep-ref when `-DeleteBranch` is used. Refuses a worktree that contains another registered worktree | [Pruning](PRUNING.md) |
+| `scripts/worktree/remove.ps1` | Remove one worktree, referencing its tip before anything is removed, and writing a keep-ref when `-DeleteBranch` is used or a detached tip is on no ref. Refuses a worktree that contains another registered worktree | [Pruning](PRUNING.md) |
 | `scripts/worktree/prune-merged.ps1` | The reaper: prune = merged **and** clean **and** unoccupied. Dry-run by default, `-Apply` to act. Carries a second, non-cwd signal and prints its blind spots | [Pruning](PRUNING.md) |
 | `scripts/worktree/rescue.ps1` | Move uncommitted work out of the shared primary into a fresh worktree -- the companion to the gate that stops you writing there | [Worktrees](WORKTREES.md) |
 | `scripts/worktree/restore-primary.ps1` | Re-attach the primary to its home branch after a session left it detached or on the wrong branch. Refuses on a dirty tree unless `-Force`, which carries the changes onto the home branch rather than discarding them | [Worktrees](WORKTREES.md) |
