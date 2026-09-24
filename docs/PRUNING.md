@@ -39,6 +39,14 @@ reflog entry or branch name through which this system can recover it.
 Before removal, `remove.ps1` resolves and prints the tip. With `-DeleteBranch`, it first writes
 a keep-ref: a spare tip pointer that survives branch deletion.
 
+A detached worktree whose commits no ref holds gets a keep-ref without `-DeleteBranch` too, and so
+does a commit only its HEAD reflog or its own refs hold. Until 2026-09-23 removing it left those on
+no ref. A name in use gets the tip's short SHA added, and no write replaces an existing ref.
+
+Where such a keep-ref cannot be written, `remove.ps1` refuses and removes nothing, even with
+`-Force`. It prints a `git branch` step that keeps each commit. `-Name .foo` is one such case: a
+ref name component cannot start with a dot.
+
 `-Name` selects the worktree directory; `-DeleteBranch` reads the checked-out branch from
 `HEAD`. Detached `HEAD` produces a warning and no branch deletion; check the
 printed branch and tip.
@@ -168,6 +176,14 @@ in `scripts/coord/occupancy.ps1`, whose `--untracked-files=normal` overrides the
 **An edit to a file flagged skip-worktree or assume-unchanged was the same hole.** `git status` does
 not check those files, so the edit read as clean. The same read now lists them from `git ls-files
 -v`, and they block as tracked changes. Measured against `fd7028f`: `-Apply` deleted one.
+
+**A commit only the worktree itself held was lost too, until 2026-09-23.** Removing a worktree
+deletes its HEAD reflog and its own `refs/worktree/*`, `refs/bisect/*` and `refs/rewritten/*`. A
+commit left on a detached HEAD before a switch back to the branch is held by that reflog alone.
+
+Measured against `06e8ca3` with `tests/test_the_reaper_keeps_commits_only_a_worktree_holds.py`:
+`-Apply` pruned such a sibling, and `git fsck` then listed the commit as unreachable. Such a commit
+now blocks, through `Get-WorktreeOnlyCommits` in `scripts/coord/occupancy.ps1`.
 
 Ignored files still do not block the reaper, and it still deletes them, as the policy above says.
 `remove.ps1` shares the status read but withholds its printed command for them, because it names

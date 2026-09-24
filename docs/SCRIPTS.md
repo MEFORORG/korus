@@ -55,13 +55,14 @@ holds the design. These scripts write, guard and query; the compile job comes la
 | `scripts/wiki/_guard.ps1` | The one filter every read passes through. Hides superseded and retired events; `-History` returns them labelled `historical` | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/compile.ps1` | Folds the inbox into the record repository's log, rebuilds pages and index through the guard, and force-pushes `wiki/compile` with one pull request. Never merges. Clears an inbox file once it lands. `-RebuildOnly` rebuilds from the log alone | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/_render.ps1` | Renders the pages and the index from a set of events, and lists keys held by two events where neither supersedes the other. Dot-sourced by `compile.ps1`, never run on its own | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
+| `scripts/wiki/import.ps1` | Folds the per-account memory stores into the wiki once. Reads only the directories named by `-Store`, records every merge as an event, and writes through `write.ps1 -FromJson`. A re-run adds nothing; `-WhatIf` writes nothing | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/lint.ps1` | Report only; changes no event. Finds conflicts, dead evidence, stale events, orphan pages and lessons two seats wrote. Counts the evidence it could not check, so zero dead is not read as clean | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 
 ## To clean up and recover
 
 | Script | Does | Doc |
 |---|---|---|
-| `scripts/worktree/remove.ps1` | Remove one worktree, referencing its tip before anything is removed, and writing a keep-ref when `-DeleteBranch` is used. Refuses a worktree that contains another registered worktree | [Pruning](PRUNING.md) |
+| `scripts/worktree/remove.ps1` | Remove one worktree, referencing its tip before anything is removed, and writing a keep-ref when `-DeleteBranch` is used or a detached tip is on no ref. Refuses a worktree that contains another registered worktree | [Pruning](PRUNING.md) |
 | `scripts/worktree/prune-merged.ps1` | The reaper: prune = merged **and** clean **and** unoccupied. Dry-run by default, `-Apply` to act. Carries a second, non-cwd signal and prints its blind spots | [Pruning](PRUNING.md) |
 | `scripts/worktree/rescue.ps1` | Move uncommitted work out of the shared primary into a fresh worktree -- the companion to the gate that stops you writing there | [Worktrees](WORKTREES.md) |
 | `scripts/worktree/restore-primary.ps1` | Re-attach the primary to its home branch after a session left it detached or on the wrong branch. Refuses on a dirty tree unless `-Force`, which carries the changes onto the home branch rather than discarding them | [Worktrees](WORKTREES.md) |
