@@ -30,6 +30,50 @@ import _wikitest as w
 COMPILE = w.WIKI / "compile.ps1"
 RENDER_LIB = w.WIKI / "_render.ps1"
 
+# THE LEAK HOLD'S STAND-IN SCANNER. The record repository's own scanner and its patterns are private,
+# so every case gets this stub at the same path instead. It keeps the real one's contract: `--path
+# DIR`, exit 0 clean, 1 on a hit and 2 on a usage error, and each hit on stderr as two spaces, the
+# path relative to DIR, then `:<line>:`. Like the real one, its hit line ECHOES the token it matched,
+# which is what the "never printed" case needs to be able to fail. The token is invented.
+LEAK_TOKEN = "ZZLEAKTOKEN"
+SCANNER_REL = "scripts/publish/scan_forbidden.py"
+STUB_SCANNER = '''\
+import os
+import sys
+from pathlib import Path
+
+TOKEN = "%s"
+
+
+def main(argv):
+    calls = os.environ.get("WIKI_TEST_SCANNER_CALLS")
+    if calls:
+        with open(calls, "a", encoding="ascii") as fh:
+            fh.write(" ".join(argv[:1]) + "\\n")
+    if len(argv) != 2 or argv[0] != "--path" or not Path(argv[1]).is_dir():
+        print("scan_forbidden: --path requires a directory", file=sys.stderr)
+        return 2
+    root = Path(argv[1])
+    files = sorted(p for p in root.rglob("*") if p.is_file())
+    if not files:
+        return 2
+    hits = []
+    for p in files:
+        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if TOKEN in line:
+                hits.append(f"{p.relative_to(root).as_posix()}:{n}: planted name ({TOKEN}): {line.strip()}")
+    if hits:
+        print("FORBIDDEN CONTENT -- blocked (fail closed):", file=sys.stderr)
+        for h in hits:
+            print(f"  {h}", file=sys.stderr)
+        print(f"\\n{len(hits)} hit(s).", file=sys.stderr)
+        return 1
+    return 0
+
+
+raise SystemExit(main(sys.argv[1:]))
+''' % LEAK_TOKEN
+
 
 class _CompileCase(unittest.TestCase):
     def setUp(self):
@@ -43,6 +87,11 @@ class _CompileCase(unittest.TestCase):
         self.remote = self.root / "remote.git"
         w.git(self.root, "init", "--bare", "-b", "main", str(self.remote))
         self.seed = seed = w.make_repo(self.root / "seed", None)
+        scanner = seed / SCANNER_REL
+        scanner.parent.mkdir(parents=True)
+        scanner.write_text(STUB_SCANNER, encoding="ascii")
+        w.git(seed, "add", SCANNER_REL)
+        w.git(seed, "commit", "-m", "the record repository's leak scanner")
         w.git(seed, "remote", "add", "origin", str(self.remote))
         w.git(seed, "push", "origin", "main")
         self.record = self.root / "record"
@@ -87,6 +136,20 @@ class _CompileCase(unittest.TestCase):
     def worktree_count(self) -> int:
         out = w.git(self.record, "worktree", "list", "--porcelain").stdout
         return len([ln for ln in out.splitlines() if ln.startswith("worktree ")])
+
+    def set_scanner(self, text: str | None):
+        """Replace the record repository's scanner at Base, or remove it with None."""
+        path = self.seed / SCANNER_REL
+        if text is None:
+            w.git(self.seed, "rm", "--quiet", SCANNER_REL)
+        else:
+            path.write_text(text, encoding="ascii")
+            w.git(self.seed, "add", SCANNER_REL)
+        w.git(self.seed, "commit", "-m", "the scanner changes")
+        w.git(self.seed, "push", "origin", "main")
+
+    def inbox_snapshot(self) -> dict[str, bytes]:
+        return {p.name: p.read_bytes() for p in sorted(self.inbox.glob("*"))}
 
 
 class CompileFoldsTheInboxIntoTheLog(_CompileCase):
@@ -147,7 +210,8 @@ class CompileFoldsTheInboxIntoTheLog(_CompileCase):
         log = self.show("wiki/compile", "wiki/log.md")
         lines = [ln for ln in log.splitlines() if ln.startswith("- ")]
         self.assertEqual(1, len(lines), log)
-        self.assertRegex(lines[0], r"^- \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z: 3 event\(s\) added, 2 page\(s\) written, 0 conflict\(s\)$")
+        self.assertRegex(lines[0], r"^- \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z: 3 event\(s\) added, 2 page\(s\) written, "
+                                   r"0 conflict\(s\), 0 held back$")
 
     def test_it_commits_on_wiki_compile_over_base_and_leaves_base_alone(self):
         self.assertEqual(self.remote_sha("main"), self.remote_sha("wiki/compile^1"))
@@ -495,6 +559,151 @@ class TheRecordClonesWorkingTreeIsUntouched(_CompileCase):
         self.assertEqual(head, w.git(self.record, "rev-parse", "HEAD").stdout)
         self.assertEqual(branch, w.git(self.record, "branch", "--show-current").stdout)
         self.assertFalse((self.record / "wiki").exists(), "compile wrote into the clone's working tree")
+
+
+class TheLeakHoldKeepsAFlaggedEventInTheInbox(_CompileCase):
+    """FR-028. An event the record repository's scanner flags, or one carrying an email address, is
+    held: never copied, never rendered, left in the inbox where a query still finds it. The clean
+    event beside them is the control, so a hold that held everything would fail here."""
+
+    def setUp(self):
+        super().setUp()
+        self.calls = self.root / "scanner-calls.txt"
+        self.leak = w.plant(self.inbox, when=w.days_ago(3), key="site/one/feed",
+                            summary=f"The feed for {LEAK_TOKEN} drops a segment")
+        self.mail = w.plant(self.inbox, when=w.days_ago(2), key="site/two/contact",
+                            summary="The interface has a named contact", body="Write to a.person@example.com first")
+        # `path@ref` is documented evidence. An `@` alone must not hold an event.
+        self.clean = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code",
+                             summary="The gate exits two", evidence="scripts/wiki/compile.ps1@e3e3410")
+        self.held = sorted([self.leak["id"], self.mail["id"]])
+        self.first = self.run_compile("-Json")
+        self.result = json.loads(self.first.stdout)
+
+    def run_compile(self, *extra: str) -> subprocess.CompletedProcess:
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr",
+                  *extra, env={"WIKI_TEST_SCANNER_CALLS": str(self.calls)})
+        self.assertEqual(0, r.returncode, f"compile exited {r.returncode}: {r.stderr}\n{r.stdout}")
+        return r
+
+    def filed_ids(self) -> list[str]:
+        return sorted(Path(f).stem for f in self.files_at("wiki/compile") if f.startswith("wiki/events/"))
+
+    def wiki_text_at(self, ref: str) -> str:
+        return "".join(self.show(ref, f) for f in self.files_at(ref) if f.startswith("wiki/"))
+
+    def test_a_flagged_event_is_held_and_stays_in_the_inbox(self):
+        self.assertNotIn(self.leak["id"], self.filed_ids())
+        self.assertTrue((self.inbox / f"{self.leak['id']}.json").is_file())
+        self.assertIn(self.leak["id"], self.result["held_ids"])
+
+    def test_an_email_address_holds_an_event(self):
+        self.assertNotIn(self.mail["id"], self.filed_ids())
+        self.assertTrue((self.inbox / f"{self.mail['id']}.json").is_file())
+        self.assertIn(self.mail["id"], self.result["held_ids"])
+
+    def test_control_the_clean_event_beside_them_is_filed(self):
+        self.assertEqual([self.clean["id"]], self.filed_ids())
+        self.assertEqual("compiled", self.result["result"])
+
+    def test_the_report_counts_and_names_what_was_held(self):
+        self.assertEqual(3, self.result["pending"])
+        self.assertEqual(2, self.result["held"])
+        self.assertEqual(self.held, self.result["held_ids"])
+        self.assertEqual(1, self.result["added"])
+        self.assertEqual("wiki: compile 1 events", self.remote_git("log", "-1", "--format=%s", "wiki/compile").strip())
+
+    def test_the_log_line_and_the_commit_body_carry_the_held_count(self):
+        log = self.show("wiki/compile", "wiki/log.md")
+        self.assertRegex(log, r"(?m)^- \S+: 1 event\(s\) added, 1 page\(s\) written, 0 conflict\(s\), 2 held back$")
+        self.assertIn("2 event(s) held back", self.remote_git("log", "-1", "--format=%b", "wiki/compile"))
+
+    def test_held_events_render_nowhere(self):
+        text = self.wiki_text_at("wiki/compile")
+        self.assertIn(self.clean["summary"], text, "the control: a filed event does render")
+        for ev in (self.leak, self.mail):
+            self.assertNotIn(ev["summary"], text)
+            self.assertNotIn(ev["id"], text)
+
+    def test_the_scanner_runs_once_over_every_pending_event(self):
+        self.assertEqual(["--path"], self.calls.read_text(encoding="ascii").splitlines())
+
+    def test_the_token_is_printed_nowhere(self):
+        """The real scanner's hit line carries the matched token, and so does the stub's. The held
+        count shows the scanner's output WAS read, so its absence here is not a scan that never ran."""
+        self.assertEqual(2, self.result["held"])
+        text = self.run_compile()
+        self.assertIn("2 held back", text.stdout)
+        for out in (self.first.stdout, self.first.stderr, text.stdout, text.stderr,
+                    self.remote_git("log", "-1", "--format=%B", "wiki/compile")):
+            self.assertNotIn(LEAK_TOKEN, out)
+            self.assertNotIn("a.person@", out)
+
+    def test_a_held_event_is_scanned_again_and_held_after_the_merge(self):
+        second = json.loads(self.run_compile("-Json").stdout)
+        self.assertEqual(self.held, second["held_ids"])
+        self.merge()
+        third = json.loads(self.run_compile("-Json").stdout)
+        self.assertEqual(1, third["deleted"], "the filed event lands and leaves the inbox")
+        self.assertEqual("nothing-pending", third["result"])
+        self.assertEqual(2, third["held"])
+        self.assertEqual(self.held, third["held_ids"])
+        self.assertEqual(self.held, sorted(p.stem for p in self.inbox.glob("*.json")))
+        self.assertEqual(3, len(self.calls.read_text(encoding="ascii").splitlines()))
+
+    def test_a_query_still_finds_a_held_event(self):
+        r = w.run(self.pwsh, w.QUERY, "-Text", "feed drops a segment", "-StateRoot", str(self.state), "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn(self.leak["id"], [row["id"] for row in json.loads(r.stdout)])
+
+
+class TheLeakHoldFailsClosed(_CompileCase):
+    """Each way the scan can fail stops the run with exit 2 before anything is copied or pushed. The
+    control runs the same events through the working stub, so each exit 2 is the hold's own."""
+
+    def setUp(self):
+        super().setUp()
+        self.leak = w.plant(self.inbox, when=w.days_ago(2), key="site/one/feed",
+                            summary=f"The feed for {LEAK_TOKEN} drops a segment")
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        self.before = self.inbox_snapshot()
+
+    def assert_stopped(self, needle: str):
+        r = self.compile(expect=2)
+        self.assertIn(needle, r["stderr"])
+        self.assertEqual("", r["stdout"])
+        self.assertNotIn(LEAK_TOKEN, r["stderr"])
+        self.assertFalse(self.remote_has("refs/heads/wiki/compile"), "a failed scan pushed")
+        self.assertEqual(self.before, self.inbox_snapshot())
+        self.assertEqual(1, self.worktree_count())
+
+    def test_control_the_working_scanner_compiles(self):
+        r = self.compile()
+        self.assertEqual([self.leak["id"]], r["held_ids"])
+        self.assertTrue(self.remote_has("refs/heads/wiki/compile"))
+
+    def test_no_scanner_at_base_is_exit_2(self):
+        self.set_scanner(None)
+        self.assert_stopped("no leak scanner")
+
+    def test_a_scanner_usage_error_is_exit_2(self):
+        self.set_scanner(f"import sys\nprint('{LEAK_TOKEN} usage', file=sys.stderr)\nraise SystemExit(2)\n")
+        self.assert_stopped("exited 2")
+
+    def test_exit_1_with_no_hit_line_is_exit_2(self):
+        self.set_scanner(f"import sys\nprint('{LEAK_TOKEN} went wrong', file=sys.stderr)\nraise SystemExit(1)\n")
+        self.assert_stopped("no hit path")
+
+    def test_exit_1_naming_no_staged_file_is_exit_2(self):
+        self.set_scanner(f"import sys\nprint('  elsewhere.json:1: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
+                         "raise SystemExit(1)\n")
+        self.assert_stopped("names no staged event")
+
+    def test_a_scanner_that_crashes_after_a_hit_is_exit_2(self):
+        """An uncaught exception also exits 1. The hit lines printed before it are not the whole list."""
+        self.set_scanner(f"import sys\nprint('  {self.leak['id']}.json:3: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
+                         "raise RuntimeError('the scan died')\n")
+        self.assert_stopped("crashed")
 
 
 _LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")

@@ -16,18 +16,28 @@
          written.
       2. NOTHING PENDING, NOTHING TO DO. Exit 0 and say so.
       3. BUILD IN A TEMPORARY WORKTREE of `<Remote>/<Base>`, never in the clone's own working tree,
-         which other sessions use. Copy each pending event to `wiki/events/<yyyy>/<mm>/<id>.json`,
-         never over an existing file. Render every page and the index from ALL events, through the
-         guard (`_render.ps1`). Append one line to `wiki/log.md`.
-      4. CONFLICTS are listed in `index.md` under `## Conflicts`, and counted in the log line: two
+         which other sessions use.
+      4. HOLD BACK WHAT WOULD LEAK (spec FR-028). Before anything is copied, every pending event is
+         staged in one scratch directory and scanned ONCE by the record repository's own scanner,
+         `scripts/publish/scan_forbidden.py` at Base, run as `python <scanner> --path <dir>`. An event
+         it flags, or one whose file text holds an email address, is HELD: it stays in the inbox,
+         is never copied or rendered, still answers a local query, and is scanned again next run.
+         The hold fails closed, exit 2 with nothing written: no scanner at Base, no python, a
+         scanner exit other than 0 or 1, a crash, or an exit 1 whose hit paths do not name staged
+         events. Held ids and counts are reported; the scanner's own lines never are, because its
+         labels carry the token they matched. If every pending event is held, it is nothing pending.
+      5. FILE WHAT IS LEFT. Copy each filed event to `wiki/events/<yyyy>/<mm>/<id>.json`, never over
+         an existing file. Render every page and the index from ALL events in the log, through the
+         guard (`_render.ps1`). Append one line to `wiki/log.md`, which counts the held events.
+      6. CONFLICTS are listed in `index.md` under `## Conflicts`, and counted in the log line: two
          or more live-candidate events on one key where neither supersedes the other.
-      5. COMMIT AND FORCE-PUSH `wiki/compile`, then open a pull request for it unless one is open.
-         The branch is always rebuilt from Base plus every pending event, so a re-run converges.
+      7. COMMIT AND FORCE-PUSH `wiki/compile`, then open a pull request for it unless one is open.
+         The branch is always rebuilt from Base plus every filed event, so a re-run converges.
          The push carries `--force-with-lease`, which refuses a push that races another push. It
          does NOT merge two inboxes: a compile run against a second inbox rebuilds the branch
          without the first inbox's events. Those events stay in their inbox and return on its next
          compile, so nothing is lost, but the open pull request drops them. Run one compile job.
-      6. IDEMPOTENT (FR-019). The commit carries a `Wiki-Content-Tree:` trailer: the tree before
+      8. IDEMPOTENT (FR-019). The commit carries a `Wiki-Content-Tree:` trailer: the tree before
          the log line. When `wiki/compile` already sits on Base with that trailer, the run adds
          nothing -- no commit, no push -- and only makes sure the pull request is open.
 
@@ -40,7 +50,8 @@
     Exit codes:
         0  compiled, converged, rebuilt, or nothing pending
         1  refused: an id collision
-        2  could not run: bad arguments, no record repository, a git or gh failure
+        2  could not run: bad arguments, no record repository, a git or gh failure, or the leak
+           hold could not scan (step 4)
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/compile.ps1 -RecordRepo ../MessageFoundry-vault
@@ -94,6 +105,7 @@ function Invoke-Tool {
         [Parameter(Mandatory)][string] $Exe,
         [Parameter(Mandatory)][string] $Dir,
         [Parameter(Mandatory)][string[]] $Arguments,
+        [hashtable] $Environment = @{},
         [switch] $AllowFail
     )
     $psi = [System.Diagnostics.ProcessStartInfo]::new($Exe)
@@ -105,6 +117,7 @@ function Invoke-Tool {
     $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
     $psi.Environment['GIT_TERMINAL_PROMPT'] = '0'
+    foreach ($k in $Environment.Keys) { $psi.Environment[$k] = [string]$Environment[$k] }
     $p = [System.Diagnostics.Process]::Start($psi)
     $out = $p.StandardOutput.ReadToEndAsync()
     $err = $p.StandardError.ReadToEndAsync()
@@ -123,10 +136,92 @@ function Get-NormalizedText {
     return ($Text -replace "`r`n", "`n").TrimEnd()
 }
 
+# The record repository's own leak scanner, at Base. The vault's publish leak gate runs it over
+# everything it holds, and a real customer name is a leak there in any folder (vault BACKLOG #1522).
+$ScannerRel = 'scripts/publish/scan_forbidden.py'
+# An address in the `local@domain.tld` shape, anywhere in the file text. The scanner does not look
+# for addresses. A `path@ref` citation has no dotted domain after the `@`, so it does not match.
+$EmailRegex = [regex]::new('[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}',
+    [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+# One hit line from the scanner in `--path` mode: two spaces, the path relative to the scan root,
+# then `:<line>:`. Only the path is kept; the rest of the line carries the matched token.
+$HitRegex = [regex]::new('^  (?<path>[^\s:][^:]*):\d+:', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+
+function Get-WikiLeakHold {
+    <#
+    .SYNOPSIS
+        The ids of the pending events that must stay in the inbox: those the record repository's
+        scanner flags, and those whose text holds an email address. Fails closed with exit 2.
+    .DESCRIPTION
+        Every event is written to one scratch directory as `<id>.json`, byte for byte what would be
+        filed, and the scanner runs ONCE over it. The scratch directory is removed before returning.
+
+        NOTHING THE SCANNER PRINTS IS EVER REPEATED. Its hit lines and its category labels carry the
+        token they matched, so every message here names an exit code or a count, never a line.
+    #>
+    param(
+        [Parameter(Mandatory)][string] $Scanner,
+        [Parameter(Mandatory)][string] $WorkDir,
+        [Parameter(Mandatory)][System.Collections.Generic.Dictionary[string, byte[]]] $Bytes
+    )
+    if (-not (Test-Path -LiteralPath $Scanner -PathType Leaf)) {
+        Stop-Compile 2 "the record repository has no leak scanner at $ScannerRel on its Base, so no event can be checked before it is filed. Nothing was written."
+    }
+    $python = Find-Tool 'python'
+    if (-not $python) { $python = Find-Tool 'python3' }
+    if (-not $python) { Stop-Compile 2 'python is not on PATH, so the leak scanner cannot run. Nothing was written.' }
+
+    $held = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('korus-wiki-scan-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
+    New-Item -ItemType Directory -Path $stage | Out-Null
+    try {
+        $staged = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+        foreach ($id in $Bytes.Keys) {
+            [System.IO.File]::WriteAllBytes((Join-Path $stage "$id.json"), $Bytes[$id])
+            $staged["$id.json"] = $id
+            $text = [System.Text.UTF8Encoding]::new($false).GetString($Bytes[$id])
+            if ($EmailRegex.IsMatch($text)) { [void]$held.Add($id) }
+        }
+        # UTF-8 on the scanner's streams: under a cp1252 console a hit line with a non-ASCII excerpt
+        # would raise UnicodeEncodeError, and that crash exits 1 with only part of the hit list.
+        $scan = Invoke-Tool -Exe $python -Dir $WorkDir -Arguments @($Scanner, '--path', $stage) -AllowFail `
+            -Environment @{ PYTHONIOENCODING = 'utf-8'; PYTHONDONTWRITEBYTECODE = '1' }
+        $lines = @(($scan.Out + "`n" + $scan.Err) -split '\r?\n')
+        if ($lines -match '^Traceback \(most recent call last\):') {
+            Stop-Compile 2 "the leak scanner crashed (exit $($scan.Code)), so its hit list may be partial. Nothing was written."
+        }
+        if ($scan.Code -eq 1) {
+            $hits = 0
+            foreach ($line in $lines) {
+                $m = $HitRegex.Match($line)
+                if (-not $m.Success) { continue }
+                $hits++
+                $path = $m.Groups['path'].Value
+                if (-not $staged.ContainsKey($path)) {
+                    Stop-Compile 2 "the leak scanner reported a hit whose path names no staged event, so its output cannot be read. Nothing was written."
+                }
+                [void]$held.Add($staged[$path])
+            }
+            if ($hits -eq 0) {
+                Stop-Compile 2 'the leak scanner exited 1 but printed no hit path that could be read, so what it flagged is unknown. Nothing was written.'
+            }
+        } elseif ($scan.Code -ne 0) {
+            Stop-Compile 2 "the leak scanner exited $($scan.Code), which is neither clean (0) nor hits (1). Nothing was written."
+        }
+    } finally {
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $ids = [string[]]@($held)
+    [System.Array]::Sort($ids, [System.StringComparer]::Ordinal)
+    return , $ids
+}
+
 $report = [ordered]@{
     result    = $null
     deleted   = 0
     pending   = 0
+    held      = 0
+    held_ids  = [string[]]@()
     skipped   = 0
     log_skipped = 0
     added     = 0
@@ -289,9 +384,30 @@ function Invoke-WikiCompile {
     # Recorded only once the add succeeded, so the cleanup never tries to remove what git refused.
     $script:tmp = $tmp
 
-    # From the pending list itself, so what is counted and what is copied are the same events: an
-    # inbox file that arrived after the listing above is left for the next run.
+    # ------------------------------------------------------------- 4. hold back what would leak
+    # Read once, here: the bytes scanned are the bytes filed, so a file rewritten in the inbox after
+    # the scan cannot reach the log unscanned. From the pending list itself, so what is counted and
+    # what is copied are the same events: an inbox file that arrived after the listing is left for
+    # the next run.
+    $bytes = [System.Collections.Generic.Dictionary[string, byte[]]]::new([System.StringComparer]::Ordinal)
     foreach ($ev in $pending) {
+        $bytes[[string]$ev.id] = [System.IO.File]::ReadAllBytes((Join-Path $inbox "$([string]$ev.id).json"))
+    }
+    $heldIds = Get-WikiLeakHold -Scanner (Join-Path $tmp $ScannerRel) -WorkDir $tmp -Bytes $bytes
+    $heldSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$heldIds, [System.StringComparer]::Ordinal)
+    $filed = @($pending | Where-Object { -not $heldSet.Contains([string]$_.id) })
+    $report.held = $heldIds.Count
+    $report.held_ids = $heldIds
+    $heldText = if ($heldIds.Count -gt 0) { " Held back in the inbox by the leak hold: $($heldIds -join ', ')." } else { '' }
+    if ($filed.Count -eq 0) {
+        $report.result = 'nothing-pending'
+        Write-Report ("wiki compile: nothing to file; all $($pending.Count) pending event(s) held back by the leak hold. " +
+            "Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) inbox file(s) unreadable and skipped.$heldText")
+        return
+    }
+
+    # ------------------------------------------------------------------ 5. file what is left
+    foreach ($ev in $filed) {
         $id = [string]$ev.id
         $dir = Get-WikiLogDir -RecordRepo $tmp -Utc $ev._utc
         if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -300,9 +416,8 @@ function Invoke-WikiCompile {
             Stop-Compile 1 "id collision: $id is already filed in the log; an event is never overwritten."
         }
         # CreateNew as well, so even a file that appeared since the test above is never overwritten.
-        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $inbox "$id.json"))
         $fs = [System.IO.FileStream]::new($dest, [System.IO.FileMode]::CreateNew)
-        try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
+        try { $fs.Write($bytes[$id], 0, $bytes[$id].Length) } finally { $fs.Dispose() }
     }
 
     $all = Read-WikiEventDir -Dir (Get-WikiEventsRoot -RecordRepo $tmp) -Source log -Recurse
@@ -319,9 +434,9 @@ function Invoke-WikiCompile {
     Invoke-Tool -Exe $git -Dir $tmp -Arguments @('add', '--all', '--', 'wiki') | Out-Null
     $contentTree = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('write-tree')).Out.Trim()
     $report.content_tree = $contentTree
-    $title = "wiki: compile $($pending.Count) events"
+    $title = "wiki: compile $($filed.Count) events"
 
-    # --------------------------------------------------------------------- 6. already converged?
+    # --------------------------------------------------------------------- 8. already converged?
     $converged = $false
     if ($leased) {
         $parent = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('rev-parse', '--verify', '--quiet', "$leased^1") -AllowFail
@@ -340,7 +455,7 @@ function Invoke-WikiCompile {
         # ------------------------------------------------------------------- the one log line
         $logPath = Join-Path $wikiDir 'log.md'
         $now = (Get-WikiClock).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture)
-        $line = "- ${now}: $($pending.Count) event(s) added, $($set.Pages) page(s) written, $($set.Conflicts.Count) conflict(s)`n"
+        $line = "- ${now}: $($filed.Count) event(s) added, $($set.Pages) page(s) written, $($set.Conflicts.Count) conflict(s), $($heldIds.Count) held back`n"
         $enc = [System.Text.UTF8Encoding]::new($false)
         if (-not (Test-Path -LiteralPath $logPath)) {
             [System.IO.File]::WriteAllText($logPath, "# Wiki compile log`n`nOne line per compile, appended by ``scripts/wiki/compile.ps1``.`n`n", $enc)
@@ -351,16 +466,17 @@ function Invoke-WikiCompile {
         [System.IO.File]::AppendAllText($logPath, $line, $enc)
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('add', '--', 'wiki/log.md') | Out-Null
 
-        # ------------------------------------------------------------------------ 5. commit, push
-        $body = "Folds $($pending.Count) inbox event(s) into wiki/events and rebuilds $($set.Pages) page(s) and the index. " +
-            "$($set.Conflicts.Count) conflict(s) listed in wiki/index.md. Generated by scripts/wiki/compile.ps1; never merged by it."
+        # ------------------------------------------------------------------------ 7. commit, push
+        $body = "Folds $($filed.Count) inbox event(s) into wiki/events and rebuilds $($set.Pages) page(s) and the index. " +
+            "$($set.Conflicts.Count) conflict(s) listed in wiki/index.md. $($heldIds.Count) event(s) held back in the inbox by " +
+            "the leak hold. Generated by scripts/wiki/compile.ps1; never merged by it."
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('commit', '--quiet', '-m', $title, '-m', $body,
             '-m', "Wiki-Content-Tree: $contentTree") | Out-Null
         $report.head = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('rev-parse', 'HEAD')).Out.Trim()
         $report.tree = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('rev-parse', 'HEAD^{tree}')).Out.Trim()
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('push', '--quiet', "--force-with-lease=refs/heads/${Branch}:$leased",
             $Remote, "HEAD:refs/heads/$Branch") | Out-Null
-        $report.added = $pending.Count
+        $report.added = $filed.Count
         $report.result = 'compiled'
     }
 
@@ -395,8 +511,9 @@ function Invoke-WikiCompile {
     $what = if ($report.result -ceq 'converged') { "already current at $($report.head); nothing added" }
     else { "pushed $Branch at $($report.head)" }
     $prText = if ($NoPr) { 'no pull request (-NoPr)' } else { "pull request $($report.pr)" }
-    Write-Report ("wiki compile: $($pending.Count) event(s) pending, $($set.Pages) page(s), $($set.Conflicts.Count) conflict(s); " +
-        "$what; $prText. Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) unreadable and skipped.")
+    Write-Report ("wiki compile: $($pending.Count) event(s) pending, $($heldIds.Count) held back, $($set.Pages) page(s), " +
+        "$($set.Conflicts.Count) conflict(s); $what; $prText. Removed $($toDelete.Count) landed inbox file(s); " +
+        "$($r.Skipped) unreadable and skipped.$heldText")
 }
 
 $exitCode = 0
