@@ -40,9 +40,8 @@ Before removal, `remove.ps1` resolves and prints the tip. With `-DeleteBranch`, 
 a keep-ref: a spare tip pointer that survives branch deletion.
 
 A detached worktree whose commits no ref holds gets a keep-ref without `-DeleteBranch` too. Until
-2026-09-23 it did not, and removing it left those commits on no ref. A keep-ref name another commit
-already holds gets the tip's short SHA added, so a second worktree of the same name never overwrites
-the first one's.
+2026-09-23 removing it left those commits on no ref. A name already in use gets the tip's short SHA
+added, so a later worktree of the same name never overwrites an earlier keep-ref.
 
 `-Name` selects the worktree directory; `-DeleteBranch` reads the checked-out branch from
 `HEAD`. Detached `HEAD` produces a warning and no branch deletion; check the
