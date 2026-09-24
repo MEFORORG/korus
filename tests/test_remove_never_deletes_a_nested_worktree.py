@@ -788,6 +788,19 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertIn("edited", (work / "a.txt").read_text(encoding="utf-8"))
         self.assertNotEqual(0, r.returncode, r.stdout + r.stderr)
 
+    def test_force_on_a_target_whose_status_fails_says_so(self):
+        """-Force still discards what git status could not read. Red at 06e8ca3: it said nothing."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        index = Path(git("rev-parse", "--path-format=absolute", "--git-path", "index", cwd=work).strip())
+        index.write_bytes(b"not an index")
+
+        r = self.remove(primary, "work", "-Force")
+        said = (r.stdout + r.stderr).lower()
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertIn("git status failed", said, "-Force skipped a failed status without a word")
+
     # --- a name that is not a registered worktree ---------------------------------------------------
 
     def test_dot_and_dot_dot_are_refused_before_the_nested_check(self):

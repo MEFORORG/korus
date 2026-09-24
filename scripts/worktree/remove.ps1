@@ -439,6 +439,12 @@ if ($targetStatus.Exit -ne 0 -and -not $Force) {
     throw ("git status failed on '$WorktreePath' (exit $($targetStatus.Exit)), so its uncommitted tracked " +
         "changes are unknown. Nothing was removed. Re-run with -Force to discard them anyway.")
 }
+# -Force discards them anyway, as it always has, and now says the read failed. Until 2026-09-23 it
+# went on in silence, so a corrupt index read like any other removal. Measured at 06e8ca3.
+if ($targetStatus.Exit -ne 0) {
+    Write-Warning ("git status failed on '$WorktreePath' (exit $($targetStatus.Exit)), so its uncommitted " +
+        "tracked changes are unknown. -Force discards them anyway.")
+}
 if ($tracked.Count -gt 0 -and -not $Force) {
     Write-Host ($tracked -join "`n")
     throw "Worktree has uncommitted tracked changes. Commit/push them, or re-run with -Force."
