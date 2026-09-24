@@ -703,6 +703,41 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         ran = self.run_printed(r)
         self.assertFalse(h.exists(), f"the printed command did not remove it\n{ran}")
 
+    def test_a_prunable_nested_worktree_whose_directory_holds_files_gets_no_command(self):
+        """Its `.git` file is gone, so git calls it prunable while its files are still there.
+
+        Red at 06e8ca3: the refusal called the directory "already missing" and printed a command
+        that exits 128 with or without --force. `git worktree prune` gets past that, and the next
+        removal of the parent then deletes the files. The repair step it prints now deletes nothing,
+        and the re-run then reads the file.
+        """
+        primary, work, h = self.nested_in_work()
+        (h / "notes.txt").write_text("a session wrote this\n", encoding="utf-8")
+        (h / ".git").unlink()
+        self.assertTrue(self.registered(primary)[fold(h)], "precondition: git calls it prunable")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((h / "notes.txt").is_file(), ran)
+        self.assertEqual([], self.printed_for(said, h), f"a command is printed that git refuses\n{ran}\n{said}")
+        self.assertNotIn("directory already missing", said, "the refusal calls a directory holding files missing")
+        repair = [line.strip() for line in said.splitlines() if line.strip().endswith(" worktree repair")]
+        self.assertEqual(1, len(repair), "no repair step\n" + said)
+
+        subprocess.run(
+            [self.pwsh, "-NoProfile", "-NonInteractive", "-Command",
+             next(line.strip() for line in (r.stdout + r.stderr).splitlines() if line.strip().lower() == repair[0])],
+            capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
+        )
+        again = self.remove(primary, "work")
+        said = (again.stdout + again.stderr).replace("\\", "/").lower()
+        self.assertFalse(self.registered(primary)[fold(h)], "the printed repair step did not restore the link")
+        self.assertEqual([], self.printed_for(said, h), said)
+        self.assertIn("untracked", said, "after the repair the re-run does not read the file\n" + said)
+
     # --- the target's own guard ---------------------------------------------------------------------
 
     def test_a_target_whose_status_fails_is_refused_without_force(self):

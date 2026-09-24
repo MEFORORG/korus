@@ -543,6 +543,7 @@ it gets **NO COMMAND** and a line to look with first:
 | Commits on a detached HEAD that no branch, tag or other ref holds | Deletes the last thing pointing at them, so gc can collect them. | `git -C '<primary>' log --oneline <sha> --not --exclude=refs/stash --glob='refs/*'` |
 | Commits only its HEAD reflog holds, such as one left behind on a detached HEAD | Deletes that reflog. | `git -C '<path>' reflog` |
 | A checked-out submodule | Exits 128 whether or not the submodule holds anything, and the next try is `--force`. That deletes the submodule's repository, which lives in this worktree's admin directory. | `git -C '<path>' submodule foreach --recursive git log --oneline HEAD --branches --not --remotes` |
+| Files, where git calls it prunable because its `.git` file is gone | Exits 128 with or without `--force`. `git worktree prune` gets past that, and removing the parent then deletes the files. | `Get-ChildItem -Force -LiteralPath '<path>'`, then `git -C '<primary>' worktree repair`, which deletes nothing, and a re-run |
 
 Every path in a printed command sits in single quotes, which PowerShell expands nothing inside.
 Until 2026-09-23 they sat in double quotes. There a `$name` in a path expanded, and the command ran

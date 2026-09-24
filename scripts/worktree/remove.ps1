@@ -199,7 +199,8 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 # live session, so everything above withholds the command here.
 #
 # Each reason carries what to look with: 'status' for files, 'log' for a detached HEAD's commits,
-# 'reflog' for commits only the reflog holds, 'submodule' for a submodule's own commits.
+# 'reflog' for commits only the reflog holds, 'submodule' for a submodule's own commits, 'repair'
+# for a directory git no longer links to its worktree.
 function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     $why = @()
     if ($Wt.Detached -and -not $Wt.Head) {
@@ -218,7 +219,20 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
         }
     }
     # A missing directory has no files to lose. Its HEAD, read above, lives in the admin directory.
-    if ($Wt.Prunable) { return $why }
+    #
+    # BUT GIT ALSO CALLS A WORKTREE PRUNABLE WHEN ONLY ITS `.git` FILE IS GONE, and then its directory
+    # and files are still there. Every git read in it then runs in the repository around it, the
+    # parent worktree here, so no read below would be about it. A printed `git worktree remove` exits
+    # 128 ("validation failed") with or without --force. What gets past that is `git worktree prune`,
+    # and removing the parent then deletes the files. Measured 2026-09-23 at 06e8ca3 on git
+    # 2.55.0.windows.5: the refusal printed that command and called the directory "already missing".
+    # `git worktree repair`, run in the primary, writes the `.git` file back, deletes nothing and
+    # exits 0, so it is the step printed instead. The path form of it repaired too, but exited 1.
+    if ($Wt.Prunable) {
+        if (-not (Test-Path -LiteralPath $Wt.Path)) { return $why }
+        return $why + [pscustomobject]@{ Look = 'repair'
+            Text = "git marks it prunable ($($Wt.Prunable)), but its directory is still there, and git cannot read it until its link is repaired" }
+    }
 
     # Skipped where the HEAD read above already withheld the command: that commit heads the reflog.
     if ($why.Count -eq 0) {
@@ -343,7 +357,10 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
         $state = @()
         if ($n.Detached) { $state += 'detached' } elseif ($n.Branch) { $state += "branch $($n.Branch)" }
         if ($n.Locked) { $state += $(if ($n.LockReason) { "locked: $($n.LockReason)" } else { 'locked' }) }
-        if ($n.Prunable) { $state += "directory already missing: $($n.Prunable)" }
+        if ($n.Prunable) {
+            $state += $(if (Test-Path -LiteralPath $n.Path) { "prunable: $($n.Prunable); its directory is still there" }
+                else { "directory already missing: $($n.Prunable)" })
+        }
         Write-Host "  $($n.Path)  [$($state -join '; ')]" -ForegroundColor Red
     }
     Write-Host ("A session started inside this worktree puts its own worktrees here, so any of these " +
@@ -373,6 +390,12 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
             if ($looks -contains 'submodule') {
                 Write-Host ("    git -C $(Format-Literal $p) submodule foreach --recursive git log --oneline HEAD " +
                     "--branches --not --remotes") -ForegroundColor Red
+            }
+            if ($looks -contains 'repair') {
+                Write-Host "    Get-ChildItem -Force -LiteralPath $(Format-Literal $p)" -ForegroundColor Red
+                Write-Host ("    Then restore its link, which deletes nothing, and re-run this command so it can " +
+                    "read what the directory holds:") -ForegroundColor Red
+                Write-Host "    git -C $(Format-Literal $Primary) worktree repair" -ForegroundColor Red
             }
             continue
         }
