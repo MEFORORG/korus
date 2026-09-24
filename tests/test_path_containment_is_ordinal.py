@@ -14,8 +14,11 @@ root's prefix still reads as outside, and rule 1 still denies an ASCII write int
 fix that answers "inside" for everything fails the second; one that answers "outside" fails the
 first and the third.
 
-WHAT THIS DOES NOT COVER. macOS stores names in a form it normalises, so there the two spellings of
-one accented name are one file, and an ordinal compare calls them two. Nothing here runs on macOS.
+MACOS. Its filesystem treats the two spellings of one accented name as one name, and the old
+culture-aware compare had been folding them everywhere by accident. So ConvertTo-CcxComparablePath now
+folds to NFC where `$CcxUnicodeFoldingFs` is set, which is macOS. One case sets that flag on this
+platform and checks the fold; no macOS run was made. The same case checks the flag off keeps the
+two apart.
 
 Run: python -m pytest tests -q     (or: python -m unittest discover -s tests -v)
 """
@@ -35,6 +38,8 @@ TIMEOUT_SECONDS = 120
 COMMON = t.REPO_ROOT / "scripts" / "coord" / "_common.ps1"
 MARK = "\u0301"
 E_ACUTE = "\u00e9"
+# A rooted path on this platform, so GetFullPath leaves the rest alone.
+ROOT = "c:/x" if os.name == "nt" else "/x"
 
 
 class PathContainmentIsOrdinal(unittest.TestCase):
@@ -63,6 +68,28 @@ class PathContainmentIsOrdinal(unittest.TestCase):
             self.under(f"c:/x/{E_ACUTE}", f"c:/x/e{MARK}"),
             "an accented name compared equal to its decomposed spelling, which NTFS stores as another name",
         )
+
+    def folded_under(self, path: str, root: str, unicode_folding: bool) -> bool:
+        """Both sides through ConvertTo-CcxComparablePath first, as every caller does."""
+        flag = "$true" if unicode_folding else "$false"
+        script = (
+            f". '{COMMON}'; $CcxUnicodeFoldingFs = {flag}; "
+            "$a = $env:CCX_TEST_ARGS | ConvertFrom-Json; [Console]::Out.Write([string](Test-CcxPathUnder "
+            "-Path (ConvertTo-CcxComparablePath $a.path) -Root (ConvertTo-CcxComparablePath $a.root)))"
+        )
+        env = dict(os.environ, CCX_TEST_ARGS=json.dumps({"path": path, "root": root}))
+        r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                           capture_output=True, text=True, env=env, timeout=TIMEOUT_SECONDS)
+        self.assertIn(r.stdout.strip(), ("True", "False"), f"no answer:\n{r.stdout}\n{r.stderr}")
+        return r.stdout.strip() == "True"
+
+    def test_where_the_filesystem_folds_unicode_both_spellings_are_one_path(self):
+        root = f"{ROOT}/jos{E_ACUTE}/P"
+        path = f"{ROOT}/jose{MARK}/P/x.md"
+        self.assertTrue(self.folded_under(path, root, unicode_folding=True),
+                        "with the macOS fold on, a path in the decomposed spelling read as outside its root")
+        self.assertFalse(self.folded_under(path, root, unicode_folding=False),
+                         "with the fold off, two names NTFS stores apart read as one")
 
     def test_control_an_ascii_path_inside_reads_inside_and_a_prefix_sibling_reads_outside(self):
         self.assertTrue(self.under("c:/x/p/abc", "c:/x/p"))

@@ -608,8 +608,10 @@ function Test-WorktreeClean {
         $r += "could not read which commits only its HEAD reflog or its own refs hold -- cannot establish removing it loses none"
     }
     elseif ($only.Count -gt 0) {
+        # The skip lasts until those commits are on a ref or their reflog entries expire, so the reason
+        # names where to look. Keeping the wanted ones on a ref clears it and deletes nothing.
         $r += ("$($only.Count) commit(s) only its HEAD reflog or its own per-worktree refs hold -- removing it " +
-            "would leave them on no ref")
+            "would leave them on no ref. Look with: git -C $(Format-CcxLiteral $Path) reflog")
     }
     return @{ Clean = ($r.Count -eq 0); Reasons = $r }
 }

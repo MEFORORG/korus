@@ -155,20 +155,24 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         return out
 
     def remove(self, primary: Path, name: str, *flags: str, decode_as: str = "") -> subprocess.CompletedProcess:
-        """Run remove.ps1. `decode_as` names the encoding pwsh reads git's output in, where a case
-        depends on it: otherwise it is whatever console the test runner has, which differs by host."""
+        """Run remove.ps1. `decode_as` names the encoding pwsh reads git's output in, and writes its
+        own in, where a case depends on it: otherwise it is whatever console the test runner has,
+        which differs by host."""
         env = dict(os.environ)
         # The developer's own settings must not reach the fixture.
         for leak in ("CCX_CONFIG", "CCX_TRUNK"):
             env.pop(leak, None)
         argv = [self.pwsh, "-NoProfile", "-File", str(t.WORKTREE_REMOVE), "-Name", name, *flags]
+        encoding = None
         if decode_as:
             argv = [self.pwsh, "-NoProfile", "-Command",
                     f"[Console]::OutputEncoding = [Text.Encoding]::{decode_as}; "
                     f"& '{t.WORKTREE_REMOVE}' -Name {name} {' '.join(flags)}; exit $LASTEXITCODE"]
+            encoding = {"Latin1": "latin-1"}[decode_as]
         # cwd is the primary: remove.ps1 refuses to remove the checkout it is standing in.
         return subprocess.run(
-            argv, capture_output=True, text=True, env=env, cwd=str(primary), timeout=TIMEOUT_SECONDS,
+            argv, capture_output=True, text=True, encoding=encoding, env=env, cwd=str(primary),
+            timeout=TIMEOUT_SECONDS,
         )
 
     def exclude(self, primary: Path, pattern: str) -> None:
@@ -430,6 +434,26 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertEqual(1, len(self.printed_for(said, h)), "a clean nested worktree got no command\n" + said)
         self.assertTrue(decoy.is_dir(), f"the printed command removed another clone's worktree\n{ran}\n{said}")
         self.assertFalse(h.exists(), f"the printed command did not remove the worktree it names\n{ran}")
+
+    def test_a_quote_of_any_kind_cannot_break_out_of_a_printed_path(self):
+        """PowerShell reads U+2018, U+2019, U+201A and U+201B as single quotes too. Doubling only the
+        ASCII one let a path break out of its quotes, so a nested worktree named with one could run a
+        second command. Found by review round 1 of this change.
+
+        Called directly rather than through the refusal: under a console code page such as 437, pwsh
+        misreads a non-ASCII path in git's output before any quoting happens. The probe travels in an
+        environment variable and the verdict comes back as ASCII, so no code page touches either."""
+        probe = "C:/o\u2019brien/it's; Write-Output INJECTED; \u2018x\u201a\u201by"
+        common = t.REPO_ROOT / "scripts" / "coord" / "_common.ps1"
+        script = (
+            f". '{common}'; $p = $env:CCX_PROBE; $out = @(Invoke-Expression \"Write-Output $(Format-CcxLiteral $p)\"); "
+            "[Console]::Out.Write([string]($out.Count -eq 1 -and [string]::Equals([string]$out[0], $p, 'Ordinal')))"
+        )
+        r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                           capture_output=True, text=True, env=dict(os.environ, CCX_PROBE=probe),
+                           timeout=TIMEOUT_SECONDS)
+        self.assertEqual("True", r.stdout.strip(),
+                         f"a quoted path did not come back as one argument, unchanged\n{r.stdout}\n{r.stderr}")
 
     # --- what plain `git status` does not show ----------------------------------------------------
     #
@@ -771,6 +795,29 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         )
         self.assertTrue(any(" submodule " in p for p in self.pointer_for(said, h)), "no pointer into the submodule\n" + said)
 
+    def test_a_nested_worktree_holding_a_gitlink_no_gitmodules_names_gets_no_command(self):
+        """An embedded repository committed as a gitlink, with no .gitmodules entry and no `modules`
+        directory. git still refuses the removal, because the gitlink's directory has its own `.git`.
+        Found by review round 1 of this change: a read of .gitmodules alone printed the command."""
+        primary, work, h = self.nested_in_work()
+        inner = h / "inner"
+        inner.mkdir()
+        git("init", "-q", "-b", "main", cwd=inner)
+        (inner / "x.txt").write_text("the embedded repository's file\n", encoding="utf-8")
+        git("add", "-A", cwd=inner)
+        git("commit", "-qm", "inner", cwd=inner)
+        git("add", "inner", cwd=h)
+        git("commit", "-qm", "add inner as a gitlink", cwd=h)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: it reads clean")
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((inner / "x.txt").is_file(), ran)
+        self.assertEqual([], self.printed_for(said, h), f"a command is printed that git refuses\n{ran}\n{said}")
+
     def test_control_a_nested_worktree_whose_submodule_is_not_checked_out_gets_its_command(self):
         """An uninitialised submodule is an empty directory, and git removes the worktree."""
         primary, work, h = self.with_a_submodule(check_out=False)
@@ -851,7 +898,9 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         work = self.base / "P-work"
         git("worktree", "add", "-q", "--detach", str(work), "HEAD", cwd=primary)
         if commit:
-            (work / "b.txt").write_text(f"committed on a detached HEAD in {work}\n", encoding="utf-8")
+            # A different file each life, so two lives in one second still make two commits.
+            self.lives = getattr(self, "lives", 0) + 1
+            (work / "b.txt").write_text(f"committed on a detached HEAD, life {self.lives}\n", encoding="utf-8")
             git("add", "b.txt", cwd=work)
             git("commit", "-qm", "detached work", cwd=work)
         return primary, work, git("rev-parse", "HEAD", cwd=work).strip()
@@ -875,6 +924,7 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         primary, _, first = self.detached_target()
         self.assertEqual(0, self.remove(primary, "work", "-DeleteBranch").returncode)
         _, _, second = self.detached_target()
+        self.assertNotEqual(first, second, "precondition: the two lives made two different commits")
         r = self.remove(primary, "work", "-DeleteBranch")
 
         self.assertEqual(0, r.returncode, r.stdout + r.stderr)
@@ -884,6 +934,28 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                     git("for-each-ref", "--contains", sha, cwd=primary).strip(),
                     f"commit {sha} is on no ref after both removals\n{r.stdout}{r.stderr}",
                 )
+
+    def test_a_commit_only_the_targets_head_reflog_holds_is_kept_on_a_ref(self):
+        """Committed on a detached HEAD, then back on the branch: the target's HEAD reflog alone holds it,
+        and the removal deletes that reflog. Found by review round 1 of this change."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        git("checkout", "-q", "--detach", cwd=work)
+        (work / "b.txt").write_text("left behind on a detached HEAD\n", encoding="utf-8")
+        git("add", "b.txt", cwd=work)
+        git("commit", "-qm", "left behind", cwd=work)
+        sha = git("rev-parse", "HEAD", cwd=work).strip()
+        git("switch", "-q", "work", cwd=work)
+        self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
+
+        r = self.remove(primary, "work")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertFalse(work.exists(), said)
+        held = git("for-each-ref", "--contains", sha, "--format=%(refname)", cwd=primary).split()
+        self.assertTrue(held, f"the removal left commit {sha}, which only the target's HEAD reflog held, on no ref\n" + said)
+        self.assertIn(held[0], said, "the output does not name the ref that keeps it")
 
     def test_control_a_detached_target_whose_commit_a_branch_holds_writes_no_keep_ref(self):
         primary, work, sha = self.detached_target(commit=False)

@@ -457,6 +457,13 @@ function Get-CcxTrunk {
 # together would make the gate govern a directory it was never pointed at.
 $script:CcxCaseInsensitiveFs = $IsWindows -or $IsMacOS
 
+# Does the filesystem treat two Unicode spellings of one name, such as `e` with an acute accent as
+# one character and as `e` followed by U+0301, as the same name? macOS does, so there the folded form
+# is normalised to NFC as well. NTFS and ext4 store them as two names, so they are left alone there:
+# normalising would make two directories compare as one. Added 2026-09-23 with the ordinal
+# Test-CcxPathUnder, whose culture-aware compare had been doing this fold everywhere by accident.
+$script:CcxUnicodeFoldingFs = $IsMacOS
+
 function ConvertTo-CcxComparablePath {
     <#
     .SYNOPSIS
@@ -494,6 +501,7 @@ function ConvertTo-CcxComparablePath {
         return ''
     }
     $norm = ($full -replace '\\', '/').TrimEnd('/')
+    if ($script:CcxUnicodeFoldingFs) { $norm = $norm.Normalize([System.Text.NormalizationForm]::FormC) }
     if ($script:CcxCaseInsensitiveFs) { return $norm.ToLowerInvariant() }
     return $norm
 }
@@ -514,14 +522,30 @@ function Test-CcxPathUnder {
         below the root starts with U+0301 read as NOT inside, and the worktree gate let a Write there
         into its primary through. And `e` with an acute accent as one character compared EQUAL to `e`
         followed by U+0301, which NTFS stores as a different name.
-        tests/test_path_containment_is_ordinal.py holds both. On macOS, whose filesystem treats those
-        two spellings as one name, an ordinal compare calls them two; nothing here runs on macOS.
+        tests/test_path_containment_is_ordinal.py holds both. macOS treats those two spellings as one
+        name, so there ConvertTo-CcxComparablePath folds both to NFC first, and the ordinal compare
+        then sees one path. That test simulates the macOS flag on Windows; no macOS run was made.
     #>
     [CmdletBinding()]
     param([string]$Path, [string]$Root)
     if (-not $Path -or -not $Root) { return $false }
     return ([string]::Equals($Path, $Root, [StringComparison]::Ordinal) -or
         $Path.StartsWith("$Root/", [StringComparison]::Ordinal))
+}
+
+# One argument of a command a script prints for an operator to run, in PowerShell single quotes, which expand nothing.
+# Double quotes expand `$name` and read a backtick as an escape, so a path holding either printed a
+# command that ran somewhere else. Measured 2026-09-23 at 06e8ca3: under a directory named `d$x`, a
+# printed `git -C "<...>/d$x/P" worktree remove "<...>/d$x/P-work/..."` ran in pwsh against
+# `<...>/d/P`, and where a second clone sat there it removed that clone's worktree.
+#
+# PowerShell's own escaper doubles each quote inside. It knows that PowerShell also reads U+2018,
+# U+2019, U+201A and U+201B as single quotes, which doubling only `'` missed: a path holding one broke
+# out of the quotes, so a nested worktree named with one could run a second command. A POSIX shell
+# reads a doubled quote differently, and these scripts are PowerShell. Used by remove.ps1 and
+# prune-merged.ps1.
+function Format-CcxLiteral([string]$Text) {
+    return "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($Text) + "'"
 }
 
 function ConvertTo-CcxSafeName {

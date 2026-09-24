@@ -449,9 +449,9 @@ reflog nor `fsck` can recover them.
 Deleting a worktree and its branch can leave commits in no ref or reflog. The interface then offers
 no evidence that the work existed.
 
-Resolve and print the tip before deleting anything. With `-DeleteBranch`, save it in a keep-ref
-before removing the branch. A detached tip that no ref holds is saved the same way without
-`-DeleteBranch`, and a keep-ref name already in use gets the tip's short SHA added:
+Resolve and print the tip first, and with `-DeleteBranch` keep it on a keep-ref. A detached tip
+on no ref, or a commit only the worktree's HEAD reflog or own refs hold, is kept without it. A name
+in use gets the short SHA added, and no write replaces a ref:
 
 ```text
 List them:    git for-each-ref refs/<prefix>/removed/

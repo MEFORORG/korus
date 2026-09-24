@@ -65,15 +65,6 @@ $ErrorActionPreference = 'Stop'
 # of a safety check, not two.
 . (Join-Path $PSScriptRoot '../coord/occupancy.ps1')
 
-# One argument of a command this script prints, in PowerShell single quotes, which expand nothing.
-# Double quotes expand `$name` and read a backtick as an escape, so a path holding either printed a
-# command that ran somewhere else. Measured 2026-09-23 at 06e8ca3: under a directory named `d$x`, a
-# printed `git -C "<...>/d$x/P" worktree remove "<...>/d$x/P-work/..."` ran in pwsh against
-# `<...>/d/P`, and where a second clone sat there it removed that clone's worktree. PowerShell reads
-# a doubled single quote inside single quotes as one; a POSIX shell does not, and this script is
-# PowerShell.
-function Format-Literal([string]$Text) { return "'" + ($Text -replace "'", "''") + "'" }
-
 $PrimaryRoot = Get-CcxPrimaryRoot
 if (-not $PrimaryRoot) { throw "Not inside a git repository (could not locate the primary checkout)." }
 
@@ -114,7 +105,7 @@ $linked = @(Read-RegisteredWorktrees -Primary $PrimaryRoot -Target $WorktreePath
 if ($linked.Count -eq 0) {
     Write-Host "REFUSED: '$WorktreePath' is not a registered worktree of this repository." -ForegroundColor Red
     Write-Host ("-Name is the directory name new.ps1 was given. List them with:  git -C " +
-        "$(Format-Literal $PrimaryRoot) worktree list") -ForegroundColor Red
+        "$(Format-CcxLiteral $PrimaryRoot) worktree list") -ForegroundColor Red
     throw "Not a registered worktree. Nothing was removed."
 }
 
@@ -154,16 +145,6 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 #
 # It sees only worktrees registered to THIS repository. A checkout of some other repository sitting
 # inside the target is not in this list, and the removal below deletes it.
-
-# Commits reachable from $Commit that no ref holds, as the primary sees the refs, read the way the
-# note below describes. Count is $null where git could not say, with its exit code in Exit. Shared
-# by the nested check and by the target's own keep-ref.
-function Get-UnheldCount([string]$Primary, [string]$Commit) {
-    $n = @(& git -C $Primary rev-list --count $Commit --not --exclude=refs/stash '--glob=refs/*' 2>$null)
-    $code = $LASTEXITCODE
-    if ($code -ne 0 -or "$n" -notmatch '\A\d+\z') { return [pscustomobject]@{ Count = $null; Exit = $code } }
-    return [pscustomobject]@{ Count = [int]"$n"; Exit = 0 }
-}
 
 # WHAT REMOVING ONE NESTED WORKTREE WOULD LOSE, as the reasons its command is withheld. The refusal
 # prints `git worktree remove` for a nested worktree only when this returns nothing.
@@ -220,7 +201,7 @@ function Get-UnheldCount([string]$Primary, [string]$Commit) {
 # Each reason carries what to look with: 'status' for files, 'log' for a detached HEAD's commits,
 # 'reflog' for commits only the reflog holds, 'submodule' for a submodule's own commits, 'repair'
 # for a directory git no longer links to its worktree.
-function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
+function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary, [object]$Holds) {
     $why = @()
     if ($Wt.Detached -and -not $Wt.Head) {
         $why += [pscustomobject]@{ Look = 'status'; Text = "its detached HEAD could not be read, so what it holds is unknown" }
@@ -256,7 +237,7 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     # Get-WorktreeOnlyCommits in occupancy.ps1 reads this worktree's HEAD reflog and its own
     # per-worktree refs, and the note above it says why the holders come from the primary.
     if ($why.Count -eq 0) {
-        $only = Get-WorktreeOnlyCommits -Path $Wt.Path -Primary $Primary
+        $only = Get-WorktreeOnlyCommits -Path $Wt.Path -Primary $Primary -Holds $Holds
         if (-not $only.Ok) {
             $why += [pscustomobject]@{ Look = 'reflog'
                 Text = "git could not read which commits only its HEAD reflog or its own refs hold, so what it holds is unknown" }
@@ -301,19 +282,21 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     # "working trees containing submodules cannot be moved or removed", exit 128. So a printed command
     # fails, and the next try is --force, which deletes each submodule's repository with this
     # worktree's admin directory, and any commit only that repository holds. Measured 2026-09-23 at
-    # 06e8ca3 on git 2.55.0.windows.5, with a clean submodule. git's first test is read as git reads
-    # it: the admin directory holds `modules`. A submodule checked out with its own `.git` instead is
-    # found through .gitmodules. One that is not checked out is an empty directory, and git removes it.
+    # 06e8ca3 on git 2.55.0.windows.5, with a clean submodule. Both of git's tests are read as git
+    # reads them: the admin directory holds `modules`, or a gitlink in the index has its own `.git`
+    # in the worktree. The second finds one that .gitmodules does not name. One that is not checked
+    # out is an empty directory, and git removes it. A path git had to quote counts, which errs toward
+    # keeping.
     $modules = @(& git -C $Wt.Path rev-parse --path-format=absolute --git-path modules 2>$null)
     $subs = @()
     if ($LASTEXITCODE -eq 0 -and "$modules" -and (Test-Path -LiteralPath "$modules")) {
         $subs = @(Get-ChildItem -LiteralPath "$modules" -Force -ErrorAction SilentlyContinue | ForEach-Object Name)
         if ($subs.Count -eq 0) { $subs = @('modules') }
     }
-    $declared = @(& git -C $Wt.Path config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>$null)
-    foreach ($d in $declared) {
-        $rel = ($d -split ' ', 2)[-1]
-        if ($rel -and (Test-Path -LiteralPath (Join-Path (Join-Path $Wt.Path $rel) '.git'))) { $subs += $rel }
+    $links = @(& git -C $Wt.Path -c core.quotePath=true ls-files --stage 2>$null | Where-Object { $_ -like '160000 *' })
+    foreach ($l in $links) {
+        $rel = ($l -split "`t", 2)[-1]
+        if ($rel.StartsWith('"') -or (Test-Path -LiteralPath (Join-Path (Join-Path $Wt.Path $rel) '.git'))) { $subs += $rel }
     }
     $subs = @($subs | Select-Object -Unique)
     if ($subs.Count -gt 0) {
@@ -342,9 +325,11 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
     # does not refuse, it deletes, so Get-RemovalLoss counts that too. Nor for a parent whose ignored
     # child holds work, because removing the parent takes the child. Children come first in this
     # order, so their verdicts are known by the parent's turn.
+    # Every ref's reflog, read once for this check. Nothing is removed while it runs.
+    $holds = Get-RefReflogHolds -Primary $Primary
     $rows = @()
     foreach ($n in $nested) {
-        $why = @(Get-RemovalLoss -Wt $n -Registered $registered -Primary $Primary)
+        $why = @(Get-RemovalLoss -Wt $n -Registered $registered -Primary $Primary -Holds $holds)
         if ($why.Count -eq 0) {
             $heldBelow = @($rows | Where-Object { $_.Why.Count -gt 0 } | ForEach-Object { $_.Wt })
             $inside = @(Get-NestedWorktrees -Occupancy ([pscustomobject]@{ Worktrees = $heldBelow }) -Path $n.Path)
@@ -384,36 +369,36 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
             # status.showUntrackedFiles is no. Both flags override that. `normal` rather than the
             # check's `all`, so a cache directory reads as one line and not twenty thousand.
             if ($looks -contains 'status') {
-                Write-Host "    git -C $(Format-Literal $p) status --untracked-files=normal --ignored" -ForegroundColor Red
+                Write-Host "    git -C $(Format-CcxLiteral $p) status --untracked-files=normal --ignored" -ForegroundColor Red
             }
             if ($looks -contains 'log') {
-                Write-Host ("    git -C $(Format-Literal $Primary) log --oneline $($row.Wt.Head) --not " +
+                Write-Host ("    git -C $(Format-CcxLiteral $Primary) log --oneline $($row.Wt.Head) --not " +
                     "--exclude=refs/stash --glob='refs/*'") -ForegroundColor Red
             }
             if ($looks -contains 'reflog') {
-                Write-Host "    git -C $(Format-Literal $p) reflog" -ForegroundColor Red
-                Write-Host "    git -C $(Format-Literal $p) for-each-ref refs/worktree/ refs/bisect/ refs/rewritten/" -ForegroundColor Red
+                Write-Host "    git -C $(Format-CcxLiteral $p) reflog" -ForegroundColor Red
+                Write-Host "    git -C $(Format-CcxLiteral $p) for-each-ref refs/worktree/ refs/bisect/ refs/rewritten/" -ForegroundColor Red
             }
             # The commits in each submodule that no remote-tracking branch holds: the ones a forced
             # removal would take with the submodule's repository.
             if ($looks -contains 'submodule') {
-                Write-Host ("    git -C $(Format-Literal $p) submodule foreach --recursive git log --oneline HEAD " +
+                Write-Host ("    git -C $(Format-CcxLiteral $p) submodule foreach --recursive git log --oneline HEAD " +
                     "--branches --not --remotes") -ForegroundColor Red
             }
             if ($looks -contains 'repair') {
-                Write-Host "    Get-ChildItem -Force -LiteralPath $(Format-Literal $p)" -ForegroundColor Red
+                Write-Host "    Get-ChildItem -Force -LiteralPath $(Format-CcxLiteral $p)" -ForegroundColor Red
                 Write-Host ("    Then restore its link, which deletes nothing, and re-run this command so it can " +
                     "read what the directory holds:") -ForegroundColor Red
-                Write-Host "    git -C $(Format-Literal $Primary) worktree repair" -ForegroundColor Red
+                Write-Host "    git -C $(Format-CcxLiteral $Primary) worktree repair" -ForegroundColor Red
             }
             continue
         }
         # A locked worktree refuses `remove` until it is unlocked. The lock is its owner saying "in
         # use", so the unlock is printed as a step to take deliberately, never folded into a --force.
         if ($row.Wt.Locked) {
-            Write-Host "  git -C $(Format-Literal $Primary) worktree unlock $(Format-Literal $p)" -ForegroundColor Red
+            Write-Host "  git -C $(Format-CcxLiteral $Primary) worktree unlock $(Format-CcxLiteral $p)" -ForegroundColor Red
         }
-        Write-Host "  git -C $(Format-Literal $Primary) worktree remove $(Format-Literal $p)" -ForegroundColor Red
+        Write-Host "  git -C $(Format-CcxLiteral $Primary) worktree remove $(Format-CcxLiteral $p)" -ForegroundColor Red
     }
     if (@($rows | Where-Object { $_.Why.Count -gt 0 }).Count -gt 0) {
         Write-Host ("Keep, move or discard that work yourself once you have looked at it.") -ForegroundColor Red
@@ -487,6 +472,31 @@ $branchToDelete = if ($branch -and $branch -ne 'HEAD') { $branch } else { $null 
 # keep-ref write below; it does not close it, since nothing here takes a lock.
 Assert-NoNestedWorktree -Target $WorktreePath -Primary $PrimaryRoot
 
+# A keep-ref holds a commit the removal would otherwise leave on no ref. It survives gc, and it can be
+# recovered by name instead of by a SHA someone has to have scrolled back to find.
+#
+# List them:    git for-each-ref refs/<prefix>/removed/
+# Recover one:  git branch <name> refs/<prefix>/removed/<name>
+# Drop one:     git update-ref -d refs/<prefix>/removed/<name>
+#
+# NEVER OVERWRITE ONE. A second worktree removed under the same -Name wrote over the first one's
+# keep-ref, and where that ref was the only hold on the first tip, the tip went with it. Measured
+# 2026-09-23 at 06e8ca3 with -DeleteBranch on two detached lives of `work`. So every write is
+# create-only, `update-ref <ref> <new> ''`, which git refuses where the ref exists: two runs racing
+# for one name cannot overwrite each other. A name another commit holds gets the commit's short SHA
+# added. Returns the ref that holds $Commit, or $null.
+function Write-KeepRef([string]$Base, [string]$Commit) {
+    foreach ($ref in @($Base, "$Base-$($Commit.Substring(0, 12))")) {
+        & git -C $PrimaryRoot update-ref $ref $Commit '' 2>$null
+        if ($LASTEXITCODE -eq 0) { return $ref }
+        $held = Invoke-CcxGit -Repo $PrimaryRoot -Arguments @('rev-parse', '--verify', '--quiet', "$ref^{commit}")
+        if ($held -eq $Commit) { return $ref }
+    }
+    return $null
+}
+
+# With -DeleteBranch the branch's tip is kept, BEFORE the branch is deleted.
+#
 # A DETACHED TIP ON NO REF IS KEPT TOO, -DeleteBranch or not. The removal below deletes the last thing
 # pointing at those commits, and a SHA on the screen is not a ref. Measured 2026-09-23 at 06e8ca3:
 # `remove.ps1 -Name work` on a detached worktree holding one new commit exited 0, and
@@ -497,33 +507,35 @@ if ($tip -and -not $branchToDelete -and -not $DeleteBranch) {
     $unheld = Get-UnheldCount -Primary $PrimaryRoot -Commit $tip
     $keepTip = ($null -eq $unheld.Count -or $unheld.Count -gt 0)
 }
-
+$keepBase = "refs/$($cfg.prefix)/removed/$Name"
 if ($keepTip -and $tip) {
-    # A keep-ref, written BEFORE the branch is deleted. It keeps the commits reachable, so they survive
-    # gc and can be recovered by name instead of by a SHA someone has to have scrolled back to find.
-    #
-    # List them:    git for-each-ref refs/<prefix>/removed/
-    # Recover one:  git branch <name> refs/<prefix>/removed/<name>
-    # Drop one:     git update-ref -d refs/<prefix>/removed/<name>
-    #
-    # NEVER OVERWRITE ONE. A second worktree removed under the same -Name wrote over the first one's
-    # keep-ref, and where that ref was the only hold on the first tip, the tip went with it. Measured
-    # 2026-09-23 at 06e8ca3 with -DeleteBranch on two detached lives of `work`. A name another commit
-    # already holds gets this tip's short SHA added.
-    $keepRef = "refs/$($cfg.prefix)/removed/$Name"
-    $taken = Invoke-CcxGit -Repo $PrimaryRoot -Arguments @('rev-parse', '--verify', '--quiet', "$keepRef^{commit}")
-    if ($taken -and $taken -ne $tip) { $keepRef = "$keepRef-$($tip.Substring(0, 12))" }
-    & git -C $PrimaryRoot update-ref $keepRef $tip
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Could not write the keep-ref '$keepRef'. Note the tip yourself before continuing: $tip"
+    $keepRef = Write-KeepRef -Base $keepBase -Commit $tip
+    if (-not $keepRef) {
+        Write-Warning "Could not write a keep-ref under '$keepBase'. Note the tip yourself before continuing: $tip"
     } else {
         # Recover under the branch's REAL name where we know it. The keep-ref itself stays named after
         # $Name (it is the stable, always-ref-safe label, and the listing commands above are written
         # against it), but a recovery hint that renames a namespaced branch back to its directory
         # component hands you a differently-named branch and does not say so.
         $recoverAs = if ($branchToDelete) { $branchToDelete } else { $Name }
-        Write-Host "Kept the tip as '$keepRef' (recover with: git branch $(Format-Literal $recoverAs) $keepRef)." -ForegroundColor DarkGray
+        Write-Host "Kept the tip as '$keepRef' (recover with: git branch $(Format-CcxLiteral $recoverAs) $keepRef)." -ForegroundColor DarkGray
     }
+}
+
+# SO ARE THE COMMITS ONLY THIS WORKTREE HOLDS, which the removal deletes with its HEAD reflog and its
+# own per-worktree refs: a commit left on a detached HEAD before a switch back to the branch, or one
+# only refs/worktree/* holds. The nested check withholds its command for these, and the reaper skips
+# the worktree; here the operator asked for this one to go, so each is kept on a ref instead. Only
+# the tips need a ref, since a tip holds its ancestors. Read with the shared Get-WorktreeOnlyCommits.
+$only = Get-WorktreeOnlyCommits -Path $WorktreePath -Primary $PrimaryRoot
+if (-not $only.Ok) {
+    Write-Warning ("Could not read which commits only this worktree's HEAD reflog or its own refs hold. " +
+        "Removing it deletes those, so look first:  git -C $(Format-CcxLiteral $WorktreePath) reflog")
+}
+foreach ($t in @($only.Tips | Where-Object { $_ -ne $tip -or -not $keepTip })) {
+    $ref = Write-KeepRef -Base $keepBase -Commit $t
+    if ($ref) { Write-Host "Kept $t, which only this worktree held, as '$ref'." -ForegroundColor DarkGray }
+    else { Write-Warning "Could not write a keep-ref under '$keepBase' for $t, which only this worktree held." }
 }
 
 # --force is needed regardless: the untracked per-checkout environment makes git consider the worktree
@@ -572,8 +584,8 @@ if ($DeleteBranch) {
             Write-Warning ("  If that reason is 'not fully merged', the branch holds commits no other " +
                 "ref has, and the refusal is the signal -- not an obstacle to get past.")
             if ($tip) { Write-Warning "  its tip: $tip" }
-            Write-Warning ("  If you are certain it is disposable:  git -C $(Format-Literal $PrimaryRoot) branch -D " +
-                "$(Format-Literal $branchToDelete)")
+            Write-Warning ("  If you are certain it is disposable:  git -C $(Format-CcxLiteral $PrimaryRoot) branch -D " +
+                "$(Format-CcxLiteral $branchToDelete)")
         }
         else {
             foreach ($line in @($refusal)) { Write-Host $line }

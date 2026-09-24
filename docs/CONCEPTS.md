@@ -549,8 +549,12 @@ and therefore ungoverned; throwing would also allow the call, without explanatio
 
 ### A prefix test is not a containment test
 
-`Test-CcxPathUnder` requires `$Path -eq $Root -or $Path.StartsWith("$Root/")`. That slash prevents
-sibling `<primary>-<task>` paths from falsely matching primary containment.
+`Test-CcxPathUnder` requires an ordinal match, or an ordinal `StartsWith("$Root/")`. That slash
+prevents sibling `<primary>-<task>` paths from falsely matching primary containment.
+
+The compare is ordinal because both sides are already folded. Until 2026-09-23 it was culture-aware,
+and a path starting with a combining mark below the primary read as outside it. On macOS the fold
+also normalises Unicode to NFC, because that filesystem treats both spellings as one name.
 
 When prefix matching is required, explicitly choose the longest prefix.
 
