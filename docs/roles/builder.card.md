@@ -50,7 +50,7 @@ A tick wakes the session. Do not reply, acknowledge, or issue a status line beca
 
 1. Read `roles/COMMON.md`, then `roles/BUILDER.md`.
 2. Query the fleet wiki for the subject of your brief:
-   `pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "<words>"`. A miss never blocks.
+   Run korus `query.ps1` with the stores `roles/WIKI.md` names. A miss never blocks.
 3. Work in your own worktree. Two sessions in one tree clobber each other.
 4. Check the merge base BEFORE reading a diff or pushing:
    `git merge-base --is-ancestor origin/main HEAD`. Exit 0 means you contain the trunk tip.
