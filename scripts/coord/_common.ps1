@@ -507,11 +507,21 @@ function Test-CcxPathUnder {
         directory: a sibling worktree named `<primary>-<task>` has a path that literally starts with
         the primary's, so a raw prefix test claims every sibling is inside the primary. Requiring the
         separator makes it a directory-boundary test.
+
+        ORDINAL, as occupancy.ps1's containment tests have been since #158. Both sides are already
+        folded, so nothing is left for a culture to decide. Until 2026-09-23 this used `-eq` and a
+        culture-aware StartsWith. Measured at 06e8ca3, pwsh 7.6.6 under en-US: a path whose part
+        below the root starts with U+0301 read as NOT inside, and the worktree gate let a Write there
+        into its primary through. And `e` with an acute accent as one character compared EQUAL to `e`
+        followed by U+0301, which NTFS stores as a different name.
+        tests/test_path_containment_is_ordinal.py holds both. On macOS, whose filesystem treats those
+        two spellings as one name, an ordinal compare calls them two; nothing here runs on macOS.
     #>
     [CmdletBinding()]
     param([string]$Path, [string]$Root)
     if (-not $Path -or -not $Root) { return $false }
-    return ($Path -eq $Root -or $Path.StartsWith("$Root/"))
+    return ([string]::Equals($Path, $Root, [StringComparison]::Ordinal) -or
+        $Path.StartsWith("$Root/", [StringComparison]::Ordinal))
 }
 
 function ConvertTo-CcxSafeName {
