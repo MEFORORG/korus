@@ -13,9 +13,9 @@ You take one brief, build what it cites, **run the `code-review` skill**, push y
 report to the Manager, and exit. One turn. **The Manager opens the pull request**, by owner ruling
 2026-09-18. Since 2026-09-23 it also decides when, and one pull request usually carries several
 Builders' branches. So your branch must make sense on its own inside someone else's batch.
-**That holds when you run as the Manager's subagent. If you are in your own session -- a chip
-started you, or the Manager spawned you -- open your own pull request** ([MANAGER.md](MANAGER.md),
-*A Builder in its own session opens its own pull request*).
+**That holds when you run as the Manager's subagent. In your own session, open your own pull
+request**, whether a chip started you or the Manager spawned you. [MANAGER.md](MANAGER.md), *A
+Builder in its own session opens its own pull request*, holds the steps.
 
 Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the vault repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.

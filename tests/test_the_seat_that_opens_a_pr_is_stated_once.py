@@ -97,6 +97,14 @@ RETIREMENT_MARKER = re.compile(
 )
 
 
+#: A line scoped to a Builder in its OWN SESSION. Owner ruling 2026-09-23: the Manager opens the
+#: pull request only for a Builder that is its subagent. A Builder a chip started, or the Manager
+#: spawned, opens its own, so a line naming that scope is the live rule, not the retired one. The
+#: scope must be on the same line, as the retirement marker must: an unscoped line still reads as
+#: the old rule.
+OWN_SESSION_SCOPE = re.compile(r"own session|spawned you|a chip started", re.IGNORECASE)
+
+
 def unmarked_builder_lines(text: str, relpath: str = "") -> list[str]:
     """Lines telling a Builder to open its own pull request, with no retirement marker.
 
@@ -110,7 +118,7 @@ def unmarked_builder_lines(text: str, relpath: str = "") -> list[str]:
             continue
         if not (subject_is_builder or BUILDER.search(line) or UNIVERSAL.search(line)):
             continue
-        if RETIREMENT_MARKER.search(line):
+        if RETIREMENT_MARKER.search(line) or OWN_SESSION_SCOPE.search(line):
             continue
         out.append(line.strip())
     return out
@@ -177,6 +185,20 @@ class TheDetectorFires(unittest.TestCase):
         )
         self.assertEqual([], unmarked_builder_lines(kept))
 
+    def test_a_builder_in_its_own_session_is_not_caught(self):
+        """The 2026-09-23 scope. Paired with the next test, so it cannot silence everything."""
+        scoped = "### A Builder in its own session opens its own pull request"
+        spawned = (
+            "In your own session, whether a chip started you or the Manager spawned you, open "
+            "your own pull request."
+        )
+        self.assertEqual([], unmarked_builder_lines(scoped))
+        self.assertEqual([], unmarked_builder_lines(spawned, "roles/BUILDER.md"))
+
+    def test_the_scope_does_not_excuse_an_unscoped_builder_line(self):
+        unscoped = "A Builder working to a Manager's brief opens its own pull request."
+        self.assertEqual([unscoped], unmarked_builder_lines(unscoped))
+
     def test_another_seat_is_not_caught(self):
         """Only the Builder was narrowed. A Regulator opening its own is still correct."""
         other = "The Regulator pushes and opens its own pull request, unasked."
@@ -193,8 +215,9 @@ class TheRuleIsStatedOnce(unittest.TestCase):
         self.assertEqual(
             {},
             offenders,
-            "The Manager opens the pull request (owner ruling 2026-09-18). These lines instruct a "
-            "Builder to open its own, with no retirement marker on the line. Either mark the line "
+            "The Manager opens the pull request for its subagent Builders (owner rulings "
+            "2026-09-18 and 2026-09-23). These lines instruct a Builder to open its own, with no "
+            "retirement marker and no own-session scope on the line. Either mark the line "
             "as retired text or repoint it: " + repr(offenders),
         )
 

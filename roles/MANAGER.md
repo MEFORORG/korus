@@ -252,29 +252,29 @@ re-cut it.
 ### A Builder in its own session opens its own pull request
 
 **Owner ruling 2026-09-23.** The batch rule above covers a Builder running as your SUBAGENT, and
-nothing else. A Builder in its own session -- one a chip started, or one you spawned so its work
-would outlive you -- is not covered, even though you wrote its brief. Its final report reaches
+nothing else. A Builder in its own session is not covered, even though you wrote its brief. That
+means one a chip started, or one you spawned so its work would outlive you. Its final report reaches
 nobody, and it may finish after you are gone.
 
 That Builder:
 
 1. Pushes its branch.
-2. Opens one pull request for its item. It does for that pull request what steps 9 and 10 have you
-   do for a batch: its report and head SHA in the body, its QA line as a comment, the `qa` label if
-   it has a QA line, and the handover to the Lander.
+2. Opens one pull request for its item, and does for it what steps 9 and 10 have you do for a batch.
+   That is its report and head SHA in the body, its QA line as a comment, and the `qa` label. Then
+   it hands the pull request to the Lander.
 
 When you raise a chip or spawn a Builder session, write into its prompt that it opens its own pull
 request. **Batch only branches your own subagents reported to you.** Never batch a branch you found
-on the remote: a Builder in its own session may be between its push and its pull request, and
+on the remote. A Builder in its own session may be between its push and its pull request, and
 `gh pr list --head` returns nothing in that gap.
 
-**Why a Builder in its own session does not hand the pull request to you.** A draft of this rule
-did: it handed over when a `send_message` result said "delivered", and opened its own pull request
+**Why a Builder in its own session does not hand the pull request to you.** A draft of this rule did:
+it handed over when a `send_message` result said "delivered", and opened its own pull request
 otherwise. Adversarial review found two failures in it, and it never shipped. A **queued** message
-is still delivered later, so the Builder would open its own pull request and you would then batch
-the same branch. And **delivered** proves only that your turn started. A Manager that crashed, or
-was closed before the next cut, would leave a branch with no pull request. `stalled-prs.yml` scans
-pull requests, not branches, so nothing would report it. An extra pull request costs two runs of the
+is still delivered later, so the item would get a second pull request when you batched the same
+branch. And **delivered** proves only that your turn started. A Manager that crashed, or was closed
+before the next cut, would leave a branch with no pull request. `stalled-prs.yml` scans pull
+requests, not branches, so nothing would report it. An extra pull request costs two runs of the
 required suite, and spawning is rare by design, so that cost is small.
 
 ---
