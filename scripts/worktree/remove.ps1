@@ -199,7 +199,7 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 # live session, so everything above withholds the command here.
 #
 # Each reason carries what to look with: 'status' for files, 'log' for a detached HEAD's commits,
-# 'reflog' for commits only the reflog holds.
+# 'reflog' for commits only the reflog holds, 'submodule' for a submodule's own commits.
 function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
     $why = @()
     if ($Wt.Detached -and -not $Wt.Head) {
@@ -273,6 +273,32 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
         $why += [pscustomobject]@{ Look = 'status'
             Text = "it holds $($counts -join ' and ') (among them: $($some -join ', '))" }
     }
+
+    # A SUBMODULE. git refuses to remove a worktree holding a checked-out submodule, clean or not:
+    # "working trees containing submodules cannot be moved or removed", exit 128. So a printed command
+    # fails, and the next try is --force, which deletes each submodule's repository with this
+    # worktree's admin directory, and any commit only that repository holds. Measured 2026-09-23 at
+    # 06e8ca3 on git 2.55.0.windows.5, with a clean submodule. git's first test is read as git reads
+    # it: the admin directory holds `modules`. A submodule checked out with its own `.git` instead is
+    # found through .gitmodules. One that is not checked out is an empty directory, and git removes it.
+    $modules = @(& git -C $Wt.Path rev-parse --path-format=absolute --git-path modules 2>$null)
+    $subs = @()
+    if ($LASTEXITCODE -eq 0 -and "$modules" -and (Test-Path -LiteralPath "$modules")) {
+        $subs = @(Get-ChildItem -LiteralPath "$modules" -Force -ErrorAction SilentlyContinue | ForEach-Object Name)
+        if ($subs.Count -eq 0) { $subs = @('modules') }
+    }
+    $declared = @(& git -C $Wt.Path config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>$null)
+    foreach ($d in $declared) {
+        $rel = ($d -split ' ', 2)[-1]
+        if ($rel -and (Test-Path -LiteralPath (Join-Path (Join-Path $Wt.Path $rel) '.git'))) { $subs += $rel }
+    }
+    $subs = @($subs | Select-Object -Unique)
+    if ($subs.Count -gt 0) {
+        $why += [pscustomobject]@{ Look = 'submodule'
+            Text = ("it holds $($subs.Count) checked-out submodule(s) (among them: $(@($subs | Select-Object -First 3) -join ', ')). " +
+                "git will not remove a worktree holding one, and forcing it deletes each submodule's repository, " +
+                "with any commit only that repository holds") }
+    }
     return $why
 }
 
@@ -342,6 +368,12 @@ function Assert-NoNestedWorktree([string]$Target, [string]$Primary) {
                     "--exclude=refs/stash --glob='refs/*'") -ForegroundColor Red
             }
             if ($looks -contains 'reflog') { Write-Host "    git -C $(Format-Literal $p) reflog" -ForegroundColor Red }
+            # The commits in each submodule that no remote-tracking branch holds: the ones a forced
+            # removal would take with the submodule's repository.
+            if ($looks -contains 'submodule') {
+                Write-Host ("    git -C $(Format-Literal $p) submodule foreach --recursive git log --oneline HEAD " +
+                    "--branches --not --remotes") -ForegroundColor Red
+            }
             continue
         }
         # A locked worktree refuses `remove` until it is unlocked. The lock is its owner saying "in

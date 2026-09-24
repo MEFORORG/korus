@@ -653,6 +653,56 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertEqual(0, again.returncode, "the re-run the refusal asks for failed\n" + again.stdout + again.stderr)
         self.assertFalse(work.exists())
 
+    # --- where plain `git worktree remove` exits 128 whatever the worktree holds -------------------
+
+    def with_a_submodule(self, check_out: bool) -> tuple[Path, Path, Path]:
+        """P with a submodule `sub`, then P-work, then P-work/.claude/worktrees/h, clean."""
+        src = self.base / "subsrc"
+        src.mkdir()
+        git("init", "-q", "-b", "main", cwd=src)
+        (src / "s.txt").write_text("the submodule's file\n", encoding="utf-8")
+        git("add", "-A", cwd=src)
+        git("commit", "-qm", "sub init", cwd=src)
+        primary = self.primary()
+        # A local path is a `file` transport, which git refuses for a submodule by default.
+        git("-c", "protocol.file.allow=always", "submodule", "add", "-q", str(src), "sub", cwd=primary)
+        git("commit", "-qm", "add sub", cwd=primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        h = self.worktree(work, work / ".claude" / "worktrees" / "h", "h")
+        if check_out:
+            git("-c", "protocol.file.allow=always", "submodule", "update", "--init", "-q", cwd=h)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: it reads clean")
+        return primary, work, h
+
+    def test_a_nested_worktree_holding_a_submodule_gets_no_command(self):
+        """git refuses to remove a worktree holding a submodule, clean or not, and forcing it deletes
+        the submodule's repository. Red at 06e8ca3: a command was printed, and it exited 128."""
+        primary, work, h = self.with_a_submodule(check_out=True)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue((h / "sub" / "s.txt").is_file(), ran)
+        self.assertEqual(
+            [], self.printed_for(said, h),
+            "a command is printed that git refuses for a worktree holding a submodule, and the next "
+            f"try is --force\n{ran}\n{said}",
+        )
+        self.assertTrue(any(" submodule " in p for p in self.pointer_for(said, h)), "no pointer into the submodule\n" + said)
+
+    def test_control_a_nested_worktree_whose_submodule_is_not_checked_out_gets_its_command(self):
+        """An uninitialised submodule is an empty directory, and git removes the worktree."""
+        primary, work, h = self.with_a_submodule(check_out=False)
+
+        r = self.remove(primary, "work")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        self.assertEqual(1, len(self.printed_for(said, h)), "an empty submodule directory withheld the command\n" + said)
+
+        ran = self.run_printed(r)
+        self.assertFalse(h.exists(), f"the printed command did not remove it\n{ran}")
+
     # --- the target's own guard ---------------------------------------------------------------------
 
     def test_a_target_whose_status_fails_is_refused_without_force(self):
