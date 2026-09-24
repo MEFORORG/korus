@@ -12,7 +12,7 @@ when `$env:CLAUDECODE` is `1`. Installation stays outside the session the contro
 ## 1. Get the tooling
 
 ```powershell
-git clone https://github.com/wshallwshall/korus.git
+git clone https://github.com/MEFORORG/korus.git
 ```
 
 Choose a commit you have reviewed and check it out before installing. `main` changes as other

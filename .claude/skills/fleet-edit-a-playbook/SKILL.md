@@ -15,6 +15,9 @@ disable-model-invocation: false
 **Owner ruling 2026-09-17: `roles/` in `wshallwshall/korus` is the folder of record.** Read
 `roles/<SEAT>.md` from there. Say in your output which copy you read.
 
+That repository is `MEFORORG/korus` now. Read 2026-09-24: `gh repo view --json nameWithOwner` in a
+korus checkout returns it, and `wshallwshall/korus` redirects there. The ruling named the same repository.
+
     git -C <korus> show origin/main:roles/<SEAT>.md
 
 **RETIRED 2026-09-17: this section named the VAULT's `roles/` folder.** It cited an owner ruling
