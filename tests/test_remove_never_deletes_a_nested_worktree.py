@@ -151,15 +151,21 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                 out[current] = True
         return out
 
-    def remove(self, primary: Path, name: str, *flags: str) -> subprocess.CompletedProcess:
+    def remove(self, primary: Path, name: str, *flags: str, decode_as: str = "") -> subprocess.CompletedProcess:
+        """Run remove.ps1. `decode_as` names the encoding pwsh reads git's output in, where a case
+        depends on it: otherwise it is whatever console the test runner has, which differs by host."""
         env = dict(os.environ)
         # The developer's own settings must not reach the fixture.
         for leak in ("CCX_CONFIG", "CCX_TRUNK"):
             env.pop(leak, None)
+        argv = [self.pwsh, "-NoProfile", "-File", str(t.WORKTREE_REMOVE), "-Name", name, *flags]
+        if decode_as:
+            argv = [self.pwsh, "-NoProfile", "-Command",
+                    f"[Console]::OutputEncoding = [Text.Encoding]::{decode_as}; "
+                    f"& '{t.WORKTREE_REMOVE}' -Name {name} {' '.join(flags)}; exit $LASTEXITCODE"]
         # cwd is the primary: remove.ps1 refuses to remove the checkout it is standing in.
         return subprocess.run(
-            [self.pwsh, "-NoProfile", "-File", str(t.WORKTREE_REMOVE), "-Name", name, *flags],
-            capture_output=True, text=True, env=env, cwd=str(primary), timeout=TIMEOUT_SECONDS,
+            argv, capture_output=True, text=True, env=env, cwd=str(primary), timeout=TIMEOUT_SECONDS,
         )
 
     def exclude(self, primary: Path, pattern: str) -> None:
@@ -586,6 +592,34 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertNotEqual(0, r.returncode, said)
         self.assertTrue(
             (h / "a.txt").is_file() and "override" in (h / "a.txt").read_text(encoding="utf-8"),
+            f"following the printed commands deleted an edit a skip-worktree flag hid\n{ran}\n{said}",
+        )
+        self.assertEqual([], self.printed_for(said, h), said)
+
+    def test_a_skip_worktree_edit_to_a_non_ascii_name_gets_no_command_under_quote_path_false(self):
+        """`core.quotePath=false` makes git print the name raw, and pwsh decodes it in the console's
+        code page. Where that is not UTF-8 the name came out wrong, the file read as absent, and the
+        flag did not count. Measured 2026-09-23 at 06e8ca3: red under code page 437, green under
+        65001. So this case pins the decoding to Latin-1 rather than trust the runner's console."""
+        primary = self.primary()
+        name = "\u00e9.txt"
+        (primary / name).write_text("tracked\n", encoding="utf-8")
+        git("add", "-A", cwd=primary)
+        git("commit", "-qm", "a non-ASCII name", cwd=primary)
+        work = self.worktree(primary, self.base / "P-work", "work")
+        h = self.worktree(work, work / ".claude" / "worktrees" / "h", "h")
+        git("update-index", "--skip-worktree", name, cwd=h)
+        (h / name).write_text("a local override\n", encoding="utf-8")
+        git("config", "core.quotePath", "false", cwd=primary)
+        self.assertEqual("", git("status", "--porcelain", cwd=h).strip(), "precondition: git status hides it")
+
+        r = self.remove(primary, "work", decode_as="Latin1")
+        said = (r.stdout + r.stderr).replace("\\", "/").lower()
+        ran = self.run_printed(r)
+
+        self.assertNotEqual(0, r.returncode, said)
+        self.assertTrue(
+            (h / name).is_file() and "override" in (h / name).read_text(encoding="utf-8"),
             f"following the printed commands deleted an edit a skip-worktree flag hid\n{ran}\n{said}",
         )
         self.assertEqual([], self.printed_for(said, h), said)

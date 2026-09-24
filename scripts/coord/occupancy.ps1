@@ -388,7 +388,12 @@ function Read-WorktreeStatus {
     $lines = @(& git @gitArgs 2>$null)
     $out.Exit = $LASTEXITCODE
     if ($out.Exit -ne 0) { return $out }
-    $flags = @(& git -C $Path ls-files -v 2>$null)
+    # core.quotePath=true, whatever the repository sets. With `false` git prints a non-ASCII name raw,
+    # and pwsh on Windows decodes it in the console code page, so the name is wrong and Test-Path
+    # below calls the file absent. Measured 2026-09-23 at 06e8ca3: a skip-worktree edit to `<e-acute>.txt`
+    # read as clean, and running remove.ps1's printed command deleted it. Quoted, the name keeps its
+    # leading `"` and always counts.
+    $flags = @(& git -C $Path -c core.quotePath=true ls-files -v 2>$null)
     $out.Exit = $LASTEXITCODE
     if ($out.Exit -ne 0) { return $out }
 
