@@ -216,7 +216,9 @@ The Owner opens `wiki/pages/` in Obsidian or any Markdown viewer and follows lin
   ruling with its date. An event with no evidence is refused.
 - **FR-006**: The write script MUST run the existing leak scan over the event before writing it,
   and refuse on any hit.
-- **FR-007**: A write MUST complete without a network call and without a git operation.
+- **FR-007**: A write MUST complete without a network call and without any git operation that
+  writes. Resolving the default state root MAY read git metadata (`git rev-parse`). With
+  `-StateRoot` given, a write MUST make no git call at all.
 
 **Retiring**
 

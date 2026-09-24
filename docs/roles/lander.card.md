@@ -58,6 +58,9 @@ A Manager hands you a PR with five fields: PR number, head SHA, unread legs, kno
 landing-order constraint. From that message the PR is yours -- the repair, the order, the merge, the
 ledger banner, and the claim release.
 
+A PR may carry a whole wave (2026-09-23): close and release every item. Repair it as any PR, but
+dropping an item is a re-cut, and re-cuts are the Manager's.
+
 Poll anyway. Nothing pushes a PR to you, and a handover that was never sent strands nothing. Use
 one queue slot at a time. Each queued entry builds on the one before it.
 

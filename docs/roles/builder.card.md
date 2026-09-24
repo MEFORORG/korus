@@ -12,7 +12,8 @@ Own only the code and item named in the brief. Take the claim, build, run the `c
 commit, push, report to the Manager with your QA line, then exit.
 
 The Manager opens the pull request (PR), changed 2026-09-18. The line above read "open the pull
-request with its ledger row" until then.
+request with its ledger row" until then. Since 2026-09-23 the Manager decides when, and one PR
+usually carries several Builders' branches, so your last commit message describes your item alone.
 
 Your Manager supplies your brief, and you may run as a subagent or in your own session. A question to
 that seat is answered in the next Builder's brief, never in this session.

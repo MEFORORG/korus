@@ -291,6 +291,7 @@ restates them; the routing does not.
 | --- | --- |
 | Who pushes -- SURVIVES | **Every seat pushes its own branch, without asking.** Owner ruling 2026-08-29, anchored at `refs/liaison/owner-ruling-20260829-push`. It covered the push, never the pull request. |
 | Who OPENS -- NARROWED 2026-09-18 | That row read *"and opens its own PR"*. It still holds for every seat except a **Builder working to a Manager's brief**: that Builder pushes and reports, and **the Manager opens the pull request**. |
+| Who decides WHEN -- ADDED 2026-09-23 | **The Manager.** Owner ruling. It cuts one pull request per wave by default. [MANAGER.md](MANAGER.md), *When to cut a pull request*. You own the pull request from the handover on, and you do not choose what goes in one. |
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
 | Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **Nothing reads a diff before the merge, and you do not wait for one.** |
@@ -316,6 +317,9 @@ restates them; the routing does not.
 | Duty | Rule |
 | --- | --- |
 | **Own a handed-over PR from the handover on** | Added 2026-09-18. A Manager opens the pull request and hands it to you with five fields. From that message the repair, the order, the merge, the ledger and the claim are yours. |
+| **A handed PR may carry a whole wave** | Added 2026-09-23. Close every item it names in the ledger and release every item's claim, in one act. |
+| Repairing a batch | Repair a red, or resolve a conflict, under the same rules as any other PR. |
+| Dropping an item from a batch | That is a re-cut, and re-cuts are the Manager's step 9. Dequeue it and send it back, or spawn a Manager if its author is gone. |
 | Drive the merge queue | Keep armed PRs moving to `main`, one at a time, without idling. |
 | Keep the loop running | Nothing wakes this seat. A standing `/loop` is what makes "without idling" true. See *Keep a standing `/loop` running*. |
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
@@ -986,7 +990,7 @@ has happened: 13 PRs merged in one drain while the open count still grew from 3 
 
 | Fact | Consequence |
 | --- | --- |
-| `ci.yml` triggers on `pull_request` and `push: branches: [main]` only | A feature-branch push runs NOTHING. Unopened branches are free to hold. |
+| `ci.yml` triggers on `pull_request` and `push: branches: [main]` only | A feature-branch push runs NOTHING of `ci.yml`. Only `branch-leak-scan.yml` fires, and it is small. Unopened branches are nearly free to hold. **CORRECTED 2026-09-23**: this read *"runs NOTHING"*, which ignored that scan. |
 | A docs-only PR skips the test legs in about 1 min | But the required `CI gate` needs the `tooling` job (`repo harness tests`), which `ci.yml`'s PR arm gates on `docs/` on purpose. A BACKLOG rewrite must face the ledger tests. |
 | So a ledger PR costs a FULL slot | Measured 2026-08-22: `tooling` ran on 16 of 16 ledger-only PRs. Gating span 16.3 min median against 16.1 for code. Batch them; do not let them flow. |
 | Code-touching PR costs a full cycle | This is the only scarce resource. |
@@ -997,6 +1001,8 @@ has happened: 13 PRs merged in one drain while the open count still grew from 3 
 | Observed cost | In one drain, code PRs sat open for 427, 563 and 640 minutes. Not because CI is slow, but because each was repeatedly knocked behind and re-run. |
 | Re-measure any cost model | The old docs-only figures (2, 2, 2 and 13 minutes) were measured against an older required set and no longer hold. Re-measure with `max(completedAt) - min(startedAt)` over the REQUIRED contexts only. |
 | Do this | Batch independent code changes into one PR. Keep at most ONE code PR in flight and hold the rest as pushed branches. Serialise only genuine ordering constraints. |
+| Whose decisions that row governs | Yours, in the queue. Since 2026-09-23 it does not govern a Manager's opening: a Manager does not count open PRs before it opens one. |
+| Who batches -- ADDED 2026-09-23 | **The Manager, at step 9.** Owner ruling. Before it, this table said to batch and named no seat to do it, while MANAGER.md said to keep independent changes apart. [MANAGER.md](MANAGER.md), *When to cut a pull request*, now holds the rule. |
 | Do NOT tell Builders "small and independent is the right shape" | That is correct for avoiding CONFLICTS and exactly wrong for a queue rate-limited by PR COUNT. The two pieces of advice look identical at the branch level and diverge only at the PR level. |
 | Batching trap 1 | `git cherry-pick` does not run pre-commit, so batched commits pass no local gate on creation. Run the ledger and backlog checks by hand, plus the affected tests. |
 | Batching trap 2 | A source branch cut before a recent merge conflicts wholesale on a shared file, and accepting its side silently reverts what landed. Take MAIN's side and re-apply only the branch's own edits. |
@@ -1065,6 +1071,10 @@ record of what shipped. Three arming preconditions follow, all measured 2026-08-
 
 Source of record: `docs/LEDGER-GATE.md`. A pre-commit gate enforces this section.
 
+**The ledger lives in the vault since 2026-09-13 (BACKLOG #1250).** Run every ledger command in this
+section in a vault checkout. The engine's `docs/BACKLOG.md` is a stub, and no engine pull request
+edits it. Allocate backlog numbers in the vault; the engine refuses `-Kind backlog`.
+
 | Item | Rule |
 | --- | --- |
 | Never grep for the next number | Two sessions that grep pick the *same* number, create differently-named files, merge clean, and silently corrupt the ledger. It has fired more than once. |
@@ -1123,6 +1133,9 @@ single-writer: two sessions editing its tail merge clean while corrupting the le
 | The aggravating detail | The lander had merged #1229 themselves five hours earlier and had written it into their own episode note. |
 | Why the verification made it worse | Confirming the mechanism consumed the attention that would have asked whether the item existed, while producing the feeling of having checked. |
 | An unfiled number | A permanent HOLE, and holes are free, per `ledger_check.py`'s own header. So release the claim, leave the `alloc/` record, never reuse the number, and never file something else under it. |
+
+**On the engine repo this deadlock is gone.** Its copy of the check below has been a no-op since
+2026-09-13. The rest of this passage holds on the vault.
 
 **Closing banners on a worker's PR is the half that deadlocks.** The required check *"a PR that
 implements BACKLOG #N must update BACKLOG.md"* reads the **PR title and body** for the literal token
