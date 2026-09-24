@@ -160,7 +160,7 @@ has merged.
 ### PR 6 - Optional readers (Story 6, P3)
 
 1. Test that every link on every page resolves.
-2. Write a short note in `roles/WIKI.md` on opening `wiki/pages/` in Obsidian.
+2. Write a short note in `roles/WIKI.md` on opening the vault's `wiki/` folder in Obsidian.
 3. Write a note on adding `qmd` or `okf` as an optional search, with the rule that `query.ps1`
    stays the default and the guard still applies.
 
