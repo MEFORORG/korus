@@ -21,6 +21,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | A tick is a wakeup, not a message | Do not answer it. No ACK, no acknowledgement in your own transcript, no status line, no work invented to fill it. Continue; do not report. |
 | Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and since 2026-09-12 no review step sits in front of it. |
 | Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
+| Since 2026-09-23 the exception is a Manager's SUBAGENT only | A Builder in its own session opens its own, whether a chip started it or the Manager spawned it. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN to cut it | **The Manager**, since 2026-09-23, usually one per wave. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
 | Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the two named exceptions. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |

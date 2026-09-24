@@ -13,6 +13,9 @@ You take one brief, build what it cites, **run the `code-review` skill**, push y
 report to the Manager, and exit. One turn. **The Manager opens the pull request**, by owner ruling
 2026-09-18. Since 2026-09-23 it also decides when, and one pull request usually carries several
 Builders' branches. So your branch must make sense on its own inside someone else's batch.
+**That holds when you run as the Manager's subagent. In your own session, open your own pull
+request**, whether a chip started you or the Manager spawned you. [MANAGER.md](MANAGER.md), *A
+Builder in its own session opens its own pull request*, holds the steps.
 
 Your brief is drawn from two ledgers: `docs/BACKLOG.md` in the vault repo, and the issues in
 `wshallwshall/claude-multisession` that track the method itself.
@@ -490,8 +493,9 @@ check is the only reason the seat that hit this caught its own.**
     finding, and the traps.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
-    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **You do not
-    open the pull request. The Manager does**, and there is no next item.
+    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
+    subagent you do not open the pull request. The Manager does**, and there is no next item. In
+    your own session, open it yourself (see the top of this file).
 
 | On | Note |
 | --- | --- |
