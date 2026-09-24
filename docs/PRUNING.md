@@ -43,6 +43,10 @@ A detached worktree whose commits no ref holds gets a keep-ref without `-DeleteB
 does a commit only its HEAD reflog or its own refs hold. Until 2026-09-23 removing it left those on
 no ref. A name in use gets the tip's short SHA added, and no write replaces an existing ref.
 
+Where such a keep-ref cannot be written, `remove.ps1` refuses and removes nothing, even with
+`-Force`. It prints a `git branch` step that keeps each commit. `-Name .foo` is one such case: a
+ref name component cannot start with a dot.
+
 `-Name` selects the worktree directory; `-DeleteBranch` reads the checked-out branch from
 `HEAD`. Detached `HEAD` produces a warning and no branch deletion; check the
 printed branch and tip.

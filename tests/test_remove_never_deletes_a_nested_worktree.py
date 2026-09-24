@@ -64,7 +64,8 @@ passes every remedy case:
     reflog keeps the original, so a reflog read that does not subtract it fails here.
   * Added 2026-09-23 with the korus issue #165 cases: a nested worktree whose submodule is not
     checked out gets its command, and so does one whose commit the primary's own
-    `refs/worktree/keep` also holds. A detached target whose tip `main` holds gets no keep-ref.
+    `refs/worktree/keep` also holds. A detached target whose tip `main` holds gets no keep-ref. A
+    target named `.foo`, which no keep-ref name can hold, is still removed where no keep-ref is due.
 
 WHAT THIS DOES NOT PROVE. It sees only worktrees registered to the fixture repository. A checkout of
 another repository inside the target is not in `git worktree list`, and the script still deletes it.
@@ -956,6 +957,72 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         held = git("for-each-ref", "--contains", sha, "--format=%(refname)", cwd=primary).split()
         self.assertTrue(held, f"the removal left commit {sha}, which only the target's HEAD reflog held, on no ref\n" + said)
         self.assertIn(held[0], said, "the output does not name the ref that keeps it")
+
+    def dot_named_target(self, holds: str) -> tuple[Path, Path, str]:
+        """P, then P-.foo. `holds` picks what only the worktree holds: a detached commit, a commit only
+        its HEAD reflog holds, or nothing. A ref component cannot start with a dot, so every keep-ref
+        name under `refs/ccx/removed/.foo` is invalid and every write fails."""
+        primary = self.primary()
+        work = self.base / "P-.foo"
+        if holds == "detached":
+            git("worktree", "add", "-q", "--detach", str(work), "HEAD", cwd=primary)
+        else:
+            self.worktree(primary, work, "foo")
+        if holds in ("detached", "reflog"):
+            if holds == "reflog":
+                git("checkout", "-q", "--detach", cwd=work)
+            (work / "b.txt").write_text(f"only this worktree holds this, {holds}\n", encoding="utf-8")
+            git("add", "b.txt", cwd=work)
+            git("commit", "-qm", "only here", cwd=work)
+        sha = git("rev-parse", "HEAD", cwd=work).strip()
+        if holds == "reflog":
+            git("switch", "-q", "foo", cwd=work)
+        return primary, work, sha
+
+    def test_a_keep_ref_that_cannot_be_written_refuses_the_removal(self):
+        """Rebrief fix 2. At 5a2167e both subtests exit 0 with the commit on no ref: the failed write
+        only warned. Now the script refuses, and the branch step it prints lets the re-run through."""
+        for holds in ("detached", "reflog"):
+            with self.subTest(holds=holds):
+                self.base = Path(self.tmp.name).resolve() / holds
+                self.base.mkdir()
+                primary, work, sha = self.dot_named_target(holds)
+                self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
+
+                r = self.remove(primary, ".foo")
+                said = r.stdout + r.stderr
+
+                self.assertTrue(work.is_dir(), f"the worktree was removed although commit {sha} could not be kept\n{said}")
+                self.assertIn(fold(work), self.registered(primary), said)
+                self.assertNotEqual(0, r.returncode, said)
+                self.assertIn("REFUSED", said)
+
+                steps = [line.strip() for line in said.splitlines()
+                         if line.strip().startswith("git -C ") and " branch removed-" in line]
+                self.assertEqual(1, len(steps), "no branch step to keep the commit\n" + said)
+                ran = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", steps[0]],
+                                     capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+                self.assertEqual(0, ran.returncode, ran.stderr)
+                again = self.remove(primary, ".foo")
+                self.assertEqual(0, again.returncode, "the re-run after the printed step failed\n" + again.stdout + again.stderr)
+                self.assertFalse(work.exists())
+                self.assertTrue(git("for-each-ref", "--contains", sha, cwd=primary).strip(), "the commit ended on no ref")
+
+    def test_control_a_dot_named_target_whose_commits_a_branch_holds_is_removed(self):
+        """No commit needs a keep-ref, so the failed name does not stop it. With -DeleteBranch the
+        branch tip's keep-ref is best effort, since `git branch -d` refuses an unmerged branch."""
+        for flags in ((), ("-DeleteBranch",)):
+            with self.subTest(flags=" ".join(flags) or "none"):
+                self.base = Path(self.tmp.name).resolve() / ("delete" if flags else "plain")
+                self.base.mkdir()
+                primary, work, _ = self.dot_named_target("nothing")
+
+                r = self.remove(primary, ".foo", *flags)
+
+                self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+                self.assertFalse(work.exists(), r.stdout + r.stderr)
+                branches = git("branch", "--format=%(refname:short)", cwd=primary).split()
+                self.assertEqual(not flags, "foo" in branches, branches)
 
     def test_control_a_detached_target_whose_commit_a_branch_holds_writes_no_keep_ref(self):
         primary, work, sha = self.detached_target(commit=False)

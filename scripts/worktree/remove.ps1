@@ -34,7 +34,8 @@
     first, printed, and (when -DeleteBranch is used) written to a keep-ref before the branch goes. The
     keep-ref costs nothing and is the difference between "recoverable" and "gone at the next gc". A
     detached tip that no ref holds gets one without -DeleteBranch too, and a keep-ref already taken
-    by another commit is never overwritten.
+    by another commit is never overwritten. Where such a keep-ref cannot be written, nothing is
+    removed, and -Force does not change that.
 
 .EXAMPLE
     ./remove.ps1 -Name alerts
@@ -495,23 +496,67 @@ function Write-KeepRef([string]$Base, [string]$Commit) {
     return $null
 }
 
-# With -DeleteBranch the branch's tip is kept, BEFORE the branch is deleted.
+# THE COMMITS A KEEP-REF MUST HOLD, because nothing else will once this worktree is gone.
 #
-# A DETACHED TIP ON NO REF IS KEPT TOO, -DeleteBranch or not. The removal below deletes the last thing
-# pointing at those commits, and a SHA on the screen is not a ref. Measured 2026-09-23 at 06e8ca3:
-# `remove.ps1 -Name work` on a detached worktree holding one new commit exited 0, and
-# `git fsck --unreachable --no-reflogs` then listed that commit. Where git cannot say what holds the
-# tip, it is kept as well. A tip a branch or tag already holds gets no keep-ref.
-$keepTip = [bool]$DeleteBranch
-if ($tip -and -not $branchToDelete -and -not $DeleteBranch) {
-    $unheld = Get-UnheldCount -Primary $PrimaryRoot -Commit $tip
-    $keepTip = ($null -eq $unheld.Count -or $unheld.Count -gt 0)
-}
+# A DETACHED TIP ON NO REF. The removal below deletes the last thing pointing at those commits, and a
+# SHA on the screen is not a ref. Measured 2026-09-23 at 06e8ca3: `remove.ps1 -Name work` on a
+# detached worktree holding one new commit exited 0, and `git fsck --unreachable --no-reflogs` then
+# listed that commit. Where git cannot say what holds the tip, it counts as held by nothing.
+#
+# THE COMMITS ONLY THIS WORKTREE HOLDS, which the removal deletes with its HEAD reflog and its own
+# per-worktree refs: a commit left on a detached HEAD before a switch back to the branch, or one only
+# refs/worktree/* holds. The nested check withholds its command for these, and the reaper skips the
+# worktree; here the operator asked for this one to go, so each is kept on a ref instead. Only the
+# tips need a ref, since a tip holds its ancestors. Read with the shared Get-WorktreeOnlyCommits.
+#
+# IF ANY OF THESE CANNOT BE KEPT, NOTHING IS REMOVED, and -Force does not change that: -Force
+# discards uncommitted tracked changes, never commits. Until 2026-09-23 a failed write only warned,
+# and the removal went ahead. Measured at 5a2167e: `-Name .foo` makes both keep-ref names invalid,
+# since a ref component cannot start with a dot, and the script exited 0 with the commit on no ref.
+# The same holds where git cannot read what only this worktree holds. `git log -g HEAD` exits 0 on a
+# worktree with no HEAD reflog, so that refusal fires only on a real git failure.
 $keepBase = "refs/$($cfg.prefix)/removed/$Name"
-if ($keepTip -and $tip) {
+$mustKeep = [System.Collections.Generic.List[string]]::new()
+if ($tip -and -not $branchToDelete) {
+    $unheld = Get-UnheldCount -Primary $PrimaryRoot -Commit $tip
+    if ($null -eq $unheld.Count -or $unheld.Count -gt 0) { $mustKeep.Add($tip) }
+}
+$only = Get-WorktreeOnlyCommits -Path $WorktreePath -Primary $PrimaryRoot
+if (-not $only.Ok) {
+    Write-Host ("REFUSED: git could not read which commits only '$WorktreePath' holds, in its HEAD reflog or " +
+        "its own refs. Removing it deletes those. Look with:") -ForegroundColor Red
+    Write-Host "  git -C $(Format-CcxLiteral $WorktreePath) reflog" -ForegroundColor Red
+    throw "Could not read which commits only this worktree holds. Nothing was removed."
+}
+foreach ($t in @($only.Tips)) { if (-not $mustKeep.Contains($t)) { $mustKeep.Add($t) } }
+
+$unkept = @()
+foreach ($c in $mustKeep) {
+    $ref = Write-KeepRef -Base $keepBase -Commit $c
+    if (-not $ref) { $unkept += $c; continue }
+    if ($c -eq $tip) {
+        Write-Host "Kept the tip as '$ref' (recover with: git branch $(Format-CcxLiteral $Name) $ref)." -ForegroundColor DarkGray
+    }
+    else { Write-Host "Kept $c, which only this worktree held, as '$ref'." -ForegroundColor DarkGray }
+}
+if ($unkept.Count -gt 0) {
+    Write-Host ("REFUSED: no keep-ref under '$keepBase' could be written for $($unkept.Count) commit(s) that " +
+        "nothing else holds once '$WorktreePath' is gone, so it was not removed:") -ForegroundColor Red
+    foreach ($c in $unkept) { Write-Host "  $c" -ForegroundColor Red }
+    Write-Host "Keep each one on a branch of your own, which deletes nothing, then re-run this command:" -ForegroundColor Red
+    foreach ($c in $unkept) {
+        Write-Host "  git -C $(Format-CcxLiteral $PrimaryRoot) branch removed-$($c.Substring(0, 12)) $c" -ForegroundColor Red
+    }
+    throw "Could not keep $($unkept.Count) commit(s) only this worktree holds. Nothing was removed."
+}
+
+# With -DeleteBranch the branch's tip is kept too, BEFORE the branch is deleted. Best effort: the
+# branch delete below is `git branch -d`, which refuses a branch whose commits are not merged.
+if ($DeleteBranch -and $tip -and -not $mustKeep.Contains($tip)) {
     $keepRef = Write-KeepRef -Base $keepBase -Commit $tip
     if (-not $keepRef) {
-        Write-Warning "Could not write a keep-ref under '$keepBase'. Note the tip yourself before continuing: $tip"
+        Write-Warning ("Could not write a keep-ref under '$keepBase' for the tip $tip. `git branch -d` below " +
+            "still refuses to delete a branch that is not merged.")
     } else {
         # Recover under the branch's REAL name where we know it. The keep-ref itself stays named after
         # $Name (it is the stable, always-ref-safe label, and the listing commands above are written
@@ -520,22 +565,6 @@ if ($keepTip -and $tip) {
         $recoverAs = if ($branchToDelete) { $branchToDelete } else { $Name }
         Write-Host "Kept the tip as '$keepRef' (recover with: git branch $(Format-CcxLiteral $recoverAs) $keepRef)." -ForegroundColor DarkGray
     }
-}
-
-# SO ARE THE COMMITS ONLY THIS WORKTREE HOLDS, which the removal deletes with its HEAD reflog and its
-# own per-worktree refs: a commit left on a detached HEAD before a switch back to the branch, or one
-# only refs/worktree/* holds. The nested check withholds its command for these, and the reaper skips
-# the worktree; here the operator asked for this one to go, so each is kept on a ref instead. Only
-# the tips need a ref, since a tip holds its ancestors. Read with the shared Get-WorktreeOnlyCommits.
-$only = Get-WorktreeOnlyCommits -Path $WorktreePath -Primary $PrimaryRoot
-if (-not $only.Ok) {
-    Write-Warning ("Could not read which commits only this worktree's HEAD reflog or its own refs hold. " +
-        "Removing it deletes those, so look first:  git -C $(Format-CcxLiteral $WorktreePath) reflog")
-}
-foreach ($t in @($only.Tips | Where-Object { $_ -ne $tip -or -not $keepTip })) {
-    $ref = Write-KeepRef -Base $keepBase -Commit $t
-    if ($ref) { Write-Host "Kept $t, which only this worktree held, as '$ref'." -ForegroundColor DarkGray }
-    else { Write-Warning "Could not write a keep-ref under '$keepBase' for $t, which only this worktree held." }
 }
 
 # --force is needed regardless: the untracked per-checkout environment makes git consider the worktree
