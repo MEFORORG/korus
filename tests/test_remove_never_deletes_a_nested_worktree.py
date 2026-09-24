@@ -801,6 +801,53 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         self.assertEqual(0, r.returncode, said)
         self.assertIn("git status failed", said, "-Force skipped a failed status without a word")
 
+    def detached_target(self, commit: bool = True) -> tuple[Path, Path, str]:
+        primary = self.primary() if not (self.base / "P").exists() else self.base / "P"
+        work = self.base / "P-work"
+        git("worktree", "add", "-q", "--detach", str(work), "HEAD", cwd=primary)
+        if commit:
+            (work / "b.txt").write_text(f"committed on a detached HEAD in {work}\n", encoding="utf-8")
+            git("add", "b.txt", cwd=work)
+            git("commit", "-qm", "detached work", cwd=work)
+        return primary, work, git("rev-parse", "HEAD", cwd=work).strip()
+
+    def test_the_targets_detached_commits_are_kept_on_a_ref(self):
+        """Red at 06e8ca3: without -DeleteBranch nothing held them, and fsck listed them unreachable."""
+        primary, work, sha = self.detached_target()
+
+        r = self.remove(primary, "work")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertFalse(work.exists(), said)
+        held = git("for-each-ref", "--contains", sha, "--format=%(refname)", cwd=primary).split()
+        self.assertTrue(held, "the removal left the target's detached commit on no ref\n" + said)
+        self.assertIn(held[0], said, "the output does not name the ref that keeps it")
+
+    def test_a_keep_ref_already_taken_is_not_overwritten(self):
+        """Two lives of `work`, each with a detached commit only it holds. Red at 06e8ca3 with
+        -DeleteBranch: the second keep-ref write replaced the first, and nothing held the first."""
+        primary, _, first = self.detached_target()
+        self.assertEqual(0, self.remove(primary, "work", "-DeleteBranch").returncode)
+        _, _, second = self.detached_target()
+        r = self.remove(primary, "work", "-DeleteBranch")
+
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        for sha in (first, second):
+            with self.subTest(sha=sha[:12]):
+                self.assertTrue(
+                    git("for-each-ref", "--contains", sha, cwd=primary).strip(),
+                    f"commit {sha} is on no ref after both removals\n{r.stdout}{r.stderr}",
+                )
+
+    def test_control_a_detached_target_whose_commit_a_branch_holds_writes_no_keep_ref(self):
+        primary, work, sha = self.detached_target(commit=False)
+
+        r = self.remove(primary, "work")
+
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
+        self.assertEqual("", git("for-each-ref", "refs/ccx/removed/", cwd=primary).strip(), "a keep-ref for a commit main holds")
+
     # --- a name that is not a registered worktree ---------------------------------------------------
 
     def test_dot_and_dot_dot_are_refused_before_the_nested_check(self):

@@ -31,7 +31,9 @@
     with it, and a commit that is in no ref is also in no reflog -- there is then no `git reflog` entry
     to recover it from and nothing in the interface admits the work existed. So the tip is resolved
     first, printed, and (when -DeleteBranch is used) written to a keep-ref before the branch goes. The
-    keep-ref costs nothing and is the difference between "recoverable" and "gone at the next gc".
+    keep-ref costs nothing and is the difference between "recoverable" and "gone at the next gc". A
+    detached tip that no ref holds gets one without -DeleteBranch too, and a keep-ref already taken
+    by another commit is never overwritten.
 
 .EXAMPLE
     ./remove.ps1 -Name alerts
@@ -152,6 +154,16 @@ if (Test-CcxPathUnder -Path $here -Root $there) {
 # It sees only worktrees registered to THIS repository. A checkout of some other repository sitting
 # inside the target is not in this list, and the removal below deletes it.
 
+# Commits reachable from $Commit that no ref holds, as the primary sees the refs, read the way the
+# note below describes. Count is $null where git could not say, with its exit code in Exit. Shared
+# by the nested check and by the target's own keep-ref.
+function Get-UnheldCount([string]$Primary, [string]$Commit) {
+    $n = @(& git -C $Primary rev-list --count $Commit --not --exclude=refs/stash '--glob=refs/*' 2>$null)
+    $code = $LASTEXITCODE
+    if ($code -ne 0 -or "$n" -notmatch '\A\d+\z') { return [pscustomobject]@{ Count = $null; Exit = $code } }
+    return [pscustomobject]@{ Count = [int]"$n"; Exit = 0 }
+}
+
 # WHAT REMOVING ONE NESTED WORKTREE WOULD LOSE, as the reasons its command is withheld. The refusal
 # prints `git worktree remove` for a nested worktree only when this returns nothing.
 #
@@ -207,15 +219,14 @@ function Get-RemovalLoss([object]$Wt, [object[]]$Registered, [string]$Primary) {
         $why += [pscustomobject]@{ Look = 'status'; Text = "its detached HEAD could not be read, so what it holds is unknown" }
     }
     elseif ($Wt.Detached) {
-        $lost = @(& git -C $Primary rev-list --count $Wt.Head --not --exclude=refs/stash '--glob=refs/*' 2>$null)
-        $code = $LASTEXITCODE
-        if ($code -ne 0 -or "$lost" -notmatch '\A\d+\z') {
+        $lost = Get-UnheldCount -Primary $Primary -Commit $Wt.Head
+        if ($null -eq $lost.Count) {
             $why += [pscustomobject]@{ Look = 'log'
-                Text = "git could not tell which refs hold its detached HEAD $($Wt.Head) (exit $code), so what it holds is unknown" }
+                Text = "git could not tell which refs hold its detached HEAD $($Wt.Head) (exit $($lost.Exit)), so what it holds is unknown" }
         }
-        elseif ([int]"$lost" -gt 0) {
+        elseif ($lost.Count -gt 0) {
             $why += [pscustomobject]@{ Look = 'log'
-                Text = "its detached HEAD $($Wt.Head) has $lost commit(s) that no branch, tag or other ref holds" }
+                Text = "its detached HEAD $($Wt.Head) has $($lost.Count) commit(s) that no branch, tag or other ref holds" }
         }
     }
     # A missing directory has no files to lose. Its HEAD, read above, lives in the admin directory.
@@ -478,14 +489,32 @@ $branchToDelete = if ($branch -and $branch -ne 'HEAD') { $branch } else { $null 
 # keep-ref write below; it does not close it, since nothing here takes a lock.
 Assert-NoNestedWorktree -Target $WorktreePath -Primary $PrimaryRoot
 
-if ($DeleteBranch -and $tip) {
+# A DETACHED TIP ON NO REF IS KEPT TOO, -DeleteBranch or not. The removal below deletes the last thing
+# pointing at those commits, and a SHA on the screen is not a ref. Measured 2026-09-23 at 06e8ca3:
+# `remove.ps1 -Name work` on a detached worktree holding one new commit exited 0, and
+# `git fsck --unreachable --no-reflogs` then listed that commit. Where git cannot say what holds the
+# tip, it is kept as well. A tip a branch or tag already holds gets no keep-ref.
+$keepTip = [bool]$DeleteBranch
+if ($tip -and -not $branchToDelete -and -not $DeleteBranch) {
+    $unheld = Get-UnheldCount -Primary $PrimaryRoot -Commit $tip
+    $keepTip = ($null -eq $unheld.Count -or $unheld.Count -gt 0)
+}
+
+if ($keepTip -and $tip) {
     # A keep-ref, written BEFORE the branch is deleted. It keeps the commits reachable, so they survive
     # gc and can be recovered by name instead of by a SHA someone has to have scrolled back to find.
     #
     # List them:    git for-each-ref refs/<prefix>/removed/
     # Recover one:  git branch <name> refs/<prefix>/removed/<name>
     # Drop one:     git update-ref -d refs/<prefix>/removed/<name>
+    #
+    # NEVER OVERWRITE ONE. A second worktree removed under the same -Name wrote over the first one's
+    # keep-ref, and where that ref was the only hold on the first tip, the tip went with it. Measured
+    # 2026-09-23 at 06e8ca3 with -DeleteBranch on two detached lives of `work`. A name another commit
+    # already holds gets this tip's short SHA added.
     $keepRef = "refs/$($cfg.prefix)/removed/$Name"
+    $taken = Invoke-CcxGit -Repo $PrimaryRoot -Arguments @('rev-parse', '--verify', '--quiet', "$keepRef^{commit}")
+    if ($taken -and $taken -ne $tip) { $keepRef = "$keepRef-$($tip.Substring(0, 12))" }
     & git -C $PrimaryRoot update-ref $keepRef $tip
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Could not write the keep-ref '$keepRef'. Note the tip yourself before continuing: $tip"

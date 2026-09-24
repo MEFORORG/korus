@@ -450,7 +450,8 @@ Deleting a worktree and its branch can leave commits in no ref or reflog. The in
 no evidence that the work existed.
 
 Resolve and print the tip before deleting anything. With `-DeleteBranch`, save it in a keep-ref
-before removing the branch:
+before removing the branch. A detached tip that no ref holds is saved the same way without
+`-DeleteBranch`, and a keep-ref name already in use gets the tip's short SHA added:
 
 ```text
 List them:    git for-each-ref refs/<prefix>/removed/
