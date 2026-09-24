@@ -20,6 +20,17 @@ folds to NFC where `$CcxUnicodeFoldingFs` is set, which is macOS. One case sets 
 platform and checks the fold; no macOS run was made. The same case checks the flag off keeps the
 two apart.
 
+A LONE SURROGATE MUST NOT BREAK THE FOLD. `String.Normalize` throws on one, and GetFullPath accepts
+it. Measured 2026-09-23 at 5a2167e with the flag forced on: under ErrorActionPreference Stop the
+function threw, against its own rule that it returns rather than throws; under SilentlyContinue the
+statement was skipped. The fold now turns each unpaired surrogate into U+FFFD and keeps the path
+comparable. It never returns '' there, because the gate reads '' as "not governed" and allows.
+
+The gate case runs a scratch copy of the hook scripts whose `_common.ps1` has the flag line
+rewritten to `$true`, so the macOS branch runs on this platform. It passed at 5a2167e too: the gate
+runs under SilentlyContinue, and pwsh's ConvertFrom-Json had already turned the payload's `\\ud800`
+into U+FFFD. It is kept as a guard that the gate still denies.
+
 Run: python -m pytest tests -q     (or: python -m unittest discover -s tests -v)
 """
 
@@ -27,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -91,6 +103,24 @@ class PathContainmentIsOrdinal(unittest.TestCase):
         self.assertFalse(self.folded_under(path, root, unicode_folding=False),
                          "with the fold off, two names NTFS stores apart read as one")
 
+    def test_a_lone_surrogate_under_the_macos_fold_still_reads_as_inside_its_root(self):
+        """Built inside PowerShell: a lone surrogate does not survive an environment variable or JSON."""
+        for eap in ("Stop", "SilentlyContinue"):
+            with self.subTest(error_action=eap):
+                script = (
+                    f"$ErrorActionPreference = '{eap}'; . '{COMMON}'; $CcxUnicodeFoldingFs = $true; "
+                    f"$root = ConvertTo-CcxComparablePath '{ROOT}/p'; "
+                    f"$path = ConvertTo-CcxComparablePath ('{ROOT}/p/' + [char]0xD800 + 'x'); "
+                    "[Console]::Out.Write([string]([bool]$path -and (Test-CcxPathUnder -Path $path -Root $root)))"
+                )
+                r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                                   capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+                self.assertEqual(
+                    "True", r.stdout.strip(),
+                    f"a path under the root holding a lone surrogate did not fold to a path inside it"
+                    f"\n{r.stdout}\n{r.stderr[:600]}",
+                )
+
     def test_control_an_ascii_path_inside_reads_inside_and_a_prefix_sibling_reads_outside(self):
         self.assertTrue(self.under("c:/x/p/abc", "c:/x/p"))
         self.assertTrue(self.under("c:/x/p", "c:/x/p"))
@@ -132,6 +162,26 @@ class TheGateSeesAWriteBelowACombiningMark(unittest.TestCase):
 
     def test_control_an_ascii_write_in_the_primary_is_denied(self):
         self.assertTrue(self.denied(self.primary / "notes.txt"), "the fixture does not govern its primary")
+
+
+class TheGateStillDeniesUnderTheMacosFold(TheGateSeesAWriteBelowACombiningMark):
+    """The gate, run from a scratch copy whose `_common.ps1` forces `$CcxUnicodeFoldingFs` on."""
+
+    FLAG = "$script:CcxUnicodeFoldingFs = $IsMacOS"
+
+    def setUp(self):
+        super().setUp()
+        copy = Path(self.tmp.name).resolve() / "copy" / "scripts"
+        shutil.copytree(t.REPO_ROOT / "scripts" / "hooks", copy / "hooks")
+        (copy / "coord").mkdir(parents=True)
+        common = COMMON.read_text(encoding="utf-8")
+        self.assertEqual(1, common.count(self.FLAG), "the flag line moved, so this copy would not force the fold")
+        (copy / "coord" / "_common.ps1").write_text(common.replace(self.FLAG, "$script:CcxUnicodeFoldingFs = $true"),
+                                                    encoding="utf-8")
+        self.GATE = copy / "hooks" / "worktree_gate.ps1"
+
+    def test_a_write_named_with_a_lone_surrogate_in_the_primary_is_denied(self):
+        self.assertTrue(self.denied(self.primary / "\ud800notes.txt"), "the gate let the Write into its primary")
 
 
 if __name__ == "__main__":

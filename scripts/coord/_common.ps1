@@ -501,7 +501,20 @@ function ConvertTo-CcxComparablePath {
         return ''
     }
     $norm = ($full -replace '\\', '/').TrimEnd('/')
-    if ($script:CcxUnicodeFoldingFs) { $norm = $norm.Normalize([System.Text.NormalizationForm]::FormC) }
+    if ($script:CcxUnicodeFoldingFs) {
+        # Normalize throws on an unpaired surrogate, which GetFullPath accepts. Under a caller's
+        # ErrorActionPreference of Stop that threw, against this function's own rule; under
+        # SilentlyContinue the statement was skipped. Measured 2026-09-23 at 5a2167e with the flag
+        # forced on. So each unpaired surrogate becomes U+FFFD first, which pwsh's ConvertFrom-Json
+        # does to one anyway.
+        #
+        # NEVER '' HERE. The worktree gate reads '' as "not governed" and allows, and the occupancy
+        # fence reads it as "in no worktree" and vetoes nothing, so '' would fail open for both. A
+        # comparable path fails closed: it still reads as inside the primary. If normalising still
+        # fails, the un-normalised path is kept, which is what every other platform compares.
+        $norm = $norm -replace '[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]', [string][char]0xFFFD
+        try { $norm = $norm.Normalize([System.Text.NormalizationForm]::FormC) } catch { }
+    }
     if ($script:CcxCaseInsensitiveFs) { return $norm.ToLowerInvariant() }
     return $norm
 }
