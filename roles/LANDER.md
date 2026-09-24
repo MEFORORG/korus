@@ -539,6 +539,10 @@ The reading, with its control: `mergeQueue(branch:"main")` returns `null` on `ws
 and `MQ_kwDOS5JJRs4AA9_8` on `MEFORORG/MessageFoundry`, both 2026-09-06. Both repository nodes
 returned an `id`, so the null is an absence rather than a lookup failure.
 
+**Read again 2026-09-24, after korus moved to `MEFORORG/korus`.** The same query returns `null`
+there and the same queue id on the engine, so the reading holds. The paragraph above keeps the slug
+it was read at.
+
 korus required contexts are `gates (ubuntu-latest)` and `gates (windows-latest)`, `strict` true,
 `required_linear_history` false.
 

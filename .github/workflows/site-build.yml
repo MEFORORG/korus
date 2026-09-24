@@ -409,6 +409,8 @@ jobs:
     #   build    success    and the Cloudflare deploy step inside it: success
     #   forward  failure    "Failed to create deployment (status: 404) ... Ensure GitHub Pages has
     #                        been enabled: https://github.com/wshallwshall/korus/settings/pages"
+    # That quoted URL keeps the old owner. The repository is MEFORORG/korus since the move, read
+    # 2026-09-24, and the old slug redirects there.
     #
     # So the site published correctly and the run went red on a job whose premise is absent here.
     # The condition is written rather than the job deleted, for the reason the update-branch rule
