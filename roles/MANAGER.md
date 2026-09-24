@@ -248,6 +248,38 @@ routes a repair as it would for any other pull request. Removing an item is a re
 this step. Ask the Lander to dequeue it, close the pull request, and cut a new one from a fresh batch
 branch. **Never force-push the batch branch.** If you are gone, the Lander may spawn a Manager to
 re-cut it.
+
+### A session started from your chip opens its own pull request unless it reaches you live
+
+**Owner ruling 2026-09-23.** A chip you raise with `spawn_task` starts a separate session, not a
+subagent. Its final report never reaches you. It may start hours later, after you are gone. So it
+fits neither rule above: it has your brief, but it has no channel back to you.
+
+When you raise the chip, put two things in its prompt: your own `local_` session id, and your
+worktree path. Tell it to follow the four steps below.
+
+The session started from the chip:
+
+1. Pushes its branch.
+2. Sends its branch name and head SHA to your `local_` id, with `SendMessage` or the session
+   `send_message` tool.
+3. If the result says **delivered**, you own the pull request. It reports and stops.
+4. On any other result -- **queued**, an error, or no id in its prompt -- it opens its own pull
+   request for that one item. The body says it could not reach the Manager, and names the id it
+   tried.
+
+**Why only "delivered" hands the item to you.** The tool's own result text for **queued** reads
+*"a turn is in progress there, or its host or process is away"*. It cannot tell a busy Manager from
+a dead one. A branch handed to a dead Manager sits on the remote with no pull request, and nothing
+reports it. An extra pull request costs two runs of the required suite. A stranded branch costs the
+work. So the rule fails toward the pull request.
+
+When the message reaches you, treat it as a Builder's report. Check the branch with
+`git ls-remote --heads origin`, and put it in the next batch.
+
+**A chip raised by any other seat has no batch to join.** A session started from a Lander's,
+Builder's or Special's chip opens its own pull request, like every seat except a Builder under a
+Manager's brief.
 ---
 
 ## 1. This seat replaced the Console on 2026-09-10
