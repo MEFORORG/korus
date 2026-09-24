@@ -510,10 +510,19 @@ function ConvertTo-CcxComparablePath {
         #
         # NEVER '' HERE. The worktree gate reads '' as "not governed" and allows, and the occupancy
         # fence reads it as "in no worktree" and vetoes nothing, so '' would fail open for both. A
-        # comparable path fails closed: it still reads as inside the primary. If normalising still
-        # fails, the un-normalised path is kept, which is what every other platform compares.
+        # comparable path fails closed: it still reads as inside the primary.
+        #
+        # ONE COMPONENT AT A TIME. U+FFFE makes Normalize throw too, and ConvertFrom-Json keeps it.
+        # Kept whole, one such character left the whole path un-normalised, so a decomposed spelling
+        # of the primary read as outside its NFC root, and the gate allowed. Measured 2026-09-23 at
+        # 7cef6b2 with the flag forced on. Folded per component, only the component holding it stays
+        # as written. No composition crosses a '/', so the result is otherwise the same.
         $norm = $norm -replace '[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]', [string][char]0xFFFD
-        try { $norm = $norm.Normalize([System.Text.NormalizationForm]::FormC) } catch { }
+        $parts = $norm.Split('/')
+        for ($i = 0; $i -lt $parts.Count; $i++) {
+            try { $parts[$i] = $parts[$i].Normalize([System.Text.NormalizationForm]::FormC) } catch { }
+        }
+        $norm = $parts -join '/'
     }
     if ($script:CcxCaseInsensitiveFs) { return $norm.ToLowerInvariant() }
     return $norm

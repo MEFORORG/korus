@@ -26,10 +26,14 @@ function threw, against its own rule that it returns rather than throws; under S
 statement was skipped. The fold now turns each unpaired surrogate into U+FFFD and keeps the path
 comparable. It never returns '' there, because the gate reads '' as "not governed" and allows.
 
-The gate case runs a scratch copy of the hook scripts whose `_common.ps1` has the flag line
-rewritten to `$true`, so the macOS branch runs on this platform. It passed at 5a2167e too: the gate
-runs under SilentlyContinue, and pwsh's ConvertFrom-Json had already turned the payload's `\\ud800`
-into U+FFFD. It is kept as a guard that the gate still denies.
+U+FFFE MUST NOT EITHER. Normalize throws on it too, and pwsh's ConvertFrom-Json keeps it, unlike a
+lone surrogate, which it turns into U+FFFD. At 7cef6b2 one U+FFFE left the whole path un-normalised,
+so a decomposed spelling of the primary read as outside its root. The fold now works one component at
+a time.
+
+The gate cases run a scratch copy of the hook scripts whose `_common.ps1` has the flag line rewritten
+to `$true`, so the macOS branch runs on this platform. The primary is registered precomposed and the
+Write names it decomposed. With U+FFFE in the file name, the gate allowed the Write at 7cef6b2.
 
 Run: python -m pytest tests -q     (or: python -m unittest discover -s tests -v)
 """
@@ -103,23 +107,42 @@ class PathContainmentIsOrdinal(unittest.TestCase):
         self.assertFalse(self.folded_under(path, root, unicode_folding=False),
                          "with the fold off, two names NTFS stores apart read as one")
 
-    def test_a_lone_surrogate_under_the_macos_fold_still_reads_as_inside_its_root(self):
-        """Built inside PowerShell: a lone surrogate does not survive an environment variable or JSON."""
+    def test_a_character_normalize_rejects_still_reads_as_inside_its_root(self):
+        """Built inside PowerShell: a lone surrogate does not survive an environment variable or JSON.
+
+        The root is spelled with a precomposed accent and the path with a decomposed one, so only a
+        path that was really folded reads as inside: an un-normalised path keeps the decomposed form.
+        U+FFFE and a lone low surrogate were added by the review round on the rebrief: at 7cef6b2 the
+        whole path stayed un-normalised for U+FFFE."""
+        bad = {"lone high": "[char]0xD800", "lone low": "[char]0xDC00", "U+FFFE": "[char]0xFFFE"}
         for eap in ("Stop", "SilentlyContinue"):
-            with self.subTest(error_action=eap):
-                script = (
-                    f"$ErrorActionPreference = '{eap}'; . '{COMMON}'; $CcxUnicodeFoldingFs = $true; "
-                    f"$root = ConvertTo-CcxComparablePath '{ROOT}/p'; "
-                    f"$path = ConvertTo-CcxComparablePath ('{ROOT}/p/' + [char]0xD800 + 'x'); "
-                    "[Console]::Out.Write([string]([bool]$path -and (Test-CcxPathUnder -Path $path -Root $root)))"
-                )
-                r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
-                                   capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
-                self.assertEqual(
-                    "True", r.stdout.strip(),
-                    f"a path under the root holding a lone surrogate did not fold to a path inside it"
-                    f"\n{r.stdout}\n{r.stderr[:600]}",
-                )
+            for label, char in bad.items():
+                with self.subTest(error_action=eap, character=label):
+                    script = (
+                        f"$ErrorActionPreference = '{eap}'; . '{COMMON}'; $CcxUnicodeFoldingFs = $true; "
+                        f"$root = ConvertTo-CcxComparablePath ('{ROOT}/jos' + [char]0x00e9 + '/p'); "
+                        f"$path = ConvertTo-CcxComparablePath ('{ROOT}/jose' + [char]0x0301 + '/p/' + {char} + 'x'); "
+                        "[Console]::Out.Write([string]([bool]$path -and (Test-CcxPathUnder -Path $path -Root $root)))"
+                    )
+                    r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                                       capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+                    self.assertEqual(
+                        "True", r.stdout.strip(),
+                        f"a path under the root holding {label} did not fold to a path inside it"
+                        f"\n{r.stdout}\n{r.stderr[:600]}",
+                    )
+
+    def test_a_valid_surrogate_pair_survives_the_fold(self):
+        """A regex that replaced every surrogate would fold two different emoji to one path."""
+        script = (
+            f". '{COMMON}'; $CcxUnicodeFoldingFs = $true; "
+            f"$a = ConvertTo-CcxComparablePath ('{ROOT}/p/' + [char]0xD83D + [char]0xDE00); "
+            f"$b = ConvertTo-CcxComparablePath ('{ROOT}/p/' + [char]0xD83D + [char]0xDE01); "
+            "[Console]::Out.Write([string]($a -cne $b -and $a.EndsWith([string][char]0xD83D + [char]0xDE00)))"
+        )
+        r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+                           capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+        self.assertEqual("True", r.stdout.strip(), f"a valid surrogate pair did not survive the fold\n{r.stderr[:600]}")
 
     def test_control_an_ascii_path_inside_reads_inside_and_a_prefix_sibling_reads_outside(self):
         self.assertTrue(self.under("c:/x/p/abc", "c:/x/p"))
@@ -164,24 +187,51 @@ class TheGateSeesAWriteBelowACombiningMark(unittest.TestCase):
         self.assertTrue(self.denied(self.primary / "notes.txt"), "the fixture does not govern its primary")
 
 
-class TheGateStillDeniesUnderTheMacosFold(TheGateSeesAWriteBelowACombiningMark):
-    """The gate, run from a scratch copy whose `_common.ps1` forces `$CcxUnicodeFoldingFs` on."""
+class TheGateStillDeniesUnderTheMacosFold(unittest.TestCase):
+    """The gate, run from a scratch copy whose `_common.ps1` forces `$CcxUnicodeFoldingFs` on.
+
+    The primary is registered with a precomposed accent and the Write names it decomposed, so only a
+    folded path reads as governed. The U+FFFE case reaches the fold, since ConvertFrom-Json keeps
+    that character. At 7cef6b2 it was allowed: Normalize threw on it and the whole path stayed
+    un-normalised. The case without it is the control, so the fixture does govern the primary."""
 
     FLAG = "$script:CcxUnicodeFoldingFs = $IsMacOS"
 
     def setUp(self):
-        super().setUp()
-        copy = Path(self.tmp.name).resolve() / "copy" / "scripts"
+        self.pwsh = t.find_pwsh()
+        if not self.pwsh:
+            self.skipTest("pwsh is not on PATH, so the gate cannot be executed here")
+        self.tmp = tempfile.TemporaryDirectory(prefix="ccx-fold-", ignore_cleanup_errors=True)
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name).resolve()
+        copy = base / "copy" / "scripts"
         shutil.copytree(t.REPO_ROOT / "scripts" / "hooks", copy / "hooks")
         (copy / "coord").mkdir(parents=True)
         common = COMMON.read_text(encoding="utf-8")
         self.assertEqual(1, common.count(self.FLAG), "the flag line moved, so this copy would not force the fold")
         (copy / "coord" / "_common.ps1").write_text(common.replace(self.FLAG, "$script:CcxUnicodeFoldingFs = $true"),
                                                     encoding="utf-8")
-        self.GATE = copy / "hooks" / "worktree_gate.ps1"
+        self.gate = copy / "hooks" / "worktree_gate.ps1"
+        self.primary = base / f"jos{E_ACUTE}" / "P"
+        self.primary.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=str(self.primary), check=True,
+                       capture_output=True, timeout=TIMEOUT_SECONDS)
+        self.repos = base / "repos.txt"
+        self.repos.write_text(str(self.primary) + "\n", encoding="utf-8")
+        self.decomposed = base / f"jose{MARK}" / "P"
 
-    def test_a_write_named_with_a_lone_surrogate_in_the_primary_is_denied(self):
-        self.assertTrue(self.denied(self.primary / "\ud800notes.txt"), "the gate let the Write into its primary")
+    def denied(self, file_path: str) -> bool:
+        payload = {"tool_name": "Write", "hook_event_name": "PreToolUse", "cwd": str(self.primary),
+                   "tool_input": {"file_path": file_path, "content": "x"}}
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(self.gate), "-ReposFile", str(self.repos)],
+                           input=json.dumps(payload), capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+        return '"deny"' in r.stdout
+
+    def test_a_decomposed_write_holding_u_fffe_is_denied(self):
+        self.assertTrue(self.denied(str(self.decomposed / "\ufffenotes.txt")), "the gate let the Write into its primary")
+
+    def test_control_a_decomposed_write_is_denied(self):
+        self.assertTrue(self.denied(str(self.decomposed / "notes.txt")), "the forced fold does not govern the primary")
 
 
 if __name__ == "__main__":

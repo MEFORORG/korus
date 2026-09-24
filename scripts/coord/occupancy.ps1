@@ -477,8 +477,28 @@ function Get-WorktreeOnlyCommits {
         [object]$Holds
     )
     $unknown = [pscustomobject]@{ Ok = $false; Count = 0; Tips = @() }
-    $mine = @(& git -C $Path log -g --format=%H HEAD 2>$null)
-    if ($LASTEXITCODE -ne 0) { return $unknown }
+    $null = & git -C $Path rev-parse --verify --quiet HEAD 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $mine = @(& git -C $Path log -g --format=%H HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0) { return $unknown }
+    }
+    else {
+        # AN UNBORN HEAD: an orphan branch, fresh or switched to after use. `git log -g HEAD` exits 128
+        # there, so every orphan worktree read as unknown, and remove.ps1 refused it for good. Measured
+        # 2026-09-23 on git 2.55.0.windows.5, for both. Its reflog can still hold commits from before
+        # the switch, so the file is read directly: each line's old and new SHA. Only the files backend
+        # keeps it as a file; any other reads as unknown.
+        $format = @(& git -C $Path rev-parse --show-ref-format 2>$null)
+        if ($LASTEXITCODE -ne 0 -or "$format" -ne 'files') { return $unknown }
+        $log = @(& git -C $Path rev-parse --path-format=absolute --git-path logs/HEAD 2>$null)
+        if ($LASTEXITCODE -ne 0 -or -not "$log") { return $unknown }
+        $mine = @()
+        if (Test-Path -LiteralPath "$log") {
+            try { $entries = @(Get-Content -LiteralPath "$log" -ErrorAction Stop) } catch { return $unknown }
+            $mine = @($entries | ForEach-Object { @($_ -split ' ', 3)[0..1] } |
+                    Where-Object { $_ -match '\A[0-9a-f]{40,64}\z' -and $_ -notmatch '\A0+\z' })
+        }
+    }
     $own = @(& git -C $Path for-each-ref '--format=%(objectname)' refs/worktree/ refs/bisect/ refs/rewritten/ 2>$null)
     if ($LASTEXITCODE -ne 0) { return $unknown }
     if ($null -eq $Holds) { $Holds = Get-RefReflogHolds -Primary $Primary }

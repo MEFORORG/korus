@@ -980,16 +980,17 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
         return primary, work, sha
 
     def test_a_keep_ref_that_cannot_be_written_refuses_the_removal(self):
-        """Rebrief fix 2. At 5a2167e both subtests exit 0 with the commit on no ref: the failed write
-        only warned. Now the script refuses, and the branch step it prints lets the re-run through."""
-        for holds in ("detached", "reflog"):
-            with self.subTest(holds=holds):
-                self.base = Path(self.tmp.name).resolve() / holds
+        """Rebrief fix 2. At 5a2167e every subtest exits 0 with the commit on no ref: the failed write
+        only warned. Now the script refuses, and the branch step it prints lets the re-run through.
+        -Force does not change that, since -Force discards uncommitted tracked changes, never commits."""
+        for holds, flags in (("detached", ()), ("reflog", ()), ("detached", ("-Force",))):
+            with self.subTest(holds=holds, flags=" ".join(flags) or "none"):
+                self.base = Path(self.tmp.name).resolve() / (holds + "".join(flags))
                 self.base.mkdir()
                 primary, work, sha = self.dot_named_target(holds)
                 self.assertEqual("", git("for-each-ref", "--contains", sha, cwd=primary).strip(), "precondition: no ref")
 
-                r = self.remove(primary, ".foo")
+                r = self.remove(primary, ".foo", *flags)
                 said = r.stdout + r.stderr
 
                 self.assertTrue(work.is_dir(), f"the worktree was removed although commit {sha} could not be kept\n{said}")
@@ -1007,6 +1008,59 @@ class RemoveNeverDeletesANestedWorktree(unittest.TestCase):
                 self.assertEqual(0, again.returncode, "the re-run after the printed step failed\n" + again.stdout + again.stderr)
                 self.assertFalse(work.exists())
                 self.assertTrue(git("for-each-ref", "--contains", sha, cwd=primary).strip(), "the commit ended on no ref")
+
+    def test_an_orphan_target_is_removed_and_what_its_reflog_alone_held_is_kept(self):
+        """`git log -g HEAD` exits 128 on an unborn HEAD, so at 5103dd0 an orphan worktree read as
+        unknown and was refused for good, fresh or switched to after use. Found by the review round
+        on the rebrief. Its reflog file is now read directly."""
+        for case in ("fresh", "switched"):
+            with self.subTest(orphan=case):
+                self.base = Path(self.tmp.name).resolve() / case
+                self.base.mkdir()
+                primary = self.primary()
+                work = self.base / "P-o"
+                sha = None
+                if case == "fresh":
+                    git("worktree", "add", "-q", "--orphan", "-b", "o", str(work), cwd=primary)
+                else:
+                    self.worktree(primary, work, "o")
+                    git("checkout", "-q", "--detach", cwd=work)
+                    (work / "b.txt").write_text("left behind before the orphan switch\n", encoding="utf-8")
+                    git("add", "b.txt", cwd=work)
+                    git("commit", "-qm", "left behind", cwd=work)
+                    sha = git("rev-parse", "HEAD", cwd=work).strip()
+                    git("switch", "-q", "--orphan", "o2", cwd=work)
+
+                r = self.remove(primary, "o")
+                said = r.stdout + r.stderr
+
+                self.assertEqual(0, r.returncode, "an orphan worktree was refused" + "\n" + said)
+                self.assertFalse(work.exists(), said)
+                if sha:
+                    self.assertTrue(git("for-each-ref", "--contains", sha, cwd=primary).strip(),
+                                    f"commit {sha}, which only the orphan's reflog held, ended on no ref" + "\n" + said)
+
+    def test_the_tip_takes_the_keep_ref_the_recovery_recipe_names(self):
+        """`git branch <name> refs/ccx/removed/<Name>` must bring the deleted branch back at its tip.
+        At 5103dd0 a commit left on a detached HEAD was written first and took that name. Found by
+        the review round on the rebrief."""
+        primary = self.primary()
+        work = self.worktree(primary, self.base / "P-work", "work")
+        tip = git("rev-parse", "HEAD", cwd=work).strip()
+        git("checkout", "-q", "--detach", cwd=work)
+        (work / "b.txt").write_text("left behind\n", encoding="utf-8")
+        git("add", "b.txt", cwd=work)
+        git("commit", "-qm", "left behind", cwd=work)
+        stray = git("rev-parse", "HEAD", cwd=work).strip()
+        git("switch", "-q", "work", cwd=work)
+
+        r = self.remove(primary, "work", "-DeleteBranch")
+        said = r.stdout + r.stderr
+
+        self.assertEqual(0, r.returncode, said)
+        self.assertEqual(tip, git("rev-parse", "refs/ccx/removed/work", cwd=primary).strip(),
+                         "the plain keep-ref does not hold the deleted branch's tip" + "\n" + said)
+        self.assertTrue(git("for-each-ref", "--contains", stray, cwd=primary).strip(), "the stray commit ended on no ref")
 
     def test_control_a_dot_named_target_whose_commits_a_branch_holds_is_removed(self):
         """No commit needs a keep-ref, so the failed name does not stop it. With -DeleteBranch the

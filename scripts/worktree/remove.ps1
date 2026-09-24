@@ -33,9 +33,10 @@
     to recover it from and nothing in the interface admits the work existed. So the tip is resolved
     first, printed, and (when -DeleteBranch is used) written to a keep-ref before the branch goes. The
     keep-ref costs nothing and is the difference between "recoverable" and "gone at the next gc". A
-    detached tip that no ref holds gets one without -DeleteBranch too, and a keep-ref already taken
-    by another commit is never overwritten. Where such a keep-ref cannot be written, nothing is
-    removed, and -Force does not change that.
+    detached tip that no ref holds gets one without -DeleteBranch too, and so does a commit only the
+    worktree's HEAD reflog or its own refs hold. A keep-ref already taken by another commit is never
+    overwritten. Where one of THOSE cannot be written, nothing is removed, and -Force does not change
+    that. The -DeleteBranch keep-ref for a tip another ref holds is best effort and only warns.
 
 .EXAMPLE
     ./remove.ps1 -Name alerts
@@ -52,7 +53,8 @@ param(
     [ValidatePattern('\A[A-Za-z0-9._-]+\z')]
     [string]$Name,
 
-    # Remove even with uncommitted tracked changes. It does NOT override the nested-worktree refusal.
+    # Remove even with uncommitted tracked changes. It does NOT override the nested-worktree refusal,
+    # nor the refusal to remove a worktree holding commits that no keep-ref could be written for.
     [switch]$Force,
 
     # Also delete the local branch.
@@ -513,8 +515,9 @@ function Write-KeepRef([string]$Base, [string]$Commit) {
 # discards uncommitted tracked changes, never commits. Until 2026-09-23 a failed write only warned,
 # and the removal went ahead. Measured at 5a2167e: `-Name .foo` makes both keep-ref names invalid,
 # since a ref component cannot start with a dot, and the script exited 0 with the commit on no ref.
-# The same holds where git cannot read what only this worktree holds. `git log -g HEAD` exits 0 on a
-# worktree with no HEAD reflog, so that refusal fires only on a real git failure.
+# The same holds where git cannot read what only this worktree holds. That read exits 0 on a worktree
+# with no HEAD reflog, and reads an orphan's reflog file directly, since `git log -g HEAD` exits 128
+# on an unborn HEAD. So it refuses on a git failure, or on a reflog outside the files backend.
 $keepBase = "refs/$($cfg.prefix)/removed/$Name"
 $mustKeep = [System.Collections.Generic.List[string]]::new()
 if ($tip -and -not $branchToDelete) {
@@ -530,14 +533,39 @@ if (-not $only.Ok) {
 }
 foreach ($t in @($only.Tips)) { if (-not $mustKeep.Contains($t)) { $mustKeep.Add($t) } }
 
+# THE TIP IS WRITTEN FIRST, so it takes the plain name that the recovery recipe above names. 5103dd0
+# wrote the others first, and with -DeleteBranch a commit left on a detached HEAD took
+# refs/<prefix>/removed/<Name>, so the recipe brought the deleted branch back at that commit.
+#
+# With -DeleteBranch the tip is written even where a ref already holds it, before the branch is
+# deleted. That one is best effort: a branch delete below is `git branch -d`, which refuses a branch
+# whose commits are not merged, and a detached tip another ref holds loses nothing.
+$writes = @()
+if ($tip -and ($mustKeep.Contains($tip) -or $DeleteBranch)) {
+    $writes += [pscustomobject]@{ Commit = $tip; Must = $mustKeep.Contains($tip); Tip = $true }
+}
+foreach ($c in $mustKeep) { if ($c -ne $tip) { $writes += [pscustomobject]@{ Commit = $c; Must = $true; Tip = $false } } }
 $unkept = @()
-foreach ($c in $mustKeep) {
-    $ref = Write-KeepRef -Base $keepBase -Commit $c
-    if (-not $ref) { $unkept += $c; continue }
-    if ($c -eq $tip) {
-        Write-Host "Kept the tip as '$ref' (recover with: git branch $(Format-CcxLiteral $Name) $ref)." -ForegroundColor DarkGray
+foreach ($w in $writes) {
+    $ref = Write-KeepRef -Base $keepBase -Commit $w.Commit
+    if (-not $ref) {
+        if ($w.Must) { $unkept += $w.Commit }
+        elseif ($branchToDelete) {
+            Write-Warning ("Could not write a keep-ref under '$keepBase' for the tip $($w.Commit). " +
+                'The `git branch -d` below still refuses to delete a branch that is not merged.')
+        }
+        else { Write-Warning "Could not write a keep-ref under '$keepBase' for the tip $($w.Commit). Another ref holds it." }
+        continue
     }
-    else { Write-Host "Kept $c, which only this worktree held, as '$ref'." -ForegroundColor DarkGray }
+    if ($w.Tip) {
+        # Recover under the branch's REAL name where we know it. The keep-ref itself stays named after
+        # $Name (it is the stable, always-ref-safe label, and the listing commands above are written
+        # against it), but a recovery hint that renames a namespaced branch back to its directory
+        # component hands you a differently-named branch and does not say so.
+        $recoverAs = if ($branchToDelete) { $branchToDelete } else { $Name }
+        Write-Host "Kept the tip as '$ref' (recover with: git branch $(Format-CcxLiteral $recoverAs) $ref)." -ForegroundColor DarkGray
+    }
+    else { Write-Host "Kept $($w.Commit), which only this worktree held, as '$ref'." -ForegroundColor DarkGray }
 }
 if ($unkept.Count -gt 0) {
     Write-Host ("REFUSED: no keep-ref under '$keepBase' could be written for $($unkept.Count) commit(s) that " +
@@ -548,23 +576,6 @@ if ($unkept.Count -gt 0) {
         Write-Host "  git -C $(Format-CcxLiteral $PrimaryRoot) branch removed-$($c.Substring(0, 12)) $c" -ForegroundColor Red
     }
     throw "Could not keep $($unkept.Count) commit(s) only this worktree holds. Nothing was removed."
-}
-
-# With -DeleteBranch the branch's tip is kept too, BEFORE the branch is deleted. Best effort: the
-# branch delete below is `git branch -d`, which refuses a branch whose commits are not merged.
-if ($DeleteBranch -and $tip -and -not $mustKeep.Contains($tip)) {
-    $keepRef = Write-KeepRef -Base $keepBase -Commit $tip
-    if (-not $keepRef) {
-        Write-Warning ("Could not write a keep-ref under '$keepBase' for the tip $tip. `git branch -d` below " +
-            "still refuses to delete a branch that is not merged.")
-    } else {
-        # Recover under the branch's REAL name where we know it. The keep-ref itself stays named after
-        # $Name (it is the stable, always-ref-safe label, and the listing commands above are written
-        # against it), but a recovery hint that renames a namespaced branch back to its directory
-        # component hands you a differently-named branch and does not say so.
-        $recoverAs = if ($branchToDelete) { $branchToDelete } else { $Name }
-        Write-Host "Kept the tip as '$keepRef' (recover with: git branch $(Format-CcxLiteral $recoverAs) $keepRef)." -ForegroundColor DarkGray
-    }
 }
 
 # --force is needed regardless: the untracked per-checkout environment makes git consider the worktree
