@@ -67,6 +67,9 @@ jobs:
           #   curl -s .../branches/main/protection                 -> HTTP 401   <- control
           #   curl -s .../repos/wshallwshall/korus                 -> HTTP 200   <- control
           # Both controls fired, so the 200 is a real read rather than a host answering everything.
+          # Read again 2026-09-24: the repository is MEFORORG/korus now, and $REPO follows it. The
+          # old slug answers the branch and repository calls with HTTP 301, so the readings above
+          # hold at 2026-09-09 only.
           #
           # It also keeps working on a fork pull request, where no elevated token exists even in
           # principle. A check that needs one silently stops covering fork contributions.

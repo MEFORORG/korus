@@ -279,14 +279,17 @@ for both KORUS and the vault. REST over the same 72 hours found 56, 22 and 35 --
 24 percent under-report** -- and one of the two it showed as dead had merged seven minutes earlier.
 
 **The mechanism was mis-read first.** It said search "cannot see" those repositories, as if access
-were missing. The cause is a stale owner: `repos/wshallwshall/korus` resolves because REST follows
-the transfer and search does not. The wrong version sends a reader hunting a permissions bug.
+were missing. The cause is a stale owner: REST follows `repos/wshallwshall/korus` to `MEFORORG/korus`,
+and search does not. The wrong version sends a reader hunting a permissions bug.
 
 The control, which returned five merges from that same day:
 
 ```bash
 gh pr list --repo wshallwshall/korus --state merged --limit 5 --json number,mergedAt
 ```
+
+The control names the old slug on purpose, because REST following it is the point. Read again
+2026-09-24, it still answers. Everything else addresses `MEFORORG/korus`, the slug `collect.py` reads.
 
 ---
 
