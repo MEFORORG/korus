@@ -264,8 +264,8 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
   A held event stays in the inbox. It is never filed or rendered, it still answers a local query,
   and each compile scans it again. The report names held ids and counts, never a scanner line.
 
-  The hold fails closed: no scanner at Base, no python, or a scanner result it cannot read stops
-  compile with exit 2, and nothing is written.
+  The hold fails closed. No scanner at Base, no python, or a scanner result it cannot read stops
+  compile with exit 2, and nothing is filed or pushed.
 
   Why: the vault's publish leak gate held the first compile. Vault BACKLOG #1522 treats a real
   customer name as a leak in any folder, so an event naming one can never land there.

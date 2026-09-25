@@ -37,7 +37,7 @@ RENDER_LIB = w.WIKI / "_render.ps1"
 # which is what the "never printed" case needs to be able to fail. The token is invented.
 LEAK_TOKEN = "ZZLEAKTOKEN"
 SCANNER_REL = "scripts/publish/scan_forbidden.py"
-STUB_SCANNER = '''\
+_STUB_SCANNER = '''\
 import os
 import sys
 from pathlib import Path
@@ -46,15 +46,15 @@ TOKEN = "%s"
 
 
 def main(argv):
-    calls = os.environ.get("WIKI_TEST_SCANNER_CALLS")
-    if calls:
-        with open(calls, "a", encoding="ascii") as fh:
-            fh.write(" ".join(argv[:1]) + "\\n")
     if len(argv) != 2 or argv[0] != "--path" or not Path(argv[1]).is_dir():
         print("scan_forbidden: --path requires a directory", file=sys.stderr)
         return 2
     root = Path(argv[1])
     files = sorted(p for p in root.rglob("*") if p.is_file())
+    calls = os.environ.get("WIKI_TEST_SCANNER_CALLS")
+    if calls:
+        with open(calls, "a", encoding="ascii") as fh:
+            fh.write(" ".join(p.relative_to(root).as_posix() for p in files) + "\\n")
     if not files:
         return 2
     hits = []
@@ -72,7 +72,14 @@ def main(argv):
 
 
 raise SystemExit(main(sys.argv[1:]))
-''' % LEAK_TOKEN
+'''
+
+
+def stub_scanner(token: str = LEAK_TOKEN) -> str:
+    return _STUB_SCANNER % token
+
+
+STUB_SCANNER = stub_scanner()
 
 
 class _CompileCase(unittest.TestCase):
@@ -626,7 +633,12 @@ class TheLeakHoldKeepsAFlaggedEventInTheInbox(_CompileCase):
             self.assertNotIn(ev["id"], text)
 
     def test_the_scanner_runs_once_over_every_pending_event(self):
-        self.assertEqual(["--path"], self.calls.read_text(encoding="ascii").splitlines())
+        """Once, and over each event twice: its bytes, and its text with every escape decoded."""
+        runs = self.calls.read_text(encoding="ascii").splitlines()
+        self.assertEqual(1, len(runs))
+        expected = sorted(f"{ev['id']}{ext}" for ev in (self.leak, self.mail, self.clean)
+                          for ext in (".json", ".decoded.txt"))
+        self.assertEqual(expected, sorted(runs[0].split()))
 
     def test_the_token_is_printed_nowhere(self):
         """The real scanner's hit line carries the matched token, and so does the stub's. The held
@@ -655,6 +667,72 @@ class TheLeakHoldKeepsAFlaggedEventInTheInbox(_CompileCase):
         r = w.run(self.pwsh, w.QUERY, "-Text", "feed drops a segment", "-StateRoot", str(self.state), "-Json")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn(self.leak["id"], [row["id"] for row in json.loads(r.stdout)])
+
+
+class TheLeakHoldReadsWhatThePageWillShow(_CompileCase):
+    """A page renders an event decoded, so a JSON escape must not hide a name or an address from the
+    hold, and a file the scanner would skip as binary must not pass unread. The clean event is the
+    control: the same run files it."""
+
+    def test_escaped_names_and_addresses_and_a_utf16_file_are_held(self):
+        esc = w.plant(self.inbox, when=w.days_ago(4), key="site/one/feed", summary=f"The feed for {LEAK_TOKEN} drops")
+        path = self.inbox / f"{esc['id']}.json"
+        path.write_text(path.read_text(encoding="utf-8").replace(LEAK_TOKEN, LEAK_TOKEN[:-1] + "\\u004e"),
+                        encoding="utf-8")
+        self.assertNotIn(LEAK_TOKEN, path.read_text(encoding="utf-8"), "the plant must hide the token")
+        mail = w.plant(self.inbox, when=w.days_ago(3), key="site/two/contact", summary="A contact",
+                       body="write to a.person@example.com")
+        mpath = self.inbox / f"{mail['id']}.json"
+        mpath.write_text(mpath.read_text(encoding="utf-8").replace("@", "\\u0040"), encoding="utf-8")
+        wide = w.plant(self.inbox, when=w.days_ago(2), key="site/three/feed", summary="A wide file")
+        wpath = self.inbox / f"{wide['id']}.json"
+        wpath.write_bytes(wpath.read_text(encoding="utf-8").encode("utf-16"))
+        clean = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = self.compile()
+        self.assertEqual(sorted([esc["id"], mail["id"], wide["id"]]), r["held_ids"])
+        self.assertEqual(4, r["pending"], "the wide file must still read as a pending event")
+        self.assertEqual(1, r["added"])
+        filed = [Path(f).stem for f in self.files_at("wiki/compile") if f.startswith("wiki/events/")]
+        self.assertEqual([clean["id"]], filed)
+
+
+class TheLeakHoldSaysWhatItCannotFix(_CompileCase):
+    def run_json(self) -> tuple[dict, str]:
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout), r.stderr
+
+    def test_a_held_marker_is_named_on_stderr(self):
+        old = w.plant(self.inbox, when=w.days_ago(3), key="gate/ascii/exit-code", summary="The gate exits one")
+        self.compile()
+        self.merge()
+        marker = w.plant(self.inbox, when=w.days_ago(1), type="retire", key="gate/ascii/exit-code",
+                         summary=f"Withdrawn, see {LEAK_TOKEN}")
+        w.plant(self.inbox, when=w.days_ago(0.5), key="gate/ascii/other", summary="Unrelated and clean")
+        out, err = self.run_json()
+        self.assertEqual([marker["id"]], out["held_ids"])
+        self.assertIn("WARNING: 1 held event(s) supersede or retire something: " + marker["id"], err)
+        self.assertIn(old["summary"], self.show("wiki/compile", "wiki/pages/gate--ascii.md"),
+                      "the withdrawn event is still live, which is what the warning is for")
+        self.assertNotIn(LEAK_TOKEN, err)
+
+    def test_control_a_held_content_event_warns_nothing(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary=f"About {LEAK_TOKEN}")
+        w.plant(self.inbox, when=w.days_ago(0.5), key="gate/ascii/other", summary="Unrelated and clean")
+        out, err = self.run_json()
+        self.assertEqual(1, out["held"])
+        self.assertNotIn("WARNING", err)
+
+    def test_a_standing_branch_carrying_a_now_held_event_is_named(self):
+        """Filed while clean, then flagged by a scanner that learned a new name. With nothing left to
+        file, the branch is not rebuilt, so its pull request still carries the event."""
+        ev = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits LATERNAME")
+        self.assertEqual(0, self.compile()["held"])
+        self.set_scanner(stub_scanner("LATERNAME"))
+        out, err = self.run_json()
+        self.assertEqual("nothing-pending", out["result"])
+        self.assertEqual([ev["id"]], out["held_ids"])
+        self.assertIn("WARNING: wiki/compile still carries 1 event(s) the leak hold now flags", err)
 
 
 class TheLeakHoldFailsClosed(_CompileCase):
@@ -698,6 +776,18 @@ class TheLeakHoldFailsClosed(_CompileCase):
         self.set_scanner(f"import sys\nprint('  elsewhere.json:1: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
                          "raise SystemExit(1)\n")
         self.assert_stopped("names no staged event")
+
+    def test_an_indented_line_that_is_not_a_hit_is_exit_2(self):
+        """One hit reads and one does not: the one that does not may be an event that would be filed."""
+        self.set_scanner(f"import sys\nprint('  {self.leak['id']}.json:3: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
+                         f"print('  {self.leak['id']}.json (whole file): planted name', file=sys.stderr)\n"
+                         "raise SystemExit(1)\n")
+        self.assert_stopped("could not be read as a hit")
+
+    def test_a_hit_count_that_disagrees_is_exit_2(self):
+        self.set_scanner(f"import sys\nprint('  {self.leak['id']}.json:3: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
+                         "print('\\n2 hit(s).', file=sys.stderr)\nraise SystemExit(1)\n")
+        self.assert_stopped("counted 2 hit(s) and 1 could be read")
 
     def test_a_scanner_that_crashes_after_a_hit_is_exit_2(self):
         """An uncaught exception also exits 1. The hit lines printed before it are not the whole list."""
