@@ -145,12 +145,13 @@ function Get-NormalizedText {
 $ScannerRel = 'scripts/publish/scan_forbidden.py'
 # An address in the `local@domain.tld` shape, anywhere in the text. The scanner does not look for
 # addresses. A `path@ref` citation has no dotted domain after the `@`, so it does not match.
-$EmailRegex = [regex]::new('[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}',
+$EmailRegex = [regex]::new('[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}',
     [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 # One hit line from the scanner in `--path` mode: two spaces, the path relative to the scan root,
 # then `:<line>:`. Only the path is kept; the rest of the line carries the matched token.
 $HitRegex = [regex]::new('^  (?<path>[^\s:][^:]*):\d+:', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
-# The scanner's closing count, `<n> hit(s).`, where it prints one. Checked against the lines read.
+# The scanner's closing count, `<n> hit(s).`. Required on exit 1 and checked against the lines read,
+# so a hit list cut off before its end is never taken for the whole list.
 $HitCountRegex = [regex]::new('^(?<n>\d+) hit\(s\)\.', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 
 function Get-WikiEventText {
@@ -160,6 +161,10 @@ function Get-WikiEventText {
     .DESCRIPTION
         The file holds JSON, so a `\uXXXX` escape or a doubled backslash can hide a name from a scan
         of its bytes, while the page renders it decoded. This is the decoded text, for the same scan.
+
+        Then every word again on its own line. The scanner skips a WHOLE LINE that matches its
+        allowlist, so a name beside an allowlisted phrase would borrow its exemption; alone on its
+        line it cannot. `write.ps1`'s `Get-ScanText` closes the same hole the same way.
     #>
     param($Node)
     $sb = [System.Text.StringBuilder]::new()
@@ -176,6 +181,8 @@ function Get-WikiEventText {
         if ($n -is [System.Collections.IEnumerable]) { foreach ($x in $n) { $stack.Push($x) }; continue }
         [void]$sb.Append([string]$n).Append("`n")
     }
+    $whole = $sb.ToString()
+    foreach ($word in ($whole -split '\s+')) { if ($word) { [void]$sb.Append($word).Append("`n") } }
     return $sb.ToString()
 }
 
@@ -190,8 +197,8 @@ function Get-WikiLeakHold {
         filed, and `<id>.decoded.txt`, its names and values with every JSON escape decoded. The
         scanner runs ONCE over the directory, which is removed before this returns.
 
-        An event whose bytes hold a NUL, or are not UTF-8, is held without a scan: the scanner skips
-        a file with a NUL as binary, so a UTF-16 event would pass it unread.
+        An event whose bytes, or whose decoded text, hold a NUL is held without a scan, and so is one
+        that is not UTF-8: the scanner skips a file with a NUL as binary, so it would pass unread.
 
         NOTHING THE SCANNER PRINTS IS EVER REPEATED. Its hit lines and its category labels carry the
         token they matched, so every message here names an exit code or a count, never a line.
@@ -220,11 +227,17 @@ function Get-WikiLeakHold {
             try { $text = $strict.GetString($b).TrimStart([char]0xFEFF) } catch { [void]$held.Add($id); continue }
             try { $plain = Get-WikiEventText (ConvertFrom-Json -InputObject $text -NoEnumerate -ErrorAction Stop) }
             catch { [void]$held.Add($id); continue }
+            if ($plain.IndexOf([char]0) -ge 0) { [void]$held.Add($id); continue }
             [System.IO.File]::WriteAllBytes((Join-Path $stage "$id.json"), $b)
             [System.IO.File]::WriteAllText((Join-Path $stage "$id.decoded.txt"), $plain, [System.Text.UTF8Encoding]::new($false))
             $staged["$id.json"] = $id
             $staged["$id.decoded.txt"] = $id
-            if ($EmailRegex.IsMatch($text) -or $EmailRegex.IsMatch($plain)) { [void]$held.Add($id) }
+            # In the raw text a two-character escape such as `\n` puts a letter before an `@` that
+            # opens a line, so escapes are blanked first. An invisible format character inside an
+            # address is dropped from the decoded text, so it cannot split the address in two.
+            $rawForMail = [regex]::Replace($text, '\\[^u]', ' ')
+            $plainForMail = [regex]::Replace($plain, '\p{Cf}', '')
+            if ($EmailRegex.IsMatch($rawForMail) -or $EmailRegex.IsMatch($plainForMail)) { [void]$held.Add($id) }
         }
         if ($staged.Count -gt 0) {
             # UTF-8 on the scanner's streams: under a cp1252 console a hit line with a non-ASCII
@@ -258,7 +271,10 @@ function Get-WikiLeakHold {
                 if ($hits -eq 0) {
                     Stop-Compile 2 'the leak scanner exited 1 but printed no hit path that could be read, so what it flagged is unknown. Nothing was filed or pushed.'
                 }
-                if ($declared -ge 0 -and $declared -ne $hits) {
+                if ($declared -lt 0) {
+                    Stop-Compile 2 'the leak scanner exited 1 without its closing hit count, so its hit list may be cut off. Nothing was filed or pushed.'
+                }
+                if ($declared -ne $hits) {
                     Stop-Compile 2 "the leak scanner counted $declared hit(s) and $hits could be read, so what it flagged is unknown. Nothing was filed or pushed."
                 }
             } elseif ($scan.Code -ne 0) {
@@ -469,18 +485,22 @@ function Invoke-WikiCompile {
         [Console]::Error.WriteLine("wiki compile: WARNING: $($heldMarkers.Count) held event(s) supersede or retire something: " +
             "$($heldMarkers -join ', '). What they withdraw stays live in the record until a clean marker is written.")
     }
+    # A standing branch from an earlier run may carry an event the hold now flags. A rebuild below drops
+    # it, though the old commit stays reachable from the pull request's history; with nothing to file
+    # there is no rebuild, and the branch keeps it. Either way it is said out loud.
+    $stale = 0
+    if ($leased) {
+        $stale = @((Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-tree', '-r', '--name-only', $leased, '--', 'wiki/events')).Out -split "`n" |
+            ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Trim()) } | Where-Object { $heldSet.Contains($_) }).Count
+    }
+    if ($stale -gt 0 -and $filed.Count -eq 0) {
+        [Console]::Error.WriteLine("wiki compile: WARNING: $Branch still carries $stale event(s) the leak hold now flags, " +
+            'and nothing was filed to rebuild it. Close its pull request rather than land it.')
+    } elseif ($stale -gt 0) {
+        [Console]::Error.WriteLine("wiki compile: WARNING: $Branch carried $stale event(s) the leak hold now flags. " +
+            "This run rebuilds it without them, but its earlier commit stays reachable from the pull request's history.")
+    }
     if ($filed.Count -eq 0) {
-        # Nothing is rebuilt, so a standing branch from an earlier run keeps whatever it filed then.
-        # One that carries an event the hold now flags must not be landed as it is.
-        if ($leased) {
-            $onBranch = (Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-tree', '-r', '--name-only', $leased, '--', 'wiki/events')).Out -split "`n" |
-                ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Trim()) } | Where-Object { $heldSet.Contains($_) }
-            $stale = @($onBranch).Count
-            if ($stale -gt 0) {
-                [Console]::Error.WriteLine("wiki compile: WARNING: $Branch still carries $stale event(s) the leak hold now flags, " +
-                    'and nothing was filed to rebuild it. Close its pull request rather than land it.')
-            }
-        }
         $report.result = 'nothing-pending'
         Write-Report ("wiki compile: nothing to file; all $($pending.Count) pending event(s) held back by the leak hold. " +
             "Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) inbox file(s) unreadable and skipped.$heldText")

@@ -33,9 +33,13 @@ RENDER_LIB = w.WIKI / "_render.ps1"
 # THE LEAK HOLD'S STAND-IN SCANNER. The record repository's own scanner and its patterns are private,
 # so every case gets this stub at the same path instead. It keeps the real one's contract: `--path
 # DIR`, exit 0 clean, 1 on a hit and 2 on a usage error, and each hit on stderr as two spaces, the
-# path relative to DIR, then `:<line>:`. Like the real one, its hit line ECHOES the token it matched,
-# which is what the "never printed" case needs to be able to fail. The token is invented.
+# path relative to DIR, then `:<line>:`, and a closing `<n> hit(s).`. Like the real one, its hit
+# line ECHOES the token it matched, which is what the "never printed" case needs to be able to fail.
+# Two more of the real one's rules are kept because the hold must work around them: a file with a NUL
+# in its first 4096 bytes is skipped as binary, and a whole line matching the allowlist is skipped.
+# The token and the allowlisted phrase are invented.
 LEAK_TOKEN = "ZZLEAKTOKEN"
+ALLOWED = "ZZALLOWEDPHRASE"
 SCANNER_REL = "scripts/publish/scan_forbidden.py"
 _STUB_SCANNER = '''\
 import os
@@ -59,7 +63,12 @@ def main(argv):
         return 2
     hits = []
     for p in files:
-        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        data = p.read_bytes()
+        if b"\\x00" in data[:4096]:
+            continue
+        for n, line in enumerate(data.decode("utf-8", errors="replace").splitlines(), 1):
+            if "ZZALLOWEDPHRASE" in line:
+                continue
             if TOKEN in line:
                 hits.append(f"{p.relative_to(root).as_posix()}:{n}: planted name ({TOKEN}): {line.strip()}")
     if hits:
@@ -581,8 +590,11 @@ class TheLeakHoldKeepsAFlaggedEventInTheInbox(_CompileCase):
         self.mail = w.plant(self.inbox, when=w.days_ago(2), key="site/two/contact",
                             summary="The interface has a named contact", body="Write to a.person@example.com first")
         # `path@ref` is documented evidence. An `@` alone must not hold an event.
+        # So is a decorator opening a line: in the JSON it follows `\n`, which must not read as an
+        # address's last letter.
         self.clean = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code",
-                             summary="The gate exits two", evidence="scripts/wiki/compile.ps1@e3e3410")
+                             summary="The gate exits two", evidence="scripts/wiki/compile.ps1@e3e3410",
+                             body="The fixture reads\n@pytest.fixture\ndef gate():")
         self.held = sorted([self.leak["id"], self.mail["id"]])
         self.first = self.run_compile("-Json")
         self.result = json.loads(self.first.stdout)
@@ -687,10 +699,24 @@ class TheLeakHoldReadsWhatThePageWillShow(_CompileCase):
         wide = w.plant(self.inbox, when=w.days_ago(2), key="site/three/feed", summary="A wide file")
         wpath = self.inbox / f"{wide['id']}.json"
         wpath.write_bytes(wpath.read_text(encoding="utf-8").encode("utf-16"))
+        # A NUL in the DECODED text, in a field the schema does not name and so does not check: the
+        # raw bytes hold none, and the token is escaped there.
+        nul = w.plant(self.inbox, when=w.days_ago(1.8), key="site/four/feed", summary=f"About {LEAK_TOKEN}",
+                      note="a\u0000b")
+        npath = self.inbox / f"{nul['id']}.json"
+        npath.write_text(npath.read_text(encoding="utf-8").replace(LEAK_TOKEN, LEAK_TOKEN[:-1] + "\\u004e"),
+                         encoding="utf-8")
+        self.assertNotIn(b"\x00", npath.read_bytes())
+        # A name beside an allowlisted phrase on one line must not borrow its exemption.
+        beside = w.plant(self.inbox, when=w.days_ago(1.6), key="site/five/feed", summary=f"{ALLOWED} {LEAK_TOKEN}")
+        # An address split by an invisible character is still an address on the page.
+        split = w.plant(self.inbox, when=w.days_ago(1.4), key="site/six/contact", summary="A contact",
+                        body="a.person@exa\u200bmple.com")
         clean = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
         r = self.compile()
-        self.assertEqual(sorted([esc["id"], mail["id"], wide["id"]]), r["held_ids"])
-        self.assertEqual(4, r["pending"], "the wide file must still read as a pending event")
+        self.assertEqual(sorted([esc["id"], mail["id"], wide["id"], nul["id"], beside["id"], split["id"]]),
+                         r["held_ids"])
+        self.assertEqual(7, r["pending"], "the wide file must still read as a pending event")
         self.assertEqual(1, r["added"])
         filed = [Path(f).stem for f in self.files_at("wiki/compile") if f.startswith("wiki/events/")]
         self.assertEqual([clean["id"]], filed)
@@ -733,6 +759,18 @@ class TheLeakHoldSaysWhatItCannotFix(_CompileCase):
         self.assertEqual("nothing-pending", out["result"])
         self.assertEqual([ev["id"]], out["held_ids"])
         self.assertIn("WARNING: wiki/compile still carries 1 event(s) the leak hold now flags", err)
+
+    def test_a_rebuild_that_drops_a_now_held_event_says_so(self):
+        ev = w.plant(self.inbox, when=w.days_ago(2), key="gate/ascii/exit-code", summary="The gate exits LATERNAME")
+        self.assertEqual(0, self.compile()["held"])
+        self.set_scanner(stub_scanner("LATERNAME"))
+        other = w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/other", summary="Unrelated and clean")
+        out, err = self.run_json()
+        self.assertEqual("compiled", out["result"])
+        self.assertEqual([ev["id"]], out["held_ids"])
+        self.assertIn("WARNING: wiki/compile carried 1 event(s) the leak hold now flags", err)
+        filed = [Path(f).stem for f in self.files_at("wiki/compile") if f.startswith("wiki/events/")]
+        self.assertEqual([other["id"]], filed)
 
 
 class TheLeakHoldFailsClosed(_CompileCase):
@@ -788,6 +826,12 @@ class TheLeakHoldFailsClosed(_CompileCase):
         self.set_scanner(f"import sys\nprint('  {self.leak['id']}.json:3: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
                          "print('\\n2 hit(s).', file=sys.stderr)\nraise SystemExit(1)\n")
         self.assert_stopped("counted 2 hit(s) and 1 could be read")
+
+    def test_a_hit_list_with_no_closing_count_is_exit_2(self):
+        """The real scanner always closes with its count. Without it, the list may have been cut off."""
+        self.set_scanner(f"import sys\nprint('  {self.leak['id']}.json:3: planted name ({LEAK_TOKEN})', file=sys.stderr)\n"
+                         "raise SystemExit(1)\n")
+        self.assert_stopped("without its closing hit count")
 
     def test_a_scanner_that_crashes_after_a_hit_is_exit_2(self):
         """An uncaught exception also exits 1. The hit lines printed before it are not the whole list."""
