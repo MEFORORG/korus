@@ -16,18 +16,32 @@
          written.
       2. NOTHING PENDING, NOTHING TO DO. Exit 0 and say so.
       3. BUILD IN A TEMPORARY WORKTREE of `<Remote>/<Base>`, never in the clone's own working tree,
-         which other sessions use. Copy each pending event to `wiki/events/<yyyy>/<mm>/<id>.json`,
-         never over an existing file. Render every page and the index from ALL events, through the
-         guard (`_render.ps1`). Append one line to `wiki/log.md`.
-      4. CONFLICTS are listed in `index.md` under `## Conflicts`, and counted in the log line: two
+         which other sessions use.
+      4. HOLD BACK WHAT WOULD LEAK (spec FR-028). Before anything is copied, every pending event is
+         staged in one scratch directory and scanned ONCE by the record repository's own scanner,
+         `scripts/publish/scan_forbidden.py` at Base, run as `python <scanner> --path <dir>`. An event
+         it flags, or one whose text holds an email address, is HELD: it stays in the inbox, is
+         never copied or rendered, still answers a local query, and is scanned again next run. Each
+         event is scanned as its bytes AND as its decoded text, so a JSON escape hides nothing; one
+         that is not UTF-8, or holds a NUL the scanner would skip as binary, is held unscanned.
+         The hold fails closed, exit 2 with nothing filed or pushed: no scanner at Base, no python,
+         a scanner exit other than 0 or 1, a crash, or an exit 1 whose hit lines do not all read,
+         name staged events and agree with its own hit count. Held ids and counts are reported;
+         the scanner's own lines never are, because its labels carry the token they matched. If
+         every pending event is held, it is nothing pending. A held `supersede` or `retire`, and a
+         standing branch that still carries a now-held event, are each warned about on stderr.
+      5. FILE WHAT IS LEFT. Copy each filed event to `wiki/events/<yyyy>/<mm>/<id>.json`, never over
+         an existing file. Render every page and the index from ALL events in the log, through the
+         guard (`_render.ps1`). Append one line to `wiki/log.md`, which counts the held events.
+      6. CONFLICTS are listed in `index.md` under `## Conflicts`, and counted in the log line: two
          or more live-candidate events on one key where neither supersedes the other.
-      5. COMMIT AND FORCE-PUSH `wiki/compile`, then open a pull request for it unless one is open.
-         The branch is always rebuilt from Base plus every pending event, so a re-run converges.
+      7. COMMIT AND FORCE-PUSH `wiki/compile`, then open a pull request for it unless one is open.
+         The branch is always rebuilt from Base plus every filed event, so a re-run converges.
          The push carries `--force-with-lease`, which refuses a push that races another push. It
          does NOT merge two inboxes: a compile run against a second inbox rebuilds the branch
          without the first inbox's events. Those events stay in their inbox and return on its next
          compile, so nothing is lost, but the open pull request drops them. Run one compile job.
-      6. IDEMPOTENT (FR-019). The commit carries a `Wiki-Content-Tree:` trailer: the tree before
+      8. IDEMPOTENT (FR-019). The commit carries a `Wiki-Content-Tree:` trailer: the tree before
          the log line. When `wiki/compile` already sits on Base with that trailer, the run adds
          nothing -- no commit, no push -- and only makes sure the pull request is open.
 
@@ -40,7 +54,8 @@
     Exit codes:
         0  compiled, converged, rebuilt, or nothing pending
         1  refused: an id collision
-        2  could not run: bad arguments, no record repository, a git or gh failure
+        2  could not run: bad arguments, no record repository, a git or gh failure, or the leak
+           hold could not scan (step 4)
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/compile.ps1 -RecordRepo ../MessageFoundry-vault
@@ -94,6 +109,7 @@ function Invoke-Tool {
         [Parameter(Mandatory)][string] $Exe,
         [Parameter(Mandatory)][string] $Dir,
         [Parameter(Mandatory)][string[]] $Arguments,
+        [hashtable] $Environment = @{},
         [switch] $AllowFail
     )
     $psi = [System.Diagnostics.ProcessStartInfo]::new($Exe)
@@ -105,6 +121,7 @@ function Invoke-Tool {
     $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
     $psi.Environment['GIT_TERMINAL_PROMPT'] = '0'
+    foreach ($k in $Environment.Keys) { $psi.Environment[$k] = [string]$Environment[$k] }
     $p = [System.Diagnostics.Process]::Start($psi)
     $out = $p.StandardOutput.ReadToEndAsync()
     $err = $p.StandardError.ReadToEndAsync()
@@ -123,10 +140,164 @@ function Get-NormalizedText {
     return ($Text -replace "`r`n", "`n").TrimEnd()
 }
 
+# The record repository's own leak scanner, at Base. The vault's publish leak gate runs it over
+# everything it holds, and a real customer name is a leak there in any folder (vault BACKLOG #1522).
+$ScannerRel = 'scripts/publish/scan_forbidden.py'
+# An address in the `local@domain.tld` shape, anywhere in the text. The scanner does not look for
+# addresses. A `path@ref` citation has no dotted domain after the `@`, so it does not match.
+$EmailRegex = [regex]::new('[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}',
+    [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+# One hit line from the scanner in `--path` mode: two spaces, the path relative to the scan root,
+# then `:<line>:`. Only the path is kept; the rest of the line carries the matched token.
+$HitRegex = [regex]::new('^  (?<path>[^\s:][^:]*):\d+:', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+# The scanner's closing count, `<n> hit(s).`. Required on exit 1 and checked against the lines read,
+# so a hit list cut off before its end is never taken for the whole list.
+$HitCountRegex = [regex]::new('^(?<n>\d+) hit\(s\)\.', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+
+function Get-WikiEventText {
+    <#
+    .SYNOPSIS
+        Every property name and string value of one parsed event, decoded, one per line.
+    .DESCRIPTION
+        The file holds JSON, so a `\uXXXX` escape or a doubled backslash can hide a name from a scan
+        of its bytes, while the page renders it decoded. This is the decoded text, for the same scan.
+
+        Then every word again on its own line. The scanner skips a WHOLE LINE that matches its
+        allowlist, so a name beside an allowlisted phrase would borrow its exemption; alone on its
+        line it cannot. `write.ps1`'s `Get-ScanText` closes the same hole the same way.
+    #>
+    param($Node)
+    $sb = [System.Text.StringBuilder]::new()
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    $stack.Push($Node)
+    while ($stack.Count -gt 0) {
+        $n = $stack.Pop()
+        if ($null -eq $n) { continue }
+        if ($n -is [string]) { [void]$sb.Append($n).Append("`n"); continue }
+        if ($n -is [System.Management.Automation.PSCustomObject]) {
+            foreach ($p in $n.PSObject.Properties) { [void]$sb.Append($p.Name).Append("`n"); $stack.Push($p.Value) }
+            continue
+        }
+        if ($n -is [System.Collections.IEnumerable]) { foreach ($x in $n) { $stack.Push($x) }; continue }
+        [void]$sb.Append([string]$n).Append("`n")
+    }
+    $whole = $sb.ToString()
+    foreach ($word in ($whole -split '\s+')) { if ($word) { [void]$sb.Append($word).Append("`n") } }
+    return $sb.ToString()
+}
+
+function Get-WikiLeakHold {
+    <#
+    .SYNOPSIS
+        The ids of the pending events that must stay in the inbox: those the record repository's
+        scanner flags, those whose text holds an email address, and those no scan can read.
+        Fails closed with exit 2.
+    .DESCRIPTION
+        Each event is staged twice in one scratch directory: `<id>.json`, byte for byte what would be
+        filed, and `<id>.decoded.txt`, its names and values with every JSON escape decoded. The
+        scanner runs ONCE over the directory, which is removed before this returns.
+
+        An event whose bytes, or whose decoded text, hold a NUL is held without a scan, and so is one
+        that is not UTF-8: the scanner skips a file with a NUL as binary, so it would pass unread.
+
+        NOTHING THE SCANNER PRINTS IS EVER REPEATED. Its hit lines and its category labels carry the
+        token they matched, so every message here names an exit code or a count, never a line.
+    #>
+    param(
+        [Parameter(Mandatory)][string] $Scanner,
+        [Parameter(Mandatory)][string] $WorkDir,
+        [Parameter(Mandatory)][System.Collections.Generic.Dictionary[string, byte[]]] $Bytes
+    )
+    if (-not (Test-Path -LiteralPath $Scanner -PathType Leaf)) {
+        Stop-Compile 2 "the record repository has no leak scanner at $ScannerRel on its Base, so no event can be checked before it is filed. Nothing was filed or pushed."
+    }
+    $python = Find-Tool 'python'
+    if (-not $python) { $python = Find-Tool 'python3' }
+    if (-not $python) { Stop-Compile 2 'python is not on PATH, so the leak scanner cannot run. Nothing was filed or pushed.' }
+
+    $held = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $strict = [System.Text.UTF8Encoding]::new($false, $true)
+    $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('korus-wiki-scan-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
+    New-Item -ItemType Directory -Path $stage | Out-Null
+    try {
+        $staged = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+        foreach ($id in $Bytes.Keys) {
+            $b = $Bytes[$id]
+            if ([System.Array]::IndexOf($b, [byte]0) -ge 0) { [void]$held.Add($id); continue }
+            try { $text = $strict.GetString($b).TrimStart([char]0xFEFF) } catch { [void]$held.Add($id); continue }
+            try { $plain = Get-WikiEventText (ConvertFrom-Json -InputObject $text -NoEnumerate -ErrorAction Stop) }
+            catch { [void]$held.Add($id); continue }
+            if ($plain.IndexOf([char]0) -ge 0) { [void]$held.Add($id); continue }
+            [System.IO.File]::WriteAllBytes((Join-Path $stage "$id.json"), $b)
+            [System.IO.File]::WriteAllText((Join-Path $stage "$id.decoded.txt"), $plain, [System.Text.UTF8Encoding]::new($false))
+            $staged["$id.json"] = $id
+            $staged["$id.decoded.txt"] = $id
+            # In the raw text a two-character escape such as `\n` puts a letter before an `@` that
+            # opens a line, so escapes are blanked first. An invisible format character inside an
+            # address is dropped from the decoded text, so it cannot split the address in two.
+            $rawForMail = [regex]::Replace($text, '\\[^u]', ' ')
+            $plainForMail = [regex]::Replace($plain, '\p{Cf}', '')
+            if ($EmailRegex.IsMatch($rawForMail) -or $EmailRegex.IsMatch($plainForMail)) { [void]$held.Add($id) }
+        }
+        if ($staged.Count -gt 0) {
+            # UTF-8 on the scanner's streams: under a cp1252 console a hit line with a non-ASCII
+            # excerpt raises UnicodeEncodeError, and that crash exits 1 with part of the hit list.
+            $scan = Invoke-Tool -Exe $python -Dir $WorkDir -Arguments @($Scanner, '--path', $stage) -AllowFail `
+                -Environment @{ PYTHONIOENCODING = 'utf-8'; PYTHONDONTWRITEBYTECODE = '1' }
+            $lines = @(($scan.Out + "`n" + $scan.Err) -split '\r?\n')
+            if ($lines -match '^Traceback \(most recent call last\):') {
+                Stop-Compile 2 "the leak scanner crashed (exit $($scan.Code)), so its hit list may be partial. Nothing was filed or pushed."
+            }
+            if ($scan.Code -eq 1) {
+                $hits = 0
+                $declared = -1
+                foreach ($line in $lines) {
+                    $count = $HitCountRegex.Match($line)
+                    if ($count.Success) { $declared = [int]$count.Groups['n'].Value; continue }
+                    # A hit line is indented and nothing else is. An indented line that does not read
+                    # as a hit may be one in a shape this parser does not know, so it stops the run.
+                    if ($line -notmatch '^\s+\S') { continue }
+                    $m = $HitRegex.Match($line)
+                    if (-not $m.Success) {
+                        Stop-Compile 2 'a line of the leak scanner''s output could not be read as a hit, so what it flagged is unknown. Nothing was filed or pushed.'
+                    }
+                    $hits++
+                    $path = $m.Groups['path'].Value
+                    if (-not $staged.ContainsKey($path)) {
+                        Stop-Compile 2 'the leak scanner reported a hit whose path names no staged event, so its output cannot be read. Nothing was filed or pushed.'
+                    }
+                    [void]$held.Add($staged[$path])
+                }
+                if ($hits -eq 0) {
+                    Stop-Compile 2 'the leak scanner exited 1 but printed no hit path that could be read, so what it flagged is unknown. Nothing was filed or pushed.'
+                }
+                if ($declared -lt 0) {
+                    Stop-Compile 2 'the leak scanner exited 1 without its closing hit count, so its hit list may be cut off. Nothing was filed or pushed.'
+                }
+                if ($declared -ne $hits) {
+                    Stop-Compile 2 "the leak scanner counted $declared hit(s) and $hits could be read, so what it flagged is unknown. Nothing was filed or pushed."
+                }
+            } elseif ($scan.Code -ne 0) {
+                Stop-Compile 2 "the leak scanner exited $($scan.Code) under '$python', which is neither clean (0) nor hits (1). Nothing was filed or pushed."
+            }
+        }
+    } finally {
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $stage) {
+            [Console]::Error.WriteLine("wiki compile: WARNING: could not remove the scan directory '$stage'. It holds copies of pending events; delete it.")
+        }
+    }
+    $ids = [string[]]@($held)
+    [System.Array]::Sort($ids, [System.StringComparer]::Ordinal)
+    return , $ids
+}
+
 $report = [ordered]@{
     result    = $null
     deleted   = 0
     pending   = 0
+    held      = 0
+    held_ids  = [string[]]@()
     skipped   = 0
     log_skipped = 0
     added     = 0
@@ -289,9 +460,55 @@ function Invoke-WikiCompile {
     # Recorded only once the add succeeded, so the cleanup never tries to remove what git refused.
     $script:tmp = $tmp
 
-    # From the pending list itself, so what is counted and what is copied are the same events: an
-    # inbox file that arrived after the listing above is left for the next run.
+    # ------------------------------------------------------------- 4. hold back what would leak
+    # Read once, here: the bytes scanned are the bytes filed, so a file rewritten in the inbox after
+    # the scan cannot reach the log unscanned. From the pending list itself, so what is counted and
+    # what is copied are the same events: an inbox file that arrived after the listing is left for
+    # the next run.
+    $bytes = [System.Collections.Generic.Dictionary[string, byte[]]]::new([System.StringComparer]::Ordinal)
     foreach ($ev in $pending) {
+        $bytes[[string]$ev.id] = [System.IO.File]::ReadAllBytes((Join-Path $inbox "$([string]$ev.id).json"))
+    }
+    $heldIds = Get-WikiLeakHold -Scanner (Join-Path $tmp $ScannerRel) -WorkDir $tmp -Bytes $bytes
+    $heldSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$heldIds, [System.StringComparer]::Ordinal)
+    $filed = @($pending | Where-Object { -not $heldSet.Contains([string]$_.id) })
+    $report.held = $heldIds.Count
+    $report.held_ids = $heldIds
+    $heldText = if ($heldIds.Count -gt 0) { " Held back in the inbox by the leak hold: $($heldIds -join ', ')." } else { '' }
+    # A held marker cannot withdraw anything in the record: what it supersedes or retires stays live
+    # on the pages until a marker without the flagged text lands. Said out loud, never absorbed.
+    $heldMarkers = @($pending | Where-Object {
+            $heldSet.Contains([string]$_.id) -and
+            ([string]$_.type -cin $script:WikiMarkerTypes -or @($_.supersedes | Where-Object { $null -ne $_ }).Count -gt 0) } |
+        ForEach-Object { [string]$_.id })
+    if ($heldMarkers.Count -gt 0) {
+        [Console]::Error.WriteLine("wiki compile: WARNING: $($heldMarkers.Count) held event(s) supersede or retire something: " +
+            "$($heldMarkers -join ', '). What they withdraw stays live in the record until a clean marker is written.")
+    }
+    # A standing branch from an earlier run may carry an event the hold now flags. A rebuild below drops
+    # it, though the old commit stays reachable from the pull request's history; with nothing to file
+    # there is no rebuild, and the branch keeps it. Either way it is said out loud.
+    $stale = 0
+    if ($leased) {
+        $stale = @((Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-tree', '-r', '--name-only', $leased, '--', 'wiki/events')).Out -split "`n" |
+            ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Trim()) } | Where-Object { $heldSet.Contains($_) }).Count
+    }
+    if ($stale -gt 0 -and $filed.Count -eq 0) {
+        [Console]::Error.WriteLine("wiki compile: WARNING: $Branch still carries $stale event(s) the leak hold now flags, " +
+            'and nothing was filed to rebuild it. Close its pull request rather than land it.')
+    } elseif ($stale -gt 0) {
+        [Console]::Error.WriteLine("wiki compile: WARNING: $Branch carried $stale event(s) the leak hold now flags. " +
+            "This run rebuilds it without them, but its earlier commit stays reachable from the pull request's history.")
+    }
+    if ($filed.Count -eq 0) {
+        $report.result = 'nothing-pending'
+        Write-Report ("wiki compile: nothing to file; all $($pending.Count) pending event(s) held back by the leak hold. " +
+            "Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) inbox file(s) unreadable and skipped.$heldText")
+        return
+    }
+
+    # ------------------------------------------------------------------ 5. file what is left
+    foreach ($ev in $filed) {
         $id = [string]$ev.id
         $dir = Get-WikiLogDir -RecordRepo $tmp -Utc $ev._utc
         if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
@@ -300,9 +517,8 @@ function Invoke-WikiCompile {
             Stop-Compile 1 "id collision: $id is already filed in the log; an event is never overwritten."
         }
         # CreateNew as well, so even a file that appeared since the test above is never overwritten.
-        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $inbox "$id.json"))
         $fs = [System.IO.FileStream]::new($dest, [System.IO.FileMode]::CreateNew)
-        try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
+        try { $fs.Write($bytes[$id], 0, $bytes[$id].Length) } finally { $fs.Dispose() }
     }
 
     $all = Read-WikiEventDir -Dir (Get-WikiEventsRoot -RecordRepo $tmp) -Source log -Recurse
@@ -319,9 +535,9 @@ function Invoke-WikiCompile {
     Invoke-Tool -Exe $git -Dir $tmp -Arguments @('add', '--all', '--', 'wiki') | Out-Null
     $contentTree = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('write-tree')).Out.Trim()
     $report.content_tree = $contentTree
-    $title = "wiki: compile $($pending.Count) events"
+    $title = "wiki: compile $($filed.Count) events"
 
-    # --------------------------------------------------------------------- 6. already converged?
+    # --------------------------------------------------------------------- 8. already converged?
     $converged = $false
     if ($leased) {
         $parent = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('rev-parse', '--verify', '--quiet', "$leased^1") -AllowFail
@@ -340,7 +556,7 @@ function Invoke-WikiCompile {
         # ------------------------------------------------------------------- the one log line
         $logPath = Join-Path $wikiDir 'log.md'
         $now = (Get-WikiClock).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture)
-        $line = "- ${now}: $($pending.Count) event(s) added, $($set.Pages) page(s) written, $($set.Conflicts.Count) conflict(s)`n"
+        $line = "- ${now}: $($filed.Count) event(s) added, $($set.Pages) page(s) written, $($set.Conflicts.Count) conflict(s), $($heldIds.Count) held back`n"
         $enc = [System.Text.UTF8Encoding]::new($false)
         if (-not (Test-Path -LiteralPath $logPath)) {
             [System.IO.File]::WriteAllText($logPath, "# Wiki compile log`n`nOne line per compile, appended by ``scripts/wiki/compile.ps1``.`n`n", $enc)
@@ -351,16 +567,17 @@ function Invoke-WikiCompile {
         [System.IO.File]::AppendAllText($logPath, $line, $enc)
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('add', '--', 'wiki/log.md') | Out-Null
 
-        # ------------------------------------------------------------------------ 5. commit, push
-        $body = "Folds $($pending.Count) inbox event(s) into wiki/events and rebuilds $($set.Pages) page(s) and the index. " +
-            "$($set.Conflicts.Count) conflict(s) listed in wiki/index.md. Generated by scripts/wiki/compile.ps1; never merged by it."
+        # ------------------------------------------------------------------------ 7. commit, push
+        $body = "Folds $($filed.Count) inbox event(s) into wiki/events and rebuilds $($set.Pages) page(s) and the index. " +
+            "$($set.Conflicts.Count) conflict(s) listed in wiki/index.md. $($heldIds.Count) event(s) held back in the inbox by " +
+            "the leak hold. Generated by scripts/wiki/compile.ps1; never merged by it."
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('commit', '--quiet', '-m', $title, '-m', $body,
             '-m', "Wiki-Content-Tree: $contentTree") | Out-Null
         $report.head = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('rev-parse', 'HEAD')).Out.Trim()
         $report.tree = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('rev-parse', 'HEAD^{tree}')).Out.Trim()
         Invoke-Tool -Exe $git -Dir $tmp -Arguments @('push', '--quiet', "--force-with-lease=refs/heads/${Branch}:$leased",
             $Remote, "HEAD:refs/heads/$Branch") | Out-Null
-        $report.added = $pending.Count
+        $report.added = $filed.Count
         $report.result = 'compiled'
     }
 
@@ -395,8 +612,9 @@ function Invoke-WikiCompile {
     $what = if ($report.result -ceq 'converged') { "already current at $($report.head); nothing added" }
     else { "pushed $Branch at $($report.head)" }
     $prText = if ($NoPr) { 'no pull request (-NoPr)' } else { "pull request $($report.pr)" }
-    Write-Report ("wiki compile: $($pending.Count) event(s) pending, $($set.Pages) page(s), $($set.Conflicts.Count) conflict(s); " +
-        "$what; $prText. Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) unreadable and skipped.")
+    Write-Report ("wiki compile: $($pending.Count) event(s) pending, $($heldIds.Count) held back, $($set.Pages) page(s), " +
+        "$($set.Conflicts.Count) conflict(s); $what; $prText. Removed $($toDelete.Count) landed inbox file(s); " +
+        "$($r.Skipped) unreadable and skipped.$heldText")
 }
 
 $exitCode = 0

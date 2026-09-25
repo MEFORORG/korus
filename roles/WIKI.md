@@ -184,6 +184,21 @@ carry on. Never reword an event to slip past the leak scan.
 
 The leak scan refuses a hit and names the class, never the value. It is a backstop, not the rule.
 
+### Some events stay in your inbox and never reach the record repository
+
+An event that names a customer, a site, a partner, a vendor or a worktree slug stays in the local
+inbox. So does one that carries an email address, a user-home path or a routable IP address.
+Compile holds it back (spec FR-028).
+
+Writing one is still fine. It still answers a local query, labelled `inbox`, and it never reaches
+the record repository. Compile scans it again on every run and reports only its id.
+
+The record repository's own leak scanner decides the names. Its patterns are private, so korus
+cannot list them. To make the lesson part of the compiled log, write it again without the name.
+
+**A held `supersede` or `retire` withdraws nothing in the record.** The event it names stays live on
+the pages, and compile warns. Write the marker again without the name.
+
 ## Optional readers sit beside `query.ps1`, never in its place
 
 **Obsidian is a viewer, and no seat depends on it.** Open the `wiki/` directory of a `<vault>`
