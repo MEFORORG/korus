@@ -97,7 +97,7 @@ RETIREMENT_MARKER = re.compile(
 )
 
 
-#: A line scoped to a Builder in its OWN SESSION. Decided 2026-09-23 under the owner's delegation:
+#: A line scoped to a Builder in its OWN SESSION. Owner ruling 2026-09-24:
 #: the Manager opens the pull request only for a Builder that is its subagent. A Builder a chip
 #: started, or the Manager spawned, opens its own, so a line naming that scope is the live rule, not
 #: the retired one. The scope must be on the same line, as the retirement marker must: an unscoped
@@ -186,7 +186,7 @@ class TheDetectorFires(unittest.TestCase):
         self.assertEqual([], unmarked_builder_lines(kept))
 
     def test_a_builder_in_its_own_session_is_not_caught(self):
-        """The 2026-09-23 scope. Paired with the next test, so it cannot silence everything."""
+        """The 2026-09-24 scope. Paired with the next test, so it cannot silence everything."""
         scoped = "### A Builder in its own session opens its own pull request"
         spawned = (
             "In your own session, whether a chip started you or the Manager spawned you, open "
@@ -216,7 +216,7 @@ class TheRuleIsStatedOnce(unittest.TestCase):
             {},
             offenders,
             "The Manager opens the pull request for its subagent Builders (owner ruling "
-            "2026-09-18, narrowed 2026-09-23). These lines instruct a Builder to open its own, "
+            "2026-09-18, narrowed 2026-09-24). These lines instruct a Builder to open its own, "
             "with no retirement marker and no own-session scope on the line. Either mark the line "
             "as retired text or repoint it: " + repr(offenders),
         )
