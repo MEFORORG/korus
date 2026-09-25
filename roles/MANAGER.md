@@ -93,7 +93,7 @@ until the Lander closes the item, then say so in Notes.
 
 | Field | Why it is in the brief and not left to the Builder |
 | --- | --- |
-| The backlog number | The Builder takes the claim on it with `claim.ps1 -Take <N>` before its first commit. A number it has to infer is a claim it takes late or not at all. |
+| The backlog number | The Builder takes the claim on it with `claim.ps1 -Take <N>` in an engine checkout, before its first commit. A number it has to infer is a claim it takes late or not at all. |
 | The worktree | Its absolute path. Two workers handed one tree each read the other's output as an unexplained intruder. |
 | The code-review effort level | `xhigh` unless you have a reason. A bare `code-review` call inherits the session's level, so an unnamed level is whatever the harness was set to. |
 
@@ -252,7 +252,7 @@ Ask the Lander to dequeue it, close the pull request, and cut a new one from a f
 
 ### A Builder in its own session opens its own pull request
 
-**Decided 2026-09-23 under the owner's delegation.** The batch rule above covers a Builder running
+**Owner ruling 2026-09-24.** The batch rule above covers a Builder running
 as your SUBAGENT, and nothing else. A Builder in its own session is not covered, even though you
 wrote its brief.
 
@@ -349,7 +349,7 @@ conclude the label is gone, because it is not.
 | Repository | The required context | The workflow |
 | --- | --- | --- |
 | `MEFORORG/MessageFoundry`, the engine | REMOVED. 14 contexts to 13 | **STILL PRESENT AND STILL RUNNING.** It fires on every push and still strips `reviewed` |
-| `wshallwshall/korus` | REMOVED | deleted |
+| `MEFORORG/korus`, named `wshallwshall/korus` here until 2026-09-24 | REMOVED | deleted |
 
 **So an engine pull request still carries a check named `a reviewer has read this`, and whatever it
 says, it blocks nothing.** Do not chase it. Your label will still vanish when you push. That is the
@@ -423,6 +423,7 @@ carried here rather than re-derived by this seat.
 | Verify the remote before sizing a wave | `gh` answers plausibly against the wrong repository rather than failing. |
 | The measured case | A Manager ran `gh pr list` against the vault, read **1** open pull request, and sized a ten-subagent dispatch on it. The engine had **38**. |
 | So | Pass `--repo MEFORORG/MessageFoundry` explicitly on anything you will act on. The vault was renamed to `wshallwshall/MessageFoundry-vault` the same day and the old slug STILL REDIRECTS, so a stale `--repo wshallwshall/MessageFoundry` still answers, and answers about the vault. |
+| **CORRECTED 2026-09-24: the vault's slug is `MEFORORG/MessageFoundry-vault`** | The row above keeps what it said. `gh repo view --json nameWithOwner` in the vault checkout returns `MEFORORG/MessageFoundry-vault`, and `wshallwshall/MessageFoundry-vault` redirects there too. The advice holds: name the repository with `--repo`. |
 | **EXPIRY** | This holds only while the ledger is one file whose new rows land at one tail, and while conflict resolution is serial and manual. |
 | How to check the expiry | Re-examine it if `docs/BACKLOG.md` is split, if a merge driver is adopted for it, or if rows stop being appended in number order. |
 
@@ -578,8 +579,9 @@ When a builder finishes:
 
 **Removing the worktree is what lets the Lander release the claim at step 14.**
 
-`claim.ps1 -Release` acts on the worktree the shell stands in, so a Lander releasing a Builder's
-claim is releasing another worktree's. The script refuses, then probes the holder.
+`claim.ps1 -Release` runs in an engine checkout and acts on the worktree the shell stands in. So a
+Lander releasing a Builder's claim is releasing another worktree's. The script refuses, then probes
+the holder.
 
 A worktree still on disk reads **HOLDER IS STILL THERE**, and the script tells the Lander not to
 force it. A removed one reads **HOLDER GONE**, and `-Force` becomes the script's own recommendation.
