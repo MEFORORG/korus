@@ -498,15 +498,24 @@ class TheLockKeepsTwoCyclesApart(_CycleCase):
         self.assertEqual("held", line["lock"]["state"])
         self.assertEqual(2, line["exit"])
 
-    def test_a_lock_older_than_two_hours_is_cleared_and_logged(self):
-        self.plant_lock(age_hours=3)
+    def test_a_three_hour_lock_is_still_live(self):
+        """The task stops at two hours, so a lock under four hours old belongs to a live run."""
+        before = self.plant_lock(age_hours=3)
+        r = self.cycle("-NoImport")
+        self.assert_ran(r, 2)
+        self.assertIn("holds the lock", r.stderr)
+        self.assertEqual([], self.called())
+        self.assertEqual(before, self.lock().read_bytes())
+
+    def test_a_lock_older_than_four_hours_is_cleared_and_logged(self):
+        self.plant_lock(age_hours=5)
         r = self.cycle("-NoImport")
         self.assert_ran(r)
         self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
         self.assertIn("stale lock", r.stderr)
         lock = self.log_lines()[-1]["lock"]
         self.assertEqual("stale lock cleared", lock["state"])
-        self.assertGreater(lock["age_hours"], 2.9)
+        self.assertGreater(lock["age_hours"], 4.9)
         self.assertIn("planted holder", lock["holder"])
         self.assertFalse(self.lock().exists())
 
@@ -563,6 +572,14 @@ class WhatIfPlansAndWritesNothing(_CycleCase):
         self.assertEqual(self.korus_v1, self.head(self.korus))
         self.assertEqual(self.korus_v1, w.git(self.korus, "rev-parse", "origin/main").stdout.strip(), "nothing was fetched")
 
+    def test_each_step_carries_its_own_time_limit(self):
+        """Compile gets 30 minutes: double a first real compile at the slowdown the task showed."""
+        plan = json.loads(self.cycle("-Import", "-WhatIf", "-Json").stdout)
+        self.assertEqual({"import": 15, "compile": 30, "lint": 15},
+                         {s["name"]: s["timeout_minutes"] for s in plan["steps"]})
+        self.assertEqual(100, plan["budget_minutes"])
+        self.assertEqual(4, plan["stale_lock_hours"])
+
     def test_the_plan_reports_a_refusal_with_exit_2(self):
         (self.korus / "scripts" / "wiki" / "lint.ps1").write_text("# edit\n", encoding="ascii")
         self.plant_lock(age_hours=0.1)
@@ -609,7 +626,8 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         self.assertTrue(plan["startWhenAvailable"])
         self.assertTrue(plan["allowStartIfOnBatteries"])
         self.assertTrue(plan["dontStopIfGoingOnBatteries"])
-        self.assertEqual(1, plan["executionTimeLimitHours"])
+        self.assertEqual(2, plan["executionTimeLimitHours"])
+        self.assertEqual(4, plan["priority"])
         self.assertEqual("IgnoreNew", plan["multipleInstances"])
         self.assertEqual({"kind": "daily", "at": "07:15"}, plan["trigger"])
         self.assertEqual("Sunday", plan["importDay"])
@@ -628,6 +646,21 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         self.assertIn(f'-EvidenceRepo "{self.evidence}"', arg)
         self.assertIn(f'-LintOut "{self.lint_out}"', arg)
         self.assertTrue(arg.endswith("-ImportDay Sunday"))
+
+    def test_the_plan_prints_the_priority(self):
+        r = self.register("-WhatIf")
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn("priority: 4 (normal", r.stdout)
+
+    def test_the_cycle_fits_inside_the_task_limit(self):
+        """The two files hold their own numbers, so this pins them to each other. A run past the
+        task's limit is killed and writes no log line; a lock younger than a live run is never stale."""
+        task = json.loads(self.register("-WhatIf", "-Json").stdout)
+        cycle = json.loads(w.run(self.pwsh, CYCLE, *self.args("-NoImport", "-WhatIf", "-Json")).stdout)
+        limit = task["executionTimeLimitHours"] * 60
+        self.assertLess(cycle["budget_minutes"], limit)
+        self.assertLessEqual(max(s["timeout_minutes"] for s in cycle["steps"]), cycle["budget_minutes"])
+        self.assertGreaterEqual(cycle["stale_lock_hours"] * 60, 2 * limit)
 
     def test_the_registered_command_line_runs_the_cycle(self):
         """The argument string, run as Task Scheduler would run it, parses into a cycle that plans exit 0."""

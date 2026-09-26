@@ -64,6 +64,10 @@ only with the Owner, so the Lander does not land it.
 Register the cycle once per machine with `scripts/wiki/register-cycle-task.ps1`. Pass `-WhatIf`
 first: it prints exactly what it would register. `-Status` shows the task and the last log line.
 
+**A task registered before 2026-09-26 needs registering again.** It runs at the scheduler's default
+priority, 7, and stops after one hour. The registrar now asks for priority 4 and two hours, and its
+header says why. Running it again replaces the task of the same name.
+
 ```powershell
 pwsh -NoProfile -File <korus>/scripts/wiki/register-cycle-task.ps1 -KorusCheckout <korus> `
   -StateRoot <coord> -RecordRepo <vault> -ReaderRepo <vault reader> `

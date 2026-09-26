@@ -21,9 +21,17 @@
     and kill a run when the power is pulled, which would drop a laptop's day without a word. An
     interactive task also opens a console window, and closing it would kill the run mid-push.
 
-    THE TASK STOPS AFTER ONE HOUR. The cycle treats a lock older than two hours as dead, so a run
-    the scheduler killed never blocks the next day's run, and a live run never looks stale. A
-    second start while one runs is ignored.
+    THE TASK STOPS AFTER TWO HOURS. The cycle keeps its own run inside 100 minutes, and gives a
+    first real compile 30 of them (see `cycle.ps1`). It treats a lock older than four hours as dead,
+    so a run the scheduler killed never blocks the next day's run, and a live run never looks
+    stale. A second start while one runs is ignored.
+
+    IT RUNS AT NORMAL PRIORITY, 4. Task Scheduler's default is 7, below normal, and that also lowers
+    the task's I/O priority. Measured 2026-09-26 on a busy box at 7: a record `git fetch`, and then
+    a checkout of 1,097 files, each ran past the cycle's two-minute git limit. At 4, set by hand,
+    both passed. Lint took 87 s in the task at 7 against 20 s in a shell. The box's load varied, so
+    priority is a likely cause and not a proven one. Normal priority costs nothing when the box is
+    idle, and it is what a person running the cycle by hand gets anyway.
 
     THE TASK RUNS THE CHECKOUT'S OWN cycle.ps1. That checkout is detached, and each run moves it to
     `origin/main` and refuses local changes. So what runs is what `main` holds. That is why this
@@ -84,7 +92,9 @@ $ErrorActionPreference = 'Stop'
 # these, so the plan cannot claim a setting the task does not have.
 $RunLevel = 'Limited'
 $LogonType = 'Interactive'
-$TimeLimitHours = 1
+$TimeLimitHours = 2
+# Task Scheduler's 0-10 scale: 4 is normal, 7 (its default) is below normal. See the header.
+$Priority = 4
 
 function Stop-Register {
     param([string] $Message)
@@ -257,6 +267,7 @@ $plan = [ordered]@{
     allowStartIfOnBatteries = $true
     dontStopIfGoingOnBatteries = $true
     executionTimeLimitHours = $TimeLimitHours
+    priority           = $Priority
     multipleInstances  = 'IgnoreNew'
     paths              = $paths
     stores             = $stores
@@ -269,6 +280,7 @@ $planLines = @(
     "  runs:  $executable $argument",
     "  in:    $korus",
     "  start when available: yes; runs on battery too; stop after $TimeLimitHours h; a second start while one runs is ignored.",
+    "  priority: $Priority (normal; the scheduler's default is 7, below normal).",
     "  imports on $day."
 )
 if (-not $cycleExists) { $planLines += "  MISSING: $cycle" }
@@ -289,7 +301,7 @@ try {
     $trigger = New-ScheduledTaskTrigger -Daily -At $At
     $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType $LogonType -RunLevel $RunLevel
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-        -ExecutionTimeLimit (New-TimeSpan -Hours $TimeLimitHours) -MultipleInstances IgnoreNew
+        -ExecutionTimeLimit (New-TimeSpan -Hours $TimeLimitHours) -MultipleInstances IgnoreNew -Priority $Priority
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 } catch {
     Stop-Register "the task store refused: $($_.Exception.Message)"
