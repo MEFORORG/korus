@@ -557,6 +557,100 @@ class AnIdCollisionFailsLoudly(_CompileCase):
         self.assertEqual(1, r["deleted"])
 
 
+class ALandedFileIsClearedByItsObjectId(_CompileCase):
+    """Step 1's fast path. A landed inbox file is matched by the object id `ls-tree` already printed,
+    so no `git show` runs for it. One `git show` per file cost 208 s for 906 files, 2026-09-26.
+
+    GIT_TRACE2 records every git process the run starts, so the `show` count is read off git itself
+    and not off the script's report. The `ls-tree` count shows the trace is armed, so a zero is a
+    reading. The control: a copy that differs only in trailing blank lines misses the fast path, is
+    read back once, and is still cleared, because the comparison ignores trailing space."""
+
+    SHOW = re.compile(r" start .* show [0-9a-f]{40,64}:wiki/events/")
+    LS_TREE = re.compile(r" start .* ls-tree ")
+
+    def setUp(self):
+        super().setUp()
+        self.events = [w.plant(self.inbox, when=w.days_ago(3 - n), key=f"gate/ascii/n{n}", summary=f"planted event {n}")
+                       for n in range(3)]
+        self.compile()
+        self.merge()
+        self.trace = self.root / "trace2.txt"
+
+    def run_traced(self) -> dict:
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  env={"GIT_TRACE2": str(self.trace)})
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout)
+
+    def count(self, pattern: re.Pattern[str]) -> int:
+        lines = self.trace.read_text(encoding="utf-8", errors="replace").splitlines()
+        return len([ln for ln in lines if pattern.search(ln)])
+
+    def test_an_identical_landed_file_is_cleared_with_no_git_show(self):
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual([], list(self.inbox.glob("*.json")))
+        self.assertGreater(self.count(self.LS_TREE), 0, "the trace saw the run's git calls")
+        self.assertEqual(0, self.count(self.SHOW))
+
+    def test_a_crlf_copy_of_an_lf_blob_is_cleared_with_no_git_show(self):
+        """The CRLF fold. Under `core.autocrlf=true` git stores the LF form of a CRLF file."""
+        path = self.inbox / f"{self.events[1]['id']}.json"
+        blob = subprocess.run(["git", f"--git-dir={self.remote}", "cat-file", "blob",
+                               f"main:{self.landed_path(self.events[1])}"],
+                              capture_output=True, timeout=w.TIMEOUT_SECONDS, check=True).stdout
+        self.assertNotIn(b"\r", blob, "the landed blob is LF")
+        path.write_bytes(blob.replace(b"\n", b"\r\n"))
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual(0, self.count(self.SHOW))
+
+    def landed_path(self, ev: dict) -> str:
+        return f"wiki/events/{ev['ts'][:4]}/{ev['ts'][5:7]}/{ev['id']}.json"
+
+    def test_control_a_copy_with_trailing_blank_lines_is_read_back_once_and_cleared(self):
+        path = self.inbox / f"{self.events[0]['id']}.json"
+        path.write_bytes(path.read_bytes() + b"\n\n")
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual([], list(self.inbox.glob("*.json")))
+        self.assertEqual(1, self.count(self.SHOW))
+
+
+class CompileTimesItsPhasesOnlyWhenAsked(_CompileCase):
+    """-Timings prints one stderr line a phase. Without it, stderr carries no timing line at all."""
+
+    def test_timings_name_each_phase_and_a_total(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  "-Timings")
+        self.assertEqual(0, r.returncode, r.stderr)
+        phases = re.findall(r"(?m)^wiki compile: timing (\S+) \d+\.\d\d s$", r.stderr)
+        for phase in ("setup", "fetch", "clear-landed", "worktree-add", "hold-scan", "commit-push", "report",
+                      "worktree-remove", "total"):
+            self.assertIn(phase, phases)
+        self.assertEqual("compiled", json.loads(r.stdout)["result"])
+
+    def test_a_stop_closes_the_phase_it_cut_short(self):
+        """A stop in the hold is timed as `until-stop`, not as the worktree's removal."""
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        self.set_scanner("import sys\nraise SystemExit(2)\n")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  "-Timings")
+        self.assertEqual(2, r.returncode, r.stderr)
+        phases = re.findall(r"(?m)^wiki compile: timing (\S+) \d+\.\d\d s$", r.stderr)
+        self.assertIn("until-stop", phases)
+        self.assertNotIn("report", phases)
+        self.assertNotIn("hold-scan", phases)
+
+    def test_control_no_timing_line_without_the_switch(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn("timing", r.stderr)
+
+
 class TheRecordClonesWorkingTreeIsUntouched(_CompileCase):
     def test_status_and_head_are_identical_before_and_after(self):
         # Dirt of both kinds, so a compile that cleaned, reset or checked out would change the reading.

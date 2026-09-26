@@ -66,7 +66,7 @@ and a query.
 | `scripts/wiki/import.ps1` | Folds the per-account memory stores into the inbox; `cycle.ps1` runs it weekly. Reads only the directories named by `-Store`, records every merge as an event, and writes through `write.ps1 -FromJson`. An unchanged store adds nothing; `-WhatIf` writes nothing | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/lint.ps1` | Report only; changes no event. Finds conflicts, dead evidence, stale events, orphan pages and lessons two seats wrote. Counts the evidence it could not check, so zero dead is not read as clean | [Fleet wiki spec](../specs/002-fleet-wiki/spec.md) |
 | `scripts/wiki/cycle.ps1` | One scheduled run, no model. Moves a dedicated korus checkout and a record reader to `origin/main`, then imports on its day, compiles and lints. Refuses local changes, a branch checkout and a live lock. Logs a JSON line per run | [Fleet wiki schema](../roles/WIKI.md) |
-| `scripts/wiki/register-cycle-task.ps1` | Registers, shows or removes the Windows scheduled task that runs `cycle.ps1` daily, as you, at run level Limited. Every path is a parameter. `-WhatIf` prints exactly what it would register. `-Status`, `-Uninstall`, `-Json` | [Fleet wiki schema](../roles/WIKI.md) |
+| `scripts/wiki/register-cycle-task.ps1` | Registers, shows or removes the Windows scheduled task that runs `cycle.ps1` daily, as you, at run level Limited and normal priority. Every path is a parameter. `-WhatIf` prints exactly what it would register. `-Status`, `-Uninstall`, `-Json` | [Fleet wiki schema](../roles/WIKI.md) |
 
 ## To clean up and recover
 

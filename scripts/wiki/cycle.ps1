@@ -21,9 +21,9 @@
          repository, so a reader aimed at the wrong repository is refused rather than read as a
          record with no log. A failure here exits 2, and nothing has moved.
       2. TAKE THE LOCK, `<StateRoot>/wiki-cycle/lock`, created only if absent. A lock younger than
-         two hours means another cycle runs: exit 2. An older one is dead, because the registered
-         task is stopped after one hour. The run sets it aside, deletes it, says so in the log, and
-         carries on.
+         four hours means another cycle runs: exit 2. An older one is dead, because the registered
+         task is stopped after two hours. The run sets it aside, deletes it, says so in the log,
+         and carries on.
       3. FETCH BOTH CHECKOUTS, and check that moving either strands no commit. A fetch is tried
          three times, a minute apart at most, because a run started at logon often beats the
          network. Both checkouts are checked for a tracked change again, since an edit can land
@@ -52,11 +52,19 @@
     with its key counts: the import counts, compile's result, added count and pull request, and
     lint's totals. The stores and evidence repositories are checked by the step that reads them,
     so a missing store fails the import and leaves compile and lint to run. A step that runs past
-    15 minutes is killed with its process tree and recorded as timed out.
+    its limit is killed with its process tree and recorded as timed out.
 
-    THE RUN KEEPS INSIDE 50 MINUTES, because the registered task is stopped at one hour and a run
-    stopped there writes no log line. A step gets 15 minutes or what is left of the 50, whichever is
-    less. A step with less than a minute left does not start, and is recorded as a failure.
+    EACH STEP HAS ITS OWN LIMIT: compile 30 minutes, import and lint 15 each. The first real compile
+    took 203 s, and the task ran lint 4.35 times slower than a shell did: 87 s against 20 s. Both
+    readings are the `seconds` field of this log's lines, 2026-09-26. Scaled by that ratio, a first
+    compile could take about 15 minutes in the task, which is where the old limit sat. That is an
+    estimate, not a measurement, so compile gets double it.
+
+    THE RUN KEEPS INSIDE 100 MINUTES, because the registered task is stopped at two hours and a run
+    stopped there writes no log line. The 20 minutes to spare let a step cut off at the budget be
+    killed and logged before the scheduler stops the run. A step gets its limit or what is left of
+    the 100, whichever is less. A step with less than a minute left does not start, and is recorded
+    as a failure.
 
     A KILLED COMPILE CAN LEAVE A TEMPORARY WORKTREE behind in the record clone, and a scan
     directory in the temp folder that holds copies of pending events. The message says so. To make
@@ -84,7 +92,8 @@
 
     -WhatIf runs the checks of step 1, reads the lock, and prints the plan. It fetches nothing,
     moves nothing, takes no lock and writes no log line. It shows the scripts as the korus checkout
-    holds them now, before a run would move it.
+    holds them now, before a run would move it. Its -Json plan also carries each step's
+    `timeout_minutes`, the run's `budget_minutes` and the `stale_lock_hours`.
 
     Exit codes:
         0  every step ran, whatever it found
@@ -125,10 +134,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Two hours is double the task's one-hour limit, so a live run never looks stale.
-$StaleLockHours = 2
-$StepTimeoutMinutes = 15
-$RunBudgetMinutes = 50
+# Four hours is double the task's two-hour limit, so a live run never looks stale.
+$StaleLockHours = 4
+# Per step. See EACH STEP HAS ITS OWN LIMIT in the header for why compile gets 30.
+$StepTimeoutMinutes = @{ import = 15; compile = 30; lint = 15 }
+$RunBudgetMinutes = 100
 $GitTimeoutSeconds = 120
 $FetchWaits = @(0, 15, 45)
 $Remote = 'origin'
@@ -364,13 +374,15 @@ function Get-StepPlan {
         $importArgs = @('-Store', ($Stores -join ','), '-StateRoot', $script:StateRoot, '-Json')
         $passRecord = Test-Path -LiteralPath (Join-Path (Join-Path $Reader 'wiki') 'events') -PathType Container
         if ($passRecord) { $importArgs += @('-RecordRepo', $Reader) }
-        $steps.Add([ordered]@{ name = 'import'; script = (Join-Path $wiki 'import.ps1'); arguments = $importArgs; record_repo_passed = $passRecord })
+        $steps.Add([ordered]@{ name = 'import'; script = (Join-Path $wiki 'import.ps1'); arguments = $importArgs; record_repo_passed = $passRecord
+                timeout_minutes = $StepTimeoutMinutes['import'] })
     }
-    $steps.Add([ordered]@{ name = 'compile'; script = (Join-Path $wiki 'compile.ps1'); arguments = @('-StateRoot', $script:StateRoot, '-RecordRepo', $Record, '-Json') })
+    $steps.Add([ordered]@{ name = 'compile'; script = (Join-Path $wiki 'compile.ps1'); arguments = @('-StateRoot', $script:StateRoot, '-RecordRepo', $Record, '-Json')
+            timeout_minutes = $StepTimeoutMinutes['compile'] })
     $lintArgs = @('-StateRoot', $script:StateRoot, '-RecordRepo', $Reader)
     if ($Evidence.Count -gt 0) { $lintArgs += @('-EvidenceRepo', ($Evidence -join ',')) }
     $lintArgs += @('-Out', $LintFile)
-    $steps.Add([ordered]@{ name = 'lint'; script = (Join-Path $wiki 'lint.ps1'); arguments = $lintArgs })
+    $steps.Add([ordered]@{ name = 'lint'; script = (Join-Path $wiki 'lint.ps1'); arguments = $lintArgs; timeout_minutes = $StepTimeoutMinutes['lint'] })
     return , $steps.ToArray()
 }
 
@@ -384,7 +396,7 @@ function Invoke-Step {
         [Console]::Error.WriteLine("wiki cycle: $name did not start: the run's $RunBudgetMinutes-minute budget is spent.")
         return [pscustomobject]@{ Record = [ordered]@{ exit = $null; problem = "not started: the $RunBudgetMinutes-minute run budget is spent" }; Out = '' }
     }
-    $limitMs = [math]::Min($StepTimeoutMinutes * 60000, $leftMs)
+    $limitMs = [math]::Min($Step.timeout_minutes * 60000, $leftMs)
     $r = Invoke-Proc -Exe $script:pwsh -Dir $script:korusDir -TimeoutMs $limitMs `
         -Arguments (@('-NoProfile', '-NonInteractive', '-File', $Step.script) + $Step.arguments)
     $rec = [ordered]@{ exit = $r.Code; seconds = $r.Seconds }
@@ -623,6 +635,8 @@ function Invoke-WikiCycle {
             note = 'Whether -RecordRepo reaches the import is read from the reader as it stands now; a run reads it again after the move.' }
         $plan.steps = Get-StepPlan -Korus $korus -Reader $reader -Record $record -Stores $stores -Evidence $evidence `
             -LintFile $lintFile -ImportDue $decision.Due
+        $plan.budget_minutes = $RunBudgetMinutes
+        $plan.stale_lock_hours = $StaleLockHours
         $plan.log = Join-Path $script:logDir ("log-{0}.jsonl" -f $started.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
         $plan.problems = @($problems)
         $refused = (@($korusRec, $readerRec) | Where-Object { $_.problem }) -or $problems.Contains($script:sameRepoProblem) -or $lockState -like 'held*'

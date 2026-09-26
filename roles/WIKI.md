@@ -64,6 +64,9 @@ only with the Owner, so the Lander does not land it.
 Register the cycle once per machine with `scripts/wiki/register-cycle-task.ps1`. Pass `-WhatIf`
 first: it prints exactly what it would register. `-Status` shows the task and the last log line.
 
+**Register an old task again.** The first registrar left priority 7 and a one-hour limit; this one
+sets 4 and two hours. `-Status` says OUT OF DATE until you do.
+
 ```powershell
 pwsh -NoProfile -File <korus>/scripts/wiki/register-cycle-task.ps1 -KorusCheckout <korus> `
   -StateRoot <coord> -RecordRepo <vault> -ReaderRepo <vault reader> `
