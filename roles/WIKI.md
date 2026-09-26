@@ -35,7 +35,7 @@ pwsh -NoProfile -File <korus>/scripts/wiki/write.ps1 -StateRoot <coord> -Type go
   -Key git/show/msys-dotpath -Summary "git show ref:.dotpath returns empty under MSYS" `
   -Evidence "<commit, PR, path@ref>" -Seat <your seat>
 pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
-  -Text "ascii gate exit code on windows"
+  -Text "ascii gate exit code on windows" -Seat <your seat>
 ```
 
 Each clone has its own coordination directory, so its own inbox. `Get-CcxStateRoot` in
@@ -58,20 +58,40 @@ the Lander does not land it.
 
 ```powershell
 pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
-  -Text "exit code" -Path scripts/quality/check-ascii.ps1
+  -Text "exit code" -Path scripts/quality/check-ascii.ps1 -Seat <your seat>
 ```
 
 | Flag | Use |
 | --- | --- |
 | `-Text <words>` | The subject, in plain words. |
 | `-Path <file>` | Search by the file an event is about. Use it before you edit that file. |
-| `-History` | Also return superseded and retired events, labelled `historical`. A superseded event points at its replacement; a retired one has none. |
+| `-History` | Also return superseded and retired events, labelled `historical`, and the import's `memory-merge/` records. A superseded event points at its replacement; a retired one has none. |
 | `-Limit <n>` | Cap the result count. |
 | `-Json` | Machine-readable output. |
 | `-StateRoot <dir>` | The coordination directory that holds `wiki/inbox/`. Pass `<coord>`, never the inbox itself. |
 | `-RecordRepo <dir>` | The record repository whose compiled log to search. Pass `<vault>`. Without it, only the inbox is searched. |
+| `-Seat <seat>` | Your seat. It goes only into the query log. Without it the log takes your declared seat, then `$env:KORUS_SEAT`. |
 
 Every result carries an id, a date, the writing seat, its evidence and one label.
+
+**A word found only in an event's body counts half toward the match floor.** A word in the key,
+summary or paths counts whole. So when you write, put the words a seat would search for in the key
+or the summary.
+
+A word in the key, summary or paths of more than half the events searched also counts half. It
+tells one event from another no better than a body word does. The `memory` that starts every
+imported key is one.
+
+**Every query appends one line to a local log.** It goes to `<coord>/wiki/query-log/<yyyy-MM>.jsonl`,
+by UTC month, as one JSON object per line. The line holds the time, the seat, the query text and
+path, the result count, the top score, and whether it printed `no note`.
+
+It also says whether the inbox and the log were reached, how many events were searched, and how
+many import records a default query hid. So a `no note` over a store the query could not read does
+not look like a real miss.
+
+It shows whether seats query at all and what they miss. It stays on the machine: nothing compiles,
+commits or sends it. A log that cannot be written is one line on stderr, and the query carries on.
 
 | Label | Means | Before you act on it |
 | --- | --- | --- |

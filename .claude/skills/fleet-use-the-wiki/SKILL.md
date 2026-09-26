@@ -24,9 +24,9 @@ WIKI.md, *Run them from korus by path, and name both stores*, names each placeho
 
    ```powershell
    pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
-     -Text "<subject words>"
+     -Text "<subject words>" -Seat <your seat>
    pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordRepo <vault> `
-     -Text "<subject words>" -Path <file>
+     -Text "<subject words>" -Path <file> -Seat <your seat>
    ```
 
 3. Act on each result as its label says. WIKI.md, *Query before you act on anything you remember*,
