@@ -17,14 +17,17 @@
 
       1. CHECK THE INPUTS BEFORE TOUCHING ANYTHING. The state root, the record repository and both
          checkouts must exist. Each checkout must be the top of a git work tree, on a DETACHED
-         head, with no tracked change. A failure here exits 2, and nothing has moved.
+         head, with no tracked change. The reader must share a root commit with the record
+         repository, so a reader aimed at the wrong repository is refused rather than read as a
+         record with no log. A failure here exits 2, and nothing has moved.
       2. TAKE THE LOCK, `<StateRoot>/wiki-cycle/lock`, created only if absent. A lock younger than
          two hours means another cycle runs: exit 2. An older one is dead, because the registered
          task is stopped after one hour. The run sets it aside, deletes it, says so in the log, and
          carries on.
       3. FETCH BOTH CHECKOUTS, and check that moving either strands no commit. A fetch is tried
          three times, a minute apart at most, because a run started at logon often beats the
-         network. Only when both pass does either move.
+         network. Both checkouts are checked for a tracked change again, since an edit can land
+         during the fetch. Only when both pass does either move.
       4. MOVE -KorusCheckout AND -ReaderRepo TO `origin/main`. The wiki scripts then run FROM the
          korus checkout, so a run always uses the scripts `main` holds. Import and lint read the
          compiled log from the reader.
@@ -51,10 +54,15 @@
     so a missing store fails the import and leaves compile and lint to run. A step that runs past
     15 minutes is killed with its process tree and recorded as timed out.
 
+    THE RUN KEEPS INSIDE 50 MINUTES, because the registered task is stopped at one hour and a run
+    stopped there writes no log line. A step gets 15 minutes or what is left of the 50, whichever is
+    less. A step with less than a minute left does not start, and is recorded as a failure.
+
     A KILLED COMPILE CAN LEAVE A TEMPORARY WORKTREE behind in the record clone, and a scan
     directory in the temp folder that holds copies of pending events. The message says so. To make
     a hang less likely, every step runs with git's terminal prompt and Git Credential Manager's
-    prompts turned off, so a missing credential fails at once instead of waiting.
+    prompts turned off, so a missing HTTPS credential fails at once instead of waiting. An SSH
+    remote is not covered: ssh can still wait on a passphrase or a host key until the time limit.
 
     WHY A DETACHED HEAD IS REQUIRED. A dedicated scheduled checkout sits detached. A checkout on a
     branch is somebody's working tree, and moving it would pull the ground out from under a session.
@@ -80,7 +88,8 @@
 
     Exit codes:
         0  every step ran, whatever it found
-        1  a step returned an error, timed out, or could not start. The other steps still ran.
+        1  a step returned an error, timed out, or could not start or finish. The other steps
+           still ran.
         2  the cycle could not run: a bad or missing argument, a missing state root, record
            repository or checkout, a checkout on a branch or with local changes, a fetch or checkout
            that failed, a missing wiki script, or the lock held by a live cycle
@@ -119,7 +128,9 @@ $ErrorActionPreference = 'Stop'
 # Two hours is double the task's one-hour limit, so a live run never looks stale.
 $StaleLockHours = 2
 $StepTimeoutMinutes = 15
-$FetchWaits = @(0, 20, 60)
+$RunBudgetMinutes = 50
+$GitTimeoutSeconds = 120
+$FetchWaits = @(0, 15, 45)
 $Remote = 'origin'
 $Base = 'main'
 
@@ -157,6 +168,8 @@ function Split-DirList {
         $parts = if (Test-Path -LiteralPath $entry -PathType Container) { @($entry) } else { @($entry -split ',') }
         foreach ($p in $parts) {
             if ([string]::IsNullOrWhiteSpace($p)) { continue }
+            # The list reaches import.ps1 and lint.ps1 joined by commas, and both split it again.
+            if ($p.Contains(',')) { Stop-Cycle "the path '$p' holds a comma, which the wiki scripts would split into two paths." }
             $list.Add((Resolve-CycleDir $p.Trim()))
         }
     }
@@ -217,18 +230,21 @@ function Invoke-Proc {
         $null = $p.WaitForExit(30000)
     }
     $finished = $p.HasExited
+    # A descendant that outlives the child can hold the pipe open, so the reads are bounded too.
+    $readOut = $out.Wait(30000)
+    $readErr = $err.Wait(30000)
     return [pscustomobject]@{
         Code     = if ($timedOut -or -not $finished) { $null } else { $p.ExitCode }
         TimedOut = $timedOut
-        Out      = if ($finished) { $out.GetAwaiter().GetResult() } else { '' }
-        Err      = if ($finished) { $err.GetAwaiter().GetResult() } else { '' }
+        Out      = if ($readOut) { $out.Result } else { '' }
+        Err      = if ($readErr) { $err.Result } else { 'stderr was not read: a process still held the pipe' }
         Seconds  = [math]::Round($clock.Elapsed.TotalSeconds, 1)
     }
 }
 
 function Invoke-Git {
     param([string] $Dir, [string[]] $Arguments)
-    return Invoke-Proc -Exe $script:git -Dir $Dir -Arguments $Arguments -TimeoutMs 300000
+    return Invoke-Proc -Exe $script:git -Dir $Dir -Arguments $Arguments -TimeoutMs ($GitTimeoutSeconds * 1000)
 }
 
 function Get-Tail {
@@ -304,6 +320,10 @@ function Get-CheckoutTarget {
     if ($fetch.Code -ne 0) { Stop-Cycle "$Label '$dir': git fetch $Remote failed $($FetchWaits.Count) times: $(Get-Tail $fetch.Err)" }
     $target = Invoke-Git $dir @('rev-parse', '--verify', "$Remote/$Base^{commit}")
     if ($target.Code -ne 0) { Stop-Cycle "$Label '$dir' has no $Remote/$Base after the fetch." }
+    # Checked again: an edit made during the fetch would otherwise ride along through the checkout.
+    $again = Test-Checkout $Label $dir
+    if ($again.problem) { Stop-Cycle $again.problem }
+    if ($again.head -ne $Rec.head) { Stop-Cycle "$Label '$dir' moved to $($again.head) while the cycle fetched. Another process is using it." }
     # Stranded means no ref reaches HEAD. An ancestry test against origin/main alone would refuse a
     # checkout left at a pull request's head forever once it squash-merged.
     $holders = Invoke-Git $dir @('for-each-ref', '--contains', 'HEAD', '--count=1', '--format=%(refname)')
@@ -321,6 +341,17 @@ function Move-Checkout {
         if ($co.Code -ne 0) { Stop-Cycle "$Label '$($Rec.path)': git checkout of $Remote/$Base failed: $(Get-Tail $co.Err)" }
     }
     $Rec.head = $Sha
+}
+
+function Test-SameRepository {
+    <# True when two repositories share a root commit, which clones of one repository always do. #>
+    param([string] $A, [string] $B)
+    $ra = Invoke-Git $A @('rev-list', '--max-parents=0', 'HEAD')
+    $rb = Invoke-Git $B @('rev-list', '--max-parents=0', 'HEAD')
+    if ($ra.Code -ne 0 -or $rb.Code -ne 0) { return $false }
+    $roots = @(($ra.Out -split "`r?`n") | Where-Object { $_.Trim() })
+    foreach ($r in ($rb.Out -split "`r?`n")) { if ($r.Trim() -and $roots -contains $r.Trim()) { return $true } }
+    return $false
 }
 
 function Get-StepPlan {
@@ -347,14 +378,21 @@ function Invoke-Step {
     <# Run one wiki script from the korus checkout in its own pwsh process. #>
     param([System.Collections.IDictionary] $Step)
     $name = $Step.name
-    $r = Invoke-Proc -Exe $script:pwsh -Dir $script:korusDir -TimeoutMs ($StepTimeoutMinutes * 60000) `
+    $leftMs = [int](($script:deadline - [datetime]::UtcNow).TotalMilliseconds)
+    if ($leftMs -lt 60000) {
+        $script:stepFailed = $true
+        [Console]::Error.WriteLine("wiki cycle: $name did not start: the run's $RunBudgetMinutes-minute budget is spent.")
+        return [pscustomobject]@{ Record = [ordered]@{ exit = $null; problem = "not started: the $RunBudgetMinutes-minute run budget is spent" }; Out = '' }
+    }
+    $limitMs = [math]::Min($StepTimeoutMinutes * 60000, $leftMs)
+    $r = Invoke-Proc -Exe $script:pwsh -Dir $script:korusDir -TimeoutMs $limitMs `
         -Arguments (@('-NoProfile', '-NonInteractive', '-File', $Step.script) + $Step.arguments)
     $rec = [ordered]@{ exit = $r.Code; seconds = $r.Seconds }
     if ($r.TimedOut) {
         $rec.timed_out = $true
         $script:stepFailed = $true
         $extra = if ($name -eq 'compile') { ' A killed compile can leave a temporary worktree in the record clone and a korus-wiki-scan directory in the temp folder; remove both by hand.' } else { '' }
-        [Console]::Error.WriteLine("wiki cycle: $name ran past $StepTimeoutMinutes minutes and was killed.$extra")
+        [Console]::Error.WriteLine("wiki cycle: $name ran past its $([math]::Round($limitMs / 60000, 1))-minute limit and was killed.$extra")
     } elseif ($r.Code -ne 0) {
         $script:stepFailed = $true
         $rec.stderr_tail = Get-Tail $r.Err
@@ -441,10 +479,11 @@ function Enter-CycleLock {
     .SYNOPSIS
         Take the lock, or stop. A lock older than the stale limit is set aside and deleted first.
     .DESCRIPTION
-        The stale lock is RENAMED aside before it is judged, never deleted in place. Two runs can
-        both read one stale lock; the one that renames second then holds whatever file sits at the
-        path by then. If that is a fresh lock another run just took, it goes back and this run
-        stops, so a stale-lock break never deletes a live holder's lock.
+        The age is read in place first, so a live lock is never touched. Only a lock that looks
+        stale is RENAMED aside and judged again there. Two runs can both read one stale lock; the
+        one that renames second then holds whatever file sits at the path by then. If that is a
+        fresh lock another run just took, it goes back and this run stops, so a stale-lock break
+        never deletes a live holder's lock.
     #>
     param([string] $Holder)
     for ($attempt = 0; $attempt -lt 4; $attempt++) {
@@ -459,6 +498,15 @@ function Enter-CycleLock {
             return
         } catch [System.IO.IOException] {
             if (-not (Test-Path -LiteralPath $script:lockPath -PathType Leaf)) { continue }
+        }
+        $inPlace = $null
+        try { $inPlace = ([datetime]::UtcNow - (Get-Item -LiteralPath $script:lockPath).LastWriteTimeUtc).TotalHours }
+        catch [System.Management.Automation.ItemNotFoundException] { continue }
+        if ($inPlace -lt $StaleLockHours) {
+            $who = 'unreadable'
+            try { $who = ([System.IO.File]::ReadAllText($script:lockPath)).Trim() } catch [System.IO.IOException] { $null = $_ }
+            $log.lock = [ordered]@{ state = 'held'; age_hours = [math]::Round($inPlace, 2); holder = $who }
+            Stop-Cycle "another cycle holds the lock '$($script:lockPath)' ($who, $([math]::Round($inPlace, 2)) h old)."
         }
         $aside = "$($script:lockPath).aside-$PID-$([guid]::NewGuid().ToString('N'))"
         try { [System.IO.File]::Move($script:lockPath, $aside) }
@@ -518,6 +566,7 @@ $script:logDir = $null
 $script:korusDir = $null
 $script:git = $null
 $script:pwsh = (Get-Process -Id $PID).Path
+$script:deadline = $started.AddMinutes($RunBudgetMinutes)
 
 function Invoke-WikiCycle {
     # -------------------------------------------------------------------------------- arguments
@@ -548,6 +597,7 @@ function Invoke-WikiCycle {
     if (-not $gitCmd) { Stop-Cycle 'git is not on PATH.' }
     $script:git = $gitCmd.Source
     $script:korusDir = $korus
+    $script:sameRepoProblem = "the reader '$reader' shares no root commit with the record repository '$record', so it is not a checkout of it."
 
     # -------------------------------------------------------------------------------- checkouts
     # Both are checked before either moves, so a refusal leaves both where they were.
@@ -560,6 +610,7 @@ function Invoke-WikiCycle {
         $plan.reader = $readerRec
         $problems = [System.Collections.Generic.List[string]]::new()
         foreach ($rec in @($korusRec, $readerRec)) { if ($rec.problem) { $problems.Add($rec.problem) } }
+        if (-not $readerRec.problem -and -not (Test-SameRepository $reader $record)) { $problems.Add($script:sameRepoProblem) }
         if ($decision.Due -and $stores.Count -eq 0) { $problems.Add("the import is due ($($decision.Why)) and no -Store was given, so the import step would fail.") }
         $lockState = 'free'
         if (Test-Path -LiteralPath $script:lockPath -PathType Leaf) {
@@ -574,12 +625,13 @@ function Invoke-WikiCycle {
             -LintFile $lintFile -ImportDue $decision.Due
         $plan.log = Join-Path $script:logDir ("log-{0}.jsonl" -f $started.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
         $plan.problems = @($problems)
-        $plan.would_exit = if (@($korusRec, $readerRec) | Where-Object { $_.problem }) { 2 }
-            elseif ($lockState -like 'held*') { 2 } elseif ($problems.Count -gt 0) { 1 } else { 0 }
+        $refused = (@($korusRec, $readerRec) | Where-Object { $_.problem }) -or $problems.Contains($script:sameRepoProblem) -or $lockState -like 'held*'
+        $plan.would_exit = if ($refused) { 2 } elseif ($problems.Count -gt 0) { 1 } else { 0 }
         return
     }
 
     foreach ($rec in @($korusRec, $readerRec)) { if ($rec.problem) { Stop-Cycle $rec.problem } }
+    if (-not (Test-SameRepository $reader $record)) { Stop-Cycle $script:sameRepoProblem }
 
     # -------------------------------------------------------------------------------- lock
     $null = New-Item -ItemType Directory -Force -Path $script:logDir
@@ -609,12 +661,26 @@ function Invoke-WikiCycle {
             [Console]::Error.WriteLine("wiki cycle: the import is due ($($decision.Why)) and no -Store was given; it did not run.")
             continue
         }
-        if ($s.name -eq 'lint' -and -not (Test-Path -LiteralPath $lintDir -PathType Container)) {
-            $null = New-Item -ItemType Directory -Force -Path $lintDir
+        # Anything a step throws is that step's failure. The steps after it still run.
+        try {
+            if ($s.name -eq 'lint' -and -not (Test-Path -LiteralPath $lintDir -PathType Container)) {
+                $null = New-Item -ItemType Directory -Force -Path $lintDir
+            }
+            $step = Invoke-Step $s
+            $rec = $step.Record
+            $doc = ConvertFrom-StepJson $step.Out
+            if ($s.name -eq 'lint') {
+                $rec.out = $lintFile
+                if ($rec.exit -eq 0) { $rec.totals = Read-LintTotals $lintFile }
+            }
+        } catch [WikiCycleStop] {
+            throw
+        } catch {
+            $script:stepFailed = $true
+            $rec = [ordered]@{ exit = $null; problem = "the step could not run: $($_.Exception.Message)" }
+            $doc = $null
+            [Console]::Error.WriteLine("wiki cycle: $($s.name) could not run: $($_.Exception.Message)")
         }
-        $step = Invoke-Step $s
-        $rec = $step.Record
-        $doc = ConvertFrom-StepJson $step.Out
         switch ($s.name) {
             'import' {
                 $rec.reason = $decision.Why
@@ -630,11 +696,7 @@ function Invoke-WikiCycle {
                 }
                 $log.compile = $rec
             }
-            'lint' {
-                $rec.out = $lintFile
-                if ($rec.exit -eq 0) { $rec.totals = Read-LintTotals $lintFile }
-                $log.lint = $rec
-            }
+            'lint' { $log.lint = $rec }
         }
     }
 }

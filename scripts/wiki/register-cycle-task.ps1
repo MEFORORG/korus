@@ -144,10 +144,10 @@ if ($Status) {
             Sort-Object Name | Select-Object -Last 1
         $result.lastLogLine = if ($last) { (Get-Content -LiteralPath $last.FullName -Tail 1) } else { $null }
     }
-    $lines = if ($result.registered) {
-        @("Task '$TaskName': $($result.state). Last run $($result.lastRunTime), result $($result.lastTaskResult). Next run $($result.nextRunTime).",
-          "  runs: $($result.execute) $($result.argument)")
-    } else { @("No scheduled task '$TaskName'.") }
+    $lines = @(if ($result.registered) {
+        "Task '$TaskName': $($result.state). Last run $($result.lastRunTime), result $($result.lastTaskResult). Next run $($result.nextRunTime)."
+        "  runs: $($result.execute) $($result.argument)"
+    } else { "No scheduled task '$TaskName'." })
     if ($result.Contains('lastLogLine')) { $lines += "  last log line: $(if ($result.lastLogLine) { $result.lastLogLine } else { '(none)' })" }
     Write-Result $result $lines
     exit 0
@@ -206,6 +206,10 @@ $cycle = Join-Path (Join-Path (Join-Path $korus 'scripts') 'wiki') 'cycle.ps1'
 foreach ($v in @($paths.Values) + $stores + $evidence) {
     if ($v.Contains('"')) { Stop-Register "a path holds a double quote, which cannot pass through the task's command line: $v" }
 }
+# The lists reach the wiki scripts joined by commas, and each splits them again.
+foreach ($v in $stores + $evidence) {
+    if ($v.Contains(',')) { Stop-Register "a path holds a comma, which the wiki scripts would split into two paths: $v" }
+}
 
 # lintOut is left out: the cycle creates it.
 $missing = [System.Collections.Generic.List[string]]::new()
@@ -216,11 +220,15 @@ foreach ($d in $stores + $evidence) { if (-not (Test-Path -LiteralPath $d -PathT
 $cycleExists = Test-Path -LiteralPath $cycle -PathType Leaf
 
 function Format-Arg {
+    <# Quoted for a Windows command line, where backslashes before a closing quote must be doubled. #>
     param([string] $Value)
-    return '"' + $Value + '"'
+    $trail = $Value.Length - $Value.TrimEnd('\').Length
+    return '"' + $Value + ('\' * $trail) + '"'
 }
 
-$argument = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File ' + (Format-Arg $cycle) +
+# Hidden on Windows only: pwsh elsewhere refuses -WindowStyle as not implemented on that platform.
+$window = if ($IsWindows) { '-WindowStyle Hidden ' } else { '' }
+$argument = '-NoProfile -NonInteractive ' + $window + '-ExecutionPolicy Bypass -File ' + (Format-Arg $cycle) +
     ' -KorusCheckout ' + (Format-Arg $paths.korusCheckout) +
     ' -StateRoot ' + (Format-Arg $paths.stateRoot) +
     ' -RecordRepo ' + (Format-Arg $paths.recordRepo) +

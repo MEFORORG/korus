@@ -88,8 +88,6 @@ class _CycleCase(unittest.TestCase):
         self.state.mkdir()
         self.calls = self.root / "calls.jsonl"
         self.lint_out = self.root / "lint"
-        self.record = self.root / "record"
-        self.record.mkdir()
         self.stores = [self.root / "store-a", self.root / "store-b"]
         for s in self.stores:
             s.mkdir()
@@ -118,6 +116,10 @@ class _CycleCase(unittest.TestCase):
         self.reader = self.root / "reader"
         w.git(self.root, "clone", "--quiet", str(self.vault_remote), str(self.reader))
         w.git(self.reader, "checkout", "--quiet", "--detach")
+        # The clone compile works from. The stub compile never touches it; the cycle checks that the
+        # reader shares its root commit.
+        self.record = self.root / "record"
+        w.git(self.root, "clone", "--quiet", str(self.vault_remote), str(self.record))
 
     # -------------------------------------------------------------------------------- helpers
     def push_stubs(self, version: str):
@@ -240,6 +242,16 @@ class ACycleRunsEveryStepFromOriginMain(_CycleCase):
                           "promotion-candidate": 0, "unchecked": 4}, line["lint"]["totals"],
                          "only the Totals table is read; the planted row under Inputs is not")
         self.assertFalse(self.lock().exists(), "the run releases its lock")
+
+    def test_without_json_it_prints_one_summary_line(self):
+        r = self.cycle("-NoImport")
+        self.assert_ran(r)
+        self.assertEqual(1, len(r.stdout.splitlines()), r.stdout)
+        self.assertTrue(r.stdout.startswith(f"wiki cycle: korus at {self.korus_v2}; import skipped (-NoImport); compile exit 0, compiled;"), r.stdout)
+        self.assertTrue(r.stdout.rstrip().endswith("exit 0."), r.stdout)
+        r = self.cycle("-NoImport", "-WhatIf")
+        self.assert_ran(r)
+        self.assertIn("a run would exit 0", r.stdout)
 
     def test_a_second_run_appends_a_second_line(self):
         self.assert_ran(self.cycle("-NoImport"))
@@ -427,6 +439,28 @@ class ACheckoutWithLocalChangesIsNeverMoved(_CycleCase):
         self.assert_ran(self.cycle("-NoImport"))
         self.assertEqual(self.korus_v2, self.head(self.korus))
 
+    def test_a_reader_of_another_repository_is_refused(self):
+        wrong = self.root / "wrong-reader"
+        w.git(self.root, "clone", "--quiet", str(self.korus_remote), str(wrong))
+        w.git(wrong, "checkout", "--quiet", "--detach")
+        args = self.args("-Import")
+        args[args.index("-ReaderRepo") + 1] = str(wrong)
+        r = w.run(self.pwsh, CYCLE, *args, env={"WIKI_CYCLE_TEST_CALLS": str(self.calls)})
+        self.assert_ran(r, 2)
+        self.assertIn("shares no root commit", r.stderr)
+        self.assertEqual([], self.called())
+        self.assertEqual(self.korus_v1, self.head(self.korus))
+
+    def test_a_store_path_holding_a_comma_is_refused(self):
+        odd = self.root / "store,c"
+        odd.mkdir()
+        args = self.args("-Import")
+        args[args.index("-Store") + 1] = str(odd)
+        r = w.run(self.pwsh, CYCLE, *args, env={"WIKI_CYCLE_TEST_CALLS": str(self.calls)})
+        self.assert_ran(r, 2)
+        self.assertIn("comma", r.stderr)
+        self.assertEqual([], self.called())
+
     def test_a_subdirectory_of_a_checkout_is_refused(self):
         args = self.args("-NoImport")
         args[args.index("-KorusCheckout") + 1] = str(self.korus / "scripts")
@@ -576,7 +610,8 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         self.assertEqual(str(self.korus), plan["workingDirectory"])
         arg = plan["argument"]
         cycle = self.korus / "scripts" / "wiki" / "cycle.ps1"
-        self.assertIn(f'-WindowStyle Hidden -ExecutionPolicy Bypass -File "{cycle}"', arg)
+        window = "-WindowStyle Hidden " if sys.platform == "win32" else ""
+        self.assertIn(f'{window}-ExecutionPolicy Bypass -File "{cycle}"', arg)
         self.assertIn(f'-KorusCheckout "{self.korus}"', arg)
         self.assertIn(f'-StateRoot "{self.state}"', arg)
         self.assertIn(f'-RecordRepo "{self.record}"', arg)
@@ -591,7 +626,10 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         plan = json.loads(self.register("-WhatIf", "-Json").stdout)
         tail = " -WhatIf -Json"
         if sys.platform == "win32":
-            r = subprocess.run(f'"{plan["executable"]}" {plan["argument"]}{tail}', capture_output=True, text=True,
+            # Without the hidden window: a child sharing this console would hide the runner's own.
+            argument = plan["argument"].replace("-WindowStyle Hidden ", "")
+            self.assertNotEqual(plan["argument"], argument, "control: the registered line does hide its window")
+            r = subprocess.run(f'"{plan["executable"]}" {argument}{tail}', capture_output=True, text=True,
                                timeout=w.TIMEOUT_SECONDS)
         else:
             r = subprocess.run([plan["executable"], *shlex.split(plan["argument"] + tail)], capture_output=True,
@@ -608,6 +646,25 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         r = w.run(self.pwsh, REGISTER, *args, "-TaskName", self.task, "-WhatIf", "-Json")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertEqual([str(self.root / "no-such-evidence")], json.loads(r.stdout)["missing"])
+
+    @unittest.skipUnless(sys.platform == "win32", "a drive root with a backslash is a Windows path")
+    def test_a_trailing_backslash_does_not_escape_its_closing_quote(self):
+        drive = str(self.root)[:3]
+        args = self.args()
+        args[args.index("-LintOut") + 1] = drive
+        r = w.run(self.pwsh, REGISTER, *args, "-TaskName", self.task, "-WhatIf", "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        arg = json.loads(r.stdout)["argument"]
+        self.assertIn(f'-LintOut "{drive}\\" -ImportDay Sunday', arg)
+
+    def test_a_store_path_holding_a_comma_is_refused(self):
+        odd = self.root / "store,c"
+        odd.mkdir()
+        args = self.args()
+        args[args.index("-Store") + 1] = str(odd)
+        r = w.run(self.pwsh, REGISTER, *args, "-TaskName", self.task, "-WhatIf", "-Json")
+        self.assertEqual(2, r.returncode, r.stdout)
+        self.assertIn("comma", r.stderr)
 
     def test_bad_arguments_are_refused(self):
         args = self.args()
@@ -635,10 +692,24 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
     @unittest.skipUnless(sys.platform == "win32", "the task store exists only on Windows")
     def test_no_task_of_the_decoy_name_was_registered(self):
         self.register("-WhatIf", "-Json")
-        r = subprocess.run([self.pwsh, "-NoProfile", "-Command",
-                            f"if (Get-ScheduledTask -TaskName '{self.task}' -ErrorAction SilentlyContinue) {{ 'FOUND' }} else {{ 'NONE' }}"],
+        probe = "if (Get-ScheduledTask -TaskName '{0}' -ErrorAction SilentlyContinue) {{ 'FOUND' }} else {{ 'NONE' }}"
+        # Control: the same probe finds a task that does exist, so NONE below is a reading.
+        first = subprocess.run([self.pwsh, "-NoProfile", "-Command",
+                                "(Get-ScheduledTask | Where-Object { $_.TaskName -notmatch \"'\" } | Select-Object -First 1).TaskName"],
+                               capture_output=True, text=True, timeout=w.TIMEOUT_SECONDS).stdout.strip()
+        self.assertTrue(first, "control: this machine lists no scheduled task at all")
+        found = subprocess.run([self.pwsh, "-NoProfile", "-Command", probe.format(first)],
+                               capture_output=True, text=True, timeout=w.TIMEOUT_SECONDS)
+        self.assertEqual("FOUND", found.stdout.strip(), found.stderr)
+        r = subprocess.run([self.pwsh, "-NoProfile", "-Command", probe.format(self.task)],
                            capture_output=True, text=True, timeout=w.TIMEOUT_SECONDS)
         self.assertEqual("NONE", r.stdout.strip(), r.stderr)
+
+    @unittest.skipUnless(sys.platform == "win32", "-Status reads the Windows task store")
+    def test_status_of_an_unregistered_task_prints_two_lines(self):
+        r = w.run(self.pwsh, REGISTER, "-Status", "-StateRoot", str(self.state), "-TaskName", self.task)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual([f"No scheduled task '{self.task}'.", "  last log line: (none)"], r.stdout.splitlines())
 
 
 if __name__ == "__main__":
