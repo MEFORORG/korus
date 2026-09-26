@@ -101,6 +101,9 @@ commits or sends it. A log that cannot be written is one line on stderr, and the
 | `stale` | 46 days or older | Re-measure against the tree first. |
 | `historical` | Superseded or retired. Shown only with `-History` | Never act on it. |
 
+Age counts from the day a fact was observed when the event records one, as an imported memory note
+does. Such a result shows that day marked `(noted)`.
+
 ### Four reading rules
 
 1. **Recall is advice, and the tree wins.** A note that disagrees with the tree, a live instrument
@@ -186,6 +189,7 @@ tree or an instrument, and cite what you read.
 | `-Supersedes <id,...>` | The events this one replaces. Required for a `supersede`, and expected on a `correction`. |
 | `-Paths <file,...>` | Files the event is about, so a query by `-Path` finds it. |
 | `-StaleAfter yyyy-MM-dd` | The date after which the fact must be re-checked. A reader past it treats the event as `stale`, whatever its label. |
+| `-Noted yyyy-MM-dd` | The day you observed the fact, when that was before today. Readers age the event from it. A future date is refused. |
 | `-Trust generated\|verified` | `generated` by default. `verified` only when a person or a second seat confirmed it, never your own check. |
 | `-Seat <seat>` | The seat writing the event. Pass it, because every event must record one. |
 | `-StateRoot <dir>` | The coordination directory that holds `wiki/inbox/`. Pass `<coord>`, never the inbox itself. |

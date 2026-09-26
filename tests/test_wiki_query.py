@@ -610,5 +610,55 @@ class AQueryIsQuick(_QueryCase):
         self.assertLess(min(times), self.CEILING_SECONDS, f"query wall-clock seconds: {times}")
 
 
+
+class AgeCountsFromNoted(_QueryCase):
+    """FR-014, amended 2026-09-26: an event's age is counted from `noted` when it has one."""
+
+    def test_the_label_follows_noted_at_each_boundary_and_falls_back_to_ts(self):
+        vault = self.root / "vault"
+        when = w.days_ago(1)
+
+        def noted(days: int) -> str:
+            return w.days_ago(days).strftime("%Y-%m-%d")
+
+        planted = {
+            "fresh": w.plant(w.log_dir(vault, when), when=when, key="n/13", summary="boundary marker thirteen", noted=noted(13)),
+            "aging": w.plant(w.log_dir(vault, when), when=when, key="n/14", summary="boundary marker fourteen", noted=noted(14)),
+            "aging45": w.plant(w.log_dir(vault, when), when=when, key="n/45", summary="boundary marker fortyfive", noted=noted(45)),
+            "stale": w.plant(w.log_dir(vault, when), when=when, key="n/46", summary="boundary marker fortysix", noted=noted(46)),
+            "ts": w.plant(w.log_dir(vault, when), when=when, key="n/ts", summary="boundary marker without"),
+        }
+        rows = {r["id"]: r for r in self.rows("-Text", "boundary marker", "-RecordRepo", str(vault), "-Limit", "10")}
+        got = {name: rows[e["id"]]["label"] for name, e in planted.items()}
+        self.assertEqual({"fresh": "fresh", "aging": "aging", "aging45": "aging", "stale": "stale", "ts": "fresh"}, got)
+        self.assertEqual((noted(46), noted(46)), (rows[planted["stale"]["id"]]["date"], rows[planted["stale"]["id"]]["noted"]))
+        self.assertIsNone(rows[planted["ts"]["id"]]["noted"])
+
+    def test_the_result_line_marks_a_noted_date(self):
+        vault = self.root / "vault"
+        when = w.days_ago(1)
+        day = w.days_ago(60).strftime("%Y-%m-%d")
+        e = w.plant(w.log_dir(vault, when), when=when, key="n/line", summary="printed noted marker", noted=day)
+        r = self.query("-Text", "printed noted marker", "-RecordRepo", str(vault))
+        self.assertIn(f"{e['id']}  {day} (noted)  builder  [stale]", r.stdout)
+
+    def test_a_noted_after_its_own_ts_is_not_read(self):
+        """A reader holds a planted event to the write's own rule, so it cannot read younger than it is."""
+        vault = self.root / "vault"
+        when = w.days_ago(30)
+        bad = w.plant(w.log_dir(vault, when), when=when, key="n/bad", summary="future noted marker",
+                      noted=w.days_ago(1).strftime("%Y-%m-%d"))
+        good = w.plant(w.log_dir(vault, when), when=when, key="n/good", summary="future noted marker ok",
+                       noted=w.days_ago(40).strftime("%Y-%m-%d"))
+        stamp = w.plant(w.log_dir(vault, when), when=when, key="n/stamp", summary="future noted marker stamp",
+                        noted=w.days_ago(40).strftime("%Y-%m-%dT02:00:00Z"))
+        listed = w.plant(w.log_dir(vault, when), when=when, key="n/list", summary="future noted marker list",
+                         noted=[w.days_ago(40).strftime("%Y-%m-%d")])
+        ids = [r["id"] for r in self.rows("-Text", "future noted marker", "-RecordRepo", str(vault), "-Limit", "10")]
+        self.assertNotIn(bad["id"], ids)
+        self.assertNotIn(stamp["id"], ids, "a stamp with a time of day was read as a noted date")
+        self.assertNotIn(listed["id"], ids, "a one-element list was read as a noted date")
+        self.assertIn(good["id"], ids, "the control, the same shape with a valid noted, was not read either")
+
 if __name__ == "__main__":
     unittest.main()

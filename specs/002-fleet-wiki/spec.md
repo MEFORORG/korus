@@ -147,7 +147,15 @@ and the log carries the merge.
 1. **Given** the Owner's list of directories, **When** the ingest runs, **Then** it reads those
    directories only and never searches for others.
 2. **Given** two notes with the same name and different text, **When** they are ingested, **Then**
-   both are kept, and lint files the pair as a possible conflict.
+   the note with the newer file date is the one live event on the key, the other is recorded as
+   outranked, and lint files no conflict. On one date, the store listed first wins, unless the
+   other note's event already holds the key.
+3. **Given** a note whose text is unchanged since the last ingest, **When** only its file date has
+   moved, **Then** the ingest writes nothing.
+
+Scenario 2 amended 2026-09-26: it read "both are kept, and lint files the pair as a possible
+conflict". The newer event then won by the order the ingest read the stores, not by which note was
+newer. Scenario 3 was added the same day.
 
 ---
 
@@ -208,8 +216,10 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
 - **FR-001**: There MUST be exactly one way to add an event: `scripts/wiki/write.ps1`. Every other
   script reads.
 - **FR-002**: An event MUST carry: `id`, `ts`, `type`, `key`, `seat`, `summary`, `evidence`.
-  `body`, `supersedes`, `paths` (files the event is about) and `stale_after` are optional.
-  `trust` is `generated` unless a person or a second seat confirmed it, then `verified`.
+  `body`, `supersedes`, `paths` (files the event is about), `stale_after` and `noted` are
+  optional. `trust` is `generated` unless a person or a second seat confirmed it, then `verified`.
+  `noted` is the day the fact was observed, `yyyy-MM-dd`, and never later than the day of `ts`. The
+  ingest sets it from a note's file date. Amended 2026-09-26 to add `noted`.
 - **FR-003**: `type` MUST be one of `decision`, `lesson`, `correction`, `gotcha`, `supersede`,
   `retire`. An unknown type is refused.
 - **FR-004**: `ts` MUST be read from the system clock by the write script, in UTC.
@@ -239,7 +249,9 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
   the guard. Pages and the index are for people. Amended 2026-09-24: this read "the pages, the
   index and the uncompiled inbox", but the built query reads events, which the guard can filter.
 - **FR-014**: Every result MUST show id, date, seat, evidence and one label: `fresh` (under 14
-  days), `aging` (14 to 45), `stale` (46 or more), `historical` (retired), or `inbox`.
+  days), `aging` (14 to 45), `stale` (46 or more), `historical` (retired), or `inbox`. Age counts
+  from `noted` when the event has one, else from `ts`, and the date shown is that day. Amended
+  2026-09-26: age counted from `ts` alone, so an imported July note read `fresh` in September.
 - **FR-015**: A query with no result above the match floor MUST print `no note` rather than the
   closest miss.
 - **FR-016**: A query that cannot reach the store MUST say so and exit 0. A memory miss never

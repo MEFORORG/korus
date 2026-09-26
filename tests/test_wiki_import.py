@@ -21,6 +21,7 @@ import os
 import tempfile
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import _wikitest as w
@@ -38,6 +39,16 @@ def forge_token() -> str:
 def fake_home() -> str:
     """A Windows home directory with a plausible account name, built at run time for the same reason."""
     return "C:" + BACKSLASH + "Users" + BACKSLASH + "alice"
+
+
+def set_modified(path: Path, day: str) -> None:
+    """Give a note file a chosen last-write day, at noon UTC, as a copy or an old edit leaves it."""
+    when = datetime.strptime(day, "%Y-%m-%d").replace(hour=12, tzinfo=timezone.utc).timestamp()
+    os.utime(path, (when, when))
+
+
+def day_ago(n: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=n)).strftime("%Y-%m-%d")
 
 
 def note_text(name: str, description: str | None, body: str, mtype: str | None = "feedback") -> str:
@@ -89,6 +100,17 @@ class _ImportCase(unittest.TestCase):
 
     def under(self, prefix: str) -> list[dict]:
         return [e for e in self.inbox() if e["key"].startswith(prefix)]
+
+    def live_on(self, key: str, words: str) -> list[dict]:
+        """What a default query returns on one key: the guard's live set, not the raw inbox."""
+        return [h for h in self.query(words, "-Limit", "20") if h["key"] == key]
+
+    def lint_conflicts(self) -> list[dict]:
+        r = w.run(self.pwsh, w.WIKI / "lint.ps1", "-StateRoot", str(self.state), "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        doc = json.loads(r.stdout)
+        self.assertGreater(doc["inputs"]["events"], 0, "lint read no event, so its zero measured nothing")
+        return [f for f in doc["findings"] if f["class"] == "conflict"]
 
     def query(self, text: str, *extra: str) -> list[dict]:
         r = w.run(self.pwsh, w.QUERY, "-Text", text, "-StateRoot", str(self.state), "-Json", *extra)
@@ -324,18 +346,20 @@ class NotesThatShareAName(_ImportCase):
         self.assertRegex(text_line, r"^text: sha256:[0-9a-f]{64}$")
         self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
 
-    def test_same_name_different_text_keeps_both_and_supersedes_neither(self):
-        """Story 4 scenario 2: both are kept, and lint files the pair."""
+    def test_same_name_different_text_is_one_event_and_one_outranked_record(self):
+        """Story 4 scenario 2, amended 2026-09-26: one text per key, and the other is recorded."""
         a, b = self.store("acct-a"), self.store("acct-b")
         self.note(a, "n.md", "split-lesson", "store a says this")
         self.note(b, "n.md", "split-lesson", "store b says that")
         r, rep = self.run_import(a, b)
         self.assertEqual(0, r.returncode, r.stderr)
-        both = self.on_key("memory/split-lesson")
-        self.assertEqual(2, len(both))
-        self.assertTrue(all("supersedes" not in e for e in both), "a different store's note superseded another")
-        self.assertEqual([], self.under("memory-merge/split-lesson/"))
-        self.assertEqual(1, rep["counts"]["conflicts"])
+        [kept] = self.on_key("memory/split-lesson")
+        self.assertEqual("memory:acct-a/proj/n.md", kept["evidence"], "one day, so the first store named wins")
+        [rec] = self.under("memory-merge/split-lesson/")
+        self.assertEqual("memory-merge/split-lesson/acct-b-proj", rec["key"])
+        self.assertEqual(f"outranked: acct-a/proj {kept['noted']}", rec["body"].split("\n")[3])
+        self.assertIn("different text", rec["summary"])
+        self.assertEqual((1, 1, 0), (rep["counts"]["imported"], rep["counts"]["outranked"], rep["counts"]["merged"]))
 
 
 class TheLeakScanStillDecides(_ImportCase):
@@ -468,8 +492,9 @@ class StoresUnderOneAccountStayApart(_ImportCase):
         self.note(p2, "x.md", "same-name", "text in project two")
         r, rep = self.run_import(p1, p2)
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertEqual({"memory:acct/one/x.md", "memory:acct/two/x.md"},
-                         {e["evidence"] for e in self.on_key("memory/same-name")})
+        self.assertEqual(["memory:acct/one/x.md"], [e["evidence"] for e in self.on_key("memory/same-name")])
+        [rec] = self.under("memory-merge/same-name/")
+        self.assertIn("merged: memory:acct/two/x.md", rec["body"])
         self.assertTrue(all("supersedes" not in e for e in self.inbox()))
         _, rep2 = self.run_import(p2)
         self.assertEqual(1, rep2["counts"]["unchanged"], "a later run of one project disturbed the other")
@@ -488,21 +513,22 @@ class StoresUnderOneAccountStayApart(_ImportCase):
 
 
 class AReplacedTextIsNotMergedInto(_ImportCase):
-    def test_a_note_matching_only_a_superseded_event_is_written(self):
-        """Rule 2 compares with CURRENT events. Matched against a replaced one, the third store's note
-        counted as merged, then as unchanged on every run, and never reached the wiki."""
+    def test_a_note_matching_only_a_superseded_event_is_not_merged_into_it(self):
+        """Step 3 compares with CURRENT events. Matched against a replaced one, the other store's note
+        would count as merged into a text the wiki no longer holds."""
         a, b = self.store("acct-a"), self.store("acct-b")
         p = self.note(a, "n.md", "moving", "the first wording", "body")
         self.run_import(a)
         p.write_text(note_text("moving", "the second wording", "body"), encoding="utf-8")
+        set_modified(p, day_ago(1))
         self.run_import(a)
-        self.note(b, "n.md", "moving", "the first wording", "body")
+        newer = self.note(b, "n.md", "moving", "the first wording", "body")
+        set_modified(newer, day_ago(0))
         r, rep = self.run_import(a, b)
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertEqual((1, 0), (rep["counts"]["imported"], rep["counts"]["merged"]))
-        self.assertEqual(["memory:acct-b/proj/n.md"],
-                         [e["evidence"] for e in self.on_key("memory/moving") if "supersedes" not in e and
-                          e["evidence"].startswith("memory:acct-b")])
+        self.assertEqual((1, 0), (rep["counts"]["superseded"], rep["counts"]["merged"]))
+        [live] = self.live_on("memory/moving", "first wording")
+        self.assertEqual("memory:acct-b/proj/n.md", live["evidence"])
 
     def test_control_the_same_note_merges_while_the_text_is_current(self):
         a, b = self.store("acct-a"), self.store("acct-b")
@@ -669,12 +695,17 @@ class WhatTheOwnerWithdrewStaysWithdrawn(_ImportCase):
         self.assertEqual(before, len(self.inbox()))
         self.assertEqual(2, rep["counts"]["unchanged"])
 
-    def test_a_merged_note_that_changes_is_imported_again(self):
-        """CONTROL for the two above: the skip is keyed on the merged note's text, not on its name."""
-        a, b = self.shared_pair()
+    def test_a_merged_note_that_changes_and_is_newest_is_imported_again(self):
+        """CONTROL for the two above: the skip is keyed on the notes' text, not on their name."""
+        a, b = self.store("acct-a"), self.store("acct-b")
+        set_modified(self.note(a, "foo.md", "foo", "shared text", "body"), day_ago(3))
+        set_modified(self.note(b, "foo.md", "foo", "shared text", "body"), day_ago(3))
+        _, rep = self.run_import(a, b)
+        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["merged"]))
         self.note(b, "foo.md", "foo", "text b now says", "body")
         _, rep = self.run_import(a, b)
-        self.assertEqual(1, rep["counts"]["imported"])
+        self.assertEqual(1, rep["counts"]["superseded"])
+        self.assertEqual(["text b now says"], [h["summary"] for h in self.live_on("memory/foo", "text now says")])
 
 
 class ASupersedeInThisRunCountsForThisRun(_ImportCase):
@@ -686,8 +717,10 @@ class ASupersedeInThisRunCountsForThisRun(_ImportCase):
         self.note(b, "n.md", "moving", "old text", "body")
         r, rep = self.run_import(a, b)
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertEqual((1, 1, 0), (rep["counts"]["superseded"], rep["counts"]["imported"], rep["counts"]["merged"]))
-        self.assertEqual([], self.under("memory-merge/"), "a merge record points at the text this run replaced")
+        self.assertEqual((1, 0, 0, 1), (rep["counts"]["superseded"], rep["counts"]["imported"],
+                                        rep["counts"]["merged"], rep["counts"]["outranked"]))
+        [rec] = self.under("memory-merge/")
+        self.assertIn("outranked: acct-a/proj", rec["body"], "b's old text was recorded as merged into a replaced text")
         _, rep3 = self.run_import(a, b)
         self.assertEqual(2, rep3["counts"]["unchanged"])
 
@@ -698,7 +731,8 @@ class ASupersedeInThisRunCountsForThisRun(_ImportCase):
         self.run_import(a, b)
         pa.write_text(note_text("moving", "new text", "body"), encoding="utf-8")
         _, rep2 = self.run_import(a, b)
-        self.assertEqual((1, 1), (rep2["counts"]["superseded"], rep2["counts"]["unchanged"]))
+        # b's record said "merged, same text" into the event this run replaced, so it is recorded again.
+        self.assertEqual((1, 1), (rep2["counts"]["superseded"], rep2["counts"]["outranked"]))
         before = len(self.inbox())
         _, rep3 = self.run_import(a, b)
         self.assertEqual(before, len(self.inbox()), "the third run, with nothing changed, wrote an event")
@@ -734,25 +768,32 @@ class TheHomeInAProjectFolderWithPunctuation(_ImportCase):
         self.assertNotIn("john", self.inbox()[0]["evidence"])
 
 
-class ConflictsCountOnlyCurrentText(_ImportCase):
-    def test_a_withdrawn_event_is_not_a_conflict(self):
+class ARetiredKeyStaysRetiredUntilANewerNoteChanges(_ImportCase):
+    def retire(self, key: str) -> None:
+        r = w.run(self.pwsh, w.WRITE, "-Type", "retire", "-Key", key, "-Summary", "withdrawn",
+                  "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+
+    def test_a_note_that_loses_the_key_does_not_bring_it_back(self):
         a, b = self.store("acct-a"), self.store("acct-b")
         self.note(a, "n.md", "gone", "a says this")
         self.run_import(a)
-        r = w.run(self.pwsh, w.WRITE, "-Type", "retire", "-Key", "memory/gone", "-Summary", "withdrawn",
-                  "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager", "-StateRoot", str(self.state))
-        self.assertEqual(0, r.returncode, r.stderr)
+        self.retire("memory/gone")
         self.note(b, "n.md", "gone", "b says that")
         _, rep = self.run_import(a, b)
-        self.assertEqual((1, 0), (rep["counts"]["imported"], rep["counts"]["conflicts"]))
+        self.assertEqual((0, 1), (rep["counts"]["imported"], rep["counts"]["outranked"]))
+        self.assertEqual([], self.live_on("memory/gone", "says"))
 
-    def test_control_a_current_different_text_is_a_conflict(self):
+    def test_control_a_newer_changed_note_on_a_retired_key_is_written(self):
         a, b = self.store("acct-a"), self.store("acct-b")
-        self.note(a, "n.md", "here", "a says this")
+        pa = self.note(a, "n.md", "gone", "a says this")
         self.run_import(a)
-        self.note(b, "n.md", "here", "b says that")
+        self.retire("memory/gone")
+        set_modified(pa, day_ago(2))
+        self.note(b, "n.md", "gone", "b says that")
         _, rep = self.run_import(a, b)
-        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["conflicts"]))
+        self.assertEqual(1, rep["counts"]["imported"])
+        self.assertEqual(["b says that"], [h["summary"] for h in self.live_on("memory/gone", "says")])
 
 
 class EachMergedStoreHasItsOwnRecord(_ImportCase):
@@ -766,6 +807,304 @@ class EachMergedStoreHasItsOwnRecord(_ImportCase):
         keys = sorted(e["key"] for e in self.under("memory-merge/trio/"))
         self.assertEqual(["memory-merge/trio/acct-b-proj", "memory-merge/trio/acct-c-proj"], keys)
 
+
+class EachEventCarriesItsNoteDate(_ImportCase):
+    def test_noted_is_the_file_day_and_ts_is_still_the_write(self):
+        a = self.store("acct")
+        p = self.note(a, "old.md", "old-lesson", "an old lesson about calendars")
+        set_modified(p, day_ago(85))
+        r, _ = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        [ev] = self.inbox()
+        self.assertEqual(day_ago(85), ev["noted"])
+        self.assertEqual(day_ago(0), ev["ts"][:10], "ts is the write clock (FR-004), never the note's date")
+        [hit] = self.query("old lesson calendars")
+        self.assertEqual((day_ago(85), day_ago(85)), (hit["date"], hit["noted"]))
+
+    def test_a_future_file_date_is_read_as_today_and_counted(self):
+        a = self.store("acct")
+        p = self.note(a, "f.md", "future", "dated ahead of the clock")
+        set_modified(p, day_ago(-30))
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(day_ago(0), self.inbox()[0]["noted"])
+        self.assertEqual(1, rep["counts"]["future_date_capped"])
+        # CONTROL: a past date is not counted.
+        set_modified(p, day_ago(3))
+        _, rep2 = self.run_import(a)
+        self.assertEqual(0, rep2["counts"]["future_date_capped"])
+
+
+class OneKeyHoldsTheNewestNote(_ImportCase):
+    """Two stores holding one name with two texts reconcile to ONE live event, the newer note's."""
+
+    def pair(self, a_day: int, b_day: int):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        set_modified(self.note(a, "n.md", "split", "store a says the gate reads main"), day_ago(a_day))
+        set_modified(self.note(b, "n.md", "split", "store b says the gate reads the merge base"), day_ago(b_day))
+        return a, b
+
+    def fresh_state(self, name: str) -> None:
+        self.state = self.root / name
+        self.state.mkdir()
+
+    def test_the_newer_note_wins_whichever_store_is_named_first(self):
+        a, b = self.pair(40, 5)
+        for order, state in (((a, b), "state"), ((b, a), "state-reversed")):
+            with self.subTest(order=state):
+                if state != "state":
+                    self.fresh_state(state)
+                r, rep = self.run_import(*order)
+                self.assertEqual(0, r.returncode, r.stderr)
+                [ev] = self.on_key("memory/split")
+                self.assertEqual(("memory:acct-b/proj/n.md", day_ago(5)), (ev["evidence"], ev["noted"]))
+                [rec] = self.under("memory-merge/split/")
+                self.assertIn(f"outranked: acct-b/proj {day_ago(5)}", rec["body"])
+                self.assertIn("merged: memory:acct-a/proj/n.md", rec["body"])
+                self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["outranked"]))
+                self.assertEqual([], self.lint_conflicts())
+
+    def test_a_tie_goes_to_the_store_named_first(self):
+        a, b = self.pair(3, 3)
+        self.run_import(a, b)
+        self.assertEqual(["memory:acct-a/proj/n.md"], [e["evidence"] for e in self.on_key("memory/split")])
+        # CONTROL: the other order, over a fresh inbox, keeps the other note.
+        self.fresh_state("state-reversed")
+        self.run_import(b, a)
+        self.assertEqual(["memory:acct-b/proj/n.md"], [e["evidence"] for e in self.on_key("memory/split")])
+
+    def test_an_older_note_edited_but_still_older_changes_nothing_live(self):
+        a, b = self.pair(40, 5)
+        self.run_import(a, b)
+        [live] = self.on_key("memory/split")
+        p = a / "n.md"
+        p.write_text(note_text("split", "store a now says something else", "The body."), encoding="utf-8")
+        set_modified(p, day_ago(30))
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual([live["id"]], [e["id"] for e in self.on_key("memory/split")])
+        self.assertEqual((0, 0, 1), (rep["counts"]["imported"], rep["counts"]["superseded"], rep["counts"]["outranked"]))
+        self.assertEqual(2, len(self.under("memory-merge/split/")), "the edited text was not recorded")
+
+    def test_an_older_note_edited_to_be_newest_supersedes(self):
+        a, b = self.pair(40, 5)
+        self.run_import(a, b)
+        [old] = self.on_key("memory/split")
+        (a / "n.md").write_text(note_text("split", "store a now says the gate reads the tree", "The body."), encoding="utf-8")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, rep["counts"]["superseded"])
+        [new] = [e for e in self.on_key("memory/split") if e["id"] != old["id"]]
+        self.assertEqual([old["id"]], new["supersedes"])
+        self.assertEqual([new["id"]], [h["id"] for h in self.live_on("memory/split", "store says gate reads")])
+        self.assertEqual([], self.lint_conflicts())
+        # b's text, now outranked, is recorded once.
+        self.assertEqual(1, len([e for e in self.under("memory-merge/split/acct-b") if "outranked" in e["body"]]))
+
+    def test_a_moved_date_alone_writes_nothing(self):
+        a, b = self.pair(40, 5)
+        self.run_import(a, b)
+        before = sorted(p.name for p in w.inbox_dir(self.state).iterdir())
+        # The outranked note is now the newest by date, and the winner is touched too.
+        set_modified(a / "n.md", day_ago(0))
+        set_modified(b / "n.md", day_ago(1))
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(before, sorted(p.name for p in w.inbox_dir(self.state).iterdir()))
+        self.assertEqual(2, rep["counts"]["unchanged"])
+
+    def test_every_record_is_written_once(self):
+        a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
+        set_modified(self.note(a, "n.md", "trio", "a says one thing"), day_ago(30))
+        set_modified(self.note(b, "n.md", "trio", "b says another"), day_ago(2))
+        set_modified(self.note(c, "n.md", "trio", "b says another"), day_ago(9))
+        _, rep = self.run_import(a, b, c)
+        self.assertEqual((1, 1, 1), (rep["counts"]["imported"], rep["counts"]["outranked"], rep["counts"]["merged"]))
+        before = sorted(p.name for p in w.inbox_dir(self.state).iterdir())
+        self.assertEqual(3, len(before))
+        _, rep2 = self.run_import(a, b, c)
+        self.assertEqual(before, sorted(p.name for p in w.inbox_dir(self.state).iterdir()))
+        self.assertEqual(3, rep2["counts"]["unchanged"])
+
+
+class ASeatsEventIsNotTheImports(_ImportCase):
+    def seat_write(self, key: str, summary: str) -> str:
+        r = w.run(self.pwsh, w.WRITE, "-Type", "correction", "-Key", key, "-Summary", summary,
+                  "-Evidence", "2aec304", "-Seat", "builder", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        return r.stdout.strip()
+
+    def test_a_seat_event_newer_than_the_note_is_left_alone(self):
+        seat_id = self.seat_write("memory/gate", "the seat measured the gate reading origin")
+        a = self.store("acct")
+        set_modified(self.note(a, "g.md", "gate", "the note says the gate reads main"), day_ago(10))
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, rep["counts"]["seat_held"])
+        self.assertEqual([seat_id], [e["id"] for e in self.on_key("memory/gate")])
+        _, rep2 = self.run_import(a)
+        self.assertEqual([seat_id], [e["id"] for e in self.on_key("memory/gate")], "a re-run wrote over the seat")
+
+    def test_control_a_note_newer_than_the_seat_event_is_written_and_supersedes_nothing(self):
+        seat = w.plant(w.inbox_dir(self.state), when=w.days_ago(20), key="memory/gate", seat="builder",
+                       type="correction", summary="the seat measured the gate reading origin")
+        a = self.store("acct")
+        set_modified(self.note(a, "g.md", "gate", "the note says the gate reads main"), day_ago(2))
+        _, rep = self.run_import(a)
+        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["over_seat"]))
+        [mine] = [e for e in self.on_key("memory/gate") if e["seat"] == "import"]
+        self.assertNotIn("supersedes", mine, "the import superseded a seat's event")
+        self.assertEqual([seat["id"]], [f["events"][0] for f in self.lint_conflicts()], "lint did not file the pair")
+
+    def test_a_seat_event_citing_a_memory_note_is_not_the_imports_to_supersede(self):
+        """Its evidence names the note, but a seat wrote it, so it is the seat's word."""
+        a = self.store("acct")
+        p = self.note(a, "g.md", "gate", "the gate reads main", "The body.")
+        set_modified(p, day_ago(2))
+        seat = w.plant(w.inbox_dir(self.state), when=w.days_ago(20), key="memory/gate", seat="builder",
+                       summary="the seat says the gate reads origin", evidence="memory:acct/proj/g.md")
+        _, rep = self.run_import(a)
+        self.assertEqual(1, rep["counts"]["imported"])
+        [mine] = [e for e in self.on_key("memory/gate") if e["seat"] == "import"]
+        self.assertNotIn("supersedes", mine, "a seat's event was taken for the import's own")
+        self.assertEqual([seat["id"]], [f["events"][0] for f in self.lint_conflicts()])
+
+
+class ARenameMovesTheKey(_ImportCase):
+    def test_a_shared_old_key_keeps_the_other_stores_note_live(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "old-name", "shared text", "body")
+        self.note(b, "n.md", "old-name", "shared text", "body")
+        self.run_import(a, b)
+        [old] = self.on_key("memory/old-name")
+        pa.write_text(note_text("new-name", "shared text", "body"), encoding="utf-8")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        [moved] = self.on_key("memory/new-name")
+        self.assertEqual([old["id"]], moved["supersedes"])
+        self.assertEqual(["memory:acct-b/proj/n.md"], [h["evidence"] for h in self.live_on("memory/old-name", "shared text")])
+        before = len(self.inbox())
+        _, rep2 = self.run_import(a, b)
+        self.assertEqual(before, len(self.inbox()), "a re-run after the rename wrote again")
+
+    def test_a_rename_onto_a_seat_held_key_retires_the_old_name_with_a_marker(self):
+        a = self.store("acct")
+        p = self.note(a, "n.md", "old-name", "a lesson", "body")
+        set_modified(p, day_ago(10))
+        self.run_import(a)
+        [old] = self.on_key("memory/old-name")
+        r = w.run(self.pwsh, w.WRITE, "-Type", "lesson", "-Key", "memory/new-name", "-Summary", "a seat's lesson",
+                  "-Evidence", "2aec304", "-Seat", "builder", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        p.write_text(note_text("new-name", "a lesson", "body"), encoding="utf-8")
+        set_modified(p, day_ago(10))
+        _, rep = self.run_import(a)
+        self.assertEqual((1, 1), (rep["counts"]["renamed"], rep["counts"]["seat_held"]))
+        [marker] = [e for e in self.on_key("memory/old-name") if e["type"] == "supersede"]
+        self.assertEqual([old["id"]], marker["supersedes"])
+        self.assertEqual([], self.live_on("memory/old-name", "lesson"))
+        before = len(self.inbox())
+        self.run_import(a)
+        self.assertEqual(before, len(self.inbox()))
+
+
+class TheReviewCases(_ImportCase):
+    """Round-one review of the reconcile, 2026-09-26. Each case failed before its fix."""
+
+    def test_an_older_note_from_a_store_named_later_does_not_replace_a_newer_live_one(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        set_modified(self.note(a, "n.md", "late", "text aye"), day_ago(5))
+        self.run_import(a)
+        [held] = self.on_key("memory/late")
+        set_modified(self.note(b, "n.md", "late", "text bee"), day_ago(30))
+        _, rep = self.run_import(b)
+        self.assertEqual((0, 0, 1), (rep["counts"]["imported"], rep["counts"]["superseded"], rep["counts"]["outranked"]))
+        self.assertEqual([held["id"]], [h["id"] for h in self.live_on("memory/late", "text")])
+
+    def test_a_note_renamed_back_to_its_first_key_is_live_there(self):
+        a = self.store("acct")
+        p = self.note(a, "n.md", "first", "a lesson that moves", "body")
+        self.run_import(a)
+        p.write_text(note_text("second", "a lesson that moves", "body"), encoding="utf-8")
+        self.run_import(a)
+        p.write_text(note_text("first", "a lesson that moves", "body"), encoding="utf-8")
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, rep["counts"]["superseded"])
+        self.assertEqual(["memory/first"], [h["key"] for h in self.query("lesson that moves")])
+
+    def test_an_edit_to_the_note_behind_the_kept_event_hands_the_key_to_the_winner(self):
+        """Round two: the event had cited a note that no longer says its text."""
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "tee", "text tee", "body")
+        set_modified(pa, day_ago(10))
+        self.run_import(a)
+        set_modified(self.note(b, "n.md", "tee", "text tee", "body"), day_ago(0))
+        pa.write_text(note_text("tee", "text tee two", "body"), encoding="utf-8")
+        set_modified(pa, day_ago(5))
+        _, rep = self.run_import(a, b)
+        self.assertEqual((1, 1, 0), (rep["counts"]["superseded"], rep["counts"]["outranked"], rep["counts"]["merged"]))
+        [live] = self.live_on("memory/tee", "text tee")
+        self.assertEqual("memory:acct-b/proj/n.md", live["evidence"])
+        [rec] = [e for e in self.under("memory-merge/tee/acct-a") if "outranked" in e["body"]]
+        self.assertIn(f"outranked: acct-b/proj {day_ago(0)}", rec["body"])
+        _, rep2 = self.run_import(a, b)
+        self.assertEqual(2, rep2["counts"]["unchanged"])
+        # A run naming the outranked store alone changes nothing either.
+        _, rep3 = self.run_import(a)
+        self.assertEqual(1, rep3["counts"]["unchanged"])
+
+    def test_a_merge_into_an_event_this_run_replaces_is_recorded_again(self):
+        a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
+        set_modified(self.note(a, "n.md", "tee", "text tee", "body"), day_ago(5))
+        set_modified(self.note(b, "n.md", "tee", "text tee", "body"), day_ago(9))
+        self.run_import(a, b)
+        self.note(c, "n.md", "tee", "text cee", "body")
+        _, rep = self.run_import(a, b, c)
+        self.assertEqual((1, 2), (rep["counts"]["superseded"], rep["counts"]["outranked"]))
+        newest_b = [e for e in self.under("memory-merge/tee/acct-b")][-1]
+        self.assertIn("outranked: acct-c/proj", newest_b["body"])
+
+class TheRoundTwoCases(_ImportCase):
+    """Round-two review of the reconcile, 2026-09-26. Each case failed before its fix."""
+
+    def test_a_rename_into_a_retired_key_does_not_bring_back_the_winners_text(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        set_modified(self.note(a, "w.md", "kay", "wee text retired", "body"), day_ago(3))
+        pb = self.note(b, "o.md", "other", "a different lesson", "body")
+        set_modified(pb, day_ago(3))
+        self.run_import(a, b)
+        r = w.run(self.pwsh, w.WRITE, "-Type", "retire", "-Key", "memory/kay", "-Summary", "withdrawn",
+                  "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        pb.write_text(note_text("kay", "a different lesson", "body"), encoding="utf-8")
+        set_modified(pb, day_ago(3))
+        self.run_import(a, b)
+        self.assertEqual([], self.live_on("memory/kay", "wee text retired"))
+
+    def test_a_tie_with_a_holder_whose_note_moved_on_goes_to_the_first_store(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "tie", "text one", "body")
+        self.run_import(a)
+        pa.write_text(note_text("tie", "text two", "body"), encoding="utf-8")
+        self.note(b, "n.md", "tie", "text bee", "body")
+        _, rep = self.run_import(b, a)
+        self.assertEqual(1, rep["counts"]["superseded"])
+        self.assertEqual(["text bee"], [h["summary"] for h in self.live_on("memory/tie", "text")])
+
+    def test_a_merge_record_naming_a_renamed_holder_is_recorded_again(self):
+        a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
+        pa = self.note(a, "n.md", "kay", "same text", "body")
+        set_modified(pa, day_ago(1))
+        set_modified(self.note(b, "n.md", "kay", "same text", "body"), day_ago(5))
+        set_modified(self.note(c, "n.md", "kay", "same text", "body"), day_ago(9))
+        self.run_import(a, b, c)
+        pa.write_text(note_text("kay-two", "same text", "body"), encoding="utf-8")
+        set_modified(pa, day_ago(1))
+        _, rep = self.run_import(a, b, c)
+        self.assertEqual(["memory:acct-b/proj/n.md"], [h["evidence"] for h in self.live_on("memory/kay", "same text")])
+        newest_c = self.under("memory-merge/kay/acct-c")[-1]
+        self.assertIn("kept: memory:acct-b/proj/n.md", newest_c["body"])
 
 if __name__ == "__main__":
     unittest.main()
