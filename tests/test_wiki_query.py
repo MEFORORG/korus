@@ -391,7 +391,12 @@ class EveryQueryIsLogged(_QueryCase):
     """One compact JSON object per line in `<StateRoot>/wiki/query-log/<yyyy-MM>.jsonl`, no header."""
 
     FIELDS = ["utc", "seat", "text", "path", "results", "top_score", "no_note",
-              "inbox_reached", "log_reached", "events_searched"]
+              "inbox_reached", "log_reached", "events_searched", "import_hidden"]
+
+    def query(self, *args: str, cwd: Path | None = None, **kw):
+        """From a directory outside any checkout by default, so a developer's own seat marker
+        cannot fill the seat a case expects empty."""
+        return super().query(*args, cwd=cwd or self.root, **kw)
 
     def log_lines(self) -> list[dict]:
         """Every logged line, oldest first, each checked against the file it sits in.
@@ -431,10 +436,11 @@ class EveryQueryIsLogged(_QueryCase):
         self.assertRegex(first["utc"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
         self.assertEqual({"seat": "builder", "text": "copper\tkettle\nwhistle", "path": "scripts/kettle.ps1",
                           "results": 1, "top_score": 1, "no_note": False, "inbox_reached": True,
-                          "log_reached": False, "events_searched": 1}, self.without_utc(first))
+                          "log_reached": False, "events_searched": 1, "import_hidden": 0},
+                         self.without_utc(first))
         self.assertEqual({"seat": "", "text": "best pizza in Atlanta", "path": "", "results": 0,
                           "top_score": None, "no_note": True, "inbox_reached": True, "log_reached": False,
-                          "events_searched": 1}, self.without_utc(second))
+                          "events_searched": 1, "import_hidden": 0}, self.without_utc(second))
 
     def test_a_double_quote_does_not_break_a_later_line(self):
         """The tab-separated log read a leading quote as an open quoted field, and every later row
@@ -451,11 +457,19 @@ class EveryQueryIsLogged(_QueryCase):
         self.assertEqual(("lander", "brass hinge oil", 1, False),
                          (row["seat"], row["text"], row["results"], row["no_note"]))
 
-    def test_the_seat_falls_back_to_korus_seat_and_is_lower_cased(self):
-        """`run` clears KORUS_SEAT for every case, so the empty seat in the first test is the control."""
+    def test_the_seat_falls_back_to_the_marker_then_korus_seat_and_is_lower_cased(self):
+        """The same two sources write.ps1 reads, in the same order. `run` clears KORUS_SEAT for
+        every case, so the empty seat in the first test is the control."""
+        checkout = self.root / "checkout"
+        (checkout / ".git").mkdir(parents=True)
+        (checkout / ".claude").mkdir()
+        (checkout / ".claude" / "seat.local.txt").write_text("Watchdog\n", encoding="ascii")
+        inner = checkout / "sub" / "dir"
+        inner.mkdir(parents=True)
         self.query("-Text", "harbour chart", env={"KORUS_SEAT": " Lander "})
-        self.query("-Text", "harbour chart", "-Seat", "Builder", env={"KORUS_SEAT": "lander"})
-        self.assertEqual(["lander", "builder"], [r["seat"] for r in self.log_lines()])
+        self.query("-Text", "harbour chart", cwd=inner, env={"KORUS_SEAT": "lander"})
+        self.query("-Text", "harbour chart", "-Seat", "Builder", cwd=inner, env={"KORUS_SEAT": "lander"})
+        self.assertEqual(["lander", "watchdog", "builder"], [r["seat"] for r in self.log_lines()])
 
     def test_the_log_says_what_was_searched(self):
         """A `no note` over an unreachable record repository must not read as a miss over it."""
@@ -464,10 +478,19 @@ class EveryQueryIsLogged(_QueryCase):
         w.plant(self.inbox, key="log/inbox", summary="rope splice")
         self.query("-Text", "velvet saddle", "-RecordRepo", str(vault))
         self.query("-Text", "velvet saddle", "-RecordRepo", str(self.root / "no-such-vault"))
-        reached, unreached = self.log_lines()
-        fields = ("inbox_reached", "log_reached", "events_searched", "no_note")
-        self.assertEqual((True, True, 2, True), tuple(reached[f] for f in fields))
-        self.assertEqual((True, False, 1, True), tuple(unreached[f] for f in fields))
+        w.plant(self.inbox, type="decision", key="memory-merge/rope/two", summary="merged rope note")
+        self.query("-Text", "velvet saddle")
+        for f in self.inbox.iterdir():
+            f.unlink()
+        self.inbox.rmdir()
+        self.query("-Text", "velvet saddle")
+        reached, unreached, hid, no_inbox = self.log_lines()
+        fields = ("inbox_reached", "log_reached", "events_searched", "import_hidden", "no_note")
+        self.assertEqual((True, True, 2, 0, True), tuple(reached[f] for f in fields))
+        self.assertEqual((True, False, 1, 0, True), tuple(unreached[f] for f in fields))
+        self.assertEqual((True, False, 2, 1, True), tuple(hid[f] for f in fields))
+        self.assertEqual((False, False, 0, 0, True), tuple(no_inbox[f] for f in fields),
+                         "a state root with no inbox directory was not reached")
 
     def test_an_unwritable_log_leaves_stdout_and_exit_code_unchanged(self):
         e = w.plant(self.inbox, key="log/blocked", summary="tin whistle tuning")
@@ -523,13 +546,43 @@ class AWordInMostHeadsCountsAsBody(_QueryCase):
         """Else a one-word query for the corpus's own subject could never clear the floor."""
         self.assertEqual(self.COMMON + 1, len(self.rows("-Text", "quill", "-Limit", "50")))
 
-    def test_the_rule_waits_for_enough_events(self):
-        """In a handful of events one is already half, so the rule is off below the minimum."""
-        small = self.root / "small"
-        inbox = w.inbox_dir(small)
-        w.plant(inbox, key="quill/one", summary="filler words")
+    def test_a_word_that_matches_nothing_does_not_switch_the_rule_on(self):
+        """A typo beside two common words: before the fix it counted as the rare word, so `quill
+        filler xyzzy` fell from (1 + 1) / 3 to (0.5 + 0.5) / 3 and every hit became a miss."""
+        rows = self.rows("-Text", "quill filler xyzzy")
+        self.assertEqual(5, len(rows), "the default limit of five, out of twelve equal hits")
+        self.assertAlmostEqual(0.667, rows[0]["score"], places=3)
+
+    def test_the_rule_is_off_with_path(self):
+        """Every event a -Path query searches names that file, so the path's words are in every head."""
+        store = self.root / "pathed"
+        inbox = w.inbox_dir(store)
+        for i in range(self.COMMON):
+            w.plant(inbox, key=f"note/{i}", summary=f"filler topic number {i}", paths=["scripts/quill.ps1"])
+        target = w.plant(inbox, key="note/boiler", summary="boiler pressure log", body="the gasket weeps",
+                         paths=["scripts/quill.ps1"])
+        rows = self.rows("-Text", "quill gasket", "-Path", "scripts/quill.ps1", state=store)
+        self.assertEqual([target["id"]], [r["id"] for r in rows])
+
+    def boundary(self, name: str, total: int, common: int) -> list[str]:
+        """`total` events, `common` of them with `quill` in the head, the target among those."""
+        store = self.root / name
+        inbox = w.inbox_dir(store)
         target = w.plant(inbox, key="quill/boiler", summary="boiler pressure log", body="the gasket weeps")
-        self.assertEqual([target["id"]], [r["id"] for r in self.rows("-Text", "quill gasket", state=small)])
+        for i in range(common - 1):
+            w.plant(inbox, key=f"quill/n{i}", summary=f"filler topic number {i}")
+        for i in range(total - common):
+            w.plant(inbox, key=f"other/n{i}", summary=f"filler topic number {i}")
+        hits = [r["id"] for r in self.rows("-Text", "quill gasket", state=store)]
+        self.assertIn(hits, ([], [target["id"]]))
+        return hits
+
+    def test_the_rule_waits_for_ten_events_and_more_than_half(self):
+        """Both edges: nine events is under the minimum, and five of ten is not more than half."""
+        self.assertNotEqual([], self.boundary("nine-of-nine", 9, 9), "under the minimum the rule is off")
+        self.assertEqual([], self.boundary("ten-of-ten", 10, 10), "at the minimum the rule is on")
+        self.assertNotEqual([], self.boundary("five-of-ten", 10, 5), "half is not more than half")
+        self.assertEqual([], self.boundary("six-of-ten", 10, 6), "six of ten is more than half")
 
 
 class AQueryIsQuick(_QueryCase):

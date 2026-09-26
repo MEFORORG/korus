@@ -107,7 +107,10 @@ $script:WikiBodyWeight = 0.5
 # events counts at `WikiBodyWeight` even where it is in the head. Every imported note has a key
 # under `memory/`, so without it the word `memory` was a head match on all of them, and one body
 # word then cleared the floor. Only from `WikiHeadCommonMinEvents` searched events up: in a handful,
-# one event is already half of them. `Find-WikiMatch` applies it.
+# one event is already half of them. `Find-WikiMatch` applies it, and says when it is off.
+#
+# It reads the corpus, so whether an event clears the floor can depend on which other events were
+# searched: inbox alone, or inbox and log. That is the price of a rule that needs no list of words.
 $script:WikiHeadCommonShare = 0.5
 $script:WikiHeadCommonMinEvents = 10
 
@@ -718,8 +721,8 @@ function Find-WikiMatch {
 
         A token in the head of more than `WikiHeadCommonShare` of the searched events counts
         `WikiBodyWeight` even in the head: it is a head word of the whole corpus, not of this event.
-        The rule waits for `WikiHeadCommonMinEvents` searched events, and it is off for a query
-        whose every token is that common.
+        The rule waits for `WikiHeadCommonMinEvents` searched events. It is off with -Path, and off
+        for a query whose every token that matched anything is that common.
 
         THE RANK is the score plus a quarter-weight bonus for tokens in the key, common ones not
         counted. A key match can reorder results but cannot admit an event the floor refused.
@@ -770,34 +773,36 @@ function Find-WikiMatch {
         $hay = Get-WikiHaystack -Item $ev
         $searched++
         $totalLen += $hay.Len
-        $where = [int[]]::new($n)
-        $any = $false
+        # Allocated on the first match only: most events match nothing.
+        $where = $null
         for ($i = 0; $i -lt $n; $i++) {
             $needle = $needles[$i]
             if ($hay.Head.Contains($needle)) {
+                if ($null -eq $where) { $where = [int[]]::new($n) }
                 $where[$i] = if ($hay.Key.Contains($needle)) { 3 } else { 2 }
                 $headDf[$i]++
                 $df[$i]++
-                $any = $true
             } elseif ($hay.Body.Contains($needle)) {
+                if ($null -eq $where) { $where = [int[]]::new($n) }
                 $where[$i] = 1
                 $df[$i]++
-                $any = $true
             }
         }
-        if ($any) { $seenEvents.Add([pscustomobject]@{ Event = $ev; Hay = $hay; Where = $where }) }
+        if ($null -ne $where) { $seenEvents.Add([pscustomobject]@{ Event = $ev; Hay = $hay; Where = $where }) }
     }
 
     # The common-head rule. A token in the head of more than `WikiHeadCommonShare` of the searched
     # events says nothing about any one of them, so its head match counts at body weight. Only when
-    # the query also has a token that is NOT common: a query made only of common words keeps the
-    # plain weights, or it could never clear the floor.
+    # the query also has a token that is NOT common and matched somewhere: a query whose other words
+    # match nothing, a typo included, keeps the plain weights, or it could never clear the floor.
+    # Off with -Path: every event searched then names that file, so the path's own words are in
+    # every head, and a query word from the path would be marked common for that reason alone.
     $common = [bool[]]::new($n)
-    if ($searched -ge $script:WikiHeadCommonMinEvents) {
+    if (-not $Path -and $searched -ge $script:WikiHeadCommonMinEvents) {
         $rare = 0
         for ($i = 0; $i -lt $n; $i++) {
             $common[$i] = $headDf[$i] -gt $script:WikiHeadCommonShare * $searched
-            if (-not $common[$i]) { $rare++ }
+            if (-not $common[$i] -and $df[$i] -gt 0) { $rare++ }
         }
         if ($rare -eq 0) { $common = [bool[]]::new($n) }
     }
@@ -830,7 +835,9 @@ function Find-WikiMatch {
         $norm = $k1 * (1.0 - $script:WikiBm25B + $script:WikiBm25B * $c.Hay.Len / $avgLen)
         $weight = 0.0
         for ($i = 0; $i -lt $n; $i++) {
-            $tf = $script:WikiHeadTf * (Get-WikiOccurrence -Hay $c.Hay.Head -Needle $needles[$i]) +
+            # A common token's head occurrences count once, as body ones do, by the same rule.
+            $headTf = if ($common[$i]) { 1 } else { $script:WikiHeadTf }
+            $tf = $headTf * (Get-WikiOccurrence -Hay $c.Hay.Head -Needle $needles[$i]) +
                 (Get-WikiOccurrence -Hay $c.Hay.Body -Needle $needles[$i])
             if ($tf -gt 0) { $weight += $idf[$i] * $tf * ($k1 + 1.0) / ($tf + $norm) }
         }

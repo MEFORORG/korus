@@ -21,8 +21,10 @@
     BELOW THE MATCH FLOOR IT PRINTS EXACTLY `no note` (FR-015), never the nearest miss. A result
     must match at least 60 percent of the query's words, where a word found in the key, summary or
     paths counts whole and a word found only in the body counts half. So an event whose only
-    matches are in its body is never returned. Words are lower-cased, split on anything not a
-    letter or digit, and dropped when under three characters or on a short stopword list.
+    matches are in its body is never returned. A word in the head of more than half the events
+    searched counts half too, as `Find-WikiMatch` describes. Words are lower-cased, split on
+    anything not a letter or digit, and dropped when under three characters or on a short
+    stopword list.
 
     Results rank by that fraction plus a bonus for words in the key. Ties go to the higher BM25
     weight, which favours the event the words are about over one that mentions them in passing,
@@ -64,14 +66,17 @@
     `<StateRoot>/wiki/query-log/<yyyy-MM>.jsonl`, by UTC month. There is no header line. Each line
     is one object with these fields, in this order:
 
-        utc  seat  text  path  results  top_score  no_note  inbox_reached  log_reached  events_searched
+        utc  seat  text  path  results  top_score  no_note
+        inbox_reached  log_reached  events_searched  import_hidden
 
-    `seat` is -Seat, or `$env:KORUS_SEAT` when -Seat is not given, lower-cased; empty when neither
-    is set. `results` is the number printed, `top_score` the first one's score or null, and
+    `seat` is -Seat, lower-cased. Without it, the seat comes from `.claude/seat.local.txt` in the
+    caller's checkout, then `$env:KORUS_SEAT`, as write.ps1 finds it; empty when none is set. `results` is the number printed, `top_score` the first one's score or null, and
     `no_note` is true when nothing was printed. `inbox_reached` and `log_reached` say whether each
     store was actually read; false means it was not, for whatever reason the receipt on stderr
-    gave, a log that was not asked for included. `events_searched` is the count the receipt
-    prints. So a `no note` over an unreachable store does not read as a real miss.
+    gave, a log that was not asked for and an inbox directory that does not exist included.
+    `events_searched` is the count the receipt prints, and `import_hidden` the import records a
+    default query read but did not score. So a `no note` over an unreachable store does not read
+    as a real miss.
 
     The JSON escapes quotes, control characters and every non-ASCII character, so one query is one
     line whatever it held. The log shows whether seats query the wiki and what they miss. It stays
@@ -142,6 +147,7 @@ $unreadable = 0
 $loose = 0
 $inboxLabel = 'inbox'
 $logReached = $false
+$inboxReached = $false
 
 if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     try {
@@ -169,8 +175,11 @@ if ($StateRoot) {
     if (Test-Path -LiteralPath $StateRoot -PathType Container) {
         $stateRootFound = $true
         try {
-            $r = Read-WikiEventDir -Dir (Get-WikiInboxDir -StateRoot $StateRoot) -Source inbox
+            $inboxDir = Get-WikiInboxDir -StateRoot $StateRoot
+            $r = Read-WikiEventDir -Dir $inboxDir -Source inbox
             $inboxEvents = @($r.Events)
+            # A state root with no inbox directory reads as empty. For the log it was not reached.
+            $inboxReached = Test-Path -LiteralPath $inboxDir -PathType Container
             $skipped += $r.Skipped
             $unreadable += $r.Unreadable
             $loose += $r.Loose
@@ -304,7 +313,21 @@ if ($stateRootFound) {
         $logDir = Get-WikiQueryLogDir -StateRoot $StateRoot
         # The file is named from the same clock read as the line's `utc`, so the two always agree.
         $logFile = Join-Path $logDir ($now.ToString('yyyy-MM', $inv) + '.jsonl')
-        $logSeat = if ([string]::IsNullOrWhiteSpace($Seat)) { [string]$env:KORUS_SEAT } else { $Seat }
+        # The seat, if -Seat is not given, comes from the same two sources write.ps1 reads, in the same
+        # order: `.claude/seat.local.txt` at the root of the caller's checkout, then KORUS_SEAT.
+        $logSeat = $Seat
+        if ([string]::IsNullOrWhiteSpace($logSeat)) {
+            $dir = $PWD.Path
+            while ($dir) {
+                if (Test-Path -LiteralPath (Join-Path $dir '.git')) {
+                    $marker = Join-Path (Join-Path $dir '.claude') 'seat.local.txt'
+                    if (Test-Path -LiteralPath $marker -PathType Leaf) { $logSeat = [System.IO.File]::ReadAllText($marker) }
+                    break
+                }
+                $dir = Split-Path -Parent $dir
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($logSeat)) { $logSeat = [string]$env:KORUS_SEAT }
         $top = if ($ordered.Count -gt 0) { [math]::Round([double]$ordered[0].Score, 3) } else { $null }
         $entry = [ordered]@{
             utc             = Format-WikiStamp -Utc $now
@@ -314,9 +337,10 @@ if ($stateRootFound) {
             results         = $ordered.Count
             top_score       = $top
             no_note         = ($ordered.Count -eq 0)
-            inbox_reached   = ($inboxLabel -ceq 'inbox')
+            inbox_reached   = $inboxReached
             log_reached     = $logReached
             events_searched = $all.Count
+            import_hidden   = $importRecords
         }
         # EscapeNonAscii keeps the file ASCII and escapes U+2028 and U+2029 too, which some line
         # readers split on. Quotes and control characters are escaped in every mode.
