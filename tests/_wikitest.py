@@ -159,5 +159,7 @@ def make_repo(path: Path, prefix: str | None) -> Path:
     content = '{"prefix": "%s"}\n' % prefix if prefix is not None else "a\n"
     (path / name).write_text(content, encoding="ascii")
     git(path, "add", name)
-    git(path, "commit", "-m", "first")
+    # The path in the message makes every repository's root commit its own. Without it, two made
+    # in one second share one root SHA, so tests of "a different repository" pass or fail by clock.
+    git(path, "commit", "-m", f"first: {path}")
     return path

@@ -44,13 +44,41 @@ Each clone has its own coordination directory, so its own inbox. `Get-CcxStateRo
 **If a script is missing from your korus checkout, carry on without it and say so in your report.** A memory
 that cannot be reached never blocks work.
 
-**Compile, import and lint are not a seat's to run.** A scheduled Claude Code job runs them (Owner
-ruling 2026-09-23): `compile.ps1` and `lint.ps1` daily, `import.ps1` weekly.
+**Compile, import and lint are not a seat's to run.** The operating system's scheduler runs
+`scripts/wiki/cycle.ps1` once a day (Owner ruling 2026-09-26). The cycle compiles and lints daily
+and imports weekly. It makes no model call and needs no app to be open.
 [The plan](../specs/002-fleet-wiki/plan.md) orders their build.
 
-The job opens pull requests and never merges them. The Lander lands the compile and import pull
-requests in the record repository. A playbook change lint drafts merges only with the Owner, so
-the Lander does not land it.
+**That paragraph read "A scheduled Claude Code job runs them" until 2026-09-26** (Owner ruling
+2026-09-23). That job ran only while one desktop app was open, so the Owner moved the three plain
+scripts to the operating system.
+
+**Lint's promotion step is not part of the cycle.** Drafting a playbook pull request needs a model.
+It stays a Claude Code job or a manual step, and it reads the report the cycle leaves in its lint
+directory.
+
+The cycle opens pull requests only through `compile.ps1`, and never merges one. The Lander lands the
+compile pull requests in the record repository. A playbook change the promotion step drafts merges
+only with the Owner, so the Lander does not land it.
+
+Register the cycle once per machine with `scripts/wiki/register-cycle-task.ps1`. Pass `-WhatIf`
+first: it prints exactly what it would register. `-Status` shows the task and the last log line.
+
+```powershell
+pwsh -NoProfile -File <korus>/scripts/wiki/register-cycle-task.ps1 -KorusCheckout <korus> `
+  -StateRoot <coord> -RecordRepo <vault> -ReaderRepo <vault reader> `
+  -Store <store 1>,<store 2> -EvidenceRepo <engine>,<korus>,<vault> -LintOut <lint dir> -WhatIf
+```
+
+| Placeholder | What it names here |
+| --- | --- |
+| `<korus>` | A korus checkout used only by the task, on a detached `origin/main`. Each run moves it there. |
+| `<vault reader>` | A second checkout of the record repository, on a detached `origin/main`. Import and lint read the log from it. |
+| `<store N>` | Each account's memory directory the Owner listed. Name every one. |
+
+The cycle refuses a checkout that is on a branch or has local changes. A machine that was off on the
+import day imports at its next run. Each run appends a JSON line under `<coord>/wiki-cycle/`, a
+refused run included. `cycle.ps1`'s header lists the exceptions and its exit codes.
 
 ---
 

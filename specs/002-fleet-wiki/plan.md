@@ -46,9 +46,14 @@ for a few hundred pages.
 | IX. Claude Code first | `git` and `pwsh` only. `qmd` and Obsidian stay optional. |
 | XI. A seat writes something down | The wiki is the artefact. No new relay seat. |
 | XII. The shared write surface binds | One file per event, and one writer (compile) for pages. |
-| XIII. Work goes through Claude Code | Compile and lint run as Claude Code jobs, never as API calls. |
+| XIII. Work goes through Claude Code | The scheduled cycle calls no model at all. Lint's promotion step, which needs one, runs as a Claude Code job, never as an API call. |
 
 No violation needs justifying. Both Owner questions were answered 2026-09-23; the spec records them.
+
+Amended 2026-09-26 by Owner ruling: the XIII row read "Compile and lint run as Claude Code jobs,
+never as API calls". The operating system's scheduler now runs compile, lint and import through
+`cycle.ps1`, with no model. Article IX still holds: the Windows task is one way to schedule the
+cycle, and any scheduler that starts `pwsh` runs it.
 
 ## Project Structure
 
@@ -68,6 +73,8 @@ scripts/wiki/
   compile.ps1             inbox to log to pages to index (PR 2)
   import.ps1              weekly ingest of Owner-listed stores (PR 4)
   lint.ps1                report-only health check (PR 5)
+  cycle.ps1               one scheduled run: import on its day, compile, lint (2026-09-26)
+  register-cycle-task.ps1 registers the cycle with Windows Task Scheduler (2026-09-26)
 
 tests/
   test_wiki_write.py
@@ -125,6 +132,10 @@ has merged.
 5. Test two live events on one key: newer wins, and a conflict is recorded for lint.
 6. Wire compile as a scheduled Claude Code job (Owner ruling 2026-09-23). It opens pull requests
    and never merges; the Lander lands them.
+
+   Amended 2026-09-26 by Owner ruling: `scripts/wiki/cycle.ps1` runs compile, lint and the weekly
+   import under the operating system's scheduler, with no model. `register-cycle-task.ps1`
+   registers it on Windows. It still never merges.
 
 ### PR 3 - The schema playbook (all stories)
 
