@@ -15,39 +15,57 @@
 
     ONE RUN DOES THIS, IN ORDER:
 
-      1. CHECK EVERY INPUT BEFORE TOUCHING ANYTHING. Each named directory must exist. Both
-         checkouts must be the top of a git work tree, on a DETACHED head, with no tracked change.
-         A failure here exits 2, and nothing has moved.
+      1. CHECK THE INPUTS BEFORE TOUCHING ANYTHING. The state root, the record repository and both
+         checkouts must exist. Each checkout must be the top of a git work tree, on a DETACHED
+         head, with no tracked change. A failure here exits 2, and nothing has moved.
       2. TAKE THE LOCK, `<StateRoot>/wiki-cycle/lock`, created only if absent. A lock younger than
          two hours means another cycle runs: exit 2. An older one is dead, because the registered
-         task is stopped after one hour. The run removes it, says so in the log, and carries on.
-      3. MOVE -KorusCheckout TO `origin/main` after a fetch, then run the wiki scripts FROM IT.
-         So a run always uses the scripts `main` holds, never what some working checkout has.
-      4. MOVE -ReaderRepo TO `origin/main` after a fetch. Import and lint read the compiled log
-         from it.
-      5. IMPORT, on -ImportDay (local time), or whenever -Import is given. -NoImport skips it.
-         `-RecordRepo <ReaderRepo>` goes to the import ONLY when `<ReaderRepo>/wiki/events` exists.
-         Before the first compile lands there is no log, and import.ps1 refuses a named record
-         repository that has none.
+         task is stopped after one hour. The run sets it aside, deletes it, says so in the log, and
+         carries on.
+      3. FETCH BOTH CHECKOUTS, and check that moving either strands no commit. A fetch is tried
+         three times, a minute apart at most, because a run started at logon often beats the
+         network. Only when both pass does either move.
+      4. MOVE -KorusCheckout AND -ReaderRepo TO `origin/main`. The wiki scripts then run FROM the
+         korus checkout, so a run always uses the scripts `main` holds. Import and lint read the
+         compiled log from the reader.
+      5. IMPORT when it is due: see below. `-RecordRepo <ReaderRepo>` goes to the import ONLY when
+         `<ReaderRepo>/wiki/events` exists. Before the first compile lands there is no log, and
+         import.ps1 refuses a named record repository that has none.
       6. COMPILE: `compile.ps1 -StateRoot -RecordRepo -Json`. It opens its own pull request.
       7. LINT: `lint.ps1 -StateRoot -RecordRepo <ReaderRepo> -EvidenceRepo -Out
          <LintOut>/lint-<yyyy-MM-dd>.md`, dated by the UTC day the run started.
-      8. APPEND ONE JSON LINE to `<StateRoot>/wiki-cycle/log-<yyyy-MM>.jsonl`, by UTC month.
+      8. APPEND ONE JSON LINE to `<StateRoot>/wiki-cycle/log-<yyyy-MM>.jsonl`, by the UTC month
+         the run started, then release the lock. Every run that reaches its state root writes a
+         line, a refused one included. A -WhatIf run writes none, and neither does a run the
+         scheduler kills.
 
-    A failed step does not stop the steps after it. Each step's exit code is recorded as returned,
+    WHEN THE IMPORT IS DUE. On -ImportDay, by local time. Also on a later day, when the log shows
+    the cycle ran before the last import day and no import has run since that day began. So a
+    machine that was off on the import day imports at its next run instead of a week late. -Import
+    forces it and -NoImport skips it. An import that exited 0 or 1 counts as run; one that could
+    not run is tried again the next day.
+
+    A FAILED STEP DOES NOT STOP THE STEPS AFTER IT. Each step's exit code is recorded as returned,
     with its key counts: the import counts, compile's result, added count and pull request, and
-    lint's totals. A step that runs past 15 minutes is killed with its process tree and recorded
-    as timed out.
+    lint's totals. The stores and evidence repositories are checked by the step that reads them,
+    so a missing store fails the import and leaves compile and lint to run. A step that runs past
+    15 minutes is killed with its process tree and recorded as timed out.
+
+    A KILLED COMPILE CAN LEAVE A TEMPORARY WORKTREE behind in the record clone, and a scan
+    directory in the temp folder that holds copies of pending events. The message says so. To make
+    a hang less likely, every step runs with git's terminal prompt and Git Credential Manager's
+    prompts turned off, so a missing credential fails at once instead of waiting.
 
     WHY A DETACHED HEAD IS REQUIRED. A dedicated scheduled checkout sits detached. A checkout on a
     branch is somebody's working tree, and moving it would pull the ground out from under a session.
     So the cycle refuses one rather than guess. To prepare a checkout, run
     `git -C <dir> switch --detach origin/main` once.
 
-    WHAT COUNTS AS A LOCAL CHANGE. A tracked file that differs from HEAD, staged or not, and a HEAD
-    holding commits that `origin/main` does not. The cycle refuses either and moves nothing.
-    Untracked files do not block it: a detached checkout never deletes one, and git itself refuses
-    to overwrite one.
+    WHAT COUNTS AS A LOCAL CHANGE. A tracked file that differs from HEAD, staged or not. And a HEAD
+    that no branch, tag or remote-tracking ref reaches, because moving off it would strand it. A
+    HEAD that some ref reaches is safe to leave even when `origin/main` lacks it, as after a squash
+    merge. Untracked files do not block a run: a detached checkout never deletes one, and git itself
+    refuses to overwrite one.
 
     THE CYCLE'S OWN COPY LAGS ONE RUN. The task runs the `cycle.ps1` in -KorusCheckout, as it stood
     when the run started. The run then moves that checkout, so the wiki scripts are current at once
@@ -62,10 +80,10 @@
 
     Exit codes:
         0  every step ran, whatever it found
-        1  a step returned an error, or timed out. The other steps still ran.
-        2  the cycle could not run: a bad or missing argument or path, a checkout on a branch or
-           with local changes, a fetch or checkout that failed, a missing wiki script, or the lock
-           held by a live cycle
+        1  a step returned an error, timed out, or could not start. The other steps still ran.
+        2  the cycle could not run: a bad or missing argument, a missing state root, record
+           repository or checkout, a checkout on a branch or with local changes, a fetch or checkout
+           that failed, a missing wiki script, or the lock held by a live cycle
 
 .PARAMETER Store
     The memory stores to import. Under `pwsh -File` a list arrives as ONE string, so an entry that
@@ -101,6 +119,7 @@ $ErrorActionPreference = 'Stop'
 # Two hours is double the task's one-hour limit, so a live run never looks stale.
 $StaleLockHours = 2
 $StepTimeoutMinutes = 15
+$FetchWaits = @(0, 20, 60)
 $Remote = 'origin'
 $Base = 'main'
 
@@ -144,6 +163,21 @@ function Split-DirList {
     return , $list.ToArray()
 }
 
+function ConvertTo-ImportDay {
+    <#
+    .SYNOPSIS
+        One day name, or $null. The registrar applies the same rule.
+    .DESCRIPTION
+        Letters only: Enum.TryParse also takes a number, and ORs a comma list such as
+        `Friday,Saturday` into a value that is no single day.
+    #>
+    param([string] $Text)
+    if ($Text -notmatch '^\s*[A-Za-z]+\s*$') { return $null }
+    $day = [System.DayOfWeek]::Sunday
+    if (-not [System.Enum]::TryParse([System.DayOfWeek], $Text.Trim(), $true, [ref]$day)) { return $null }
+    return $day
+}
+
 function Invoke-Proc {
     <#
     .SYNOPSIS
@@ -167,7 +201,9 @@ function Invoke-Proc {
     $psi.RedirectStandardError = $true
     $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    # Nobody is watching a scheduled run, so a credential prompt would only wait for the time limit.
     $psi.Environment['GIT_TERMINAL_PROMPT'] = '0'
+    $psi.Environment['GCM_INTERACTIVE'] = 'never'
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     $p = [System.Diagnostics.Process]::Start($psi)
     $out = $p.StandardOutput.ReadToEndAsync()
@@ -175,15 +211,17 @@ function Invoke-Proc {
     $timedOut = $false
     if (-not $p.WaitForExit($TimeoutMs)) {
         $timedOut = $true
-        try { $p.Kill($true) } catch [System.InvalidOperationException] { $null = $_ }
+        # Kill throws when part of the tree exits or refuses in the middle. The run must still go on
+        # to record the timeout and run the next step, so no failure here may escape.
+        try { $p.Kill($true) } catch [System.Exception] { [Console]::Error.WriteLine("wiki cycle: killing a timed-out step: $($_.Exception.Message)") }
         $null = $p.WaitForExit(30000)
     }
-    $p.WaitForExit()
+    $finished = $p.HasExited
     return [pscustomobject]@{
-        Code     = if ($timedOut) { $null } else { $p.ExitCode }
+        Code     = if ($timedOut -or -not $finished) { $null } else { $p.ExitCode }
         TimedOut = $timedOut
-        Out      = $out.GetAwaiter().GetResult()
-        Err      = $err.GetAwaiter().GetResult()
+        Out      = if ($finished) { $out.GetAwaiter().GetResult() } else { '' }
+        Err      = if ($finished) { $err.GetAwaiter().GetResult() } else { '' }
         Seconds  = [math]::Round($clock.Elapsed.TotalSeconds, 1)
     }
 }
@@ -205,7 +243,7 @@ function Get-Tail {
 function Test-Checkout {
     <#
     .SYNOPSIS
-        Read-only checks on a checkout the cycle will move. Returns a record; a refusal sets .Problem.
+        Read-only checks on a checkout the cycle will move. Returns a record; a refusal sets .problem.
     #>
     param([string] $Label, [string] $Dir)
     $rec = [ordered]@{ path = $Dir; head = $null; detached = $null; clean = $null; problem = $null }
@@ -250,44 +288,77 @@ function Test-Checkout {
     return $rec
 }
 
-function Update-Checkout {
-    <# Fetch, refuse to strand local commits, then move to detached origin/main. #>
+function Get-CheckoutTarget {
+    <# Fetch, then find origin/main and refuse a move that would strand HEAD. Moves nothing. #>
     param([string] $Label, [System.Collections.IDictionary] $Rec)
     $dir = $Rec.path
-    $fetch = Invoke-Git $dir @('fetch', '--quiet', $Remote)
-    if ($fetch.Code -ne 0) { Stop-Cycle "$Label '$dir': git fetch $Remote failed: $(Get-Tail $fetch.Err)" }
+    $fetch = $null
+    foreach ($wait in $FetchWaits) {
+        if ($wait -gt 0) {
+            [Console]::Error.WriteLine("wiki cycle: $Label fetch failed; trying again in $wait s: $(Get-Tail $fetch.Err)")
+            Start-Sleep -Seconds $wait
+        }
+        $fetch = Invoke-Git $dir @('fetch', '--quiet', $Remote)
+        if ($fetch.Code -eq 0) { break }
+    }
+    if ($fetch.Code -ne 0) { Stop-Cycle "$Label '$dir': git fetch $Remote failed $($FetchWaits.Count) times: $(Get-Tail $fetch.Err)" }
     $target = Invoke-Git $dir @('rev-parse', '--verify', "$Remote/$Base^{commit}")
     if ($target.Code -ne 0) { Stop-Cycle "$Label '$dir' has no $Remote/$Base after the fetch." }
-    $sha = $target.Out.Trim()
-    $anc = Invoke-Git $dir @('merge-base', '--is-ancestor', 'HEAD', $sha)
-    if ($anc.Code -eq 1) {
-        Stop-Cycle "$Label '$dir' holds commits that $Remote/$Base does not. Moving it would strand them, so the cycle will not."
-    } elseif ($anc.Code -ne 0) {
-        Stop-Cycle "$Label '$dir': git merge-base failed: $(Get-Tail $anc.Err)"
+    # Stranded means no ref reaches HEAD. An ancestry test against origin/main alone would refuse a
+    # checkout left at a pull request's head forever once it squash-merged.
+    $holders = Invoke-Git $dir @('for-each-ref', '--contains', 'HEAD', '--count=1', '--format=%(refname)')
+    if ($holders.Code -ne 0) { Stop-Cycle "$Label '$dir': git for-each-ref failed: $(Get-Tail $holders.Err)" }
+    if (-not $holders.Out.Trim()) {
+        Stop-Cycle "$Label '$dir' holds commits that no branch, tag or remote-tracking ref reaches. Moving it would strand them, so the cycle will not."
     }
-    if ($Rec.head -ne $sha) {
-        $co = Invoke-Git $dir @('checkout', '--quiet', '--detach', $sha)
-        if ($co.Code -ne 0) { Stop-Cycle "$Label '$dir': git checkout of $Remote/$Base failed: $(Get-Tail $co.Err)" }
+    return $target.Out.Trim()
+}
+
+function Move-Checkout {
+    param([string] $Label, [System.Collections.IDictionary] $Rec, [string] $Sha)
+    if ($Rec.head -ne $Sha) {
+        $co = Invoke-Git $Rec.path @('checkout', '--quiet', '--detach', $Sha)
+        if ($co.Code -ne 0) { Stop-Cycle "$Label '$($Rec.path)': git checkout of $Remote/$Base failed: $(Get-Tail $co.Err)" }
     }
-    $Rec.before = $Rec.head
-    $Rec.head = $sha
-    return $sha
+    $Rec.head = $Sha
+}
+
+function Get-StepPlan {
+    <# The one definition of each step's script and arguments. -WhatIf prints it; a run executes it. #>
+    param([string] $Korus, [string] $Reader, [string] $Record, [string[]] $Stores, [string[]] $Evidence,
+        [string] $LintFile, [bool] $ImportDue)
+    $wiki = Join-Path (Join-Path $Korus 'scripts') 'wiki'
+    $steps = [System.Collections.Generic.List[object]]::new()
+    if ($ImportDue) {
+        $importArgs = @('-Store', ($Stores -join ','), '-StateRoot', $script:StateRoot, '-Json')
+        $passRecord = Test-Path -LiteralPath (Join-Path (Join-Path $Reader 'wiki') 'events') -PathType Container
+        if ($passRecord) { $importArgs += @('-RecordRepo', $Reader) }
+        $steps.Add([ordered]@{ name = 'import'; script = (Join-Path $wiki 'import.ps1'); arguments = $importArgs; record_repo_passed = $passRecord })
+    }
+    $steps.Add([ordered]@{ name = 'compile'; script = (Join-Path $wiki 'compile.ps1'); arguments = @('-StateRoot', $script:StateRoot, '-RecordRepo', $Record, '-Json') })
+    $lintArgs = @('-StateRoot', $script:StateRoot, '-RecordRepo', $Reader)
+    if ($Evidence.Count -gt 0) { $lintArgs += @('-EvidenceRepo', ($Evidence -join ',')) }
+    $lintArgs += @('-Out', $LintFile)
+    $steps.Add([ordered]@{ name = 'lint'; script = (Join-Path $wiki 'lint.ps1'); arguments = $lintArgs })
+    return , $steps.ToArray()
 }
 
 function Invoke-Step {
     <# Run one wiki script from the korus checkout in its own pwsh process. #>
-    param([string] $Name, [string] $Script, [string[]] $Arguments)
+    param([System.Collections.IDictionary] $Step)
+    $name = $Step.name
     $r = Invoke-Proc -Exe $script:pwsh -Dir $script:korusDir -TimeoutMs ($StepTimeoutMinutes * 60000) `
-        -Arguments (@('-NoProfile', '-NonInteractive', '-File', $Script) + $Arguments)
+        -Arguments (@('-NoProfile', '-NonInteractive', '-File', $Step.script) + $Step.arguments)
     $rec = [ordered]@{ exit = $r.Code; seconds = $r.Seconds }
     if ($r.TimedOut) {
         $rec.timed_out = $true
         $script:stepFailed = $true
-        [Console]::Error.WriteLine("wiki cycle: $Name ran past $StepTimeoutMinutes minutes and was killed.")
+        $extra = if ($name -eq 'compile') { ' A killed compile can leave a temporary worktree in the record clone and a korus-wiki-scan directory in the temp folder; remove both by hand.' } else { '' }
+        [Console]::Error.WriteLine("wiki cycle: $name ran past $StepTimeoutMinutes minutes and was killed.$extra")
     } elseif ($r.Code -ne 0) {
         $script:stepFailed = $true
         $rec.stderr_tail = Get-Tail $r.Err
-        [Console]::Error.WriteLine("wiki cycle: $Name exited $($r.Code): $($rec.stderr_tail)")
+        [Console]::Error.WriteLine("wiki cycle: $name exited $($r.Code): $($rec.stderr_tail)")
     }
     return [pscustomobject]@{ Record = $rec; Out = $r.Out }
 }
@@ -314,6 +385,115 @@ function Read-LintTotals {
     return $totals
 }
 
+function Read-CycleLog {
+    <# Every readable line of this month's and last month's log, as objects. A torn line is skipped. #>
+    param([datetime] $Now)
+    $lines = [System.Collections.Generic.List[object]]::new()
+    foreach ($month in @($Now.AddMonths(-1), $Now)) {
+        $path = Join-Path $script:logDir ("log-{0}.jsonl" -f $month.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        foreach ($text in [System.IO.File]::ReadAllLines($path)) {
+            if (-not $text.Trim()) { continue }
+            try { $lines.Add((ConvertFrom-Json -InputObject $text -ErrorAction Stop)) } catch { continue }
+        }
+    }
+    return , $lines.ToArray()
+}
+
+function Get-LineStart {
+    param($Line)
+    if (-not $Line.PSObject.Properties['start']) { return $null }
+    $when = [datetime]::MinValue
+    $styles = [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal
+    if ([datetime]::TryParse([string]$Line.start, [cultureinfo]::InvariantCulture, $styles, [ref]$when)) { return $when }
+    return $null
+}
+
+function Get-ImportDecision {
+    <# Whether the import is due, and why. See WHEN THE IMPORT IS DUE in the header. #>
+    param([System.DayOfWeek] $Day)
+    if ($NoImport) { return @{ Due = $false; Why = '-NoImport' } }
+    if ($Import) { return @{ Due = $true; Why = '-Import' } }
+    $today = [datetime]::Now.Date
+    if ($today.DayOfWeek -eq $Day) { return @{ Due = $true; Why = "import day ($Day)" } }
+    $back = ([int]$today.DayOfWeek - [int]$Day + 7) % 7
+    $lastDay = $today.AddDays(-$back)
+    $since = $lastDay.ToUniversalTime()
+    $ranBefore = $false
+    $importedSince = $false
+    foreach ($line in (Read-CycleLog ([datetime]::UtcNow))) {
+        $start = Get-LineStart $line
+        if ($null -eq $start) { continue }
+        if ($start -lt $since) { $ranBefore = $true; continue }
+        $imp = if ($line.PSObject.Properties['import']) { $line.import } else { $null }
+        if ($imp -and $imp.PSObject.Properties['exit'] -and $null -ne $imp.exit -and @(0, 1) -contains [int]$imp.exit) { $importedSince = $true }
+    }
+    $dayText = $lastDay.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+    if ($ranBefore -and -not $importedSince) {
+        return @{ Due = $true; Why = "catch-up: no import has run since the import day, $Day $dayText" }
+    }
+    $owed = if ($ranBefore) { "an import has run since $dayText" } else { "the log shows no run before $dayText" }
+    return @{ Due = $false; Why = "not the import day: today is $($today.DayOfWeek), import runs on $Day, and no catch-up is owed ($owed)" }
+}
+
+function Enter-CycleLock {
+    <#
+    .SYNOPSIS
+        Take the lock, or stop. A lock older than the stale limit is set aside and deleted first.
+    .DESCRIPTION
+        The stale lock is RENAMED aside before it is judged, never deleted in place. Two runs can
+        both read one stale lock; the one that renames second then holds whatever file sits at the
+        path by then. If that is a fresh lock another run just took, it goes back and this run
+        stops, so a stale-lock break never deletes a live holder's lock.
+    #>
+    param([string] $Holder)
+    for ($attempt = 0; $attempt -lt 4; $attempt++) {
+        try {
+            $fs = [System.IO.File]::Open($script:lockPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
+            try {
+                $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($Holder)
+                $fs.Write($bytes, 0, $bytes.Length)
+            } finally { $fs.Dispose() }
+            $script:lockTaken = $true
+            if (-not $log.lock) { $log.lock = [ordered]@{ state = 'taken' } }
+            return
+        } catch [System.IO.IOException] {
+            if (-not (Test-Path -LiteralPath $script:lockPath -PathType Leaf)) { continue }
+        }
+        $aside = "$($script:lockPath).aside-$PID-$([guid]::NewGuid().ToString('N'))"
+        try { [System.IO.File]::Move($script:lockPath, $aside) }
+        catch [System.IO.IOException] { continue }
+        $age = ([datetime]::UtcNow - (Get-Item -LiteralPath $aside).LastWriteTimeUtc).TotalHours
+        $who = 'unreadable'
+        try { $who = ([System.IO.File]::ReadAllText($aside)).Trim() } catch [System.IO.IOException] { $null = $_ }
+        if ($age -lt $StaleLockHours) {
+            try { [System.IO.File]::Move($aside, $script:lockPath) }
+            catch [System.IO.IOException] { [Console]::Error.WriteLine("wiki cycle: could not put back the live lock set aside at '$aside'.") }
+            $log.lock = [ordered]@{ state = 'held'; age_hours = [math]::Round($age, 2); holder = $who }
+            Stop-Cycle "another cycle holds the lock '$($script:lockPath)' ($who, $([math]::Round($age, 2)) h old)."
+        }
+        Remove-Item -LiteralPath $aside -Force
+        $log.lock = [ordered]@{ state = 'stale lock cleared'; age_hours = [math]::Round($age, 2); holder = $who }
+        [Console]::Error.WriteLine("wiki cycle: cleared a stale lock, $([math]::Round($age, 2)) h old, held by: $who")
+    }
+    Stop-Cycle "could not take the lock '$($script:lockPath)'."
+}
+
+function Exit-CycleLock {
+    <# Release the lock only while it still holds this run's own text. #>
+    param([string] $Holder)
+    if (-not $script:lockTaken) { return }
+    try {
+        if ((Test-Path -LiteralPath $script:lockPath -PathType Leaf) -and ([System.IO.File]::ReadAllText($script:lockPath)).Trim() -ceq $Holder) {
+            Remove-Item -LiteralPath $script:lockPath -Force
+        } else {
+            [Console]::Error.WriteLine("wiki cycle: the lock no longer holds this run's text, so it was left alone.")
+        }
+    } catch [System.IO.IOException] {
+        [Console]::Error.WriteLine("wiki cycle: could not release the lock: $($_.Exception.Message)")
+    }
+}
+
 # ------------------------------------------------------------------------------------ state
 $started = [datetime]::UtcNow
 $log = [ordered]@{
@@ -330,6 +510,7 @@ $log = [ordered]@{
     lint       = $null
 }
 $plan = [ordered]@{ what_if = $true; would_exit = $null; problems = @() }
+$holder = "pid $PID on $([System.Environment]::MachineName), started $($log.start), $([guid]::NewGuid().ToString('N'))"
 $script:stepFailed = $false
 $script:lockPath = $null
 $script:lockTaken = $false
@@ -347,20 +528,12 @@ function Invoke-WikiCycle {
     $script:StateRoot = Resolve-CycleDir $StateRoot
     if (-not (Test-Path -LiteralPath $script:StateRoot -PathType Container)) { Stop-Cycle "state root '$($script:StateRoot)' does not exist." }
     $script:logDir = Join-Path $script:StateRoot 'wiki-cycle'
+    $script:lockPath = Join-Path $script:logDir 'lock'
 
     if ($Import -and $NoImport) { Stop-Cycle '-Import and -NoImport cannot both be given.' }
-    $day = [System.DayOfWeek]::Sunday
-    if (-not [System.Enum]::TryParse([System.DayOfWeek], $ImportDay, $true, [ref]$day) -or
-        -not [System.Enum]::IsDefined([System.DayOfWeek], $day) -or $ImportDay -match '^\s*\d') {
-        Stop-Cycle "-ImportDay '$ImportDay' is not a day of the week."
-    }
-    $today = [datetime]::Now.DayOfWeek
-    $importDue = $false
-    $importWhy = $null
-    if ($NoImport) { $importWhy = '-NoImport' }
-    elseif ($Import) { $importDue = $true; $importWhy = '-Import' }
-    elseif ($today -eq $day) { $importDue = $true; $importWhy = "import day ($day)" }
-    else { $importWhy = "not the import day: today is $today, import runs on $day" }
+    $day = ConvertTo-ImportDay $ImportDay
+    if ($null -eq $day) { Stop-Cycle "-ImportDay '$ImportDay' is not one day of the week." }
+    $decision = Get-ImportDecision $day
 
     $korus = Resolve-CycleDir $KorusCheckout
     $record = Resolve-CycleDir $RecordRepo
@@ -370,9 +543,6 @@ function Invoke-WikiCycle {
     $evidence = Split-DirList $EvidenceRepo
     if (-not (Test-Path -LiteralPath $record -PathType Container)) { Stop-Cycle "record repository '$record' does not exist." }
     if (Test-Path -LiteralPath $lintDir -PathType Leaf) { Stop-Cycle "-LintOut '$lintDir' is a file, not a directory." }
-    if ($importDue -and $stores.Count -eq 0) { Stop-Cycle "the import is due ($importWhy) and no -Store was given. Name the stores, or pass -NoImport." }
-    foreach ($s in $stores) { if (-not (Test-Path -LiteralPath $s -PathType Container)) { Stop-Cycle "store '$s' does not exist." } }
-    foreach ($e in $evidence) { if (-not (Test-Path -LiteralPath $e -PathType Container)) { Stop-Cycle "evidence repository '$e' does not exist." } }
 
     $gitCmd = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $gitCmd) { Stop-Cycle 'git is not on PATH.' }
@@ -384,13 +554,13 @@ function Invoke-WikiCycle {
     $korusRec = Test-Checkout 'the korus checkout' $korus
     $readerRec = Test-Checkout 'the reader checkout' $reader
     $lintFile = Join-Path $lintDir ("lint-{0}.md" -f $started.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture))
-    $script:lockPath = Join-Path $script:logDir 'lock'
 
     if ($WhatIf) {
         $plan.korus = $korusRec
         $plan.reader = $readerRec
         $problems = [System.Collections.Generic.List[string]]::new()
         foreach ($rec in @($korusRec, $readerRec)) { if ($rec.problem) { $problems.Add($rec.problem) } }
+        if ($decision.Due -and $stores.Count -eq 0) { $problems.Add("the import is due ($($decision.Why)) and no -Store was given, so the import step would fail.") }
         $lockState = 'free'
         if (Test-Path -LiteralPath $script:lockPath -PathType Leaf) {
             $age = ([datetime]::UtcNow - (Get-Item -LiteralPath $script:lockPath).LastWriteTimeUtc).TotalHours
@@ -398,24 +568,14 @@ function Invoke-WikiCycle {
             else { $lockState = "held ($([math]::Round($age, 1)) h old)"; $problems.Add("the lock '$($script:lockPath)' is held by a live cycle.") }
         }
         $plan.lock = $lockState
-        $eventsDir = Join-Path (Join-Path $reader 'wiki') 'events'
-        $wiki = Join-Path (Join-Path $korus 'scripts') 'wiki'
-        $importArgs = @('-Store', ($stores -join ','), '-StateRoot', $script:StateRoot, '-Json')
-        $passRecord = Test-Path -LiteralPath $eventsDir -PathType Container
-        if ($passRecord) { $importArgs += @('-RecordRepo', $reader) }
-        $lintArgs = @('-StateRoot', $script:StateRoot, '-RecordRepo', $reader)
-        if ($evidence.Count -gt 0) { $lintArgs += @('-EvidenceRepo', ($evidence -join ',')) }
-        $lintArgs += @('-Out', $lintFile)
-        $plan.import = [ordered]@{ due = $importDue; reason = $importWhy; record_repo_passed = $passRecord
-            note = 'record_repo_passed is read from the reader as it stands now; a run reads it again after the move.' }
-        $steps = [System.Collections.Generic.List[object]]::new()
-        if ($importDue) { $steps.Add([ordered]@{ name = 'import'; script = (Join-Path $wiki 'import.ps1'); arguments = $importArgs }) }
-        $steps.Add([ordered]@{ name = 'compile'; script = (Join-Path $wiki 'compile.ps1'); arguments = @('-StateRoot', $script:StateRoot, '-RecordRepo', $record, '-Json') })
-        $steps.Add([ordered]@{ name = 'lint'; script = (Join-Path $wiki 'lint.ps1'); arguments = $lintArgs })
-        $plan.steps = $steps.ToArray()
+        $plan.import = [ordered]@{ due = $decision.Due; reason = $decision.Why
+            note = 'Whether -RecordRepo reaches the import is read from the reader as it stands now; a run reads it again after the move.' }
+        $plan.steps = Get-StepPlan -Korus $korus -Reader $reader -Record $record -Stores $stores -Evidence $evidence `
+            -LintFile $lintFile -ImportDue $decision.Due
         $plan.log = Join-Path $script:logDir ("log-{0}.jsonl" -f $started.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
         $plan.problems = @($problems)
-        $plan.would_exit = if ($problems.Count -gt 0) { 2 } else { 0 }
+        $plan.would_exit = if (@($korusRec, $readerRec) | Where-Object { $_.problem }) { 2 }
+            elseif ($lockState -like 'held*') { 2 } elseif ($problems.Count -gt 0) { 1 } else { 0 }
         return
     }
 
@@ -423,139 +583,116 @@ function Invoke-WikiCycle {
 
     # -------------------------------------------------------------------------------- lock
     $null = New-Item -ItemType Directory -Force -Path $script:logDir
-    $holder = "pid $PID on $([System.Environment]::MachineName), started $($log.start)"
-    for ($attempt = 0; $attempt -lt 2 -and -not $script:lockTaken; $attempt++) {
-        try {
-            $fs = [System.IO.File]::Open($script:lockPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
-            try {
-                $bytes = [System.Text.Encoding]::ASCII.GetBytes($holder)
-                $fs.Write($bytes, 0, $bytes.Length)
-            } finally { $fs.Dispose() }
-            $script:lockTaken = $true
-        } catch [System.IO.IOException] {
-            # The holder may have released it a moment ago. Then the next attempt takes it.
-            if (-not (Test-Path -LiteralPath $script:lockPath -PathType Leaf)) { continue }
-            $item = Get-Item -LiteralPath $script:lockPath
-            $age = ([datetime]::UtcNow - $item.LastWriteTimeUtc).TotalHours
-            $who = 'unreadable'
-            try { $who = ([System.IO.File]::ReadAllText($script:lockPath)).Trim() } catch [System.IO.IOException] { $null = $_ }
-            if ($age -lt $StaleLockHours -or $attempt -gt 0) {
-                $log.lock = [ordered]@{ state = 'held'; age_hours = [math]::Round($age, 2); holder = $who }
-                Stop-Cycle "another cycle holds the lock '$($script:lockPath)' ($who, $([math]::Round($age, 2)) h old)."
-            }
-            Remove-Item -LiteralPath $script:lockPath -Force
-            $log.lock = [ordered]@{ state = 'stale lock cleared'; age_hours = [math]::Round($age, 2); holder = $who }
-            [Console]::Error.WriteLine("wiki cycle: cleared a stale lock, $([math]::Round($age, 2)) h old, held by: $who")
-        }
-    }
-    if (-not $script:lockTaken) { Stop-Cycle "could not take the lock '$($script:lockPath)'." }
-    if (-not $log.lock) { $log.lock = [ordered]@{ state = 'taken' } }
+    Enter-CycleLock $holder
 
     # -------------------------------------------------------------------------------- move the checkouts
-    $log.korus_sha = Update-Checkout 'the korus checkout' $korusRec
-    $log.reader_sha = Update-Checkout 'the reader checkout' $readerRec
+    # Every fetch and every stranding check passes before either checkout moves.
+    $korusSha = Get-CheckoutTarget 'the korus checkout' $korusRec
+    $readerSha = Get-CheckoutTarget 'the reader checkout' $readerRec
+    Move-Checkout 'the korus checkout' $korusRec $korusSha
+    $log.korus_sha = $korusSha
+    Move-Checkout 'the reader checkout' $readerRec $readerSha
+    $log.reader_sha = $readerSha
 
-    $wiki = Join-Path (Join-Path $korus 'scripts') 'wiki'
-    $scripts = @{}
-    foreach ($n in @('import', 'compile', 'lint')) {
-        $p = Join-Path $wiki "$n.ps1"
-        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { Stop-Cycle "the korus checkout has no scripts/wiki/$n.ps1 at $($log.korus_sha)." }
-        $scripts[$n] = $p
+    $steps = Get-StepPlan -Korus $korus -Reader $reader -Record $record -Stores $stores -Evidence $evidence `
+        -LintFile $lintFile -ImportDue $decision.Due
+    foreach ($s in $steps) {
+        if (-not (Test-Path -LiteralPath $s.script -PathType Leaf)) { Stop-Cycle "the korus checkout has no scripts/wiki/$($s.name).ps1 at $korusSha." }
     }
+    if (-not $decision.Due) { $log.import = [ordered]@{ skipped = $decision.Why } }
 
-    # -------------------------------------------------------------------------------- import
-    if ($importDue) {
-        $eventsDir = Join-Path (Join-Path $reader 'wiki') 'events'
-        $passRecord = Test-Path -LiteralPath $eventsDir -PathType Container
-        $importArgs = @('-Store', ($stores -join ','), '-StateRoot', $script:StateRoot, '-Json')
-        if ($passRecord) { $importArgs += @('-RecordRepo', $reader) }
-        $step = Invoke-Step 'import' $scripts.import $importArgs
+    foreach ($s in $steps) {
+        if ($s.name -eq 'import' -and $stores.Count -eq 0) {
+            # A configuration fault in one step, not a reason to skip compile and lint.
+            $script:stepFailed = $true
+            $log.import = [ordered]@{ exit = $null; reason = $decision.Why; problem = 'the import is due and no -Store was given' }
+            [Console]::Error.WriteLine("wiki cycle: the import is due ($($decision.Why)) and no -Store was given; it did not run.")
+            continue
+        }
+        if ($s.name -eq 'lint' -and -not (Test-Path -LiteralPath $lintDir -PathType Container)) {
+            $null = New-Item -ItemType Directory -Force -Path $lintDir
+        }
+        $step = Invoke-Step $s
         $rec = $step.Record
-        $rec.reason = $importWhy
-        $rec.record_repo_passed = $passRecord
         $doc = ConvertFrom-StepJson $step.Out
-        if ($doc -and $doc.PSObject.Properties['counts']) { $rec.counts = $doc.counts }
-        $log.import = $rec
-    } else {
-        $log.import = [ordered]@{ skipped = $importWhy }
-    }
-
-    # -------------------------------------------------------------------------------- compile
-    $step = Invoke-Step 'compile' $scripts.compile @('-StateRoot', $script:StateRoot, '-RecordRepo', $record, '-Json')
-    $rec = $step.Record
-    $doc = ConvertFrom-StepJson $step.Out
-    if ($doc) {
-        foreach ($f in @('result', 'pending', 'added', 'held', 'conflicts', 'pr')) {
-            if ($doc.PSObject.Properties[$f]) { $rec[$f] = $doc.$f }
+        switch ($s.name) {
+            'import' {
+                $rec.reason = $decision.Why
+                $rec.record_repo_passed = $s.record_repo_passed
+                if ($doc -and $doc.PSObject.Properties['counts']) { $rec.counts = $doc.counts }
+                $log.import = $rec
+            }
+            'compile' {
+                if ($doc) {
+                    foreach ($f in @('result', 'pending', 'added', 'held', 'conflicts', 'pr')) {
+                        if ($doc.PSObject.Properties[$f]) { $rec[$f] = $doc.$f }
+                    }
+                }
+                $log.compile = $rec
+            }
+            'lint' {
+                $rec.out = $lintFile
+                if ($rec.exit -eq 0) { $rec.totals = Read-LintTotals $lintFile }
+                $log.lint = $rec
+            }
         }
     }
-    $log.compile = $rec
-
-    # -------------------------------------------------------------------------------- lint
-    if (-not (Test-Path -LiteralPath $lintDir -PathType Container)) { $null = New-Item -ItemType Directory -Force -Path $lintDir }
-    $lintArgs = @('-StateRoot', $script:StateRoot, '-RecordRepo', $reader)
-    if ($evidence.Count -gt 0) { $lintArgs += @('-EvidenceRepo', ($evidence -join ',')) }
-    $lintArgs += @('-Out', $lintFile)
-    $step = Invoke-Step 'lint' $scripts.lint $lintArgs
-    $rec = $step.Record
-    $rec.out = $lintFile
-    if ($rec.exit -eq 0) { $rec.totals = Read-LintTotals $lintFile }
-    $log.lint = $rec
 }
 
 # ------------------------------------------------------------------------------------ run
 $exitCode = 0
 try {
-    Invoke-WikiCycle
-    if ($WhatIf) { $exitCode = $plan.would_exit }
-    elseif ($script:stepFailed) { $exitCode = 1; $log.outcome = 'a step returned an error' }
-    else { $log.outcome = 'every step ran' }
-} catch [WikiCycleStop] {
-    $exitCode = $_.Exception.Code
-    $log.outcome = 'could not run'
-    $log.problem = $_.Exception.Message
-    [Console]::Error.WriteLine("wiki cycle: could not run: $($_.Exception.Message)")
-} catch {
-    $exitCode = 2
-    $log.outcome = 'could not run'
-    $log.problem = "unexpected: $($_.Exception.Message)"
-    [Console]::Error.WriteLine("wiki cycle: could not run: $($_.Exception.Message)")
+    try {
+        Invoke-WikiCycle
+        if ($WhatIf) { $exitCode = $plan.would_exit }
+        elseif ($script:stepFailed) { $exitCode = 1; $log.outcome = 'a step returned an error' }
+        else { $log.outcome = 'every step ran' }
+    } catch [WikiCycleStop] {
+        $exitCode = $_.Exception.Code
+        $log.outcome = 'could not run'
+        $log.problem = $_.Exception.Message
+        [Console]::Error.WriteLine("wiki cycle: could not run: $($_.Exception.Message)")
+    } catch {
+        $exitCode = 2
+        $log.outcome = 'could not run'
+        $log.problem = "unexpected: $($_.Exception.Message)"
+        [Console]::Error.WriteLine("wiki cycle: could not run: $($_.Exception.Message)")
+    }
+
+    if ($WhatIf) {
+        if ($exitCode -eq 2 -and -not $plan.would_exit) {
+            $plan.would_exit = 2
+            $plan.problems = @($plan.problems) + @($log.problem)
+        }
+        if ($Json) { ConvertTo-Json -InputObject $plan -Depth 6 }
+        else {
+            Write-Output "wiki cycle: -WhatIf, so nothing was fetched, moved, locked or written."
+            foreach ($s in @($plan.steps)) { Write-Output ("  {0,-8} {1} {2}" -f $s.name, $s.script, ($s.arguments -join ' ')) }
+            if ($plan.import) { Write-Output "  import: $($plan.import.reason)" }
+            if ($plan.lock) { Write-Output "  lock: $($plan.lock)" }
+            foreach ($p in @($plan.problems)) { Write-Output "  PROBLEM: $p" }
+            Write-Output "  a run would exit $($plan.would_exit)"
+        }
+        exit $exitCode
+    }
+
+    # The line is written while the lock is still held, so two runs' lines never interleave.
+    $log.end = Get-UtcStamp ([datetime]::UtcNow)
+    $log.exit = $exitCode
+    $line = ConvertTo-Json -InputObject $log -Depth 6 -Compress
+    if ($script:logDir -and (Test-Path -LiteralPath $script:StateRoot -PathType Container)) {
+        try {
+            $null = New-Item -ItemType Directory -Force -Path $script:logDir
+            $logFile = Join-Path $script:logDir ("log-{0}.jsonl" -f $started.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
+            [System.IO.File]::AppendAllText($logFile, $line + "`n", [System.Text.UTF8Encoding]::new($false))
+        } catch {
+            [Console]::Error.WriteLine("wiki cycle: could not write the log line: $($_.Exception.Message)")
+            if ($exitCode -eq 0) { $exitCode = 2 }
+        }
+    }
 } finally {
     # Only the run that took the lock releases it. A refused run leaves a live holder's lock alone.
-    if ($script:lockTaken -and $script:lockPath) {
-        Remove-Item -LiteralPath $script:lockPath -Force -ErrorAction SilentlyContinue
-    }
-}
-
-if ($WhatIf) {
-    if ($exitCode -eq 2 -and -not $plan.would_exit) {
-        $plan.would_exit = 2
-        $plan.problems = @($plan.problems) + @($log.problem)
-    }
-    if ($Json) { ConvertTo-Json -InputObject $plan -Depth 6 }
-    else {
-        Write-Output "wiki cycle: -WhatIf, so nothing was fetched, moved, locked or written."
-        foreach ($s in @($plan.steps)) { Write-Output ("  {0,-8} {1} {2}" -f $s.name, $s.script, ($s.arguments -join ' ')) }
-        if ($plan.import) { Write-Output "  import: $($plan.import.reason)" }
-        if ($plan.lock) { Write-Output "  lock: $($plan.lock)" }
-        foreach ($p in @($plan.problems)) { Write-Output "  REFUSED: $p" }
-        Write-Output "  a run would exit $($plan.would_exit)"
-    }
-    exit $exitCode
-}
-
-$log.end = Get-UtcStamp ([datetime]::UtcNow)
-$log.exit = $exitCode
-$line = ConvertTo-Json -InputObject $log -Depth 6 -Compress
-if ($script:logDir -and (Test-Path -LiteralPath $script:StateRoot -PathType Container)) {
-    try {
-        $null = New-Item -ItemType Directory -Force -Path $script:logDir
-        $logFile = Join-Path $script:logDir ("log-{0}.jsonl" -f $started.ToString('yyyy-MM', [cultureinfo]::InvariantCulture))
-        [System.IO.File]::AppendAllText($logFile, $line + "`n", [System.Text.UTF8Encoding]::new($false))
-    } catch {
-        [Console]::Error.WriteLine("wiki cycle: could not write the log line: $($_.Exception.Message)")
-        if ($exitCode -eq 0) { $exitCode = 2 }
-    }
+    Exit-CycleLock $holder
 }
 
 if ($Json) { Write-Output $line }

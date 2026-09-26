@@ -82,7 +82,8 @@ class _CycleCase(unittest.TestCase):
         self.pwsh = w.find_pwsh_or_skip(self)
         tmp = tempfile.TemporaryDirectory(prefix="wiki-cycle-")
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
+        # Resolved, so a short 8.3 temp path reads the same here as in the script's GetFullPath.
+        self.root = Path(tmp.name).resolve()
         self.state = self.root / "state"
         self.state.mkdir()
         self.calls = self.root / "calls.jsonl"
@@ -159,11 +160,20 @@ class _CycleCase(unittest.TestCase):
         return [json.loads(line) for line in self.calls.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def log_lines(self) -> list[dict]:
-        month = datetime.now(timezone.utc).strftime("%Y-%m")
-        path = self.state / "wiki-cycle" / f"log-{month}.jsonl"
-        if not path.exists():
-            return []
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        """Every line of every monthly log, oldest file first. Not keyed on today's month, which moves."""
+        lines = []
+        for path in sorted((self.state / "wiki-cycle").glob("log-*.jsonl")):
+            lines += [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return lines
+
+    def plant_log_line(self, when: datetime, imp: dict | None = None) -> dict:
+        """A line as an earlier run would have logged it, in that run's monthly file."""
+        line = {"start": when.strftime("%Y-%m-%dT%H:%M:%SZ"), "exit": 0, "import": imp or {"skipped": "planted"}}
+        path = self.state / "wiki-cycle" / f"log-{when.strftime('%Y-%m')}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps(line) + "\n")
+        return line
 
     def lock(self) -> Path:
         return self.state / "wiki-cycle" / "lock"
@@ -197,7 +207,7 @@ class ACycleRunsEveryStepFromOriginMain(_CycleCase):
         compile_args = calls[1]["args"]
         self.assertEqual(["-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-Json"], compile_args)
         lint_args = calls[2]["args"]
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = self.log_lines()[0]["start"][:10]
         self.assertEqual(str(self.reader), lint_args[lint_args.index("-RecordRepo") + 1])
         self.assertEqual(str(self.evidence), lint_args[lint_args.index("-EvidenceRepo") + 1])
         self.assertEqual(str(self.lint_out / f"lint-{today}.md"), lint_args[lint_args.index("-Out") + 1])
@@ -267,19 +277,58 @@ class TheImportRunsOnItsDayOrWhenForced(_CycleCase):
         self.assertEqual([], self.called())
 
     def test_a_bad_import_day_is_refused(self):
-        for bad in ("Someday", "3"):
+        for bad in ("Someday", "3", "Friday,Saturday"):
             r = self.cycle("-ImportDay", bad)
             self.assert_ran(r, 2)
         self.assertEqual([], self.called())
 
-    def test_a_due_import_with_no_store_is_refused(self):
+    def test_a_due_import_with_no_store_fails_that_step_only(self):
         args = self.args("-Import")
         i = args.index("-Store")
         del args[i:i + 2]
         r = w.run(self.pwsh, CYCLE, *args, env={"WIKI_CYCLE_TEST_CALLS": str(self.calls)})
-        self.assert_ran(r, 2)
+        self.assert_ran(r, 1)
         self.assertIn("no -Store", r.stderr)
-        self.assertEqual([], self.called())
+        self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
+        self.assertIsNone(self.log_lines()[-1]["import"]["exit"])
+
+
+class AMissedImportDayIsCaughtUp(_CycleCase):
+    def setUp(self):
+        super().setUp()
+        now = datetime.now()
+        if now.hour == 23 and now.minute >= 58:
+            self.skipTest("too close to midnight to name the days reliably")
+        # The import day was two days ago, so today is never it.
+        self.missed = day_name(now - timedelta(days=2))
+
+    def test_the_next_run_imports_once(self):
+        # The cycle ran before the missed day, and no import has run since.
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(days=8))
+        self.assert_ran(self.cycle("-ImportDay", self.missed))
+        self.assertEqual(["import", "compile", "lint"], [c["name"] for c in self.called()])
+        self.assertIn("catch-up", self.log_lines()[-1]["import"]["reason"])
+        # Control: the catch-up is owed once. The line that run wrote covers it.
+        self.calls.unlink()
+        self.assert_ran(self.cycle("-ImportDay", self.missed))
+        self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
+
+    def test_nothing_is_owed_when_the_cycle_did_not_run_before_the_import_day(self):
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(hours=1))
+        self.assert_ran(self.cycle("-ImportDay", self.missed))
+        self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
+
+    def test_an_import_that_could_not_run_is_still_owed(self):
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(days=8))
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(hours=1), imp={"exit": 2})
+        self.assert_ran(self.cycle("-ImportDay", self.missed))
+        self.assertEqual("import", self.called()[0]["name"])
+
+    def test_an_import_that_needed_a_look_counts_as_run(self):
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(days=8))
+        self.plant_log_line(datetime.now(timezone.utc) - timedelta(hours=1), imp={"exit": 1})
+        self.assert_ran(self.cycle("-ImportDay", self.missed))
+        self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
 
 
 class TheRecordRepoReachesTheImportOnlyWhenItHasALog(_CycleCase):
@@ -351,6 +400,32 @@ class ACheckoutWithLocalChangesIsNeverMoved(_CycleCase):
         self.assertIn("strand", r.stderr)
         self.assertEqual(local, self.head(self.korus))
         self.assertEqual([], self.called())
+
+    def test_a_local_commit_in_the_reader_leaves_the_korus_checkout_unmoved(self):
+        w.git(self.reader, "config", "user.email", "t@example.com")
+        w.git(self.reader, "config", "user.name", "t")
+        (self.reader / "a.txt").write_text("committed in the reader\n", encoding="ascii")
+        w.git(self.reader, "commit", "--quiet", "-am", "a local commit")
+        local = self.head(self.reader)
+        r = self.cycle("-NoImport")
+        self.assert_ran(r, 2)
+        self.assertIn("strand", r.stderr)
+        self.assertEqual(local, self.head(self.reader))
+        self.assertEqual(self.korus_v1, self.head(self.korus), "nothing moves until both checkouts pass")
+        self.assertEqual([], self.called())
+
+    def test_a_head_another_ref_holds_is_moved_after_a_squash_merge(self):
+        """A checkout left at a pull request's head: main lacks the commit, but a ref still holds it."""
+        w.git(self.korus_seed, "checkout", "--quiet", "-b", "pr-branch")
+        (self.korus_seed / "pr.txt").write_text("pr\n", encoding="ascii")
+        w.git(self.korus_seed, "add", "pr.txt")
+        w.git(self.korus_seed, "commit", "--quiet", "-m", "a pull request")
+        w.git(self.korus_seed, "push", "--quiet", "origin", "pr-branch")
+        w.git(self.korus_seed, "checkout", "--quiet", "main")
+        w.git(self.korus, "fetch", "--quiet", "origin")
+        w.git(self.korus, "checkout", "--quiet", "--detach", "origin/pr-branch")
+        self.assert_ran(self.cycle("-NoImport"))
+        self.assertEqual(self.korus_v2, self.head(self.korus))
 
     def test_a_subdirectory_of_a_checkout_is_refused(self):
         args = self.args("-NoImport")
@@ -437,7 +512,8 @@ class WhatIfPlansAndWritesNothing(_CycleCase):
         compile_step = plan["steps"][1]
         self.assertEqual(str(self.korus / "scripts" / "wiki" / "compile.ps1"), compile_step["script"])
         self.assertEqual(["-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-Json"], compile_step["arguments"])
-        self.assertFalse(plan["import"]["record_repo_passed"])
+        self.assertFalse(plan["steps"][0]["record_repo_passed"])
+        self.assertTrue(plan["import"]["due"])
         self.assertEqual("free", plan["lock"])
         self.assertEqual([], self.called())
         self.assertFalse((self.state / "wiki-cycle").exists(), "no log line, no lock")
@@ -489,6 +565,8 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         self.assertEqual("Interactive", plan["logonType"])
         self.assertEqual("Limited", plan["runLevel"])
         self.assertTrue(plan["startWhenAvailable"])
+        self.assertTrue(plan["allowStartIfOnBatteries"])
+        self.assertTrue(plan["dontStopIfGoingOnBatteries"])
         self.assertEqual(1, plan["executionTimeLimitHours"])
         self.assertEqual("IgnoreNew", plan["multipleInstances"])
         self.assertEqual({"kind": "daily", "at": "07:15"}, plan["trigger"])
@@ -498,7 +576,7 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
         self.assertEqual(str(self.korus), plan["workingDirectory"])
         arg = plan["argument"]
         cycle = self.korus / "scripts" / "wiki" / "cycle.ps1"
-        self.assertIn(f'-File "{cycle}"', arg)
+        self.assertIn(f'-WindowStyle Hidden -ExecutionPolicy Bypass -File "{cycle}"', arg)
         self.assertIn(f'-KorusCheckout "{self.korus}"', arg)
         self.assertIn(f'-StateRoot "{self.state}"', arg)
         self.assertIn(f'-RecordRepo "{self.record}"', arg)
@@ -539,6 +617,8 @@ class TheRegistrarPlansExactlyWhatItWouldRegister(_CycleCase):
             no_store + ["-WhatIf"],
             self.args("-At", "7pm", "-WhatIf"),
             self.args("-ImportDay", "Funday", "-WhatIf"),
+            self.args("-ImportDay", "Friday,Saturday", "-WhatIf"),
+            self.args("-ImportDay", "3", "-WhatIf"),
             ["-StateRoot", str(self.state), "-WhatIf"],
         ]
         for case in cases:

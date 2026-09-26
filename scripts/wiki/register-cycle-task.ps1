@@ -17,6 +17,10 @@
     task runs while you are logged on, and -StartWhenAvailable runs a missed day at your next logon.
     Nothing it does needs elevation, so it does not ask for it.
 
+    IT RUNS ON BATTERY, AND IN A HIDDEN WINDOW. Task Scheduler's defaults skip a start on battery
+    and kill a run when the power is pulled, which would drop a laptop's day without a word. An
+    interactive task also opens a console window, and closing it would kill the run mid-push.
+
     THE TASK STOPS AFTER ONE HOUR. The cycle treats a lock older than two hours as dead, so a run
     the scheduler killed never blocks the next day's run, and a live run never looks stale. A
     second start while one runs is ignored.
@@ -178,9 +182,11 @@ $stores = Split-DirList $Store
 if ($stores.Count -eq 0) { Stop-Register '-Store is required: the task imports weekly, and the cycle refuses an import with no store.' }
 $evidence = Split-DirList $EvidenceRepo
 
+# The rule cycle.ps1 applies, so the task never carries a day every run would refuse. Letters only:
+# Enum.TryParse also takes a number, and ORs a comma list such as `Friday,Saturday` into no single day.
 $day = [System.DayOfWeek]::Sunday
-if ($ImportDay -match '^\s*\d' -or -not [System.Enum]::TryParse([System.DayOfWeek], $ImportDay, $true, [ref]$day)) {
-    Stop-Register "-ImportDay '$ImportDay' is not a day of the week."
+if ($ImportDay -notmatch '^\s*[A-Za-z]+\s*$' -or -not [System.Enum]::TryParse([System.DayOfWeek], $ImportDay.Trim(), $true, [ref]$day)) {
+    Stop-Register "-ImportDay '$ImportDay' is not one day of the week."
 }
 $atTime = [datetime]::MinValue
 if (-not [datetime]::TryParseExact($At, 'HH:mm', [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$atTime)) {
@@ -214,7 +220,7 @@ function Format-Arg {
     return '"' + $Value + '"'
 }
 
-$argument = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + (Format-Arg $cycle) +
+$argument = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File ' + (Format-Arg $cycle) +
     ' -KorusCheckout ' + (Format-Arg $paths.korusCheckout) +
     ' -StateRoot ' + (Format-Arg $paths.stateRoot) +
     ' -RecordRepo ' + (Format-Arg $paths.recordRepo) +
@@ -240,6 +246,8 @@ $plan = [ordered]@{
     logonType          = $LogonType
     runLevel           = $RunLevel
     startWhenAvailable = $true
+    allowStartIfOnBatteries = $true
+    dontStopIfGoingOnBatteries = $true
     executionTimeLimitHours = $TimeLimitHours
     multipleInstances  = 'IgnoreNew'
     paths              = $paths
@@ -252,7 +260,7 @@ $planLines = @(
     "Task '$TaskName': daily at $At local, as $userId ($LogonType logon, run level $RunLevel).",
     "  runs:  $executable $argument",
     "  in:    $korus",
-    "  start when available: yes; stop after $TimeLimitHours h; a second start while one runs is ignored.",
+    "  start when available: yes; runs on battery too; stop after $TimeLimitHours h; a second start while one runs is ignored.",
     "  imports on $day."
 )
 if (-not $cycleExists) { $planLines += "  MISSING: $cycle" }
@@ -272,7 +280,8 @@ try {
     $action = New-ScheduledTaskAction -Execute $executable -Argument $argument -WorkingDirectory $korus
     $trigger = New-ScheduledTaskTrigger -Daily -At $At
     $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType $LogonType -RunLevel $RunLevel
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours $TimeLimitHours) -MultipleInstances IgnoreNew
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -ExecutionTimeLimit (New-TimeSpan -Hours $TimeLimitHours) -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 } catch {
     Stop-Register "the task store refused: $($_.Exception.Message)"

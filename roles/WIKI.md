@@ -76,8 +76,9 @@ pwsh -NoProfile -File <korus>/scripts/wiki/register-cycle-task.ps1 -KorusCheckou
 | `<vault reader>` | A second checkout of the record repository, on a detached `origin/main`. Import and lint read the log from it. |
 | `<store N>` | Each account's memory directory the Owner listed. Name every one. |
 
-The cycle refuses a checkout that is on a branch or has local changes. It logs one JSON line per run
-under `<coord>/wiki-cycle/`, and `cycle.ps1`'s header lists its exit codes.
+The cycle refuses a checkout that is on a branch or has local changes. A machine that was off on the
+import day imports at its next run. Each run appends a JSON line under `<coord>/wiki-cycle/`, a
+refused run included. `cycle.ps1`'s header lists the exceptions and its exit codes.
 
 ---
 
