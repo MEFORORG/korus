@@ -19,8 +19,21 @@
     The first label that applies is the one shown, in that order.
 
     BELOW THE MATCH FLOOR IT PRINTS EXACTLY `no note` (FR-015), never the nearest miss. A result
-    must match at least 60 percent of the query's words. Words are lower-cased, split on anything
-    not a letter or digit, and dropped when under three characters or on a short stopword list.
+    must match at least 60 percent of the query's words, where a word found in the key, summary or
+    paths counts whole and a word found only in the body counts half. So an event whose only
+    matches are in its body is never returned. A word in the head of more than half the events
+    searched counts half too, as `Find-WikiMatch` describes. Words are lower-cased, split on
+    anything not a letter or digit, and dropped when under three characters or on a short
+    stopword list.
+
+    Results rank by that fraction plus a bonus for words in the key. Ties go to the higher BM25
+    weight, which favours the event the words are about over one that mentions them in passing,
+    then to the newer event. `Find-WikiMatch` in `_event.ps1` holds the arithmetic.
+
+    THE IMPORT'S OWN RECORDS ARE HIDDEN BY DEFAULT. A key under a prefix in
+    `$WikiImportRecordPrefixes` (`_event.ps1`), such as a `memory-merge/` merge record (spec FR-024),
+    is bookkeeping about the import, not knowledge. -History returns them, with everything else the
+    default hides. The receipt on stderr counts how many a default query hid.
 
     A MEMORY MISS NEVER BLOCKS WORK (FR-016). An unreachable record repository or state root is
     reported on one line on stderr, the search goes on with whatever it could reach, and the exit
@@ -49,11 +62,35 @@
     many files could not be read. `no note` over zero events and `no note` over a thousand are
     different readings, and only the receipt tells them apart.
 
+    EVERY QUERY IS LOGGED, LOCALLY. One line of compact JSON is appended to
+    `<StateRoot>/wiki/query-log/<yyyy-MM>.jsonl`, by UTC month. There is no header line. Each line
+    is one object with these fields, in this order:
+
+        utc  seat  text  path  results  top_score  no_note
+        inbox_reached  log_reached  events_searched  import_hidden
+
+    `seat` is -Seat, lower-cased. Without it, the seat comes from `.claude/seat.local.txt` in the
+    caller's checkout, then `$env:KORUS_SEAT`, as write.ps1 finds it; empty when none is set. `results` is the number printed, `top_score` the first one's score or null, and
+    `no_note` is true when nothing was printed. `inbox_reached` and `log_reached` say whether each
+    store was actually read; false means it was not, for whatever reason the receipt on stderr
+    gave, a log that was not asked for and an inbox directory that does not exist included.
+    `events_searched` is the count the receipt prints, and `import_hidden` the import records a
+    default query read but did not score. So a `no note` over an unreachable store does not read
+    as a real miss.
+
+    The JSON escapes quotes, control characters and every non-ASCII character, so one query is one
+    line whatever it held. The log shows whether seats query the wiki and what they miss. It stays
+    on this machine: nothing compiles, commits or sends it.
+
+    Logging never changes stdout or the exit code. A log that cannot be written is one line on
+    stderr and the query carries on (FR-016). No state root, or one that does not exist, logs
+    nothing.
+
     Exit codes: 0 always, except 2 for arguments that cannot be run. An argument pwsh itself cannot
     bind, such as an unknown parameter name, exits 1 before this script starts.
 
 .EXAMPLE
-    pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "ascii gate exit code on windows"
+    pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "ascii gate exit code on windows" -Seat builder
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/query.ps1 -Path scripts/coord/seat.ps1 -RecordRepo ../vault
 #>
@@ -67,7 +104,10 @@ param(
     [string] $Limit = '5',
     [switch] $Json,
     [string] $StateRoot,
-    [string] $RecordRepo
+    [string] $RecordRepo,
+    # Only written to the query log, defaulting to $env:KORUS_SEAT. Never checked, so a mistyped
+    # seat cannot turn a query away.
+    [string] $Seat
 )
 
 $ErrorActionPreference = 'Stop'
@@ -106,6 +146,8 @@ $skipped = 0
 $unreadable = 0
 $loose = 0
 $inboxLabel = 'inbox'
+$logReached = $false
+$inboxReached = $false
 
 if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     try {
@@ -128,11 +170,16 @@ if ($StateRoot) {
         $inboxLabel = 'inbox unreachable'
     }
 }
+$stateRootFound = $false
 if ($StateRoot) {
     if (Test-Path -LiteralPath $StateRoot -PathType Container) {
+        $stateRootFound = $true
         try {
-            $r = Read-WikiEventDir -Dir (Get-WikiInboxDir -StateRoot $StateRoot) -Source inbox
+            $inboxDir = Get-WikiInboxDir -StateRoot $StateRoot
+            $r = Read-WikiEventDir -Dir $inboxDir -Source inbox
             $inboxEvents = @($r.Events)
+            # A state root with no inbox directory reads as empty. For the log it was not reached.
+            $inboxReached = Test-Path -LiteralPath $inboxDir -PathType Container
             $skipped += $r.Skipped
             $unreadable += $r.Unreadable
             $loose += $r.Loose
@@ -171,6 +218,7 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
                 $unreadable += $r.Unreadable
                 $loose += $r.Loose
                 $logLabel = "log $($logEvents.Count)"
+                $logReached = $true
             } catch {
                 Write-Note "record repository unreadable ($($_.Exception.Message)); searched the inbox only."
                 $logLabel = 'log unreadable'
@@ -182,7 +230,12 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
 $all = @(Merge-WikiEvent -Log $logEvents -Inbox $inboxEvents)
 $inboxPart = if ($inboxLabel -eq 'inbox') { "inbox $($inboxEvents.Count)" } else { $inboxLabel }
 $looseNote = if ($loose -gt 0) { "; $loose marker(s) honoured on the loose check" } else { '' }
-[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped$looseNote")
+# The import's own records are read but not scored by default. Said here, so a `no note` over a
+# store that is mostly bookkeeping does not read as a miss over all of it.
+$importRecords = 0
+if (-not $History) { foreach ($e in $all) { if (Test-WikiImportRecord $e) { $importRecords++ } } }
+$importNote = if ($importRecords -gt 0) { "; $importRecords import record(s) hidden, -History shows them" } else { '' }
+[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped$looseNote$importNote")
 $warning = if ($unreadable -gt 0) { "warning: $unreadable event file(s) unreadable; a retirement may be missing" } else { $null }
 
 # ------------------------------------------------------------------------------------ guard
@@ -194,31 +247,38 @@ foreach ($e in $labelled) { $byId[[string]$e.id] = $e }
 $results = [System.Collections.Generic.List[object]]::new()
 if ($History) {
     foreach ($h in (Find-WikiMatch -Events $labelled -Text $Text -Path $Path)) {
-        $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Order = $h.Order; Via = $null })
+        $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
     }
 } else {
-    $live = [System.Collections.Generic.List[object]]::new()
-    $hidden = [System.Collections.Generic.List[object]]::new()
+    # Live content and hidden events are scored in ONE call, so every BM25 weight is taken over the
+    # same corpus and a redirected hit's weight compares fairly with a direct one.
+    $searchable = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $labelled) {
-        if ($e._status -ceq 'historical') { $hidden.Add($e) }
-        elseif ([string]$e.type -cnotin $script:WikiMarkerTypes) { $live.Add($e) }
+        # The import's own records are bookkeeping, shown only with -History. Dropped before
+        # scoring, so they do not count toward BM25's document frequencies either.
+        if (Test-WikiImportRecord $e) { continue }
+        if ($e._status -ceq 'historical' -or [string]$e.type -cnotin $script:WikiMarkerTypes) { $searchable.Add($e) }
     }
+    # No @(): Find-WikiMatch returns its list as ONE object, and @() would nest it.
+    $found = Find-WikiMatch -Events $searchable -Text $Text -Path $Path
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($h in (Find-WikiMatch -Events $live -Text $Text -Path $Path)) {
+    foreach ($h in $found) {
+        if ($h.Event._status -ceq 'historical') { continue }
         if ($seen.Add([string]$h.Event.id)) {
-            $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Order = $h.Order; Via = $null })
+            $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
         }
     }
     # A hit on hidden text is followed to the live event that replaced it. The hidden event itself
     # is never shown: only its id, as the route the result was found by.
-    foreach ($h in (Find-WikiMatch -Events $hidden -Text $Text -Path $Path)) {
+    foreach ($h in $found) {
+        if ($h.Event._status -cne 'historical') { continue }
         $succ = Resolve-WikiSuccessor -Item $h.Event -ById $byId
-        if ($null -eq $succ) { continue }
+        if ($null -eq $succ -or (Test-WikiImportRecord $succ)) { continue }
         # With -Path, the replacement has to be about that file too. Otherwise a hidden event that
         # named the file would hand back a successor that does not.
         if ($Path -and -not (Test-WikiPathMatch -Item $succ -Path $Path)) { continue }
         if ($seen.Add([string]$succ.id)) {
-            $results.Add([pscustomobject]@{ Event = $succ; Score = $h.Score; Rank = $h.Rank; Order = $succ._tsKey; Via = [string]$h.Event.id })
+            $results.Add([pscustomobject]@{ Event = $succ; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $succ._tsKey; Via = [string]$h.Event.id })
         }
     }
 }
@@ -245,6 +305,67 @@ function Get-ResultLabel {
 }
 
 $ordered = @(Sort-WikiHit $results | Select-Object -First $Limit)
+
+# ------------------------------------------------------------------------------------ log
+# One line per query, so an owner can see whether seats query at all and what they miss. Nothing
+# here may reach stdout or the exit code: every failure is one line on stderr (FR-016).
+if ($stateRootFound) {
+    try {
+        $now = Get-WikiClock
+        $inv = [cultureinfo]::InvariantCulture
+        $logDir = Get-WikiQueryLogDir -StateRoot $StateRoot
+        # The file is named from the same clock read as the line's `utc`, so the two always agree.
+        $logFile = Join-Path $logDir ($now.ToString('yyyy-MM', $inv) + '.jsonl')
+        # The seat, if -Seat is not given, comes from the same two sources write.ps1 reads, in the same
+        # order: `.claude/seat.local.txt` at the root of the caller's checkout, then KORUS_SEAT.
+        $logSeat = $Seat
+        if ([string]::IsNullOrWhiteSpace($logSeat)) {
+            $dir = $PWD.Path
+            while ($dir) {
+                if (Test-Path -LiteralPath (Join-Path $dir '.git')) {
+                    $marker = Join-Path (Join-Path $dir '.claude') 'seat.local.txt'
+                    if (Test-Path -LiteralPath $marker -PathType Leaf) { $logSeat = [System.IO.File]::ReadAllText($marker) }
+                    break
+                }
+                $dir = Split-Path -Parent $dir
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($logSeat)) { $logSeat = [string]$env:KORUS_SEAT }
+        $top = if ($ordered.Count -gt 0) { [math]::Round([double]$ordered[0].Score, 3) } else { $null }
+        $entry = [ordered]@{
+            utc             = Format-WikiStamp -Utc $now
+            seat            = $logSeat.Trim().ToLowerInvariant()
+            text            = [string]$Text
+            path            = [string]$Path
+            results         = $ordered.Count
+            top_score       = $top
+            no_note         = ($ordered.Count -eq 0)
+            inbox_reached   = $inboxReached
+            log_reached     = $logReached
+            events_searched = $all.Count
+            import_hidden   = $importRecords
+        }
+        # EscapeNonAscii keeps the file ASCII and escapes U+2028 and U+2029 too, which some line
+        # readers split on. Quotes and control characters are escaped in every mode.
+        $line = ($entry | ConvertTo-Json -Compress -EscapeHandling EscapeNonAscii) + "`n"
+        [void][System.IO.Directory]::CreateDirectory($logDir)
+        # One write per line, under an exclusive write share, so two queries appending at once never
+        # interleave. A writer that finds the file held retries briefly, then gives up on stderr.
+        $bytes = [System.Text.Encoding]::ASCII.GetBytes($line)
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                $fs = [System.IO.FileStream]::new($logFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+                try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
+                break
+            } catch [System.IO.IOException] {
+                if ($attempt -ge 5) { throw }
+                Start-Sleep -Milliseconds 20
+            }
+        }
+    } catch {
+        Write-Note ("wiki query: query log not written ($($_.Exception.Message)); the query is unaffected." -replace '\s+', ' ')
+    }
+}
 
 # ------------------------------------------------------------------------------------ print
 if ($Json) {
