@@ -59,6 +59,10 @@ def main(argv):
     if calls:
         with open(calls, "a", encoding="ascii") as fh:
             fh.write(" ".join(p.relative_to(root).as_posix() for p in files) + "\\n")
+    seen = os.environ.get("WIKI_TEST_SCANNER_CWD")
+    if seen:
+        with open(seen, "a", encoding="utf-8") as fh:
+            fh.write(" ".join(sorted(p.name for p in Path.cwd().iterdir())) + "\\n")
     if not files:
         return 2
     hits = []
@@ -555,6 +559,121 @@ class AnIdCollisionFailsLoudly(_CompileCase):
         (self.inbox / f"{self.ev['id']}.json").write_text(json.dumps(self.ev, indent=2), encoding="utf-8")
         r = self.compile()
         self.assertEqual(1, r["deleted"])
+
+
+class ALandedFileIsClearedByItsObjectId(_CompileCase):
+    """Step 1's fast path. A landed inbox file is matched by the object id `ls-tree` already printed,
+    so no `git show` runs for it. One `git show` per file cost 208 s for 906 files, 2026-09-26.
+
+    GIT_TRACE2 records every git process the run starts, so the `show` count is read off git itself
+    and not off the script's report. The `ls-tree` count shows the trace is armed, so a zero is a
+    reading. The control: a copy that differs only in trailing blank lines misses the fast path, is
+    read back once, and is still cleared, because the comparison ignores trailing space."""
+
+    SHOW = re.compile(r" start .* show [0-9a-f]{40,64}:wiki/events/")
+    LS_TREE = re.compile(r" start .* ls-tree ")
+
+    def setUp(self):
+        super().setUp()
+        self.events = [w.plant(self.inbox, when=w.days_ago(3 - n), key=f"gate/ascii/n{n}", summary=f"planted event {n}")
+                       for n in range(3)]
+        self.compile()
+        self.merge()
+        self.trace = self.root / "trace2.txt"
+
+    def run_traced(self) -> dict:
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  env={"GIT_TRACE2": str(self.trace)})
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout)
+
+    def count(self, pattern: re.Pattern[str]) -> int:
+        lines = self.trace.read_text(encoding="utf-8", errors="replace").splitlines()
+        return len([ln for ln in lines if pattern.search(ln)])
+
+    def test_an_identical_landed_file_is_cleared_with_no_git_show(self):
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual([], list(self.inbox.glob("*.json")))
+        self.assertGreater(self.count(self.LS_TREE), 0, "the trace saw the run's git calls")
+        self.assertEqual(0, self.count(self.SHOW))
+
+    def test_control_a_copy_with_trailing_blank_lines_is_read_back_once_and_cleared(self):
+        path = self.inbox / f"{self.events[0]['id']}.json"
+        path.write_bytes(path.read_bytes() + b"\n\n")
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual([], list(self.inbox.glob("*.json")))
+        self.assertEqual(1, self.count(self.SHOW))
+
+
+class TheHoldChecksOutOnlyTheScannersDirectory(_CompileCase):
+    """Step 3. The hold needs only the scanner and the files beside it, so a run that files nothing
+    never checks out the record's whole tree. The stub scanner lists what it can see from where it
+    runs. Base's `a.txt` sits outside the scanner's directory and must be absent during the scan.
+
+    The control: a run that files does check out the whole tree, and its commit still carries every
+    file at Base. Without that checkout the commit would drop them, so the control is what shows the
+    commit is still Base plus the log."""
+
+    def setUp(self):
+        super().setUp()
+        self.seen = self.root / "scanner-cwd.txt"
+        self.leak = w.plant(self.inbox, when=w.days_ago(2), key="site/one/feed", summary=f"The feed for {LEAK_TOKEN} drops")
+
+    def run_compile(self) -> dict:
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  env={"WIKI_TEST_SCANNER_CWD": str(self.seen)})
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout)
+
+    def test_a_run_that_files_nothing_checks_out_only_the_scanner(self):
+        self.assertIn("a.txt", self.files_at("main"), "Base holds a file outside the scanner's directory")
+        r = self.run_compile()
+        self.assertEqual("nothing-pending", r["result"])
+        self.assertEqual([self.leak["id"]], r["held_ids"])
+        self.assertEqual("scanner", r["checkout"])
+        self.assertEqual([".git scripts"], self.seen.read_text(encoding="utf-8").splitlines())
+        self.assertFalse(self.remote_has("refs/heads/wiki/compile"))
+        self.assertEqual(1, self.worktree_count())
+
+    def test_control_a_run_that_files_checks_out_the_whole_tree(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = self.run_compile()
+        self.assertEqual("compiled", r["result"])
+        self.assertEqual("full", r["checkout"])
+        files = self.files_at("wiki/compile")
+        self.assertEqual(sorted(self.files_at("main")), sorted(f for f in files if not f.startswith("wiki/")))
+        self.assertIn("a.txt", files)
+        self.assertEqual(1, self.worktree_count())
+
+    def test_nothing_pending_makes_no_worktree(self):
+        (self.inbox / f"{self.leak['id']}.json").unlink()
+        r = self.run_compile()
+        self.assertEqual("nothing-pending", r["result"])
+        self.assertIsNone(r["checkout"])
+        self.assertFalse(self.seen.exists(), "the scanner ran with nothing pending")
+
+
+class CompileTimesItsPhasesOnlyWhenAsked(_CompileCase):
+    """-Timings prints one stderr line a phase. Without it, stderr carries no timing line at all."""
+
+    def test_timings_name_each_phase_and_a_total(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  "-Timings")
+        self.assertEqual(0, r.returncode, r.stderr)
+        phases = re.findall(r"(?m)^wiki compile: timing (\S+) \d+\.\d\d s$", r.stderr)
+        for phase in ("setup", "fetch", "clear-landed", "worktree-add", "hold-scan", "checkout-full",
+                      "commit-push", "worktree-remove", "total"):
+            self.assertIn(phase, phases)
+        self.assertEqual("compiled", json.loads(r.stdout)["result"])
+
+    def test_control_no_timing_line_without_the_switch(self):
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json")
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn("timing", r.stderr)
 
 
 class TheRecordClonesWorkingTreeIsUntouched(_CompileCase):

@@ -13,10 +13,15 @@
          the ONLY place an inbox file is deleted, so a file leaves the inbox only after the pull
          request carrying it has merged (spec, Edge Cases). An inbox file whose id is in the landed
          log with DIFFERENT content is an id collision: the run stops, and nothing is deleted or
-         written.
+         written. The fetch is one `ls-remote` and one `fetch`, because each is a round trip.
+         A landed file is compared by its object id first, hashed here against the one `ls-tree`
+         prints, and read with `git show` only when the ids differ. One `git show` per file cost
+         208 s for 906 landed files, measured 2026-09-26.
       2. NOTHING PENDING, NOTHING TO DO. Exit 0 and say so.
       3. BUILD IN A TEMPORARY WORKTREE of `<Remote>/<Base>`, never in the clone's own working tree,
-         which other sessions use.
+         which other sessions use. At first only the scanner's directory is checked out. The whole
+         tree is checked out in step 5, so a run that files nothing never writes it. The report's
+         `checkout` says which: `scanner`, `full`, or null when no worktree was made.
       4. HOLD BACK WHAT WOULD LEAK (spec FR-028). Before anything is copied, every pending event is
          staged in one scratch directory and scanned ONCE by the record repository's own scanner,
          `scripts/publish/scan_forbidden.py` at Base, run as `python <scanner> --path <dir>`. An event
@@ -47,6 +52,9 @@
 
     The temporary worktree is removed in a `finally` block, whatever happened.
 
+    -Timings prints, on stderr when the run ends, the seconds each phase took. Each line names a
+    phase and a number, never an event, so it is safe to paste. It is off by default.
+
     -RebuildOnly regenerates `wiki/pages/` and `wiki/index.md` inside -RecordRepo from its
     `wiki/events/` alone: no inbox, no git (FR-012). It renders through the same code compile does,
     so its output must equal what compile committed.
@@ -70,7 +78,8 @@ param(
     [string] $Base,
     [switch] $NoPr,
     [switch] $RebuildOnly,
-    [switch] $Json
+    [switch] $Json,
+    [switch] $Timings
 )
 
 $ErrorActionPreference = 'Stop'
@@ -134,6 +143,39 @@ function Invoke-Tool {
     return $res
 }
 
+# -Timings: the seconds each phase took, printed to stderr when the run ends, whatever happened.
+# Never on by default. Each line names a phase and a number, never an event or a path.
+$script:clock = [System.Diagnostics.Stopwatch]::StartNew()
+$script:lastMark = [timespan]::Zero
+$script:phases = [System.Collections.Generic.List[object]]::new()
+
+function Add-CompileTiming {
+    <# Close the phase running since the last mark and record it under this name. #>
+    param([Parameter(Mandatory)][string] $Phase)
+    $now = $script:clock.Elapsed
+    $script:phases.Add([pscustomobject]@{ phase = $Phase; seconds = [math]::Round(($now - $script:lastMark).TotalSeconds, 2) })
+    $script:lastMark = $now
+}
+
+function Get-GitBlobId {
+    <# The object id git gives these bytes as a blob: SHA-1, or SHA-256 when the id is 64 digits. #>
+    param([Parameter(Mandatory)][AllowEmptyCollection()][byte[]] $Bytes, [Parameter(Mandatory)][int] $HexLength)
+    $header = [System.Text.Encoding]::ASCII.GetBytes("blob $($Bytes.Length)`0")
+    $algo = if ($HexLength -eq 64) { [System.Security.Cryptography.SHA256]::Create() } else { [System.Security.Cryptography.SHA1]::Create() }
+    try {
+        [void]$algo.TransformBlock($header, 0, $header.Length, $null, 0)
+        [void]$algo.TransformFinalBlock($Bytes, 0, $Bytes.Length)
+        return [System.Convert]::ToHexString($algo.Hash).ToLowerInvariant()
+    } finally { $algo.Dispose() }
+}
+
+function ConvertTo-LfByte {
+    <# The same bytes with each CRLF pair folded to LF. Latin-1 maps each byte to one character and back. #>
+    param([Parameter(Mandatory)][AllowEmptyCollection()][byte[]] $Bytes)
+    $latin = [System.Text.Encoding]::Latin1
+    return , $latin.GetBytes($latin.GetString($Bytes).Replace("`r`n", "`n"))
+}
+
 function Get-NormalizedText {
     <# Line endings folded to LF and trailing whitespace dropped, for comparing one event two ways. #>
     param([string] $Text)
@@ -152,6 +194,8 @@ $EmailRegex = [regex]::new('[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+
 $HitRegex = [regex]::new('^  (?<path>[^\s:][^:]*):\d+:', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 # The scanner's closing count, `<n> hit(s).`. Required on exit 1 and checked against the lines read,
 # so a hit list cut off before its end is never taken for the whole list.
+# One line of `git ls-tree -r`: `<mode> blob <object id><TAB><path>`.
+$LsTreeRegex = [regex]::new('^\d+ blob (?<blob>[0-9a-f]{40,64})\t(?<path>.+)$', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 $HitCountRegex = [regex]::new('^(?<n>\d+) hit\(s\)\.', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 
 function Get-WikiEventText {
@@ -239,6 +283,7 @@ function Get-WikiLeakHold {
             $plainForMail = [regex]::Replace($plain, '\p{Cf}', '')
             if ($EmailRegex.IsMatch($rawForMail) -or $EmailRegex.IsMatch($plainForMail)) { [void]$held.Add($id) }
         }
+        Add-CompileTiming 'hold-stage'
         if ($staged.Count -gt 0) {
             # UTF-8 on the scanner's streams: under a cp1252 console a hit line with a non-ASCII
             # excerpt raises UnicodeEncodeError, and that crash exits 1 with part of the hit list.
@@ -280,6 +325,7 @@ function Get-WikiLeakHold {
             } elseif ($scan.Code -ne 0) {
                 Stop-Compile 2 "the leak scanner exited $($scan.Code) under '$python', which is neither clean (0) nor hits (1). Nothing was filed or pushed."
             }
+            Add-CompileTiming 'hold-scan'
         }
     } finally {
         Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
@@ -309,6 +355,7 @@ $report = [ordered]@{
     tree      = $null
     content_tree = $null
     pr        = $null
+    checkout  = $null
 }
 
 function Write-LogSkipWarning {
@@ -386,40 +433,47 @@ function Invoke-WikiCompile {
         Stop-Compile 2 "the inbox is not reachable: state root '$StateRoot' does not exist."
     }
     $inbox = Get-WikiInboxDir -StateRoot $StateRoot
+    Add-CompileTiming 'setup'
 
     # ------------------------------------------------------------------------------------- fetch
+    # ONE `ls-remote` and ONE `fetch`, because each is a round trip to the remote. With nothing to
+    # file, four round trips took 19 of 27 seconds, measured 2026-09-26. The `ls-remote` reads the
+    # default branch and whether the standing branch exists.
+    $ls = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-remote', '--symref', $Remote, 'HEAD', "refs/heads/$Branch")
     if ([string]::IsNullOrWhiteSpace($Base)) {
-        $sym = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-remote', '--symref', $Remote, 'HEAD')
-        if ($sym.Out -match '(?m)^ref: refs/heads/(\S+)\s+HEAD') { $Base = $Matches[1] }
+        if ($ls.Out -match '(?m)^ref: refs/heads/(\S+)\s+HEAD\s*$') { $Base = $Matches[1] }
         else { Stop-Compile 2 "could not read the default branch of '$Remote'; pass -Base." }
     }
-    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('fetch', '--quiet', $Remote,
-        "+refs/heads/${Base}:refs/remotes/$Remote/$Base") | Out-Null
+    # The standing branch, if the remote has one, is fetched with Base so its message and parent can
+    # be read. The lease is the value that fetch wrote: an `ls-remote` value could name a commit a
+    # force-push replaced before the fetch, which this clone would then not hold.
+    $hasBranch = $ls.Out -match ('(?m)^[0-9a-f]{40,64}\s+refs/heads/' + [regex]::Escape($Branch) + '\s*$')
+    $refspecs = @("+refs/heads/${Base}:refs/remotes/$Remote/$Base")
+    if ($hasBranch) { $refspecs += "+refs/heads/${Branch}:refs/remotes/$Remote/$Branch" }
+    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments (@('fetch', '--quiet', $Remote) + $refspecs) | Out-Null
     $baseSha = (Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('rev-parse', '--verify', "refs/remotes/$Remote/$Base^{commit}")).Out.Trim()
     $report.base = $baseSha
-
-    # The standing branch, if the remote has one. Fetched so its message and parent can be read, and
-    # the lease is the value that fetch wrote: an `ls-remote` value could name a commit a force-push
-    # replaced before the fetch, which this clone would then not hold.
     $leased = ''
-    $ls = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-remote', $Remote, "refs/heads/$Branch")
-    if ($ls.Out -match '(?m)^[0-9a-f]{40,64}\s+refs/heads/') {
-        Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('fetch', '--quiet', $Remote,
-            "+refs/heads/${Branch}:refs/remotes/$Remote/$Branch") | Out-Null
+    if ($hasBranch) {
         $leased = (Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('rev-parse', '--verify', "refs/remotes/$Remote/$Branch^{commit}")).Out.Trim()
     }
+    Add-CompileTiming 'fetch'
 
     # ------------------------------------------------------------- 1. clear what has landed
     # Ordinal, like the id pattern: a PowerShell hashtable ignores case, and would call an inbox file
     # named with an upper-case variant of a landed id a collision instead of a file to skip.
     $landed = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
-    $tree = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-tree', '-r', '--name-only', $baseSha, '--', 'wiki/events')
+    $landedBlob = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+    $tree = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-tree', '-r', $baseSha, '--', 'wiki/events')
     foreach ($line in ($tree.Out -split "`n")) {
-        $path = $line.Trim()
+        $m = $LsTreeRegex.Match($line.TrimEnd("`r"))
+        if (-not $m.Success) { continue }
+        $path = $m.Groups['path'].Value.Trim()
         if (-not $path.EndsWith('.json')) { continue }
         $id = [System.IO.Path]::GetFileNameWithoutExtension($path)
-        if ($id -cmatch $script:WikiIdPattern) { $landed[$id] = $path }
+        if ($id -cmatch $script:WikiIdPattern) { $landed[$id] = $path; $landedBlob[$id] = $m.Groups['blob'].Value }
     }
+    Add-CompileTiming 'landed-list'
 
     $inboxFiles = @()
     if (Test-Path -LiteralPath $inbox -PathType Container) {
@@ -430,6 +484,19 @@ function Invoke-WikiCompile {
     foreach ($f in $inboxFiles) {
         $id = [System.IO.Path]::GetFileNameWithoutExtension($f)
         if (-not $landed.ContainsKey($id)) { continue }
+        # THE FAST PATH. Hash the inbox file as git would and compare with the object id `ls-tree`
+        # already printed. Equal ids are equal bytes, so no `git show` runs. The second hash is of
+        # the bytes with CRLF folded to LF, which is what git stores for a text file under
+        # `core.autocrlf` or a `text` attribute. A match on either passes the comparison below too,
+        # so the fast path never deletes a file that comparison would keep. It exists because one
+        # `git show` per file took 208 s for 906 landed files, measured 2026-09-26.
+        $inboxBytes = [System.IO.File]::ReadAllBytes($f)
+        $want = $landedBlob[$id]
+        if ((Get-GitBlobId -Bytes $inboxBytes -HexLength $want.Length) -ceq $want -or
+            (Get-GitBlobId -Bytes (ConvertTo-LfByte $inboxBytes) -HexLength $want.Length) -ceq $want) {
+            $toDelete.Add($f)
+            continue
+        }
         $landedText = (Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('show', "${baseSha}:$($landed[$id])")).Out
         $inboxText = [System.IO.File]::ReadAllText($f)
         if ((Get-NormalizedText $landedText) -ceq (Get-NormalizedText $inboxText)) { $toDelete.Add($f) }
@@ -442,12 +509,14 @@ function Invoke-WikiCompile {
     }
     foreach ($f in $toDelete) { Remove-Item -LiteralPath $f -Force }
     $report.deleted = $toDelete.Count
+    Add-CompileTiming 'clear-landed'
 
     # ------------------------------------------------------------------------ 2. what is pending
     $r = Read-WikiEventDir -Dir $inbox -Source inbox
     $pending = @($r.Events | Where-Object { -not $landed.ContainsKey([string]$_.id) })
     $report.skipped = $r.Skipped
     $report.pending = $pending.Count
+    Add-CompileTiming 'read-inbox'
     if ($pending.Count -eq 0) {
         $report.result = 'nothing-pending'
         Write-Report "wiki compile: nothing pending. Removed $($toDelete.Count) landed inbox file(s); $($r.Skipped) inbox file(s) unreadable and skipped."
@@ -455,10 +524,21 @@ function Invoke-WikiCompile {
     }
 
     # ------------------------------------------------------------------- 3. build in a worktree
+    # WITH ONLY THE SCANNER'S DIRECTORY CHECKED OUT. The hold needs the scanner and the files beside
+    # it, which it reads by its own path. The whole tree is checked out only once something is to
+    # be filed, in step 5, so a run that files nothing never writes the record's thousands of files.
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('korus-wiki-compile-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
-    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('worktree', 'add', '--quiet', '--detach', $tmp, $baseSha) | Out-Null
+    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('worktree', 'add', '--quiet', '--detach', '--no-checkout', $tmp, $baseSha) | Out-Null
     # Recorded only once the add succeeded, so the cleanup never tries to remove what git refused.
     $script:tmp = $tmp
+    $scannerDir = $ScannerRel.Substring(0, $ScannerRel.LastIndexOf('/'))
+    # A Base without the directory checks out nothing, and the hold then stops on the missing scanner.
+    $atBase = Invoke-Tool -Exe $git -Dir $tmp -Arguments @('ls-tree', '--name-only', $baseSha, '--', $scannerDir)
+    if ($atBase.Out.Trim()) {
+        Invoke-Tool -Exe $git -Dir $tmp -Arguments @('checkout', '--quiet', $baseSha, '--', $scannerDir) | Out-Null
+    }
+    $report.checkout = 'scanner'
+    Add-CompileTiming 'worktree-add'
 
     # ------------------------------------------------------------- 4. hold back what would leak
     # Read once, here: the bytes scanned are the bytes filed, so a file rewritten in the inbox after
@@ -500,6 +580,7 @@ function Invoke-WikiCompile {
         [Console]::Error.WriteLine("wiki compile: WARNING: $Branch carried $stale event(s) the leak hold now flags. " +
             "This run rebuilds it without them, but its earlier commit stays reachable from the pull request's history.")
     }
+    Add-CompileTiming 'stale-check'
     if ($filed.Count -eq 0) {
         $report.result = 'nothing-pending'
         Write-Report ("wiki compile: nothing to file; all $($pending.Count) pending event(s) held back by the leak hold. " +
@@ -508,6 +589,10 @@ function Invoke-WikiCompile {
     }
 
     # ------------------------------------------------------------------ 5. file what is left
+    # Now the whole tree, so the commit below is Base plus the log, exactly as before.
+    Invoke-Tool -Exe $git -Dir $tmp -Arguments @('reset', '--hard', '--quiet', $baseSha) | Out-Null
+    $report.checkout = 'full'
+    Add-CompileTiming 'checkout-full'
     foreach ($ev in $filed) {
         $id = [string]$ev.id
         $dir = Get-WikiLogDir -RecordRepo $tmp -Utc $ev._utc
@@ -531,6 +616,7 @@ function Invoke-WikiCompile {
     Write-WikiPageSet -WikiDir $wikiDir -PageSet $set
     $report.pages = $set.Pages
     $report.conflicts = $set.Conflicts.Count
+    Add-CompileTiming 'render'
 
     Invoke-Tool -Exe $git -Dir $tmp -Arguments @('add', '--all', '--', 'wiki') | Out-Null
     $contentTree = (Invoke-Tool -Exe $git -Dir $tmp -Arguments @('write-tree')).Out.Trim()
@@ -580,6 +666,7 @@ function Invoke-WikiCompile {
         $report.added = $filed.Count
         $report.result = 'compiled'
     }
+    Add-CompileTiming 'commit-push'
 
     # ------------------------------------------------------------------------ the pull request
     if (-not $NoPr) {
@@ -607,6 +694,7 @@ function Invoke-WikiCompile {
             $url = ($created.Out.Trim() -split "`n")[-1].Trim()
         }
         $report.pr = $url
+        Add-CompileTiming 'pull-request'
     }
 
     $what = if ($report.result -ceq 'converged') { "already current at $($report.head); nothing added" }
@@ -633,6 +721,14 @@ try {
             [Console]::Error.WriteLine("wiki compile: could not remove the temporary worktree '$($script:tmp)': $($rm.Err.Trim())")
             if ($exitCode -eq 0) { $exitCode = 2 }
         }
+        Add-CompileTiming 'worktree-remove'
+    }
+    if ($Timings) {
+        Add-CompileTiming 'finish'
+        foreach ($p in $script:phases) {
+            [Console]::Error.WriteLine([string]::Format([cultureinfo]::InvariantCulture, 'wiki compile: timing {0} {1:0.00} s', $p.phase, $p.seconds))
+        }
+        [Console]::Error.WriteLine([string]::Format([cultureinfo]::InvariantCulture, 'wiki compile: timing total {0:0.00} s', $script:clock.Elapsed.TotalSeconds))
     }
 }
 exit $exitCode
