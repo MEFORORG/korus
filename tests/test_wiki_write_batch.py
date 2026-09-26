@@ -14,6 +14,7 @@ Run: python -m pytest tests/test_wiki_write_batch.py
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 import tempfile
 import unittest
 from pathlib import Path
@@ -209,6 +210,32 @@ class CheckOnlyWritesNothing(_BatchCase):
         self.assertEqual(2, r.returncode)
         self.assertEqual([], self.inbox())
 
+
+
+class NotedInABatch(_BatchCase):
+    def test_noted_round_trips_as_the_single_write_writes_it(self):
+        ev = dict(GOOD, noted="2026-07-03")
+        s_state, b_state = self.root / "s", self.root / "b"
+        s_state.mkdir()
+        b_state.mkdir()
+        r = w.run(self.pwsh, w.WRITE, *single_args(GOOD), "-Noted", "2026-07-03", "-Seat", "builder",
+                  "-StateRoot", str(s_state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        rb, res = self.batch([ev], state=b_state)
+        self.assertEqual(0, rb.returncode, rb.stderr)
+        [one] = self.inbox(s_state)
+        [two] = self.inbox(b_state)
+        self.assertEqual("2026-07-03", two["noted"])
+        for e in (one, two):
+            del e["id"], e["ts"]
+        self.assertEqual(one, two)
+
+    def test_a_bad_noted_refuses_that_event_alone(self):
+        future = (datetime.now(timezone.utc) + timedelta(days=5)).strftime("%Y-%m-%d")
+        r, res = self.batch([dict(GOOD, noted="July"), dict(GOOD, noted=future), dict(GOOD, noted="2026-07-03")])
+        self.assertEqual(1, r.returncode, r.stderr)
+        self.assertEqual(["refused", "refused", "written"], [x["status"] for x in res])
+        self.assertTrue(all("noted" in x["reason"] for x in res[:2]))
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,10 @@
     THE CLOCK IS READ HERE, IN UTC (FR-004). There is no parameter for it. A seat that guessed a
     stamp would write an event that sorts wrong against every other.
 
+    -Noted yyyy-MM-dd says the fact was observed on an earlier day, as a memory note's file date
+    does. It never moves `ts`: it only changes the age a reader sees (FR-014). A date that is not
+    yyyy-MM-dd, or is after today (UTC), is refused.
+
     THE LEAK SCAN RUNS BEFORE ANY FILE EXISTS IN THE INBOX (FR-006). It is
     `scripts/security/scan_forbidden.py`, run over a plain rendering of every field: one field per
     line with its raw value, then the JSON. The plain rendering is not optional. JSON doubles every
@@ -27,7 +31,7 @@
 
     BATCH MODE, -FromJson <file>. The file holds a JSON array of events. Each is an object whose
     field names are the event's own: type, key, summary, evidence, and optionally body, supersedes,
-    paths, stale_after and trust. It exists for the one-time import, where a process per event cost
+    paths, stale_after, noted and trust. It exists for the one-time import, where a process per event cost
     about 0.6 seconds each.
 
     EVERY BATCH EVENT TAKES THE SAME STEPS, IN THE SAME ORDER, AS A SINGLE WRITE. The same presence
@@ -74,6 +78,7 @@ param(
     [string[]] $Supersedes,
     [string[]] $Paths,
     [string] $StaleAfter,
+    [string] $Noted,
     [string] $Trust = 'generated',
     [string] $Seat,
     [string] $StateRoot,
@@ -98,7 +103,7 @@ $jsonKind = [System.Text.Json.JsonValueKind]
 # event spells it. `_bad` carries a refusal found while reading the batch file.
 $inputs = [System.Collections.Generic.List[object]]::new()
 if ($batch) {
-    $singleParams = @('Type', 'Key', 'Summary', 'Evidence', 'Body', 'Supersedes', 'Paths', 'StaleAfter', 'Trust')
+    $singleParams = @('Type', 'Key', 'Summary', 'Evidence', 'Body', 'Supersedes', 'Paths', 'StaleAfter', 'Noted', 'Trust')
     $mixed = @($singleParams | Where-Object { $PSBoundParameters.ContainsKey($_) })
     if ($mixed.Count -gt 0) {
         Stop-Write 2 "-FromJson takes every event from the file; do not also pass -$($mixed -join ', -')."
@@ -134,7 +139,7 @@ if ($batch) {
                     }
                     $raw[$name] = $list.ToArray()
                 } elseif ($v.ValueKind -ne $jsonKind::Null) { $raw._bad = "field '$name' must be a string or a list of strings" }
-            } elseif ($name -cin @('type', 'key', 'summary', 'evidence', 'body', 'stale_after', 'trust')) {
+            } elseif ($name -cin @('type', 'key', 'summary', 'evidence', 'body', 'stale_after', 'noted', 'trust')) {
                 if ($v.ValueKind -eq $jsonKind::String) { $raw[$name] = $v.GetString() }
                 elseif ($v.ValueKind -ne $jsonKind::Null) { $raw._bad = "field '$name' must be a string" }
             } else {
@@ -149,7 +154,7 @@ if ($batch) {
     if ($CheckOnly) { Stop-Write 2 '-CheckOnly is for -FromJson only.' }
     $inputs.Add([ordered]@{
             _bad = $null; type = $Type; key = $Key; summary = $Summary; evidence = $Evidence; body = $Body
-            supersedes = $Supersedes; paths = $Paths; stale_after = $StaleAfter; trust = $Trust
+            supersedes = $Supersedes; paths = $Paths; stale_after = $StaleAfter; noted = $Noted; trust = $Trust
         })
 }
 
@@ -235,6 +240,9 @@ for ($i = 0; $i -lt $inputs.Count; $i++) {
             ForEach-Object { ConvertTo-WikiRelPath $_ })
     if ($rel.Count -gt 0) { $record.paths = $rel }
     if (-not [string]::IsNullOrWhiteSpace([string]$raw.stale_after)) { $record.stale_after = ([string]$raw.stale_after).Trim() }
+    # Checked by Test-WikiEvent below, against this event's own ts: a malformed date or one after
+    # today is refused there, after the leak scan, like every other field.
+    if (-not [string]::IsNullOrWhiteSpace([string]$raw.noted)) { $record.noted = ([string]$raw.noted).Trim() }
 
     # A control character is refused before the scan, by field name and never by value. The scanner
     # reads a file with a NUL in its first 4096 bytes as BINARY and passes it unscanned, so one NUL in

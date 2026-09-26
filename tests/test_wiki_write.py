@@ -24,7 +24,7 @@ import sys
 import tempfile
 import time
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import _wikitest as w
@@ -412,6 +412,28 @@ class AWriteIsQuick(_WriteCase):
             self.assertEqual(0, r.returncode, r.stderr)
         self.assertLess(min(times), self.CEILING_SECONDS, f"write wall-clock seconds: {times}")
 
+
+
+class NotedIsTheDayAFactWasObserved(_WriteCase):
+    def test_a_past_noted_is_written_and_ts_is_still_the_clock(self):
+        r = self.write(*self.good(), "-Noted", "2026-07-03")
+        self.assertEqual(0, r.returncode, r.stderr)
+        [f] = self.inbox_files()
+        ev = json.loads(f.read_text(encoding="utf-8"))
+        self.assertEqual("2026-07-03", ev["noted"])
+        self.assertEqual(datetime.now(timezone.utc).strftime("%Y-%m-%d"), ev["ts"][:10], "noted moved ts")
+
+    def test_a_malformed_or_future_noted_is_refused_and_nothing_is_written(self):
+        tomorrow = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%d")
+        for bad in ("2026-7-3", "03/07/2026", "yesterday", tomorrow):
+            with self.subTest(noted=bad):
+                r = self.write(*self.good(), "-Noted", bad)
+                self.assertEqual(1, r.returncode, r.stdout + r.stderr)
+                self.assertIn("noted", r.stderr)
+                self.assertEqual([], self.inbox_files())
+        # CONTROL: today itself is accepted.
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self.assertEqual(0, self.write(*self.good(), "-Noted", today).returncode)
 
 if __name__ == "__main__":
     unittest.main()

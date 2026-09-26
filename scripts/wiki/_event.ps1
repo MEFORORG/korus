@@ -10,8 +10,12 @@
         . "$PSScriptRoot/_event.ps1"
 
     AN EVENT is one JSON file. Required fields (spec FR-002): id, ts, type, key, seat, summary,
-    evidence, trust. Optional: body, supersedes, paths, stale_after. An event is never edited or
-    deleted once it is in the log (FR-008); a correction is a NEW event.
+    evidence, trust. Optional: body, supersedes, paths, stale_after, noted. An event is never edited
+    or deleted once it is in the log (FR-008); a correction is a NEW event.
+
+    `noted` is the day the fact was observed, yyyy-MM-dd, when that is earlier than `ts`. The import
+    sets it from a memory note's file date. `ts` stays the write clock and still orders every event
+    (FR-004); `noted` only moves the age a reader sees (`Get-WikiEffectiveDate`).
 
     WHERE EVENTS LIVE.
         inbox  <StateRoot>/wiki/inbox/<id>.json               written by write.ps1, uncompiled
@@ -263,7 +267,7 @@ function Test-WikiEvent {
     }
     # Checked in every reader, not only in write.ps1: a planted or compiled event carrying an escape
     # sequence would otherwise reach a terminal raw through query.ps1.
-    foreach ($f in @('id', 'type', 'key', 'seat', 'summary', 'evidence', 'trust', 'stale_after')) {
+    foreach ($f in @('id', 'type', 'key', 'seat', 'summary', 'evidence', 'trust', 'stale_after', 'noted')) {
         if ($null -ne $Item.$f -and $Item.$f -isnot [datetime] -and [string]$Item.$f -match $script:WikiControl) {
             return "field '$f' contains a control character"
         }
@@ -348,7 +352,53 @@ function Test-WikiEvent {
             return "stale_after '$saText' is not a yyyy-MM-dd date"
         }
     }
+
+    # A fact is observed before it is written, never after: a later `noted` would make an event read
+    # younger than its own write, which is the opposite of what the field is for.
+    if ($null -ne $Item.noted) {
+        $noted = ConvertTo-WikiDate $Item.noted
+        if ($null -eq $noted) { return "noted '$([string]$Item.noted)' is not a yyyy-MM-dd date" }
+        if ($noted -gt $utc.Date) { return "noted $($noted.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)) is after the day the event was written" }
+    }
     return $null
+}
+
+function ConvertTo-WikiDate {
+    <#
+    .SYNOPSIS
+        A yyyy-MM-dd field (`noted`) as a [datetime] date, or $null when it is not one.
+    .DESCRIPTION
+        ConvertFrom-Json leaves a bare date a string on pwsh 7.6, and would hand back a [datetime]
+        for a stamp. Both shapes are read, as `stale_after` is, so no reader depends on which.
+    #>
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return $Value.Date }
+    $parsed = [datetime]::MinValue
+    if ([datetime]::TryParseExact([string]$Value, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $parsed.Date }
+    return $null
+}
+
+function Get-WikiEffectiveDate {
+    <#
+    .SYNOPSIS
+        The day an event's age is counted from: its `noted` date when that is earlier than `ts`, else
+        the day of `ts`. Returns @{ Date = <[datetime] date>; Noted = <bool> }.
+    .DESCRIPTION
+        The ONE place the age date is decided (spec FR-014), so the query's label and lint's stale
+        finding cannot disagree about one event. `ts` still orders events for the guard; this only
+        says how old the fact is. A `noted` that does not parse, or is later than `ts`, is ignored
+        rather than trusted: the reader's schema check refuses a content event carrying one, and a
+        marker honoured on the loose check must not throw here.
+    #>
+    param($Item)
+    $utc = $Item._utc
+    if ($null -eq $utc) { $utc = ConvertTo-WikiUtc $Item.ts }
+    $day = $utc.Date
+    $noted = ConvertTo-WikiDate $Item.noted
+    if ($null -ne $noted -and $noted -lt $day) { return @{ Date = $noted; Noted = $true } }
+    return @{ Date = $day; Noted = $false }
 }
 
 function Test-WikiMarkerLoose {
