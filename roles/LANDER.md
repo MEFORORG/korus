@@ -1458,6 +1458,52 @@ rule; its one `gate` hit is about DEMAND-GATE items. It denies `Write`, `Edit`, 
 | What such a gate DOES deny | Committing or resolving a conflict in a primary checkout. Cut a worktree for that; never work in the primary. |
 | **EXPIRY** | The gate becomes command-keyed rather than target-path-keyed, at which point remote operations could fall inside it. Check by re-reading the gate's matching rule, not by re-running one command: one command that succeeds tells you about one command. |
 
+### 11g. Flag the hygiene your own merges leave behind, and delete nothing
+
+**Owner ruling 2026-09-26, given to a Lander seat in chat.** The Lander owns the hygiene its own
+merges create. It flags two things to the owner: stale installed hooks, and merged branches whose
+worktrees still exist. Every deletion and every install stays the owner's.
+
+**Each flag is a row in the table you end your turn with.** Repeat it every turn until the owner
+acts or declines, the way *Never use AskUserQuestion* repeats its table. It is not a blocker.
+
+**No gate enforces "delete nothing". It is discipline.** The worktree guard does not refuse
+`git branch -D`, `git push --delete` or an installer run, and it does not govern every repository.
+
+| Item | Rule |
+| --- | --- |
+| The hook trigger | You merged a PR that changes `scripts/hooks/**`, `.pre-commit-config.yaml`, `scripts/coord/install-*.ps1`, or anything `install-git-hooks.ps1` installs. |
+| The flag | Installed hooks may now be stale in that clone. Name the PR and the files it changed. |
+| What `-Status` measures | `install-git-hooks.ps1 -Status` is read-only and measures only the git hooks that script installs. It says nothing about hooks under the user's home or hooks that run from the primary checkout. |
+| So say what is unmeasured | When the changed file is not one that installer copies, name it and write "unmeasured". Do not cite a `-Status` reading as covering it. |
+| A reading older than the merge measures nothing about it | That includes the hygiene report's hook section. Check its `Generated` line against the merge time. |
+
+The owner's steps, one clone at a time:
+
+1. Open a plain terminal, not one inside a Claude Code session.
+2. Use a checkout of that clone at the merged `main` that no session is working in.
+3. Run `pwsh -NoProfile -File scripts/coord/install-git-hooks.ps1 -Status` from it.
+4. If its verdict says the installed copy is stale or not current, follow the remedy it prints. The
+   engine and korus install on a bare run and have no `-Arm`. The vault installs only with `-Arm`.
+
+**What an install costs.** It overwrites the hooks for every worktree of that clone at once. From a
+checkout older than `main` it downgrades them. The repair is to install again from a newer checkout.
+
+**The worktree half reads a report and runs nothing.** An engine script, `hygiene-report.ps1`, is
+meant to run on a schedule. It changes nothing but a fetch of `origin/main` and its own report files.
+
+| Item | Rule |
+| --- | --- |
+| Where the report is | `latest.md` under `mefor-coord/hygiene/` in the engine clone's git common dir, when it exists. It names the clones it covered. A clone it does not name is not covered. |
+| Read its merge signal first | When its GitHub read failed, both lists are empty and mean unknown, not clean. Say that instead of relaying them. |
+| Relay its lists as printed | The proposed cleanup list, NEEDS A HUMAN LOOK with its reasons, and any registered worktree whose directory is missing. Do not re-describe them. |
+| A `--force` line needs a fresh look | The report was true only when it ran. Before you relay a `--force` line, read that tree's `git status --porcelain` now. Relay it only if nothing but `.venv` shows. |
+| Older than a day | Relay only its age, and no command from it. |
+| What it cannot see | A branch merged inside a wave PR has no merged PR of its own, so it reads NOT MERGED. When you merge a wave, name its Builder branches in your flag yourself. |
+| No report | Say so in one line. The script may be unmerged, unregistered, not running or failing. The missing file cannot tell you which. |
+| It does not compete with draining | It is a flag, not a task. It never delays a merge. |
+| **EXPIRY** | The owner takes the duty back, or a tool installs hooks on merge by itself. Ask the owner. |
+
 ## 13. Coordinating peers and relaying
 
 | Item | Rule |
