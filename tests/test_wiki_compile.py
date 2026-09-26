@@ -594,6 +594,21 @@ class ALandedFileIsClearedByItsObjectId(_CompileCase):
         self.assertGreater(self.count(self.LS_TREE), 0, "the trace saw the run's git calls")
         self.assertEqual(0, self.count(self.SHOW))
 
+    def test_a_crlf_copy_of_an_lf_blob_is_cleared_with_no_git_show(self):
+        """The CRLF fold. Under `core.autocrlf=true` git stores the LF form of a CRLF file."""
+        path = self.inbox / f"{self.events[1]['id']}.json"
+        blob = subprocess.run(["git", f"--git-dir={self.remote}", "cat-file", "blob",
+                               f"main:{self.landed_path(self.events[1])}"],
+                              capture_output=True, timeout=w.TIMEOUT_SECONDS, check=True).stdout
+        self.assertNotIn(b"\r", blob, "the landed blob is LF")
+        path.write_bytes(blob.replace(b"\n", b"\r\n"))
+        r = self.run_traced()
+        self.assertEqual(3, r["deleted"])
+        self.assertEqual(0, self.count(self.SHOW))
+
+    def landed_path(self, ev: dict) -> str:
+        return f"wiki/events/{ev['ts'][:4]}/{ev['ts'][5:7]}/{ev['id']}.json"
+
     def test_control_a_copy_with_trailing_blank_lines_is_read_back_once_and_cleared(self):
         path = self.inbox / f"{self.events[0]['id']}.json"
         path.write_bytes(path.read_bytes() + b"\n\n")

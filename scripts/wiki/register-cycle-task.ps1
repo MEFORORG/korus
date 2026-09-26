@@ -22,8 +22,8 @@
     interactive task also opens a console window, and closing it would kill the run mid-push.
 
     THE TASK STOPS AFTER TWO HOURS. The cycle keeps its own run inside 100 minutes, and gives a
-    first real compile 30 of them (see `cycle.ps1`). It treats a lock older than four hours as dead,
-    so a run the scheduler killed never blocks the next day's run, and a live run never looks
+    first real compile 30 of them (see `cycle.ps1`). It treats a lock older than four hours as
+    dead. So a run the scheduler killed never blocks the next day's run, and a live run never looks
     stale. A second start while one runs is ignored.
 
     IT RUNS AT NORMAL PRIORITY, 4. Task Scheduler's default is 7, below normal, and that also lowers
@@ -161,7 +161,10 @@ if ($Status) {
     $lines = @(if ($result.registered) {
         "Task '$TaskName': $($result.state). Last run $($result.lastRunTime), result $($result.lastTaskResult). Next run $($result.nextRunTime)."
         "  runs: $($result.execute) $($result.argument)"
-        "  priority $($result.priority), time limit $($result.executionTimeLimit). A task registered before 2026-09-26 shows 7 and PT1H; register it again."
+        "  priority $($result.priority), time limit $($result.executionTimeLimit)."
+        if ($result.priority -ne $Priority -or $result.executionTimeLimit -ne "PT$($TimeLimitHours)H") {
+            "  OUT OF DATE: this registrar asks for priority $Priority and PT$($TimeLimitHours)H. Register the task again."
+        }
     } else { "No scheduled task '$TaskName'." })
     if ($result.Contains('lastLogLine')) { $lines += "  last log line: $(if ($result.lastLogLine) { $result.lastLogLine } else { '(none)' })" }
     Write-Result $result $lines

@@ -16,8 +16,8 @@
          written. The fetch is one `ls-remote` and one `fetch`, because each is a round trip.
          A landed file is compared by its object id first, hashed here against the one `ls-tree`
          prints, and read with `git show` only when the ids differ. One `git show` per file cost
-         208 s for 906 synthetic landed files. That was read with -Timings, added to korus
-         e9814d4, on 2026-09-26.
+         208 s for 906 synthetic landed files. That was read on 2026-09-26 with -Timings, which
+         this file gained that day, over korus e9814d4's compile logic.
       2. NOTHING PENDING, NOTHING TO DO. Exit 0 and say so.
       3. BUILD IN A TEMPORARY WORKTREE of `<Remote>/<Base>`, never in the clone's own working tree,
          which other sessions use.
@@ -192,10 +192,10 @@ $EmailRegex = [regex]::new('[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+
 # One hit line from the scanner in `--path` mode: two spaces, the path relative to the scan root,
 # then `:<line>:`. Only the path is kept; the rest of the line carries the matched token.
 $HitRegex = [regex]::new('^  (?<path>[^\s:][^:]*):\d+:', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
-# The scanner's closing count, `<n> hit(s).`. Required on exit 1 and checked against the lines read,
-# so a hit list cut off before its end is never taken for the whole list.
 # One line of `git ls-tree -r`: `<mode> blob <object id><TAB><path>`.
 $LsTreeRegex = [regex]::new('^\d+ blob (?<blob>[0-9a-f]{40,64})\t(?<path>.+)$', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+# The scanner's closing count, `<n> hit(s).`. Required on exit 1 and checked against the lines read,
+# so a hit list cut off before its end is never taken for the whole list.
 $HitCountRegex = [regex]::new('^(?<n>\d+) hit\(s\)\.', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
 
 function Get-WikiEventText {
@@ -333,6 +333,7 @@ function Get-WikiLeakHold {
             [Console]::Error.WriteLine("wiki compile: WARNING: could not remove the scan directory '$stage'. It holds copies of pending events; delete it.")
         }
     }
+    Add-CompileTiming 'hold-cleanup'
     $ids = [string[]]@($held)
     [System.Array]::Sort($ids, [System.StringComparer]::Ordinal)
     return , $ids
@@ -396,6 +397,7 @@ function Invoke-WikiCompile {
         Write-LogSkipWarning $r.Skipped
         $set = Build-WikiPageSet -Events @($r.Events)
         Write-WikiPageSet -WikiDir (Join-Path $RecordRepo 'wiki') -PageSet $set
+        Add-CompileTiming 'rebuild'
         $report.result = 'rebuilt'
         $report.log_skipped = $r.Skipped
         $report.pages = $set.Pages
@@ -436,9 +438,9 @@ function Invoke-WikiCompile {
 
     # ------------------------------------------------------------------------------------- fetch
     # ONE `ls-remote` and ONE `fetch`, because each is a round trip to the remote. With nothing to
-    # file, four round trips took 19 of 27 seconds against the real record, read with -Timings
-    # added to korus e9814d4, 2026-09-26. The `ls-remote` reads the default branch and whether the
-    # standing branch exists.
+    # file, four round trips took 19 of 27 seconds against the real record. That was read on
+    # 2026-09-26 with -Timings over korus e9814d4's compile logic. The `ls-remote` reads the
+    # default branch and whether the standing branch exists.
     $ls = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-remote', '--symref', $Remote, 'HEAD', "refs/heads/$Branch")
     if ([string]::IsNullOrWhiteSpace($Base)) {
         if ($ls.Out -match '(?m)^ref: refs/heads/(\S+)\s+HEAD\s*$') { $Base = $Matches[1] }
@@ -715,7 +717,6 @@ try {
         Add-CompileTiming 'worktree-remove'
     }
     if ($Timings) {
-        Add-CompileTiming 'finish'
         foreach ($p in $script:phases) {
             [Console]::Error.WriteLine([string]::Format([cultureinfo]::InvariantCulture, 'wiki compile: timing {0} {1:0.00} s', $p.phase, $p.seconds))
         }
