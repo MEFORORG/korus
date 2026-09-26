@@ -110,18 +110,7 @@ class _CycleCase(unittest.TestCase):
         # The record repository's reader: a remote with no wiki/events yet, and a detached clone.
         self.vault_remote = self.root / "vault.git"
         w.git(self.root, "init", "--bare", "-b", "main", str(self.vault_remote))
-        # Not make_repo: its commit has the same tree, author and message as the korus seed's, so
-        # two made in one second get ONE root SHA, and a korus clone then passes as a reader. That
-        # happened on the Linux runner, where setUp is fast enough.
-        self.vault_seed = self.root / "vault-seed"
-        self.vault_seed.mkdir()
-        w.git(self.vault_seed, "init", "-b", "main")
-        w.git(self.vault_seed, "config", "user.email", "t@example.com")
-        w.git(self.vault_seed, "config", "user.name", "t")
-        # a.txt, as make_repo writes, because the cases below edit it; only its content differs.
-        (self.vault_seed / "a.txt").write_text("the record repository\n", encoding="ascii")
-        w.git(self.vault_seed, "add", "a.txt")
-        w.git(self.vault_seed, "commit", "-m", "the record repository's first commit")
+        self.vault_seed = w.make_repo(self.root / "vault-seed", None)
         w.git(self.vault_seed, "remote", "add", "origin", str(self.vault_remote))
         w.git(self.vault_seed, "push", "--quiet", "origin", "main")
         self.reader = self.root / "reader"
@@ -457,10 +446,11 @@ class ACheckoutWithLocalChangesIsNeverMoved(_CycleCase):
         wrong = self.root / "wrong-reader"
         w.git(self.root, "clone", "--quiet", str(self.korus_remote), str(wrong))
         w.git(wrong, "checkout", "--quiet", "--detach")
-        # The control. Were the two roots one SHA, the wrong reader WOULD share a root, and a
-        # correct cycle would run rather than refuse.
-        self.assertNotEqual(self.root_commits(wrong), self.root_commits(self.record),
-                            "control: the wrong reader and the record must not share a root commit")
+        # The control. Were any root shared, the wrong reader WOULD pass the cycle's check, and a
+        # correct cycle would run rather than refuse. That happened on the Linux runner, when
+        # make_repo gave both seeds one root SHA within one second.
+        self.assertTrue(self.root_commits(wrong).isdisjoint(self.root_commits(self.record)),
+                        "control: the wrong reader and the record must share no root commit")
         args = self.args("-Import")
         args[args.index("-ReaderRepo") + 1] = str(wrong)
         r = w.run(self.pwsh, CYCLE, *args, env={"WIKI_CYCLE_TEST_CALLS": str(self.calls)})
