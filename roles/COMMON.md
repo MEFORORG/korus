@@ -579,6 +579,25 @@ a relayed LIFT. The reconciliation it carries answers a different rule. Route it
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds
 none. Adding one is an owner decision, not a splitter's.
 
+## Never put an exploit-shaped string on a command line
+
+**Windows Defender reads every process command line and kills one that looks like an attack.**
+Owner ruling 2026-09-26. `ms-msdt:/id` or a `file:` URL to `calc.exe` in a `-c` argument is flagged
+Severe as `Trojan:Win32/Mesdetty.A`. Inside a file, Defender leaves them alone.
+
+The trigger is the text, not what the command does. Measured 2026-09-26: a hardening probe was
+killed twice. Two calls that only MENTIONED the strings failed before start with `EPERM ...
+uv_spawn`. A plain `echo` from the same session spawned fine between them.
+
+| Instead of | Do |
+| --- | --- |
+| Probing URL-scheme or injection hardening inline | Run the committed test, or add a case to a test file. |
+| Passing such text as an argument | Write it to a file first: `-File` a script, `git commit -F`, `gh pr create --body-file`. |
+| Adding a Defender exclusion | Never. It would have to cover `bash.exe` or the worktree paths, the route every agent runs commands through. That is the Owner's security setting, not a seat's. |
+
+An alert names the command line it blocked. Read it before you call it a false positive. A
+hardening probe or a note about one is. Anything else goes to the Owner.
+
 ## Query the fleet wiki before you act, write after
 
 Before you act on a fact you remember or were told, query the fleet wiki for its subject. After a
