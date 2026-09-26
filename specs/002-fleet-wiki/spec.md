@@ -146,8 +146,11 @@ and the log carries the merge.
 
 1. **Given** the Owner's list of directories, **When** the ingest runs, **Then** it reads those
    directories only and never searches for others.
-2. **Given** two notes with the same name and different text, **When** they are ingested, **Then**
-   both are kept, and lint files the pair as a possible conflict.
+2. **Given** two notes with the same name and different text and the same date, **When** they are
+   ingested, **Then** both are kept, and lint files the pair as a possible conflict.
+3. **Given** two notes with the same name and different text and different dates, **When** they are
+   ingested, in one run or in two, **Then** the note modified later is live and the older is
+   recorded as held. The order the stores were read in does not decide it.
 
 ---
 

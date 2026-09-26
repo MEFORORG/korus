@@ -23,8 +23,14 @@
         summary   the note's `description`, on one line. With no description, the body's first
                   sentence. Over 400 characters it is cut to fit, and the full description goes at
                   the top of the body so nothing is lost.
-        body      the note's body. Over 20000 characters it is cut, with a line saying the full
-                  note is the evidence file.
+        body      `Source note last modified: <yyyy-MM-dd>.`, a blank line, then the note's body.
+                  The date is the day the note file was last written, in UTC. Over 20000
+                  characters in all, the note's body is cut, with a line saying the full note is
+                  the evidence file.
+        stale_after
+                  that date plus 45 days. A reader labels an event stale after its stale_after, and
+                  a native event from 46 days old, so an imported note turns stale on the day a
+                  native event written on the note's date would.
         evidence  memory:<store label>/<file name>. When the store sits at
                   <root>/projects/<project>/memory the label is <root>/<project>, such as
                   `.claude-account-3/~-Code-MessageFoundry`. The project folder is part of it
@@ -43,25 +49,46 @@
     `C:/Users/<u>` and `/c/Users/<u>`, ignoring case. Anything the scan still refuses is not
     imported, and the report names it by store, file and class, never by value.
 
+    WHY THE DATE IS NOT `ts`. write.ps1 stamps `ts` from its own clock (FR-004), so every event one
+    run writes carries that run's time. Back-dating it would break the rule every other reader
+    relies on. The date line and stale_after carry the note's age beside it instead.
+
     RE-RUNNING IS SAFE (FR-027). The existing events are read from the inbox, and from the log with
-    -RecordRepo. For each note:
+    -RecordRepo. A note's TEXT is its summary and its body without the date line, so a file whose
+    date moved and whose text did not is unchanged. For each note:
       1. The newest event with the SAME evidence, on any key, is the note's own earlier import.
-         Same key, summary and body: skipped, even if someone has since superseded or retired it.
-         Otherwise, a text edit or a rename: a new event that supersedes it.
+         Same key and text: skipped, even if someone has since superseded or retired it.
+         Otherwise, a text edit or a rename: a new event that supersedes it, unless rule 4 holds
+         it. A note held before for this same text, with nothing of it written since, is skipped
+         ahead of this rule.
       2. Otherwise, a note merged before whose text has not changed since is skipped, again
          whatever became of the event it merged into. An Owner who withdrew that text has
          withdrawn the copy too.
-      3. Otherwise, a CURRENT event on the key with the same summary and body is a MERGE. Current
-         means no event supersedes it and no `retire` withdrew it. The note is not written.
-         Instead a `decision` on memory-merge/<slug>/<store> records it (FR-024): its summary
-         names both stores, its evidence is the kept event's, and its body carries `kept:`,
-         `merged:` and `text:` lines, the last a hash of the merged note's text.
-      4. Otherwise the note is written. If the key holds different current text from another
-         store, both are kept and neither supersedes the other: the newer is live, and lint files
-         the pair (Story 4, scenario 2). The report counts these as conflicts.
+      3. Otherwise, a CURRENT event on the key with the same text is a MERGE. Current means no
+         event supersedes it and no `retire` withdrew it. The note is not written. Instead a
+         `decision` on memory-merge/<slug>/<store> records it (FR-024): its summary names both
+         stores, its evidence is the kept event's, and its body carries `kept:`, `merged:`,
+         `text:` and `date:` lines. `text:` is a hash of the merged note's text, and `date:` is
+         its date, which counts as the kept text's date from then on.
+      4. Otherwise THE NEWEST DATE ON THE KEY DECIDES, never the order the stores were read in.
+         The texts compared are the current events on the key and the notes this run would write
+         there. A text's date is the latest of its own and those of the notes merged into it. An
+         event imported before notes carried a date has none, and counts as older than any note.
+           - A different text with a LATER date: the note is HELD, and nothing is written on its
+             key. A `decision` on memory-held/<slug>/<store> records it instead: its evidence is
+             the held note, and its body carries `kept:`, `held:`, `text:` and `date:` lines.
+             When the note is later written, its event supersedes that record.
+           - Otherwise the note is written, and supersedes every current event on the key whose
+             date is EARLIER. The report counts those events as older_superseded.
+           - A different text with the SAME date is a tie. Both are kept and neither supersedes
+             the other, and lint files the pair (Story 4, scenario 2). The report counts a conflict.
+             Tied notes in one run are written in store-label order, one batch each, so the later
+             label is the newer event and the one a reader sees. Against an event already there,
+             the note is written and is the newer.
     Rule 1 runs over every note before rules 2 to 4 run over any, so a text this run replaces is
     no longer current when a later note looks for one to merge into. It goes first at all so that
-    two stores holding different text under one name do not trade places on every run.
+    two stores holding different text under one name do not trade places on every run. Rule 3
+    takes notes newest first, so where several stores hold one text the event kept is the newest.
 
     -WhatIf writes nothing. It runs every check, the leak scan included, through `write.ps1
     -CheckOnly`, and prints the same report.
@@ -71,14 +98,16 @@
     but holds no wiki/events directory is refused, because a wrong path would do the same silently.
 
     Exit codes:
-        0  finished, and every note was imported, merged or already there
+        0  finished, and every note was imported, merged, held or already there
         1  finished, and something needs a look: a note refused or not written, or a note or an
-           existing event that could not be read. Each is listed in the report.
+           existing event that could not be read. Each is listed in the report. A note held
+           behind a note that was itself not written counts here too, and the next run looks
+           at it again.
         2  could not run: no -Store, a store that is not a directory, a pattern in -Store, two
            stores with one label, a bad -Seat, a -RecordRepo that is missing or holds no
            wiki/events, or `write.ps1` could not run a batch. Nothing was written in any of these
-           cases, except when `write.ps1` failed on the second (merge) batch, which the message
-           says.
+           cases, except when `write.ps1` failed on a later batch, a tie's or the records', which
+           the message says.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/import.ps1 -Store <dir1>,<dir2> -WhatIf
@@ -287,7 +316,36 @@ function Get-TextHash {
     return 'sha256:' + [System.Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
 }
 
-# key -> list of @{ Id; Key; Evidence; Summary; Body; TsKey; Planned; Current }
+# The line an imported body opens with. It carries the note's own date, which `ts` cannot: `ts` is
+# the write clock (FR-004), so every event one run writes shares one stamp whatever its note's age.
+$script:SourceDateLine = [regex]::new('\ASource note last modified: (\d{4}-\d{2}-\d{2})\.(?:\n\n|\z)')
+
+function Split-SourceDate {
+    <# An imported body as its date and the note's text. With no date line: '' and the body whole. #>
+    param([string] $Body)
+    $m = $script:SourceDateLine.Match($Body)
+    if ($m.Success) { return @($m.Groups[1].Value, $Body.Substring($m.Length)) }
+    return @('', $Body)
+}
+
+function Get-LaterDate {
+    <# The later of two yyyy-MM-dd dates. '' is no date, and sorts before every date. #>
+    param([string] $A, [string] $B)
+    if ([string]::CompareOrdinal($B, $A) -gt 0) { return $B }
+    return $A
+}
+
+function Get-EffectiveDate {
+    <# An entry's own date, or a later one from a note merged into it: that note re-dated the text. #>
+    param($Entry)
+    $d = [string]$Entry.Date
+    foreach ($x in $Entry.MergedDates) { $d = Get-LaterDate $d $x }
+    return $d
+}
+
+# key -> list of entries: every existing content event, then every note this run plans to write.
+# An entry is @{ Id; Key; Evidence; Summary; Text; Date; TsKey; Current; Candidate; MergedDates }.
+# Text is the body without its date line, so a date alone never reads as a changed note.
 $byKey = @{}
 # evidence -> the newest existing event citing it, on ANY key. Evidence names one note file, so this
 # is the note's own last import even after its name, and so its key, changed.
@@ -312,38 +370,75 @@ foreach ($ev in $existing) {
         }
     }
 }
+function Test-Current {
+    param($Ev)
+    $k = [string]$Ev.key
+    return -not $supersededIds.Contains([string]$Ev.id) -and
+        -not ($retiredAt.ContainsKey($k) -and [string]::CompareOrdinal([string]$Ev._tsKey, $retiredAt[$k]) -lt 0)
+}
 
+# The two record kinds this script writes beside the notes, read back so a re-run knows them.
+#   memory-merge/<slug>/<store>  a note with the same text as a current event: `kept`, `merged`,
+#                                `text` (a hash of the merged note's text) and `date` lines.
+#   memory-held/<slug>/<store>   a note older than a different text on its key: `kept`, `held`,
+#                                `text` and `date` lines.
 # "<key>|<evidence>|<text hash>" for every note a merge record covers, as it read when merged. Keyed
 # on the MERGED note's own text, not on whether the event it merged into is still current: an Owner
 # who retires or supersedes that event has withdrawn the text, and the merged copy must not come
 # back on the next run.
 $mergedTexts = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+# "<key>|<kept evidence>|<text hash>" -> the newest date a current merge record gives that text.
+$mergeDates = @{}
+# "<key>|<evidence>|<text hash>" -> the newest _tsKey of a held record for that text.
+$heldAt = @{}
+# "<key>|<evidence>" -> the newest CURRENT held record for that note, so writing the note retires it.
+$heldRecord = @{}
+$entries = [System.Collections.Generic.List[object]]::new()
 foreach ($ev in $existing) {
     $k = [string]$ev.key
     if ([string]$ev.type -cin $script:WikiMarkerTypes) { continue }
-    if ($k.StartsWith('memory-merge/')) {
+    $isMerge = $k.StartsWith('memory-merge/')
+    if ($isMerge -or $k.StartsWith('memory-held/')) {
         $segments = $k.Split('/')
         $base = 'memory/' + $segments[1]
-        $merged = $null
-        $hash = $null
+        $f = @{}
         foreach ($line in ((ConvertTo-Text $ev.body) -split "`n")) {
             # To the end of the line, not to the first space: a file name may hold one.
-            if ($line -match '^merged: (.+?)\s*$') { $merged = $Matches[1] }
-            elseif ($line -match '^text: (\S+)\s*$') { $hash = $Matches[1] }
+            if ($line -match '^(kept|merged|held|text|date): (.+?)\s*$' -and -not $f.ContainsKey($Matches[1])) { $f[$Matches[1]] = $Matches[2] }
         }
-        if ($merged -and $hash) { [void]$mergedTexts.Add("$base|$merged|$hash") }
+        $live = Test-Current $ev
+        if ($isMerge) {
+            if ($f['merged'] -and $f['text']) { [void]$mergedTexts.Add("$base|$($f['merged'])|$($f['text'])") }
+            if ($live -and $f['kept'] -and $f['text'] -and [string]$f['date'] -match '^\d{4}-\d{2}-\d{2}$') {
+                $mk = "$base|$($f['kept'])|$($f['text'])"
+                $mergeDates[$mk] = Get-LaterDate ([string]$mergeDates[$mk]) $f['date']
+            }
+        } elseif ($f['held'] -and $f['text']) {
+            $hk = "$base|$($f['held'])|$($f['text'])"
+            if (-not $heldAt.ContainsKey($hk) -or [string]::CompareOrdinal([string]$ev._tsKey, $heldAt[$hk]) -gt 0) { $heldAt[$hk] = [string]$ev._tsKey }
+            $rk = "$base|$($f['held'])"
+            if ($live -and (-not $heldRecord.ContainsKey($rk) -or [string]::CompareOrdinal([string]$ev._tsKey, $heldRecord[$rk].TsKey) -gt 0)) {
+                $heldRecord[$rk] = [pscustomobject]@{ Id = [string]$ev.id; TsKey = [string]$ev._tsKey }
+            }
+        }
         continue
     }
     $text = Get-EventText $ev
-    $current = -not $supersededIds.Contains([string]$ev.id) -and
-        -not ($retiredAt.ContainsKey($k) -and [string]::CompareOrdinal([string]$ev._tsKey, $retiredAt[$k]) -lt 0)
+    $split = Split-SourceDate $text[1]
     $entry = [pscustomobject]@{
-        Id = [string]$ev.id; Key = $k; Evidence = [string]$ev.evidence; Summary = $text[0]
-        Body = $text[1]; TsKey = [string]$ev._tsKey; Planned = $null; Current = $current
+        Id = [string]$ev.id; Key = $k; Evidence = [string]$ev.evidence; Summary = $text[0]; Text = $split[1]
+        Date = $split[0]; TsKey = [string]$ev._tsKey; Current = (Test-Current $ev); Candidate = $null
+        MergedDates = [System.Collections.Generic.List[string]]::new()
     }
+    $entries.Add($entry)
     Add-KeyEntry $k $entry
     $prev = $byEvidence[$entry.Evidence]
     if ($null -eq $prev -or [string]::CompareOrdinal($entry.TsKey, $prev.TsKey) -gt 0) { $byEvidence[$entry.Evidence] = $entry }
+}
+# A merge record's date counts only for the text it merged, so an edit of the kept note drops it.
+foreach ($entry in $entries) {
+    $mk = "$($entry.Key)|$($entry.Evidence)|$(Get-TextHash $entry.Summary $entry.Text)"
+    if ($mergeDates.ContainsKey($mk)) { $entry.MergedDates.Add($mergeDates[$mk]) }
 }
 
 # ------------------------------------------------------------------------------------ parsing
@@ -491,22 +586,48 @@ function Get-Cut {
 
 # ------------------------------------------------------------------------------------ plan
 $counts = [ordered]@{
-    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; refused = 0; not_written = 0
-    no_front_matter = 0; unreadable = 0; conflicts = 0; home_normalised = 0
+    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; held = 0; older_superseded = 0
+    refused = 0; not_written = 0; no_front_matter = 0; unreadable = 0; conflicts = 0; home_normalised = 0
     summary_truncated = 0; body_truncated = 0; type_defaulted = 0
 }
 $refusedNotes = [System.Collections.Generic.List[object]]::new()
+$heldNotes = [System.Collections.Generic.List[object]]::new()
 $noFrontMatter = [System.Collections.Generic.List[string]]::new()
 $unreadableNotes = [System.Collections.Generic.List[string]]::new()
 
-# Two batches. Notes first; merge records second, because a merge record is only true if the event
-# it points at was written.
-$noteItems = [System.Collections.Generic.List[object]]::new()
-$noteMeta = [System.Collections.Generic.List[object]]::new()
-$mergeItems = [System.Collections.Generic.List[object]]::new()
-$mergeMeta = [System.Collections.Generic.List[object]]::new()
+# Notes this run will write or hold, in store and file order.
+$candidates = [System.Collections.Generic.List[object]]::new()
 # Notes with no import of their own, held for pass 2.
 $pending = [System.Collections.Generic.List[object]]::new()
+# Notes whose text is already current on their key, from another store.
+$merges = [System.Collections.Generic.List[object]]::new()
+
+function New-CandidateEntry {
+    <# The entry a note this run plans to write adds to its key, so a later note can merge into it. #>
+    param($Cand)
+    $e = [pscustomobject]@{
+        Id = $null; Key = $Cand.Key; Evidence = $Cand.Evidence; Summary = $Cand.Summary; Text = $Cand.Text
+        Date = $Cand.Date; TsKey = ''; Current = $true; Candidate = $Cand
+        MergedDates = [System.Collections.Generic.List[string]]::new()
+    }
+    $Cand.Entry = $e
+    Add-KeyEntry $Cand.Key $e
+}
+
+function Get-StoreSlug {
+    param([string] $Label)
+    $s = ($Label.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+    if ($s.Length -gt $StoreSlugMax) { $s = $s.Substring(0, $StoreSlugMax).TrimEnd('-') }
+    if (-not $s) { $s = 'store' }
+    return $s
+}
+
+function Get-EvidenceLabel {
+    <# The store label out of memory:<label>/<file>. #>
+    param([string] $Evidence)
+    if ($Evidence -match '^memory:(.+)/[^/]+$') { return $Matches[1] }
+    return $Evidence
+}
 
 foreach ($st in $stores) {
     $files = @([System.IO.Directory]::EnumerateFiles($st.Path, '*', [System.IO.SearchOption]::TopDirectoryOnly) |
@@ -516,8 +637,12 @@ foreach ($st in $stores) {
         $fileName = [System.IO.Path]::GetFileName($file)
         $where = "$($st.Label)/$fileName"
         $counts.seen++
-        try { $note = Read-MemoryNote $file }
-        catch { $counts.unreadable++; $unreadableNotes.Add($where); continue }
+        try {
+            $note = Read-MemoryNote $file
+            # The note's own date: the day its file was last written, in UTC. The notes carry no date
+            # in their front matter, so the file is the only witness.
+            $srcDate = [System.IO.File]::GetLastWriteTimeUtc($file).ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+        } catch { $counts.unreadable++; $unreadableNotes.Add($where); continue }
         if ($null -eq $note) { $counts.no_front_matter++; $noFrontMatter.Add($where); continue }
 
         $slug = Get-Slug $note.Name
@@ -548,73 +673,165 @@ foreach ($st in $stores) {
             $summary = (Get-Cut $summary ($SummaryMax - 3)).TrimEnd() + '...'
             $counts.summary_truncated++
         }
-        if ($body.Length -gt $BodyMax) {
-            $body = (Get-Cut $body ($BodyMax - $TruncatedMarker.Length)).TrimEnd() + $TruncatedMarker
+        $dateLine = "Source note last modified: $srcDate."
+        # The date line and the blank line after it come out of the body's limit.
+        $textMax = $BodyMax - $dateLine.Length - 2
+        if ($body.Length -gt $textMax) {
+            $body = (Get-Cut $body ($textMax - $TruncatedMarker.Length)).TrimEnd() + $TruncatedMarker
             $counts.body_truncated++
         }
 
-        $item = [ordered]@{ type = $type; key = $key; summary = $summary; evidence = $evidence }
-        if ($body) { $item.body = $body }
+        # stale_after is the day a native event written on the note's date turns stale: a reader
+        # labels an event stale from 46 days old, and after this date. `ts` stays the write clock.
+        $staleAfter = [datetime]::ParseExact($srcDate, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture).AddDays(45).ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+        $item = [ordered]@{
+            type = $type; key = $key; summary = $summary; evidence = $evidence
+            body = $(if ($body) { "$dateLine`n`n$body" } else { $dateLine })
+            stale_after = $staleAfter
+        }
+        $cand = [pscustomobject]@{
+            Where = $where; Label = $st.Label; File = $fileName; Key = $key; Slug = $slug; Evidence = $evidence
+            Summary = $summary; Text = $body; Date = $srcDate; Hash = (Get-TextHash $summary $body); Item = $item
+            Prior = $null; Entry = $null; Held = $false; Kept = $null; Tier = 0; Conflict = $false
+            Supersedes = [System.Collections.Generic.List[string]]::new()
+            Outranked = [System.Collections.Generic.List[string]]::new()
+            Action = 'imported'; Status = $null; Class = $null
+        }
+
+        # Held before, for this very text, and nothing of this note written since: nothing to do. A
+        # later write of the note makes the hold history, so an edit and a revert are looked at again.
+        $prior = $byEvidence[$evidence]
+        $heldKey = "$key|$evidence|$($cand.Hash)"
+        if ($heldAt.ContainsKey($heldKey) -and ($null -eq $prior -or [string]::CompareOrdinal($heldAt[$heldKey], $prior.TsKey) -gt 0)) {
+            $counts.unchanged++
+            continue
+        }
 
         # Rule 1, in the first pass: this note's own earlier import, found by evidence on any key.
         # Every supersede is planned before any merge is decided, so a text this run replaces is no
-        # longer current when pass 2 looks for one to merge into.
-        $prior = $byEvidence[$evidence]
+        # longer current when pass 2 looks for one to merge into. The date line is not compared: a
+        # file whose date moved and whose text did not is the same note.
         if ($null -ne $prior) {
-            if ($prior.Key -ceq $key -and $prior.Summary -ceq $summary -and $prior.Body -ceq $body) { $counts.unchanged++; continue }
+            if ($prior.Key -ceq $key -and $prior.Summary -ceq $summary -and $prior.Text -ceq $body) { $counts.unchanged++; continue }
             # Changed text, or a changed name and so a changed key: the new event replaces the old.
-            $item.supersedes = @($prior.Id)
+            $cand.Prior = $prior
+            $cand.Action = 'superseded'
             $prior.Current = $false
-            Add-KeyEntry $key ([pscustomobject]@{
-                    Id = $null; Key = $key; Evidence = $evidence; Summary = $summary; Body = $body; TsKey = ''
-                    Planned = $noteItems.Count; Current = $true
-                })
-            $noteItems.Add($item)
-            $noteMeta.Add([pscustomobject]@{ Where = $where; Action = 'superseded'; Conflict = $false })
+            New-CandidateEntry $cand
+            $candidates.Add($cand)
             continue
         }
-        $pending.Add([pscustomobject]@{
-                Where = $where; Label = $st.Label; Key = $key; Slug = $slug; Evidence = $evidence
-                Summary = $summary; Body = $body; Item = $item
-            })
+        $pending.Add($cand)
     }
 }
 
-# Pass 2: notes with no import of their own yet.
+# Pass 2: notes with no import of their own yet. Newest first, so where several stores hold one text
+# the event kept is the newest copy; then by store label and file, so the order never depends on
+# the order -Store named the stores in.
+$pending.Sort([System.Comparison[object]] {
+        param($x, $y)
+        $d = [string]::CompareOrdinal($y.Date, $x.Date)
+        if ($d -ne 0) { return $d }
+        $d = [string]::CompareOrdinal($x.Label, $y.Label)
+        if ($d -ne 0) { return $d }
+        return [string]::CompareOrdinal($x.File, $y.File)
+    })
 foreach ($n in $pending) {
-    $entries = if ($byKey.ContainsKey($n.Key)) { $byKey[$n.Key] } else { @() }
-    $hash = Get-TextHash $n.Summary $n.Body
+    $onKey = if ($byKey.ContainsKey($n.Key)) { $byKey[$n.Key] } else { @() }
     # Merged before, and unchanged since: nothing to do, whatever became of the event it joined.
-    if ($mergedTexts.Contains("$($n.Key)|$($n.Evidence)|$hash")) { $counts.unchanged++; continue }
+    if ($mergedTexts.Contains("$($n.Key)|$($n.Evidence)|$($n.Hash)")) { $counts.unchanged++; continue }
     $same = $null
-    foreach ($e in $entries) { if ($e.Current -and $e.Summary -ceq $n.Summary -and $e.Body -ceq $n.Body) { $same = $e; break } }
+    foreach ($e in $onKey) { if ($e.Current -and $e.Summary -ceq $n.Summary -and $e.Text -ceq $n.Text) { $same = $e; break } }
     if ($null -ne $same) {
-        # Rule 2: the same text is current on this key, from somewhere else. One merge record per
-        # merged store, on its own key, so a third store's record does not hide a second's.
-        [void]$mergedTexts.Add("$($n.Key)|$($n.Evidence)|$hash")
-        $keptLabel = if ($same.Evidence -match '^memory:(.+)/[^/]+$') { $Matches[1] } else { $same.Evidence }
-        $storeSlug = ($n.Label.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
-        if ($storeSlug.Length -gt $StoreSlugMax) { $storeSlug = $storeSlug.Substring(0, $StoreSlugMax).TrimEnd('-') }
-        if (-not $storeSlug) { $storeSlug = 'store' }
-        $mergeItems.Add([ordered]@{
-                type     = 'decision'
-                key      = "memory-merge/$($n.Slug)/$storeSlug"
-                summary  = "Merged memory note '$($n.Slug)' from $($n.Label) into $keptLabel`: same name, same text"
-                evidence = $same.Evidence
-                body     = "kept: $($same.Evidence)`nmerged: $($n.Evidence)`ntext: $hash"
-            })
-        $mergeMeta.Add([pscustomobject]@{ Where = $n.Where; KeptPlanned = $same.Planned })
+        # Rule 3: the same text is current on this key, from somewhere else. Its date counts for the
+        # kept text, so an older different text cannot outrank a text this store confirmed later.
+        [void]$mergedTexts.Add("$($n.Key)|$($n.Evidence)|$($n.Hash)")
+        $same.MergedDates.Add($n.Date)
+        $merges.Add([pscustomobject]@{ Note = $n; Target = $same })
         continue
     }
-    # Rule 3: new to this key. Different CURRENT text already there is a conflict for lint, kept as
-    # is; a withdrawn one is not.
-    $conflict = @($entries | Where-Object { $_.Current }).Count -gt 0
-    Add-KeyEntry $n.Key ([pscustomobject]@{
-            Id = $null; Key = $n.Key; Evidence = $n.Evidence; Summary = $n.Summary; Body = $n.Body; TsKey = ''
-            Planned = $noteItems.Count; Current = $true
+    New-CandidateEntry $n
+    $candidates.Add($n)
+}
+
+# Rule 4: on each key a note writes to, the newest date decides. A note is HELD, and not
+# written, when a different text on its key carries a later date. Undated events, imported before
+# notes carried a date, sort before every date.
+function Test-SameText { param($A, $B) return ($A.Summary -ceq $B.Summary -and $A.Text -ceq $B.Text) }
+function Get-Rank {
+    <# Orders the texts on a key: date, then a note this run writes over an event already there. #>
+    param($E)
+    $order = if ($null -ne $E.Candidate) { '1|' + $E.Candidate.Label + '/' + $E.Candidate.File } else { '0|' + $E.TsKey }
+    return (Get-EffectiveDate $E) + '|' + $order
+}
+$candKeys = [System.Collections.Generic.List[string]]::new()
+foreach ($c in $candidates) { if ($candKeys -cnotcontains $c.Key) { $candKeys.Add($c.Key) } }
+foreach ($k in $candKeys) {
+    $contenders = @($byKey[$k] | Where-Object { $_.Current })
+    foreach ($ce in @($contenders | Where-Object { $null -ne $_.Candidate })) {
+        $mine = Get-EffectiveDate $ce
+        foreach ($x in $contenders) {
+            if (-not [object]::ReferenceEquals($x, $ce) -and -not (Test-SameText $x $ce) -and
+                [string]::CompareOrdinal((Get-EffectiveDate $x), $mine) -gt 0) { $ce.Candidate.Held = $true; break }
+        }
+    }
+}
+foreach ($c in $candidates) {
+    if (-not $c.Held) { continue }
+    # Nothing of the note is written, so its own earlier import stays what it was.
+    if ($null -ne $c.Prior) { $c.Prior.Current = $true }
+    $best = $null
+    $bestRank = $null
+    foreach ($x in $byKey[$c.Key]) {
+        if (-not $x.Current -or ($null -ne $x.Candidate -and $x.Candidate.Held) -or (Test-SameText $x $c.Entry)) { continue }
+        $r = Get-Rank $x
+        if ($null -eq $best -or [string]::CompareOrdinal($r, $bestRank) -gt 0) { $best = $x; $bestRank = $r }
+    }
+    $c.Kept = $best
+    $heldNotes.Add($c)
+}
+foreach ($k in $candKeys) {
+    $onKey = $byKey[$k]
+    $winners = [System.Collections.Generic.List[object]]::new()
+    foreach ($e in $onKey) { if ($null -ne $e.Candidate -and -not $e.Candidate.Held) { $winners.Add($e.Candidate) } }
+    # Two notes with one date write in store-label order, one batch each, so the later label is the
+    # newer event and the one a reader sees. In one batch, one millisecond could order them by the
+    # random end of the id.
+    $winners.Sort([System.Comparison[object]] {
+            param($x, $y)
+            $d = [string]::CompareOrdinal($x.Label, $y.Label)
+            if ($d -ne 0) { return $d }
+            return [string]::CompareOrdinal($x.File, $y.File)
         })
-    $noteItems.Add($n.Item)
-    $noteMeta.Add([pscustomobject]@{ Where = $n.Where; Action = 'imported'; Conflict = $conflict })
+    for ($i = 0; $i -lt $winners.Count; $i++) {
+        $w = $winners[$i]
+        $w.Tier = $i
+        $mine = Get-EffectiveDate $w.Entry
+        if ($null -ne $w.Prior) { $w.Supersedes.Add($w.Prior.Id) }
+        foreach ($x in $onKey) {
+            if ($null -ne $x.Candidate -or -not $x.Current) { continue }
+            if ([string]::CompareOrdinal((Get-EffectiveDate $x), $mine) -lt 0) {
+                # An older text on the key, from another store or undated: this note replaces it.
+                if ($w.Supersedes -cnotcontains $x.Id) { $w.Supersedes.Add($x.Id); $w.Outranked.Add($x.Id) }
+            } elseif (-not (Test-SameText $x $w.Entry)) {
+                $w.Conflict = $true
+            }
+        }
+        for ($j = 0; $j -lt $i; $j++) { if (-not (Test-SameText $winners[$j].Entry $w.Entry)) { $w.Conflict = $true } }
+        # A hold the note left behind is history once the note is written.
+        $rk = "$($w.Key)|$($w.Evidence)"
+        if ($heldRecord.ContainsKey($rk) -and $w.Supersedes -cnotcontains $heldRecord[$rk].Id) { $w.Supersedes.Add($heldRecord[$rk].Id) }
+        if ($w.Supersedes.Count -gt 0) { $w.Item.supersedes = @($w.Supersedes) }
+    }
+}
+# A merge into a note that is held is a hold behind the same text.
+foreach ($m in $merges) {
+    $tc = $m.Target.Candidate
+    if ($null -ne $tc -and $tc.Held) {
+        $m.Note.Held = $true
+        $m.Note.Kept = $tc.Kept
+        $heldNotes.Add($m.Note)
+    }
 }
 
 # ------------------------------------------------------------------------------------ write
@@ -634,9 +851,9 @@ function Invoke-WriteBatch {
         one write failed and it exits 2. So the results decide, not the exit code. No results at all
         means it stopped before writing anything.
     #>
-    param($Items, [string] $Stage)
+    param($Items, [string] $Stage, [bool] $First)
     if ($Items.Count -eq 0) { return @() }
-    $before = if ($Stage -eq 'merge') { 'The notes batch was already written; the merge records were not.' } else { 'Nothing was written.' }
+    $before = if ($First) { 'Nothing was written.' } else { "The batches before it were already written; the $Stage batch was not." }
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('wiki-import-' + [guid]::NewGuid().ToString('N') + '.json')
     $out = @()
     $code = -1
@@ -675,53 +892,105 @@ function Get-RefusalClass {
     return $Reason.TrimEnd('.')
 }
 
-$noteResults = @(Invoke-WriteBatch $noteItems 'notes')
-$refusedPlanned = @{}
-for ($i = 0; $i -lt $noteResults.Count; $i++) {
-    $res = $noteResults[$i]
-    $meta = $noteMeta[$i]
-    if ($res.status -ceq 'refused') {
-        $class = Get-RefusalClass ([string]$res.reason)
-        $refusedPlanned[$i] = $class
-        $counts.refused++
-        $refusedNotes.Add([pscustomobject]@{ note = $meta.Where; class = $class })
-        continue
+# One batch per tier of notes, then one for the records, because a record is only true if the note
+# it points at was written.
+$firstBatch = $true
+$outranked = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$maxTier = -1
+foreach ($c in $candidates) { if (-not $c.Held -and $c.Tier -gt $maxTier) { $maxTier = $c.Tier } }
+for ($t = 0; $t -le $maxTier; $t++) {
+    $batch = @($candidates | Where-Object { -not $_.Held -and $_.Tier -eq $t })
+    $stage = if ($t -eq 0) { 'notes' } else { "notes (tier $($t + 1))" }
+    $results = @(Invoke-WriteBatch @($batch | ForEach-Object { $_.Item }) $stage $firstBatch)
+    if ($batch.Count -gt 0) { $firstBatch = $false }
+    for ($i = 0; $i -lt $results.Count; $i++) {
+        $res = $results[$i]
+        $c = $batch[$i]
+        $c.Status = [string]$res.status
+        if ($res.status -ceq 'refused') {
+            $c.Class = Get-RefusalClass ([string]$res.reason)
+            $counts.refused++
+            $refusedNotes.Add([pscustomobject]@{ note = $c.Where; class = $c.Class })
+            continue
+        }
+        if ($res.status -ceq 'failed') {
+            # Passed every check and could not be written: a disk or permission fault, not the note.
+            $c.Class = 'not written: ' + (Hide-Home ([string]$res.reason))
+            $counts.not_written++
+            $refusedNotes.Add([pscustomobject]@{ note = $c.Where; class = $c.Class })
+            continue
+        }
+        if ($c.Action -ceq 'superseded') { $counts.superseded++ } else { $counts.imported++ }
+        if ($c.Conflict) { $counts.conflicts++ }
+        foreach ($x in $c.Outranked) { [void]$outranked.Add($x) }
     }
-    if ($res.status -ceq 'failed') {
-        # Passed every check and could not be written: a disk or permission fault, not the note.
-        $refusedPlanned[$i] = 'not written: ' + (Hide-Home ([string]$res.reason))
-        $counts.not_written++
-        $refusedNotes.Add([pscustomobject]@{ note = $meta.Where; class = $refusedPlanned[$i] })
-        continue
-    }
-    if ($meta.Action -ceq 'superseded') { $counts.superseded++ } else { $counts.imported++ }
-    if ($meta.Conflict) { $counts.conflicts++ }
 }
+$counts.older_superseded = $outranked.Count
 
-# A merge into a note this run failed to write would point at nothing. Its text is the refused
-# note's text, so it is refused for the same class.
-$mergeToWrite = [System.Collections.Generic.List[object]]::new()
-$mergeToWriteMeta = [System.Collections.Generic.List[object]]::new()
-for ($i = 0; $i -lt $mergeItems.Count; $i++) {
-    $kp = $mergeMeta[$i].KeptPlanned
-    if ($null -ne $kp -and $refusedPlanned.ContainsKey($kp)) {
-        if ($refusedPlanned[$kp].StartsWith('not written: ')) { $counts.not_written++ } else { $counts.refused++ }
-        $refusedNotes.Add([pscustomobject]@{ note = $mergeMeta[$i].Where; class = $refusedPlanned[$kp] })
+function Test-NotWritten { param($Cand) return ($null -ne $Cand -and $Cand.Status -cin @('refused', 'failed')) }
+
+$recordItems = [System.Collections.Generic.List[object]]::new()
+$heldReport = [System.Collections.Generic.List[object]]::new()
+$recordMeta = [System.Collections.Generic.List[object]]::new()
+foreach ($m in $merges) {
+    $n = $m.Note
+    if ($n.Held) { continue }
+    $tc = $m.Target.Candidate
+    # A merge into a note this run failed to write would point at nothing. Its text is the refused
+    # note's text, so it is refused for the same class.
+    if (Test-NotWritten $tc) {
+        if ($tc.Class.StartsWith('not written: ')) { $counts.not_written++ } else { $counts.refused++ }
+        $refusedNotes.Add([pscustomobject]@{ note = $n.Where; class = $tc.Class })
         continue
     }
-    $mergeToWrite.Add($mergeItems[$i])
-    $mergeToWriteMeta.Add($mergeMeta[$i])
+    # One merge record per merged store, on its own key, so a third store's record does not hide a
+    # second's.
+    $recordItems.Add([ordered]@{
+            type     = 'decision'
+            key      = "memory-merge/$($n.Slug)/$(Get-StoreSlug $n.Label)"
+            summary  = "Merged memory note '$($n.Slug)' from $($n.Label) into $(Get-EvidenceLabel $m.Target.Evidence)`: same name, same text"
+            evidence = $m.Target.Evidence
+            body     = "kept: $($m.Target.Evidence)`nmerged: $($n.Evidence)`ntext: $($n.Hash)`ndate: $($n.Date)"
+        })
+    $recordMeta.Add([pscustomobject]@{ Kind = 'merge'; Note = $n })
 }
-$mergeResults = @(Invoke-WriteBatch $mergeToWrite 'merge')
-for ($i = 0; $i -lt $mergeResults.Count; $i++) {
-    if ($mergeResults[$i].status -ceq 'refused') {
-        $counts.refused++
-        $refusedNotes.Add([pscustomobject]@{ note = $mergeToWriteMeta[$i].Where; class = 'merge record: ' + (Get-RefusalClass ([string]$mergeResults[$i].reason)) })
-    } elseif ($mergeResults[$i].status -ceq 'failed') {
+foreach ($h in $heldNotes) {
+    $kc = if ($null -ne $h.Kept) { $h.Kept.Candidate } else { $null }
+    if ($null -eq $h.Kept -or (Test-NotWritten $kc)) {
+        # The text that outranks it was not written, so a hold would point at nothing. The next run
+        # looks at the note again.
         $counts.not_written++
-        $refusedNotes.Add([pscustomobject]@{ note = $mergeToWriteMeta[$i].Where; class = 'merge record not written: ' + (Hide-Home ([string]$mergeResults[$i].reason)) })
-    } else {
+        $refusedNotes.Add([pscustomobject]@{ note = $h.Where; class = 'not held: the newer note that outranks it was not written' })
+        continue
+    }
+    $keptDate = Get-EffectiveDate $h.Kept
+    if (-not $keptDate) { $keptDate = 'undated' }
+    $summary = "Held memory note '$($h.Slug)' from $($h.Label), modified $($h.Date): older than the text kept from $(Get-EvidenceLabel $h.Kept.Evidence), modified $keptDate"
+    if ($summary.Length -gt $SummaryMax) { $summary = (Get-Cut $summary ($SummaryMax - 3)).TrimEnd() + '...' }
+    $recordItems.Add([ordered]@{
+            type     = 'decision'
+            key      = "memory-held/$($h.Slug)/$(Get-StoreSlug $h.Label)"
+            summary  = $summary
+            evidence = $h.Evidence
+            body     = "kept: $($h.Kept.Evidence)`nheld: $($h.Evidence)`ntext: $($h.Hash)`ndate: $($h.Date)"
+        })
+    $recordMeta.Add([pscustomobject]@{ Kind = 'held'; Note = $h })
+}
+$recordResults = @(Invoke-WriteBatch $recordItems 'records' $firstBatch)
+for ($i = 0; $i -lt $recordResults.Count; $i++) {
+    $meta = $recordMeta[$i]
+    $label = if ($meta.Kind -ceq 'merge') { 'merge record' } else { 'held record' }
+    if ($recordResults[$i].status -ceq 'refused') {
+        $counts.refused++
+        $refusedNotes.Add([pscustomobject]@{ note = $meta.Note.Where; class = "${label}: " + (Get-RefusalClass ([string]$recordResults[$i].reason)) })
+    } elseif ($recordResults[$i].status -ceq 'failed') {
+        $counts.not_written++
+        $refusedNotes.Add([pscustomobject]@{ note = $meta.Note.Where; class = "$label not written: " + (Hide-Home ([string]$recordResults[$i].reason)) })
+    } elseif ($meta.Kind -ceq 'merge') {
         $counts.merged++
+    } else {
+        $counts.held++
+        $heldReport.Add([pscustomobject]@{ note = $meta.Note.Where; behind = ([string]$meta.Note.Kept.Evidence -replace '^memory:', '') })
     }
 }
 
@@ -734,6 +1003,7 @@ if ($Json) {
         counts               = $counts
         existing_unreadable  = $unreadableEvents
         refused_notes        = @($refusedNotes)
+        held_notes           = @($heldReport)
         no_front_matter      = @($noFrontMatter)
         unreadable_notes     = @($unreadableNotes)
         seconds              = $seconds
@@ -747,6 +1017,10 @@ if ($Json) {
     if ($refusedNotes.Count -gt 0) {
         Write-Output 'refused, not imported (store/file, class):'
         foreach ($x in $refusedNotes) { Write-Output "  $($x.note)  $($x.class)" }
+    }
+    if ($heldReport.Count -gt 0) {
+        Write-Output 'held, older than a different text on the key (store/file, the note it is held behind):'
+        foreach ($x in $heldReport) { Write-Output "  $($x.note)  $($x.behind)" }
     }
     if ($noFrontMatter.Count -gt 0) {
         Write-Output 'no front matter, skipped:'
