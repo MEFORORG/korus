@@ -109,10 +109,11 @@ $script:WikiBm25K1 = 1.2
 $script:WikiBm25B = 0.75
 $script:WikiHeadTf = 3
 
-# The key prefix of the merge records `import.ps1` writes (spec FR-024). They are bookkeeping about
-# the import, not knowledge, so a default query never returns one; `-History` does. This is the one
-# place the prefix is spelled for a reader.
-$script:WikiMergeRecordPrefix = 'memory-merge/'
+# The key prefixes of the records `import.ps1` writes about itself, such as its merge records (spec
+# FR-024). They are bookkeeping about the import, not knowledge, so a default query never returns
+# one; `-History` does. This is the one place a reader spells them: a new kind of import record adds
+# its prefix here.
+$script:WikiImportRecordPrefixes = @('memory-merge/')
 
 # ------------------------------------------------------------------------------------------------
 # Clock and id
@@ -627,8 +628,13 @@ function Get-WikiHaystack {
     $headText = $key + ' ' + [string]$Item.summary + ' ' + (@($Item.paths) -join ' ')
     $head = ' ' + [regex]::Replace($headText.ToLowerInvariant(), '[^a-z0-9]+', ' ') + ' '
     $body = ' ' + [regex]::Replace(([string]$Item.body).ToLowerInvariant(), '[^a-z0-9]+', ' ') + ' '
-    $words = $head.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries).Length +
-        $body.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries).Length
+    # The Replace above leaves exactly one space between words, so once the ends are trimmed the
+    # word count is the space count plus one. Counted without splitting, which allocated a string
+    # per word.
+    $words = 0
+    foreach ($s in @($head.Trim(), $body.Trim())) {
+        if ($s.Length -gt 0) { $words += $s.Length - $s.Replace(' ', '').Length + 1 }
+    }
     $hay = @{
         Key  = ' ' + [regex]::Replace($key, '[^a-z0-9]+', ' ') + ' '
         Head = $head
@@ -651,10 +657,14 @@ function Get-WikiOccurrence {
     return $n
 }
 
-function Test-WikiMergeRecord {
-    <# Is this one of the merge records the import writes? See `$WikiMergeRecordPrefix`. #>
+function Test-WikiImportRecord {
+    <# Is this one of the records the import writes about itself? See `$WikiImportRecordPrefixes`. #>
     param($Item)
-    return ([string]$Item.key).StartsWith($script:WikiMergeRecordPrefix, [System.StringComparison]::Ordinal)
+    $key = [string]$Item.key
+    foreach ($prefix in $script:WikiImportRecordPrefixes) {
+        if ($key.StartsWith($prefix, [System.StringComparison]::Ordinal)) { return $true }
+    }
+    return $false
 }
 
 function Test-WikiPathMatch {

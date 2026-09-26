@@ -212,7 +212,7 @@ class TheRestOfTheSurface(_QueryCase):
 
     def test_a_planted_bookkeeping_property_is_ignored(self):
         """A file cannot set the reader's own `_`-named fields: `_hay` once matched every query."""
-        w.plant(self.inbox, key="evil/hay", summary="ordinary words", _hay={"Key": " zebra ", "All": " zebra "})
+        w.plant(self.inbox, key="evil/hay", summary="ordinary words", _hay={"Key": " zebra ", "Head": " zebra ", "Body": " zebra ", "Len": 1})
         w.plant(self.inbox, key="evil/bad", summary="ordinary words", _hay="x")
         r = self.query("-Text", "zebra")
         self.assertEqual("no note", r.stdout.strip())
@@ -368,6 +368,13 @@ class ImportMergeRecordsAreHiddenByDefault(_QueryCase):
     def test_a_default_query_does_not_return_a_merge_record(self):
         rows = self.rows("-Text", "widget rollout")
         self.assertEqual([self.note["id"]], [r["id"] for r in rows])
+
+    def test_the_receipt_counts_what_the_default_hid(self):
+        """`no note` over bookkeeping alone must not read as a miss over the whole store."""
+        r = self.query("-Text", "widget rollout")
+        self.assertIn("searched 2 event(s)", r.stderr)
+        self.assertIn("1 import record(s) hidden", r.stderr)
+        self.assertNotIn("import record(s) hidden", self.query("-Text", "widget rollout", "-History").stderr)
 
     def test_history_returns_it(self):
         ids = {r["id"] for r in self.rows("-Text", "widget rollout", "-History")}

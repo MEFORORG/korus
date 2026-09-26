@@ -28,9 +28,10 @@
     weight, which favours the event the words are about over one that mentions them in passing,
     then to the newer event. `Find-WikiMatch` in `_event.ps1` holds the arithmetic.
 
-    THE IMPORT'S MERGE RECORDS ARE HIDDEN BY DEFAULT. A `memory-merge/` key is bookkeeping about the
-    import (spec FR-024), not knowledge. -History returns them, with everything else the default
-    hides.
+    THE IMPORT'S OWN RECORDS ARE HIDDEN BY DEFAULT. A key under a prefix in
+    `$WikiImportRecordPrefixes` (`_event.ps1`), such as a `memory-merge/` merge record (spec FR-024),
+    is bookkeeping about the import, not knowledge. -History returns them, with everything else the
+    default hides. The receipt on stderr counts how many a default query hid.
 
     A MEMORY MISS NEVER BLOCKS WORK (FR-016). An unreachable record repository or state root is
     reported on one line on stderr, the search goes on with whatever it could reach, and the exit
@@ -210,7 +211,12 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
 $all = @(Merge-WikiEvent -Log $logEvents -Inbox $inboxEvents)
 $inboxPart = if ($inboxLabel -eq 'inbox') { "inbox $($inboxEvents.Count)" } else { $inboxLabel }
 $looseNote = if ($loose -gt 0) { "; $loose marker(s) honoured on the loose check" } else { '' }
-[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped$looseNote")
+# The import's own records are read but not scored by default. Said here, so a `no note` over a
+# store that is mostly bookkeeping does not read as a miss over all of it.
+$importRecords = 0
+if (-not $History) { foreach ($e in $all) { if (Test-WikiImportRecord $e) { $importRecords++ } } }
+$importNote = if ($importRecords -gt 0) { "; $importRecords import record(s) hidden, -History shows them" } else { '' }
+[Console]::Error.WriteLine("wiki query: searched $($all.Count) event(s): $inboxPart, $logLabel; $skipped file(s) unreadable and skipped$looseNote$importNote")
 $warning = if ($unreadable -gt 0) { "warning: $unreadable event file(s) unreadable; a retirement may be missing" } else { $null }
 
 # ------------------------------------------------------------------------------------ guard
@@ -225,26 +231,30 @@ if ($History) {
         $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
     }
 } else {
-    $live = [System.Collections.Generic.List[object]]::new()
-    $hidden = [System.Collections.Generic.List[object]]::new()
+    # Live content and hidden events are scored in ONE call, so every BM25 weight is taken over the
+    # same corpus and a redirected hit's weight compares fairly with a direct one.
+    $searchable = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $labelled) {
-        # The import's merge records are bookkeeping, shown only with -History. Dropped before
+        # The import's own records are bookkeeping, shown only with -History. Dropped before
         # scoring, so they do not count toward BM25's document frequencies either.
-        if (Test-WikiMergeRecord $e) { continue }
-        if ($e._status -ceq 'historical') { $hidden.Add($e) }
-        elseif ([string]$e.type -cnotin $script:WikiMarkerTypes) { $live.Add($e) }
+        if (Test-WikiImportRecord $e) { continue }
+        if ($e._status -ceq 'historical' -or [string]$e.type -cnotin $script:WikiMarkerTypes) { $searchable.Add($e) }
     }
+    # No @(): Find-WikiMatch returns its list as ONE object, and @() would nest it.
+    $found = Find-WikiMatch -Events $searchable -Text $Text -Path $Path
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-    foreach ($h in (Find-WikiMatch -Events $live -Text $Text -Path $Path)) {
+    foreach ($h in $found) {
+        if ($h.Event._status -ceq 'historical') { continue }
         if ($seen.Add([string]$h.Event.id)) {
             $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
         }
     }
     # A hit on hidden text is followed to the live event that replaced it. The hidden event itself
     # is never shown: only its id, as the route the result was found by.
-    foreach ($h in (Find-WikiMatch -Events $hidden -Text $Text -Path $Path)) {
+    foreach ($h in $found) {
+        if ($h.Event._status -cne 'historical') { continue }
         $succ = Resolve-WikiSuccessor -Item $h.Event -ById $byId
-        if ($null -eq $succ -or (Test-WikiMergeRecord $succ)) { continue }
+        if ($null -eq $succ -or (Test-WikiImportRecord $succ)) { continue }
         # With -Path, the replacement has to be about that file too. Otherwise a hidden event that
         # named the file would hand back a successor that does not.
         if ($Path -and -not (Test-WikiPathMatch -Item $succ -Path $Path)) { continue }
