@@ -103,7 +103,7 @@ adds nothing. A note that has changed adds a new event on its key, which replace
 | Who | Does | Never does |
 | --- | --- | --- |
 | Any seat | Queries before acting; writes decisions, lessons, gotchas and corrections | Edits the log, the pages or the index |
-| Scheduled Claude Code job | Compiles and lints daily, imports weekly, opens vault pull requests | Merges anything |
+| Scheduled cycle (`cycle.ps1`, no model) | Compiles and lints daily, imports weekly, opens vault pull requests | Merges anything |
 | Lander | Merges the job's vault pull requests like any other | Picks a winner when two notes conflict |
 | Owner | Lists which memory folders the import reads; approves or closes playbook changes lint proposes | Hand-edits the log |
 
@@ -112,6 +112,10 @@ to, and lessons written by two or more seats. The last kind becomes a drafted ko
 so a lesson learned twice can become a playbook rule. Nothing changes a playbook without the Owner.
 
 Both Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec.
+
+Amended 2026-09-26 by Owner ruling: the second row read "Scheduled Claude Code job". The operating
+system's scheduler now runs the cycle, so no app has to be open. Drafting the playbook pull request
+still needs a model, so that step stays a Claude Code job or a manual one.
 
 ## Three things it deliberately is not
 

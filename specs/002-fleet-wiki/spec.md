@@ -341,6 +341,11 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
 
 1. **A scheduled Claude Code job runs compile and lint.** It opens pull requests in the record
    repository and never merges them; the Lander lands them. No new seat.
+
+   Amended 2026-09-26 by Owner ruling: the operating system's scheduler runs compile, lint and the
+   weekly import, through `scripts/wiki/cycle.ps1`, with no model call. The Claude Code job ran only
+   while one desktop app was open. Lint's promotion step needs a model, so it stays a Claude Code
+   job or a manual step. Nothing else in this ruling moved.
 2. **The per-account memory tool stays on, and the import re-runs weekly.** So the import MUST be
    idempotent: a note already imported, unchanged, adds no event. A changed note adds a new event
    on the same key, which supersedes the old one.
