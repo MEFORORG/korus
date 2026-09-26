@@ -16,12 +16,11 @@
          written. The fetch is one `ls-remote` and one `fetch`, because each is a round trip.
          A landed file is compared by its object id first, hashed here against the one `ls-tree`
          prints, and read with `git show` only when the ids differ. One `git show` per file cost
-         208 s for 906 landed files, measured 2026-09-26.
+         208 s for 906 synthetic landed files. That was read with -Timings, added to korus
+         e9814d4, on 2026-09-26.
       2. NOTHING PENDING, NOTHING TO DO. Exit 0 and say so.
       3. BUILD IN A TEMPORARY WORKTREE of `<Remote>/<Base>`, never in the clone's own working tree,
-         which other sessions use. At first only the scanner's directory is checked out. The whole
-         tree is checked out in step 5, so a run that files nothing never writes it. The report's
-         `checkout` says which: `scanner`, `full`, or null when no worktree was made.
+         which other sessions use.
       4. HOLD BACK WHAT WOULD LEAK (spec FR-028). Before anything is copied, every pending event is
          staged in one scratch directory and scanned ONCE by the record repository's own scanner,
          `scripts/publish/scan_forbidden.py` at Base, run as `python <scanner> --path <dir>`. An event
@@ -83,6 +82,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# -Timings reads this clock. It starts before the libraries load, so their cost lands in `setup`.
+$script:clock = [System.Diagnostics.Stopwatch]::StartNew()
 . (Join-Path $PSScriptRoot '_event.ps1')
 . (Join-Path $PSScriptRoot '_guard.ps1')
 . (Join-Path $PSScriptRoot '_render.ps1')
@@ -145,7 +146,6 @@ function Invoke-Tool {
 
 # -Timings: the seconds each phase took, printed to stderr when the run ends, whatever happened.
 # Never on by default. Each line names a phase and a number, never an event or a path.
-$script:clock = [System.Diagnostics.Stopwatch]::StartNew()
 $script:lastMark = [timespan]::Zero
 $script:phases = [System.Collections.Generic.List[object]]::new()
 
@@ -355,7 +355,6 @@ $report = [ordered]@{
     tree      = $null
     content_tree = $null
     pr        = $null
-    checkout  = $null
 }
 
 function Write-LogSkipWarning {
@@ -437,8 +436,9 @@ function Invoke-WikiCompile {
 
     # ------------------------------------------------------------------------------------- fetch
     # ONE `ls-remote` and ONE `fetch`, because each is a round trip to the remote. With nothing to
-    # file, four round trips took 19 of 27 seconds, measured 2026-09-26. The `ls-remote` reads the
-    # default branch and whether the standing branch exists.
+    # file, four round trips took 19 of 27 seconds against the real record, read with -Timings
+    # added to korus e9814d4, 2026-09-26. The `ls-remote` reads the default branch and whether the
+    # standing branch exists.
     $ls = Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('ls-remote', '--symref', $Remote, 'HEAD', "refs/heads/$Branch")
     if ([string]::IsNullOrWhiteSpace($Base)) {
         if ($ls.Out -match '(?m)^ref: refs/heads/(\S+)\s+HEAD\s*$') { $Base = $Matches[1] }
@@ -485,11 +485,10 @@ function Invoke-WikiCompile {
         $id = [System.IO.Path]::GetFileNameWithoutExtension($f)
         if (-not $landed.ContainsKey($id)) { continue }
         # THE FAST PATH. Hash the inbox file as git would and compare with the object id `ls-tree`
-        # already printed. Equal ids are equal bytes, so no `git show` runs. The second hash is of
-        # the bytes with CRLF folded to LF, which is what git stores for a text file under
-        # `core.autocrlf` or a `text` attribute. A match on either passes the comparison below too,
-        # so the fast path never deletes a file that comparison would keep. It exists because one
-        # `git show` per file took 208 s for 906 landed files, measured 2026-09-26.
+        # already printed. Equal ids are equal bytes, so no `git show` runs. The second hash folds
+        # CRLF to LF first. Git stores a text file that way under `core.autocrlf` or a `text`
+        # attribute. A match on either passes the comparison below too, so the fast path never
+        # deletes a file that comparison would keep. Step 1 of the header says why it exists.
         $inboxBytes = [System.IO.File]::ReadAllBytes($f)
         $want = $landedBlob[$id]
         if ((Get-GitBlobId -Bytes $inboxBytes -HexLength $want.Length) -ceq $want -or
@@ -524,20 +523,13 @@ function Invoke-WikiCompile {
     }
 
     # ------------------------------------------------------------------- 3. build in a worktree
-    # WITH ONLY THE SCANNER'S DIRECTORY CHECKED OUT. The hold needs the scanner and the files beside
-    # it, which it reads by its own path. The whole tree is checked out only once something is to
-    # be filed, in step 5, so a run that files nothing never writes the record's thousands of files.
+    # THE WHOLE TREE, even when nothing will be filed. The scanner then runs beside every file it
+    # could read at Base, with the repository's attributes applied. A checkout of its directory
+    # alone was tried: it saved about 2 s and rested on how the record's scanner is written.
     $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('korus-wiki-compile-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
-    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('worktree', 'add', '--quiet', '--detach', '--no-checkout', $tmp, $baseSha) | Out-Null
+    Invoke-Tool -Exe $git -Dir $RecordRepo -Arguments @('worktree', 'add', '--quiet', '--detach', $tmp, $baseSha) | Out-Null
     # Recorded only once the add succeeded, so the cleanup never tries to remove what git refused.
     $script:tmp = $tmp
-    $scannerDir = $ScannerRel.Substring(0, $ScannerRel.LastIndexOf('/'))
-    # A Base without the directory checks out nothing, and the hold then stops on the missing scanner.
-    $atBase = Invoke-Tool -Exe $git -Dir $tmp -Arguments @('ls-tree', '--name-only', $baseSha, '--', $scannerDir)
-    if ($atBase.Out.Trim()) {
-        Invoke-Tool -Exe $git -Dir $tmp -Arguments @('checkout', '--quiet', $baseSha, '--', $scannerDir) | Out-Null
-    }
-    $report.checkout = 'scanner'
     Add-CompileTiming 'worktree-add'
 
     # ------------------------------------------------------------- 4. hold back what would leak
@@ -589,10 +581,6 @@ function Invoke-WikiCompile {
     }
 
     # ------------------------------------------------------------------ 5. file what is left
-    # Now the whole tree, so the commit below is Base plus the log, exactly as before.
-    Invoke-Tool -Exe $git -Dir $tmp -Arguments @('reset', '--hard', '--quiet', $baseSha) | Out-Null
-    $report.checkout = 'full'
-    Add-CompileTiming 'checkout-full'
     foreach ($ev in $filed) {
         $id = [string]$ev.id
         $dir = Get-WikiLogDir -RecordRepo $tmp -Utc $ev._utc
@@ -715,6 +703,9 @@ try {
     [Console]::Error.WriteLine("wiki compile: could not run: $($_.Exception.Message)")
     $exitCode = 2
 } finally {
+    # The phase a stop cut short is closed here under its own name. Otherwise its time would be
+    # counted as the worktree's removal and point a reader at the wrong phase.
+    Add-CompileTiming $(if ($exitCode -ne 0) { 'until-stop' } else { 'report' })
     if ($script:tmp -and $script:git) {
         $rm = Invoke-Tool -Exe $script:git -Dir $script:recordDir -Arguments @('worktree', 'remove', '--force', $script:tmp) -AllowFail
         if ($rm.Code -ne 0 -or (Test-Path -LiteralPath $script:tmp)) {

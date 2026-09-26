@@ -59,10 +59,6 @@ def main(argv):
     if calls:
         with open(calls, "a", encoding="ascii") as fh:
             fh.write(" ".join(p.relative_to(root).as_posix() for p in files) + "\\n")
-    seen = os.environ.get("WIKI_TEST_SCANNER_CWD")
-    if seen:
-        with open(seen, "a", encoding="utf-8") as fh:
-            fh.write(" ".join(sorted(p.name for p in Path.cwd().iterdir())) + "\\n")
     if not files:
         return 2
     hits = []
@@ -607,54 +603,6 @@ class ALandedFileIsClearedByItsObjectId(_CompileCase):
         self.assertEqual(1, self.count(self.SHOW))
 
 
-class TheHoldChecksOutOnlyTheScannersDirectory(_CompileCase):
-    """Step 3. The hold needs only the scanner and the files beside it, so a run that files nothing
-    never checks out the record's whole tree. The stub scanner lists what it can see from where it
-    runs. Base's `a.txt` sits outside the scanner's directory and must be absent during the scan.
-
-    The control: a run that files does check out the whole tree, and its commit still carries every
-    file at Base. Without that checkout the commit would drop them, so the control is what shows the
-    commit is still Base plus the log."""
-
-    def setUp(self):
-        super().setUp()
-        self.seen = self.root / "scanner-cwd.txt"
-        self.leak = w.plant(self.inbox, when=w.days_ago(2), key="site/one/feed", summary=f"The feed for {LEAK_TOKEN} drops")
-
-    def run_compile(self) -> dict:
-        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
-                  env={"WIKI_TEST_SCANNER_CWD": str(self.seen)})
-        self.assertEqual(0, r.returncode, r.stderr)
-        return json.loads(r.stdout)
-
-    def test_a_run_that_files_nothing_checks_out_only_the_scanner(self):
-        self.assertIn("a.txt", self.files_at("main"), "Base holds a file outside the scanner's directory")
-        r = self.run_compile()
-        self.assertEqual("nothing-pending", r["result"])
-        self.assertEqual([self.leak["id"]], r["held_ids"])
-        self.assertEqual("scanner", r["checkout"])
-        self.assertEqual([".git scripts"], self.seen.read_text(encoding="utf-8").splitlines())
-        self.assertFalse(self.remote_has("refs/heads/wiki/compile"))
-        self.assertEqual(1, self.worktree_count())
-
-    def test_control_a_run_that_files_checks_out_the_whole_tree(self):
-        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
-        r = self.run_compile()
-        self.assertEqual("compiled", r["result"])
-        self.assertEqual("full", r["checkout"])
-        files = self.files_at("wiki/compile")
-        self.assertEqual(sorted(self.files_at("main")), sorted(f for f in files if not f.startswith("wiki/")))
-        self.assertIn("a.txt", files)
-        self.assertEqual(1, self.worktree_count())
-
-    def test_nothing_pending_makes_no_worktree(self):
-        (self.inbox / f"{self.leak['id']}.json").unlink()
-        r = self.run_compile()
-        self.assertEqual("nothing-pending", r["result"])
-        self.assertIsNone(r["checkout"])
-        self.assertFalse(self.seen.exists(), "the scanner ran with nothing pending")
-
-
 class CompileTimesItsPhasesOnlyWhenAsked(_CompileCase):
     """-Timings prints one stderr line a phase. Without it, stderr carries no timing line at all."""
 
@@ -664,10 +612,22 @@ class CompileTimesItsPhasesOnlyWhenAsked(_CompileCase):
                   "-Timings")
         self.assertEqual(0, r.returncode, r.stderr)
         phases = re.findall(r"(?m)^wiki compile: timing (\S+) \d+\.\d\d s$", r.stderr)
-        for phase in ("setup", "fetch", "clear-landed", "worktree-add", "hold-scan", "checkout-full",
-                      "commit-push", "worktree-remove", "total"):
+        for phase in ("setup", "fetch", "clear-landed", "worktree-add", "hold-scan", "commit-push", "report",
+                      "worktree-remove", "total"):
             self.assertIn(phase, phases)
         self.assertEqual("compiled", json.loads(r.stdout)["result"])
+
+    def test_a_stop_closes_the_phase_it_cut_short(self):
+        """A stop in the hold is timed as `until-stop`, not as the worktree's removal."""
+        w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")
+        self.set_scanner("import sys\nraise SystemExit(2)\n")
+        r = w.run(self.pwsh, COMPILE, "-StateRoot", str(self.state), "-RecordRepo", str(self.record), "-NoPr", "-Json",
+                  "-Timings")
+        self.assertEqual(2, r.returncode, r.stderr)
+        phases = re.findall(r"(?m)^wiki compile: timing (\S+) \d+\.\d\d s$", r.stderr)
+        self.assertIn("until-stop", phases)
+        self.assertNotIn("report", phases)
+        self.assertNotIn("hold-scan", phases)
 
     def test_control_no_timing_line_without_the_switch(self):
         w.plant(self.inbox, when=w.days_ago(1), key="gate/ascii/exit-code", summary="The gate exits two")

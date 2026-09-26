@@ -54,10 +54,11 @@
     so a missing store fails the import and leaves compile and lint to run. A step that runs past
     its limit is killed with its process tree and recorded as timed out.
 
-    EACH STEP HAS ITS OWN LIMIT: compile 30 minutes, import and lint 15 each. Compile's is double
-    the worst measured case. The first real compile took 203 s from a shell, and the task ran lint
-    4.35 times slower than a shell did (87 s against 20 s, 2026-09-26). So a first compile could
-    take about 15 minutes in the task, which is where the old limit sat.
+    EACH STEP HAS ITS OWN LIMIT: compile 30 minutes, import and lint 15 each. The first real compile
+    took 203 s, and the task ran lint 4.35 times slower than a shell did: 87 s against 20 s. Both
+    readings are the `seconds` field of this log's lines, 2026-09-26. Scaled by that ratio, a first
+    compile could take about 15 minutes in the task, which is where the old limit sat. That is an
+    estimate, not a measurement, so compile gets double it.
 
     THE RUN KEEPS INSIDE 100 MINUTES, because the registered task is stopped at two hours and a run
     stopped there writes no log line. The 20 minutes to spare let a step cut off at the budget be

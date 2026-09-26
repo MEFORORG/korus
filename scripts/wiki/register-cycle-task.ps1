@@ -27,11 +27,12 @@
     stale. A second start while one runs is ignored.
 
     IT RUNS AT NORMAL PRIORITY, 4. Task Scheduler's default is 7, below normal, and that also lowers
-    the task's I/O priority. Measured 2026-09-26 on a busy box at 7: a record `git fetch`, and then
-    a checkout of 1,097 files, each ran past the cycle's two-minute git limit. At 4, set by hand,
-    both passed. Lint took 87 s in the task at 7 against 20 s in a shell. The box's load varied, so
-    priority is a likely cause and not a proven one. Normal priority costs nothing when the box is
-    idle, and it is what a person running the cycle by hand gets anyway.
+    the task's I/O priority. On 2026-09-26 a busy box ran the task at 7. A record `git fetch` ran
+    past the cycle's two-minute git limit, and so did a checkout of 1,097 files. At 4, set by hand,
+    both passed. Lint took 87 s in the task at 7 against 20 s in a shell, read from the `seconds`
+    field of the cycle's log lines. The box's load varied, so priority is a likely cause and not a
+    proven one. Normal priority costs nothing on an idle box, and a person running the cycle by
+    hand gets it anyway.
 
     THE TASK RUNS THE CHECKOUT'S OWN cycle.ps1. That checkout is detached, and each run moves it to
     `origin/main` and refuses local changes. So what runs is what `main` holds. That is why this
@@ -147,6 +148,9 @@ if ($Status) {
         $result.nextRunTime = if ($info.NextRunTime) { $info.NextRunTime.ToString('s') } else { $null }
         $result.execute = $task.Actions[0].Execute
         $result.argument = $task.Actions[0].Arguments
+        # The two settings a re-registration changes, so an old task can be told from a new one.
+        $result.priority = $task.Settings.Priority
+        $result.executionTimeLimit = $task.Settings.ExecutionTimeLimit
     }
     if (-not [string]::IsNullOrWhiteSpace($StateRoot)) {
         $logDir = Join-Path (Resolve-TaskDir $StateRoot) 'wiki-cycle'
@@ -157,6 +161,7 @@ if ($Status) {
     $lines = @(if ($result.registered) {
         "Task '$TaskName': $($result.state). Last run $($result.lastRunTime), result $($result.lastTaskResult). Next run $($result.nextRunTime)."
         "  runs: $($result.execute) $($result.argument)"
+        "  priority $($result.priority), time limit $($result.executionTimeLimit). A task registered before 2026-09-26 shows 7 and PT1H; register it again."
     } else { "No scheduled task '$TaskName'." })
     if ($result.Contains('lastLogLine')) { $lines += "  last log line: $(if ($result.lastLogLine) { $result.lastLogLine } else { '(none)' })" }
     Write-Result $result $lines
