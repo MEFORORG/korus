@@ -446,6 +446,45 @@ class EveryQueryIsLogged(_QueryCase):
         self.assertFalse(missing.exists(), "the log must not create a state root that was not there")
 
 
+class AWordInMostHeadsCountsAsBody(_QueryCase):
+    """Every imported note has a key under `memory/`, so `memory` was a head match on all of them,
+    and one body word then cleared the floor. A query word in the head of more than half the
+    searched events counts at body weight. The rule is general, so the word here is `quill`."""
+
+    COMMON = 12
+
+    def setUp(self):
+        super().setUp()
+        for i in range(self.COMMON):
+            w.plant(self.inbox, key=f"quill/note-{i}", summary=f"filler topic number {i}", body="nothing relevant")
+        self.target = w.plant(self.inbox, key="quill/boiler", summary="boiler pressure log",
+                              body="the gasket weeps when the boiler is cold")
+
+    def test_a_common_head_word_and_one_body_word_do_not_clear_the_floor(self):
+        """Before the rule this scored (1 + 0.5) / 2 = 0.75."""
+        r = self.query("-Text", "quill gasket")
+        self.assertEqual("no note", r.stdout.strip())
+        self.assertIn(f"searched {self.COMMON + 1} event(s)", r.stderr)
+
+    def test_a_common_head_word_beside_a_rare_head_word_still_hits(self):
+        """Control: the event is found when the other word is in its head. (0.5 + 1) / 2."""
+        rows = self.rows("-Text", "quill boiler")
+        self.assertEqual([self.target["id"]], [r["id"] for r in rows])
+        self.assertAlmostEqual(0.75, rows[0]["score"], places=3)
+
+    def test_a_query_of_only_common_words_keeps_the_plain_weights(self):
+        """Else a one-word query for the corpus's own subject could never clear the floor."""
+        self.assertEqual(self.COMMON + 1, len(self.rows("-Text", "quill", "-Limit", "50")))
+
+    def test_the_rule_waits_for_enough_events(self):
+        """In a handful of events one is already half, so the rule is off below the minimum."""
+        small = self.root / "small"
+        inbox = w.inbox_dir(small)
+        w.plant(inbox, key="quill/one", summary="filler words")
+        target = w.plant(inbox, key="quill/boiler", summary="boiler pressure log", body="the gasket weeps")
+        self.assertEqual([target["id"]], [r["id"] for r in self.rows("-Text", "quill gasket", state=small)])
+
+
 class AQueryIsQuick(_QueryCase):
     """SC-004: a query over the corpus returns in under two seconds on the reference machine.
 

@@ -103,6 +103,14 @@ $script:WikiStopwords = [System.Collections.Generic.HashSet[string]]::new(
 $script:WikiMatchFloor = 0.6
 $script:WikiBodyWeight = 0.5
 
+# The common-head rule: a query token found in the head of MORE than this share of the searched
+# events counts at `WikiBodyWeight` even where it is in the head. Every imported note has a key
+# under `memory/`, so without it the word `memory` was a head match on all of them, and one body
+# word then cleared the floor. Only from `WikiHeadCommonMinEvents` searched events up: in a handful,
+# one event is already half of them. `Find-WikiMatch` applies it.
+$script:WikiHeadCommonShare = 0.5
+$script:WikiHeadCommonMinEvents = 10
+
 # Rank tie-break, BM25 (Robertson and Zaragoza): k1 caps what a repeated word adds, b scales the
 # penalty for a long event, and a word in the head counts `WikiHeadTf` times toward term frequency.
 $script:WikiBm25K1 = 1.2
@@ -708,8 +716,13 @@ function Find-WikiMatch {
         a token in the head (key, summary, paths) counts whole, and one found only in the body counts
         `WikiBodyWeight`. The floor is on that fraction alone (FR-015).
 
-        THE RANK is the score plus a quarter-weight bonus for tokens in the key. A key match can
-        reorder results but cannot admit an event the floor refused.
+        A token in the head of more than `WikiHeadCommonShare` of the searched events counts
+        `WikiBodyWeight` even in the head: it is a head word of the whole corpus, not of this event.
+        The rule waits for `WikiHeadCommonMinEvents` searched events, and it is off for a query
+        whose every token is that common.
+
+        THE RANK is the score plus a quarter-weight bonus for tokens in the key, common ones not
+        counted. A key match can reorder results but cannot admit an event the floor refused.
 
         THE WEIGHT breaks ties in rank. It is BM25 over the searched set: a rarer word counts more,
         a repeated word counts more but saturates, a head occurrence counts `WikiHeadTf` times, and a
@@ -738,11 +751,15 @@ function Find-WikiMatch {
 
     $n = $stems.Count
     $needles = [string[]]@(foreach ($s in $stems) { " $s" })
-    # Document frequency per token, and total length, over every event searched, for BM25.
+    # Document frequency per token, and total length, over every event searched, for BM25. The head
+    # frequency counts only head matches, for the common-head rule.
     $df = [int[]]::new($n)
+    $headDf = [int[]]::new($n)
     $searched = 0
     $totalLen = 0
-    $candidates = [System.Collections.Generic.List[object]]::new()
+    # Pass one records where each token matched in each event: 0 nowhere, 1 body only, 2 head, 3 key
+    # (the key is part of the head). Pass two scores, once the head frequencies are known.
+    $seenEvents = [System.Collections.Generic.List[object]]::new()
     foreach ($ev in $Events) {
         if ($null -eq $ev) { continue }
         if ($Path -and -not (Test-WikiPathMatch -Item $ev -Path $Path)) { continue }
@@ -753,23 +770,53 @@ function Find-WikiMatch {
         $hay = Get-WikiHaystack -Item $ev
         $searched++
         $totalLen += $hay.Len
-        $head = 0; $body = 0; $inKey = 0
+        $where = [int[]]::new($n)
+        $any = $false
         for ($i = 0; $i -lt $n; $i++) {
             $needle = $needles[$i]
             if ($hay.Head.Contains($needle)) {
-                $head++
+                $where[$i] = if ($hay.Key.Contains($needle)) { 3 } else { 2 }
+                $headDf[$i]++
                 $df[$i]++
-                if ($hay.Key.Contains($needle)) { $inKey++ }
+                $any = $true
             } elseif ($hay.Body.Contains($needle)) {
-                $body++
+                $where[$i] = 1
                 $df[$i]++
+                $any = $true
             }
+        }
+        if ($any) { $seenEvents.Add([pscustomobject]@{ Event = $ev; Hay = $hay; Where = $where }) }
+    }
+
+    # The common-head rule. A token in the head of more than `WikiHeadCommonShare` of the searched
+    # events says nothing about any one of them, so its head match counts at body weight. Only when
+    # the query also has a token that is NOT common: a query made only of common words keeps the
+    # plain weights, or it could never clear the floor.
+    $common = [bool[]]::new($n)
+    if ($searched -ge $script:WikiHeadCommonMinEvents) {
+        $rare = 0
+        for ($i = 0; $i -lt $n; $i++) {
+            $common[$i] = $headDf[$i] -gt $script:WikiHeadCommonShare * $searched
+            if (-not $common[$i]) { $rare++ }
+        }
+        if ($rare -eq 0) { $common = [bool[]]::new($n) }
+    }
+
+    $candidates = [System.Collections.Generic.List[object]]::new()
+    foreach ($se in $seenEvents) {
+        $head = 0; $body = 0; $inKey = 0
+        for ($i = 0; $i -lt $n; $i++) {
+            $at = $se.Where[$i]
+            if ($at -eq 0) { continue }
+            if ($at -eq 1 -or $common[$i]) { $body++; continue }
+            $head++
+            if ($at -eq 3) { $inKey++ }
         }
         $score = ($head + $script:WikiBodyWeight * $body) / $n
         # The epsilon keeps a score that equals the floor, such as three of five, from failing it on
         # the last bit of a double.
         if ($score -lt $script:WikiMatchFloor - 1e-9) { continue }
-        $candidates.Add([pscustomobject]@{ Event = $ev; Hay = $hay; Score = $score; Rank = $score + 0.25 * ($inKey / $n) })
+        $candidates.Add([pscustomobject]@{ Event = $se.Event; Hay = $se.Hay; Score = $score; Rank = $score + 0.25 * ($inKey / $n) })
     }
     if ($candidates.Count -eq 0) { return , (Sort-WikiHit $hits) }
 
