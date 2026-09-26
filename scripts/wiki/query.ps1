@@ -19,8 +19,18 @@
     The first label that applies is the one shown, in that order.
 
     BELOW THE MATCH FLOOR IT PRINTS EXACTLY `no note` (FR-015), never the nearest miss. A result
-    must match at least 60 percent of the query's words. Words are lower-cased, split on anything
-    not a letter or digit, and dropped when under three characters or on a short stopword list.
+    must match at least 60 percent of the query's words, where a word found in the key, summary or
+    paths counts whole and a word found only in the body counts half. So an event whose only
+    matches are in its body is never returned. Words are lower-cased, split on anything not a
+    letter or digit, and dropped when under three characters or on a short stopword list.
+
+    Results rank by that fraction plus a bonus for words in the key. Ties go to the higher BM25
+    weight, which favours the event the words are about over one that mentions them in passing,
+    then to the newer event. `Find-WikiMatch` in `_event.ps1` holds the arithmetic.
+
+    THE IMPORT'S MERGE RECORDS ARE HIDDEN BY DEFAULT. A `memory-merge/` key is bookkeeping about the
+    import (spec FR-024), not knowledge. -History returns them, with everything else the default
+    hides.
 
     A MEMORY MISS NEVER BLOCKS WORK (FR-016). An unreachable record repository or state root is
     reported on one line on stderr, the search goes on with whatever it could reach, and the exit
@@ -49,11 +59,25 @@
     many files could not be read. `no note` over zero events and `no note` over a thousand are
     different readings, and only the receipt tells them apart.
 
+    EVERY QUERY IS LOGGED, LOCALLY. One tab-separated line is appended to
+    `<StateRoot>/wiki/query-log/<yyyy-MM>.tsv`, by UTC month, with a header on a new file:
+
+        utc  seat  text  path  results  top_score  no_note
+
+    `seat` is -Seat, or empty. Every field has each control character, tabs and newlines included,
+    and each Unicode line separator turned into a space. `results` is the number printed, `top_score` the first one's
+    score, and `no_note` is `yes` when nothing was printed. It shows whether seats query the wiki
+    and what they miss. It stays on this machine: nothing compiles, commits or sends it.
+
+    Logging never changes stdout or the exit code. A log that cannot be written is one line on
+    stderr and the query carries on (FR-016). No state root, or one that does not exist, logs
+    nothing.
+
     Exit codes: 0 always, except 2 for arguments that cannot be run. An argument pwsh itself cannot
     bind, such as an unknown parameter name, exits 1 before this script starts.
 
 .EXAMPLE
-    pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "ascii gate exit code on windows"
+    pwsh -NoProfile -File scripts/wiki/query.ps1 -Text "ascii gate exit code on windows" -Seat builder
 .EXAMPLE
     pwsh -NoProfile -File scripts/wiki/query.ps1 -Path scripts/coord/seat.ps1 -RecordRepo ../vault
 #>
@@ -67,7 +91,9 @@ param(
     [string] $Limit = '5',
     [switch] $Json,
     [string] $StateRoot,
-    [string] $RecordRepo
+    [string] $RecordRepo,
+    # Only written to the query log. Never checked, so a mistyped seat cannot turn a query away.
+    [string] $Seat
 )
 
 $ErrorActionPreference = 'Stop'
@@ -128,8 +154,10 @@ if ($StateRoot) {
         $inboxLabel = 'inbox unreachable'
     }
 }
+$stateRootFound = $false
 if ($StateRoot) {
     if (Test-Path -LiteralPath $StateRoot -PathType Container) {
+        $stateRootFound = $true
         try {
             $r = Read-WikiEventDir -Dir (Get-WikiInboxDir -StateRoot $StateRoot) -Source inbox
             $inboxEvents = @($r.Events)
@@ -194,31 +222,34 @@ foreach ($e in $labelled) { $byId[[string]$e.id] = $e }
 $results = [System.Collections.Generic.List[object]]::new()
 if ($History) {
     foreach ($h in (Find-WikiMatch -Events $labelled -Text $Text -Path $Path)) {
-        $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Order = $h.Order; Via = $null })
+        $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
     }
 } else {
     $live = [System.Collections.Generic.List[object]]::new()
     $hidden = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $labelled) {
+        # The import's merge records are bookkeeping, shown only with -History. Dropped before
+        # scoring, so they do not count toward BM25's document frequencies either.
+        if (Test-WikiMergeRecord $e) { continue }
         if ($e._status -ceq 'historical') { $hidden.Add($e) }
         elseif ([string]$e.type -cnotin $script:WikiMarkerTypes) { $live.Add($e) }
     }
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($h in (Find-WikiMatch -Events $live -Text $Text -Path $Path)) {
         if ($seen.Add([string]$h.Event.id)) {
-            $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Order = $h.Order; Via = $null })
+            $results.Add([pscustomobject]@{ Event = $h.Event; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $h.Order; Via = $null })
         }
     }
     # A hit on hidden text is followed to the live event that replaced it. The hidden event itself
     # is never shown: only its id, as the route the result was found by.
     foreach ($h in (Find-WikiMatch -Events $hidden -Text $Text -Path $Path)) {
         $succ = Resolve-WikiSuccessor -Item $h.Event -ById $byId
-        if ($null -eq $succ) { continue }
+        if ($null -eq $succ -or (Test-WikiMergeRecord $succ)) { continue }
         # With -Path, the replacement has to be about that file too. Otherwise a hidden event that
         # named the file would hand back a successor that does not.
         if ($Path -and -not (Test-WikiPathMatch -Item $succ -Path $Path)) { continue }
         if ($seen.Add([string]$succ.id)) {
-            $results.Add([pscustomobject]@{ Event = $succ; Score = $h.Score; Rank = $h.Rank; Order = $succ._tsKey; Via = [string]$h.Event.id })
+            $results.Add([pscustomobject]@{ Event = $succ; Score = $h.Score; Rank = $h.Rank; Weight = $h.Weight; Order = $succ._tsKey; Via = [string]$h.Event.id })
         }
     }
 }
@@ -242,6 +273,57 @@ function Get-ResultLabel {
 }
 
 $ordered = @(Sort-WikiHit $results | Select-Object -First $Limit)
+
+# ------------------------------------------------------------------------------------ log
+# One line per query, so an owner can see whether seats query at all and what they miss. Nothing
+# here may reach stdout or the exit code: every failure is one line on stderr (FR-016).
+if ($stateRootFound) {
+    try {
+        $now = Get-WikiClock
+        $inv = [cultureinfo]::InvariantCulture
+        $logDir = Get-WikiQueryLogDir -StateRoot $StateRoot
+        $logFile = Join-Path $logDir ($now.ToString('yyyy-MM', $inv) + '.tsv')
+        $enc = [System.Text.UTF8Encoding]::new($false)
+        $top = if ($ordered.Count -gt 0) { ([math]::Round([double]$ordered[0].Score, 3)).ToString('0.###', $inv) } else { '' }
+        $fields = @(
+            (Format-WikiStamp -Utc $now),
+            $Seat, $Text, $Path,
+            $ordered.Count.ToString($inv), $top,
+            $(if ($ordered.Count -eq 0) { 'yes' } else { 'no' })
+        )
+        # Every control character, tab and newline included, becomes a space, and so do the Unicode
+        # line and paragraph separators, so one query is one line of seven fields whatever it held.
+        $line = (@(foreach ($f in $fields) { [regex]::Replace([string]$f, '[\p{Cc}\p{Zl}\p{Zp}]', ' ') }) -join "`t") + "`n"
+        [void][System.IO.Directory]::CreateDirectory($logDir)
+        if (-not [System.IO.File]::Exists($logFile)) {
+            # CreateNew, so two first queries of a month cannot both write the header.
+            try {
+                $fs = [System.IO.FileStream]::new($logFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+                try {
+                    $b = $enc.GetBytes("utc`tseat`ttext`tpath`tresults`ttop_score`tno_note`n")
+                    $fs.Write($b, 0, $b.Length)
+                } finally { $fs.Dispose() }
+            } catch [System.IO.IOException] {
+                # Another query created it first. Anything else wrong with the file fails the append.
+            }
+        }
+        # One write per line, under an exclusive write share, so two queries appending at once never
+        # interleave. A writer that finds the file held retries briefly, then gives up on stderr.
+        $bytes = $enc.GetBytes($line)
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                $fs = [System.IO.FileStream]::new($logFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+                try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Dispose() }
+                break
+            } catch [System.IO.IOException] {
+                if ($attempt -ge 5) { throw }
+                Start-Sleep -Milliseconds 20
+            }
+        }
+    } catch {
+        Write-Note ("wiki query: query log not written ($($_.Exception.Message)); the query is unaffected." -replace '\s+', ' ')
+    }
+}
 
 # ------------------------------------------------------------------------------------ print
 if ($Json) {

@@ -279,6 +279,166 @@ class TheRestOfTheSurface(_QueryCase):
         self.assertEqual(2, r.returncode)
 
 
+def long_body(*words: str, filler_words: int = 400) -> str:
+    """A long synthetic body with each of `words` once, far apart, among neutral filler.
+
+    The shape of an imported note: thousands of characters, the query's words each mentioned in
+    passing and nowhere near each other.
+    """
+    filler = ("harbour ledger ribbon canvas pebble orchard tunnel violet " * (filler_words // 8 + 1)).split()
+    parts: list[str] = []
+    for word in words:
+        parts.extend(filler[:filler_words])
+        parts.append(word)
+    parts.extend(filler[:filler_words])
+    return " ".join(parts)
+
+
+class TheFloorWeighsTheHeadAboveTheBody(_QueryCase):
+    """A short query must not clear the floor on words scattered through a long body alone.
+
+    The head is the key, the summary and the paths. A word found only in the body counts half, so
+    an event whose only matches are in its body is never returned. The controls prove the body is
+    still searched, and that the same words in a summary are found.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.scattered = w.plant(self.inbox, key="noise/long-note", summary="unrelated harbour schedule notes",
+                                 body=long_body("quartz", "lantern", "meadow"))
+
+    def test_words_scattered_through_a_long_body_do_not_clear_the_floor(self):
+        self.assertGreater(len(self.scattered["body"]), 5000, "the body is not long enough to be the case")
+        r = self.query("-Text", "quartz lantern meadow")
+        self.assertEqual("no note", r.stdout.strip())
+        self.assertIn("searched 1 event(s)", r.stderr, "the receipt must show the event was read")
+
+    def test_the_same_words_in_a_summary_do_clear_it(self):
+        about = w.plant(self.inbox, key="lamp/field-note", summary="quartz lantern left in the meadow")
+        self.assertEqual([about["id"]], [r["id"] for r in self.rows("-Text", "quartz lantern meadow")])
+
+    def test_the_body_still_counts_beside_a_head_match(self):
+        """Control: one word in the summary and two in the body is (1 + 0.5 + 0.5) / 3, over 0.6."""
+        mixed = w.plant(self.inbox, key="mixed/note", summary="quartz supplier contact",
+                        body=long_body("lantern", "meadow"))
+        rows = self.rows("-Text", "quartz lantern meadow")
+        self.assertEqual([mixed["id"]], [r["id"] for r in rows])
+        self.assertAlmostEqual(0.667, rows[0]["score"], places=3)
+
+    def test_a_single_body_word_is_a_miss_and_a_single_summary_word_is_a_hit(self):
+        self.assertEqual("no note", self.query("-Text", "lantern").stdout.strip())
+        head = w.plant(self.inbox, key="lamp/one", summary="lantern wick trimming")
+        self.assertEqual([head["id"]], w.ids_in(self.query("-Text", "lantern").stdout))
+
+    def test_a_path_counts_as_head(self):
+        on_path = w.plant(self.inbox, key="file/note", summary="unrelated words here",
+                          paths=["scripts/quartz/lantern.ps1"])
+        self.assertEqual([on_path["id"]], [r["id"] for r in self.rows("-Text", "quartz lantern")])
+
+
+class TiesGoToTheEventTheWordsAreAbout(_QueryCase):
+    def test_a_short_focused_event_outranks_a_newer_long_one_that_matches_the_same_words(self):
+        """Both carry every query word in the summary, so they tie on rank. Newest-first alone would
+        put the long one first; the BM25 weight puts the one the words are about first."""
+        focused = w.plant(self.inbox, when=w.days_ago(5), key="rank/first",
+                          summary="sprocket calibration drift", body="sprocket calibration drift, measured twice")
+        passing = w.plant(self.inbox, when=w.days_ago(1), key="rank/second",
+                          summary="sprocket calibration drift", body=long_body("orchard", filler_words=1000))
+        self.assertLess(len(passing["body"]), 20000, "over the body limit the event is skipped, not ranked")
+        rows = self.rows("-Text", "sprocket calibration drift")
+        self.assertEqual([focused["id"], passing["id"]], [r["id"] for r in rows])
+        self.assertEqual(rows[0]["score"], rows[1]["score"], "the two must tie on score for this case to test the weight")
+
+    def test_with_equal_text_the_newer_event_still_wins(self):
+        """Control: the weight breaks ties only where the texts differ; identical text stays newest first."""
+        older = w.plant(self.inbox, when=w.days_ago(5), key="tie/a", summary="gearbox torque limit")
+        newer = w.plant(self.inbox, when=w.days_ago(1), key="tie/b", summary="gearbox torque limit")
+        self.assertEqual([newer["id"], older["id"]], [r["id"] for r in self.rows("-Text", "gearbox torque limit")])
+
+
+class ImportMergeRecordsAreHiddenByDefault(_QueryCase):
+    def setUp(self):
+        super().setUp()
+        self.note = w.plant(self.inbox, key="memory/widget-rollout", summary="Widget rollout needs a feature flag")
+        self.merge = w.plant(self.inbox, type="decision", key="memory-merge/widget-rollout/store-two",
+                             summary="Merged memory note widget-rollout from store two: same name, same text",
+                             evidence="memory:store-one/widget-rollout.md",
+                             body="kept: memory:store-one/widget-rollout.md\nmerged: memory:store-two/widget-rollout.md")
+
+    def test_a_default_query_does_not_return_a_merge_record(self):
+        rows = self.rows("-Text", "widget rollout")
+        self.assertEqual([self.note["id"]], [r["id"] for r in rows])
+
+    def test_history_returns_it(self):
+        ids = {r["id"] for r in self.rows("-Text", "widget rollout", "-History")}
+        self.assertEqual({self.note["id"], self.merge["id"]}, ids)
+
+    def test_a_query_only_the_merge_record_matches_is_no_note(self):
+        """Control on the words: `merged store` matches the merge record alone, so the default miss is
+        the hiding and not the scoring."""
+        self.assertEqual("no note", self.query("-Text", "merged store two").stdout.strip())
+        self.assertEqual([self.merge["id"]], [r["id"] for r in self.rows("-Text", "merged store two", "-History")])
+
+
+class EveryQueryIsLogged(_QueryCase):
+    HEADER = ["utc", "seat", "text", "path", "results", "top_score", "no_note"]
+
+    def log_lines(self) -> list[list[str]]:
+        files = sorted((self.state / "wiki" / "query-log").glob("*.tsv"))
+        self.assertEqual(1, len(files), f"expected one month file, found {files}")
+        month = files[0].stem
+        self.assertRegex(month, r"^\d{4}-\d{2}$")
+        lines = files[0].read_text(encoding="utf-8").split("\n")
+        self.assertEqual("", lines[-1], "every line, the last included, ends in a newline")
+        rows = [ln.split("\t") for ln in lines[:-1]]
+        self.assertEqual(self.HEADER, rows[0])
+        for row in rows[1:]:
+            self.assertEqual(7, len(row), row)
+            self.assertTrue(row[0].startswith(month), "the file is named for the UTC month of its lines")
+        return rows[1:]
+
+    def test_a_hit_and_a_miss_are_each_one_line_with_every_field(self):
+        e = w.plant(self.inbox, key="log/probe", summary="copper kettle whistle", paths=["scripts/kettle.ps1"])
+        hit = self.query("-Text", "copper\tkettle\nwhistle", "-Path", "scripts/kettle.ps1", "-Seat", "builder")
+        self.assertEqual([e["id"]], w.ids_in(hit.stdout))
+        self.query("-Text", "best pizza in Atlanta")
+        rows = self.log_lines()
+        self.assertEqual(2, len(rows))
+        first, second = rows
+        self.assertRegex(first[0], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
+        self.assertEqual(["builder", "copper kettle whistle", "scripts/kettle.ps1", "1", "1", "no"], first[1:])
+        self.assertEqual(["", "best pizza in Atlanta", "", "0", "", "yes"], second[1:])
+
+    def test_json_mode_is_logged_too(self):
+        w.plant(self.inbox, key="log/json", summary="brass hinge oil")
+        self.rows("-Text", "brass hinge oil", "-Seat", "lander")
+        (row,) = self.log_lines()
+        self.assertEqual(["lander", "brass hinge oil", "", "1", "1", "no"], row[1:])
+
+    def test_an_unwritable_log_leaves_stdout_and_exit_code_unchanged(self):
+        e = w.plant(self.inbox, key="log/blocked", summary="tin whistle tuning")
+        blocker = self.state / "wiki" / "query-log"
+        blocker.write_text("a file where the log directory should be", encoding="ascii")
+        blocked = self.query("-Text", "tin whistle tuning")
+        blocked_json = self.query("-Text", "tin whistle tuning", "-Json")
+        notes = [ln for ln in blocked.stderr.splitlines() if ln.startswith("wiki query: query log not written")]
+        self.assertEqual(1, len(notes), blocked.stderr)
+        blocker.unlink()
+        control = self.query("-Text", "tin whistle tuning")
+        control_json = self.query("-Text", "tin whistle tuning", "-Json")
+        self.assertEqual([e["id"]], w.ids_in(control.stdout), "control: the query finds the event")
+        self.assertEqual(control.stdout, blocked.stdout)
+        self.assertEqual(json.loads(control_json.stdout), json.loads(blocked_json.stdout))
+        self.assertNotIn("query log not written", control.stderr)
+        self.assertEqual(2, len(self.log_lines()), "control: the unblocked runs did log")
+
+    def test_a_state_root_that_does_not_exist_logs_nothing(self):
+        missing = self.root / "no-such-state"
+        r = self.query("-Text", "anything at all", state=missing)
+        self.assertEqual("no note", r.stdout.strip())
+        self.assertFalse(missing.exists(), "the log must not create a state root that was not there")
+
+
 class AQueryIsQuick(_QueryCase):
     """SC-004: a query over the corpus returns in under two seconds on the reference machine.
 
