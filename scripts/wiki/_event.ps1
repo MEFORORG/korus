@@ -368,14 +368,13 @@ function ConvertTo-WikiDate {
     .SYNOPSIS
         A yyyy-MM-dd field (`noted`) as a [datetime] date, or $null when it is not one.
     .DESCRIPTION
-        ConvertFrom-Json leaves a bare date a string on pwsh 7.6, and would hand back a [datetime]
-        for a stamp. Both shapes are read, as `stale_after` is, so no reader depends on which.
+        Strict, as write.ps1 is: a string in exactly that form, and nothing else.
     #>
     param($Value)
     if ($null -eq $Value) { return $null }
-    # A stamp with a time of day is not a date, and its day would depend on the reader's zone.
-    if ($Value -is [datetime]) { if ($Value.TimeOfDay -eq [timespan]::Zero) { return $Value.Date } else { return $null } }
-    # Only a string: `[string]` of a one-element array is its element, and would pass as a date.
+    # Only a string. ConvertFrom-Json leaves a bare date a string and turns only a stamp into a
+    # [datetime], whose day would depend on the reader's zone. And `[string]` of a one-element
+    # array is its element, which would pass as a date.
     if ($Value -isnot [string]) { return $null }
     $parsed = [datetime]::MinValue
     if ([datetime]::TryParseExact($Value, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture,

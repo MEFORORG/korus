@@ -1033,7 +1033,8 @@ class TheReviewCases(_ImportCase):
         self.assertEqual(1, rep["counts"]["superseded"])
         self.assertEqual(["memory/first"], [h["key"] for h in self.query("lesson that moves")])
 
-    def test_an_edit_to_the_note_behind_the_kept_event_is_recorded(self):
+    def test_an_edit_to_the_note_behind_the_kept_event_hands_the_key_to_the_winner(self):
+        """Round two: the event had cited a note that no longer says its text."""
         a, b = self.store("acct-a"), self.store("acct-b")
         pa = self.note(a, "n.md", "tee", "text tee", "body")
         set_modified(pa, day_ago(10))
@@ -1042,11 +1043,16 @@ class TheReviewCases(_ImportCase):
         pa.write_text(note_text("tee", "text tee two", "body"), encoding="utf-8")
         set_modified(pa, day_ago(5))
         _, rep = self.run_import(a, b)
-        self.assertEqual((1, 1), (rep["counts"]["merged"], rep["counts"]["outranked"]))
+        self.assertEqual((1, 1, 0), (rep["counts"]["superseded"], rep["counts"]["outranked"], rep["counts"]["merged"]))
+        [live] = self.live_on("memory/tee", "text tee")
+        self.assertEqual("memory:acct-b/proj/n.md", live["evidence"])
         [rec] = [e for e in self.under("memory-merge/tee/acct-a") if "outranked" in e["body"]]
         self.assertIn(f"outranked: acct-b/proj {day_ago(0)}", rec["body"])
         _, rep2 = self.run_import(a, b)
         self.assertEqual(2, rep2["counts"]["unchanged"])
+        # A run naming the outranked store alone changes nothing either.
+        _, rep3 = self.run_import(a)
+        self.assertEqual(1, rep3["counts"]["unchanged"])
 
     def test_a_merge_into_an_event_this_run_replaces_is_recorded_again(self):
         a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
@@ -1058,6 +1064,47 @@ class TheReviewCases(_ImportCase):
         self.assertEqual((1, 2), (rep["counts"]["superseded"], rep["counts"]["outranked"]))
         newest_b = [e for e in self.under("memory-merge/tee/acct-b")][-1]
         self.assertIn("outranked: acct-c/proj", newest_b["body"])
+
+class TheRoundTwoCases(_ImportCase):
+    """Round-two review of the reconcile, 2026-09-26. Each case failed before its fix."""
+
+    def test_a_rename_into_a_retired_key_does_not_bring_back_the_winners_text(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        set_modified(self.note(a, "w.md", "kay", "wee text retired", "body"), day_ago(3))
+        pb = self.note(b, "o.md", "other", "a different lesson", "body")
+        set_modified(pb, day_ago(3))
+        self.run_import(a, b)
+        r = w.run(self.pwsh, w.WRITE, "-Type", "retire", "-Key", "memory/kay", "-Summary", "withdrawn",
+                  "-Evidence", "owner ruling 2026-09-23", "-Seat", "manager", "-StateRoot", str(self.state))
+        self.assertEqual(0, r.returncode, r.stderr)
+        pb.write_text(note_text("kay", "a different lesson", "body"), encoding="utf-8")
+        set_modified(pb, day_ago(3))
+        self.run_import(a, b)
+        self.assertEqual([], self.live_on("memory/kay", "wee text retired"))
+
+    def test_a_tie_with_a_holder_whose_note_moved_on_goes_to_the_first_store(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        pa = self.note(a, "n.md", "tie", "text one", "body")
+        self.run_import(a)
+        pa.write_text(note_text("tie", "text two", "body"), encoding="utf-8")
+        self.note(b, "n.md", "tie", "text bee", "body")
+        _, rep = self.run_import(b, a)
+        self.assertEqual(1, rep["counts"]["superseded"])
+        self.assertEqual(["text bee"], [h["summary"] for h in self.live_on("memory/tie", "text")])
+
+    def test_a_merge_record_naming_a_renamed_holder_is_recorded_again(self):
+        a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
+        pa = self.note(a, "n.md", "kay", "same text", "body")
+        set_modified(pa, day_ago(1))
+        set_modified(self.note(b, "n.md", "kay", "same text", "body"), day_ago(5))
+        set_modified(self.note(c, "n.md", "kay", "same text", "body"), day_ago(9))
+        self.run_import(a, b, c)
+        pa.write_text(note_text("kay-two", "same text", "body"), encoding="utf-8")
+        set_modified(pa, day_ago(1))
+        _, rep = self.run_import(a, b, c)
+        self.assertEqual(["memory:acct-b/proj/n.md"], [h["evidence"] for h in self.live_on("memory/kay", "same text")])
+        newest_c = self.under("memory-merge/kay/acct-c")[-1]
+        self.assertIn("kept: memory:acct-b/proj/n.md", newest_c["body"])
 
 if __name__ == "__main__":
     unittest.main()

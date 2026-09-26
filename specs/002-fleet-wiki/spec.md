@@ -148,7 +148,8 @@ and the log carries the merge.
    directories only and never searches for others.
 2. **Given** two notes with the same name and different text, **When** they are ingested, **Then**
    the note with the newer file date is the one live event on the key, the other is recorded as
-   outranked, and lint files no conflict. On one date, the store listed first wins.
+   outranked, and lint files no conflict. On one date, the store listed first wins, unless the
+   other note's event already holds the key.
 3. **Given** a note whose text is unchanged since the last ingest, **When** only its file date has
    moved, **Then** the ingest writes nothing.
 
