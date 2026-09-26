@@ -17,7 +17,7 @@
         inbox  <StateRoot>/wiki/inbox/<id>.json               written by write.ps1, uncompiled
         log    <RecordRepo>/wiki/events/<yyyy>/<mm>/<id>.json  written by the compile job only
 
-    The query log, <StateRoot>/wiki/query-log/<yyyy-MM>.tsv, is not events. query.ps1 appends to it
+    The query log, <StateRoot>/wiki/query-log/<yyyy-MM>.jsonl, is not events. query.ps1 appends to it
     and nothing compiles it.
 
     One file per event is the contention answer: two seats writing at once create two files, so
@@ -183,7 +183,7 @@ function Get-WikiInboxDir {
 }
 
 function Get-WikiQueryLogDir {
-    <# Where query.ps1 appends one line per query: <StateRoot>/wiki/query-log/<yyyy-MM>.tsv. Local only. #>
+    <# Where query.ps1 appends one line per query: <StateRoot>/wiki/query-log/<yyyy-MM>.jsonl. Local only. #>
     param([Parameter(Mandatory)][string] $StateRoot)
     return (Join-Path (Join-Path $StateRoot 'wiki') 'query-log')
 }

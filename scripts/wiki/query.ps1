@@ -60,15 +60,22 @@
     many files could not be read. `no note` over zero events and `no note` over a thousand are
     different readings, and only the receipt tells them apart.
 
-    EVERY QUERY IS LOGGED, LOCALLY. One tab-separated line is appended to
-    `<StateRoot>/wiki/query-log/<yyyy-MM>.tsv`, by UTC month, with a header on a new file:
+    EVERY QUERY IS LOGGED, LOCALLY. One line of compact JSON is appended to
+    `<StateRoot>/wiki/query-log/<yyyy-MM>.jsonl`, by UTC month. There is no header line. Each line
+    is one object with these fields, in this order:
 
-        utc  seat  text  path  results  top_score  no_note
+        utc  seat  text  path  results  top_score  no_note  inbox_reached  log_reached  events_searched
 
-    `seat` is -Seat, or empty. Every field has each control character, tabs and newlines included,
-    and each Unicode line separator turned into a space. `results` is the number printed, `top_score` the first one's
-    score, and `no_note` is `yes` when nothing was printed. It shows whether seats query the wiki
-    and what they miss. It stays on this machine: nothing compiles, commits or sends it.
+    `seat` is -Seat, or `$env:KORUS_SEAT` when -Seat is not given, lower-cased; empty when neither
+    is set. `results` is the number printed, `top_score` the first one's score or null, and
+    `no_note` is true when nothing was printed. `inbox_reached` and `log_reached` say whether each
+    store was actually read; false means it was not, for whatever reason the receipt on stderr
+    gave, a log that was not asked for included. `events_searched` is the count the receipt
+    prints. So a `no note` over an unreachable store does not read as a real miss.
+
+    The JSON escapes quotes, control characters and every non-ASCII character, so one query is one
+    line whatever it held. The log shows whether seats query the wiki and what they miss. It stays
+    on this machine: nothing compiles, commits or sends it.
 
     Logging never changes stdout or the exit code. A log that cannot be written is one line on
     stderr and the query carries on (FR-016). No state root, or one that does not exist, logs
@@ -93,7 +100,8 @@ param(
     [switch] $Json,
     [string] $StateRoot,
     [string] $RecordRepo,
-    # Only written to the query log. Never checked, so a mistyped seat cannot turn a query away.
+    # Only written to the query log, defaulting to $env:KORUS_SEAT. Never checked, so a mistyped
+    # seat cannot turn a query away.
     [string] $Seat
 )
 
@@ -133,6 +141,7 @@ $skipped = 0
 $unreadable = 0
 $loose = 0
 $inboxLabel = 'inbox'
+$logReached = $false
 
 if ([string]::IsNullOrWhiteSpace($StateRoot)) {
     try {
@@ -200,6 +209,7 @@ if (-not [string]::IsNullOrWhiteSpace($RecordRepo)) {
                 $unreadable += $r.Unreadable
                 $loose += $r.Loose
                 $logLabel = "log $($logEvents.Count)"
+                $logReached = $true
             } catch {
                 Write-Note "record repository unreadable ($($_.Exception.Message)); searched the inbox only."
                 $logLabel = 'log unreadable'
@@ -292,34 +302,29 @@ if ($stateRootFound) {
         $now = Get-WikiClock
         $inv = [cultureinfo]::InvariantCulture
         $logDir = Get-WikiQueryLogDir -StateRoot $StateRoot
-        $logFile = Join-Path $logDir ($now.ToString('yyyy-MM', $inv) + '.tsv')
-        $enc = [System.Text.UTF8Encoding]::new($false)
-        $top = if ($ordered.Count -gt 0) { ([math]::Round([double]$ordered[0].Score, 3)).ToString('0.###', $inv) } else { '' }
-        $fields = @(
-            (Format-WikiStamp -Utc $now),
-            $Seat, $Text, $Path,
-            $ordered.Count.ToString($inv), $top,
-            $(if ($ordered.Count -eq 0) { 'yes' } else { 'no' })
-        )
-        # Every control character, tab and newline included, becomes a space, and so do the Unicode
-        # line and paragraph separators, so one query is one line of seven fields whatever it held.
-        $line = (@(foreach ($f in $fields) { [regex]::Replace([string]$f, '[\p{Cc}\p{Zl}\p{Zp}]', ' ') }) -join "`t") + "`n"
-        [void][System.IO.Directory]::CreateDirectory($logDir)
-        if (-not [System.IO.File]::Exists($logFile)) {
-            # CreateNew, so two first queries of a month cannot both write the header.
-            try {
-                $fs = [System.IO.FileStream]::new($logFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-                try {
-                    $b = $enc.GetBytes("utc`tseat`ttext`tpath`tresults`ttop_score`tno_note`n")
-                    $fs.Write($b, 0, $b.Length)
-                } finally { $fs.Dispose() }
-            } catch [System.IO.IOException] {
-                # Another query created it first. Anything else wrong with the file fails the append.
-            }
+        # The file is named from the same clock read as the line's `utc`, so the two always agree.
+        $logFile = Join-Path $logDir ($now.ToString('yyyy-MM', $inv) + '.jsonl')
+        $logSeat = if ([string]::IsNullOrWhiteSpace($Seat)) { [string]$env:KORUS_SEAT } else { $Seat }
+        $top = if ($ordered.Count -gt 0) { [math]::Round([double]$ordered[0].Score, 3) } else { $null }
+        $entry = [ordered]@{
+            utc             = Format-WikiStamp -Utc $now
+            seat            = $logSeat.Trim().ToLowerInvariant()
+            text            = [string]$Text
+            path            = [string]$Path
+            results         = $ordered.Count
+            top_score       = $top
+            no_note         = ($ordered.Count -eq 0)
+            inbox_reached   = ($inboxLabel -ceq 'inbox')
+            log_reached     = $logReached
+            events_searched = $all.Count
         }
+        # EscapeNonAscii keeps the file ASCII and escapes U+2028 and U+2029 too, which some line
+        # readers split on. Quotes and control characters are escaped in every mode.
+        $line = ($entry | ConvertTo-Json -Compress -EscapeHandling EscapeNonAscii) + "`n"
+        [void][System.IO.Directory]::CreateDirectory($logDir)
         # One write per line, under an exclusive write share, so two queries appending at once never
         # interleave. A writer that finds the file held retries briefly, then gives up on stderr.
-        $bytes = $enc.GetBytes($line)
+        $bytes = [System.Text.Encoding]::ASCII.GetBytes($line)
         for ($attempt = 1; ; $attempt++) {
             try {
                 $fs = [System.IO.FileStream]::new($logFile, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)

@@ -70,7 +70,7 @@ pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordR
 | `-Json` | Machine-readable output. |
 | `-StateRoot <dir>` | The coordination directory that holds `wiki/inbox/`. Pass `<coord>`, never the inbox itself. |
 | `-RecordRepo <dir>` | The record repository whose compiled log to search. Pass `<vault>`. Without it, only the inbox is searched. |
-| `-Seat <seat>` | Your seat. It goes only into the query log. |
+| `-Seat <seat>` | Your seat. It goes only into the query log. Without it the log takes `$env:KORUS_SEAT`, if set. |
 
 Every result carries an id, a date, the writing seat, its evidence and one label.
 
@@ -78,9 +78,12 @@ Every result carries an id, a date, the writing seat, its evidence and one label
 summary or paths counts whole. So when you write, put the words a seat would search for in the key
 or the summary.
 
-**Every query appends one line to a local log.** It goes to `<coord>/wiki/query-log/<yyyy-MM>.tsv`,
-by UTC month. The line holds the time, the seat, the query text and path, the result count, the top
-score, and whether it printed `no note`.
+**Every query appends one line to a local log.** It goes to `<coord>/wiki/query-log/<yyyy-MM>.jsonl`,
+by UTC month, as one JSON object per line. The line holds the time, the seat, the query text and
+path, the result count, the top score, and whether it printed `no note`.
+
+It also says whether the inbox and the log were reached, and how many events were searched. So a
+`no note` over a store the query could not read does not look like a real miss.
 
 It shows whether seats query at all and what they miss. It stays on the machine: nothing compiles,
 commits or sends it. A log that cannot be written is one line on stderr, and the query carries on.

@@ -388,21 +388,37 @@ class ImportMergeRecordsAreHiddenByDefault(_QueryCase):
 
 
 class EveryQueryIsLogged(_QueryCase):
-    HEADER = ["utc", "seat", "text", "path", "results", "top_score", "no_note"]
+    """One compact JSON object per line in `<StateRoot>/wiki/query-log/<yyyy-MM>.jsonl`, no header."""
 
-    def log_lines(self) -> list[list[str]]:
-        files = sorted((self.state / "wiki" / "query-log").glob("*.tsv"))
-        self.assertEqual(1, len(files), f"expected one month file, found {files}")
-        month = files[0].stem
-        self.assertRegex(month, r"^\d{4}-\d{2}$")
-        lines = files[0].read_text(encoding="utf-8").split("\n")
-        self.assertEqual("", lines[-1], "every line, the last included, ends in a newline")
-        rows = [ln.split("\t") for ln in lines[:-1]]
-        self.assertEqual(self.HEADER, rows[0])
-        for row in rows[1:]:
-            self.assertEqual(7, len(row), row)
-            self.assertTrue(row[0].startswith(month), "the file is named for the UTC month of its lines")
-        return rows[1:]
+    FIELDS = ["utc", "seat", "text", "path", "results", "top_score", "no_note",
+              "inbox_reached", "log_reached", "events_searched"]
+
+    def log_lines(self) -> list[dict]:
+        """Every logged line, oldest first, each checked against the file it sits in.
+
+        Two queries can straddle a UTC month boundary, so one or two month files are both right.
+        What must hold is that each line's `utc` falls in the month its file is named for.
+        """
+        log_dir = self.state / "wiki" / "query-log"
+        files = sorted(log_dir.glob("*.jsonl"))
+        self.assertIn(len(files), (1, 2), f"expected one month file, or two across a month boundary: {files}")
+        self.assertEqual([], list(log_dir.glob("*.tsv")), "the tab-separated format is gone")
+        rows: list[dict] = []
+        for f in files:
+            self.assertRegex(f.stem, r"^\d{4}-\d{2}$")
+            # Every non-ASCII character is escaped, so the file decodes as ASCII.
+            lines = f.read_bytes().decode("ascii").split("\n")
+            self.assertEqual("", lines[-1], "every line, the last included, ends in a newline")
+            for ln in lines[:-1]:
+                row = json.loads(ln)
+                self.assertEqual(self.FIELDS, list(row), ln)
+                self.assertTrue(row["utc"].startswith(f.stem), "the file is named for the UTC month of its lines")
+                rows.append(row)
+        return rows
+
+    @staticmethod
+    def without_utc(row: dict) -> dict:
+        return {k: v for k, v in row.items() if k != "utc"}
 
     def test_a_hit_and_a_miss_are_each_one_line_with_every_field(self):
         e = w.plant(self.inbox, key="log/probe", summary="copper kettle whistle", paths=["scripts/kettle.ps1"])
@@ -412,15 +428,46 @@ class EveryQueryIsLogged(_QueryCase):
         rows = self.log_lines()
         self.assertEqual(2, len(rows))
         first, second = rows
-        self.assertRegex(first[0], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
-        self.assertEqual(["builder", "copper kettle whistle", "scripts/kettle.ps1", "1", "1", "no"], first[1:])
-        self.assertEqual(["", "best pizza in Atlanta", "", "0", "", "yes"], second[1:])
+        self.assertRegex(first["utc"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
+        self.assertEqual({"seat": "builder", "text": "copper\tkettle\nwhistle", "path": "scripts/kettle.ps1",
+                          "results": 1, "top_score": 1, "no_note": False, "inbox_reached": True,
+                          "log_reached": False, "events_searched": 1}, self.without_utc(first))
+        self.assertEqual({"seat": "", "text": "best pizza in Atlanta", "path": "", "results": 0,
+                          "top_score": None, "no_note": True, "inbox_reached": True, "log_reached": False,
+                          "events_searched": 1}, self.without_utc(second))
+
+    def test_a_double_quote_does_not_break_a_later_line(self):
+        """The tab-separated log read a leading quote as an open quoted field, and every later row
+        vanished into it. Each query here must come back as its own line with its own text."""
+        texts = ['"opening quote words', 'middle " quote and \\ backslash', "line\u2028separator word", "plain after"]
+        for t in texts:
+            self.query("-Text", t)
+        self.assertEqual(texts, [r["text"] for r in self.log_lines()])
 
     def test_json_mode_is_logged_too(self):
         w.plant(self.inbox, key="log/json", summary="brass hinge oil")
         self.rows("-Text", "brass hinge oil", "-Seat", "lander")
         (row,) = self.log_lines()
-        self.assertEqual(["lander", "brass hinge oil", "", "1", "1", "no"], row[1:])
+        self.assertEqual(("lander", "brass hinge oil", 1, False),
+                         (row["seat"], row["text"], row["results"], row["no_note"]))
+
+    def test_the_seat_falls_back_to_korus_seat_and_is_lower_cased(self):
+        """`run` clears KORUS_SEAT for every case, so the empty seat in the first test is the control."""
+        self.query("-Text", "harbour chart", env={"KORUS_SEAT": " Lander "})
+        self.query("-Text", "harbour chart", "-Seat", "Builder", env={"KORUS_SEAT": "lander"})
+        self.assertEqual(["lander", "builder"], [r["seat"] for r in self.log_lines()])
+
+    def test_the_log_says_what_was_searched(self):
+        """A `no note` over an unreachable record repository must not read as a miss over it."""
+        vault = self.root / "vault"
+        w.plant(w.log_dir(vault, w.days_ago(1)), when=w.days_ago(1), key="log/reached", summary="anchor chain")
+        w.plant(self.inbox, key="log/inbox", summary="rope splice")
+        self.query("-Text", "velvet saddle", "-RecordRepo", str(vault))
+        self.query("-Text", "velvet saddle", "-RecordRepo", str(self.root / "no-such-vault"))
+        reached, unreached = self.log_lines()
+        fields = ("inbox_reached", "log_reached", "events_searched", "no_note")
+        self.assertEqual((True, True, 2, True), tuple(reached[f] for f in fields))
+        self.assertEqual((True, False, 1, True), tuple(unreached[f] for f in fields))
 
     def test_an_unwritable_log_leaves_stdout_and_exit_code_unchanged(self):
         e = w.plant(self.inbox, key="log/blocked", summary="tin whistle tuning")
