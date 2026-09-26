@@ -344,8 +344,14 @@ class AgeCountsFromNoted(_QueryCase):
                       noted=w.days_ago(1).strftime("%Y-%m-%d"))
         good = w.plant(w.log_dir(vault, when), when=when, key="n/good", summary="future noted marker ok",
                        noted=w.days_ago(40).strftime("%Y-%m-%d"))
-        ids = [r["id"] for r in self.rows("-Text", "future noted marker", "-RecordRepo", str(vault))]
+        stamp = w.plant(w.log_dir(vault, when), when=when, key="n/stamp", summary="future noted marker stamp",
+                        noted=w.days_ago(40).strftime("%Y-%m-%dT02:00:00Z"))
+        listed = w.plant(w.log_dir(vault, when), when=when, key="n/list", summary="future noted marker list",
+                         noted=[w.days_ago(40).strftime("%Y-%m-%d")])
+        ids = [r["id"] for r in self.rows("-Text", "future noted marker", "-RecordRepo", str(vault), "-Limit", "10")]
         self.assertNotIn(bad["id"], ids)
+        self.assertNotIn(stamp["id"], ids, "a stamp with a time of day was read as a noted date")
+        self.assertNotIn(listed["id"], ids, "a one-element list was read as a noted date")
         self.assertIn(good["id"], ids, "the control, the same shape with a valid noted, was not read either")
 
 if __name__ == "__main__":

@@ -373,9 +373,12 @@ function ConvertTo-WikiDate {
     #>
     param($Value)
     if ($null -eq $Value) { return $null }
-    if ($Value -is [datetime]) { return $Value.Date }
+    # A stamp with a time of day is not a date, and its day would depend on the reader's zone.
+    if ($Value -is [datetime]) { if ($Value.TimeOfDay -eq [timespan]::Zero) { return $Value.Date } else { return $null } }
+    # Only a string: `[string]` of a one-element array is its element, and would pass as a date.
+    if ($Value -isnot [string]) { return $null }
     $parsed = [datetime]::MinValue
-    if ([datetime]::TryParseExact([string]$Value, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture,
+    if ([datetime]::TryParseExact($Value, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture,
             [System.Globalization.DateTimeStyles]::None, [ref]$parsed)) { return $parsed.Date }
     return $null
 }
@@ -386,8 +389,8 @@ function Get-WikiEffectiveDate {
         The day an event's age is counted from: its `noted` date when that is earlier than `ts`, else
         the day of `ts`. Returns @{ Date = <[datetime] date>; Noted = <bool> }.
     .DESCRIPTION
-        The ONE place the age date is decided (spec FR-014), so the query's label and lint's stale
-        finding cannot disagree about one event. `ts` still orders events for the guard; this only
+        The ONE place the age date is decided (spec FR-014), so the query and lint agree on how old
+        one event is. They still label it apart where the query shows `inbox` first. `ts` still orders events for the guard; this only
         says how old the fact is. A `noted` that does not parse, or is later than `ts`, is ignored
         rather than trusted: the reader's schema check refuses a content event carrying one, and a
         marker honoured on the loose check must not throw here.

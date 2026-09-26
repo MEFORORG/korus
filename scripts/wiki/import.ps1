@@ -61,24 +61,27 @@
       3. Otherwise the winner meets the newest CURRENT event on the key. Current means no event
          supersedes it and no `retire` withdrew it.
              none                     the winner is written.
-             the import's, same text  nothing is written. A winner from another note is recorded
-                                      as merged into it, as in step 4.
-             the import's, new text   the winner is written, and it supersedes every current
+             the winner's own, edited the winner is written, and it supersedes every current
                                       import event on the key.
-             a seat's                 the winner is written only when its date is later than the
-                                      day that event was noted or written. It then supersedes the
-                                      import's current events and never the seat's, so lint files
-                                      the pair.
+             any other, same text     nothing is written. The winner is recorded as merged into
+                                      it, as in step 4.
+             any other, other text    the winner is written only when its date is later than the
+                                      day that event was noted or written, and the holder keeps
+                                      the key on a tie. It supersedes every current import event,
+                                      never a seat's. Beside a seat's event, lint files the pair,
+                                      and the report counts it as over_seat.
       4. Every other note on the key gets one `decision` on memory-merge/<slug>/<store> (FR-024).
          Its body carries `kept:`, `merged:` and `text:` lines, the last a hash of the note's text,
-         and an `outranked:` line when the texts differ. `kept:` and `outranked:` name the note
-         the key holds: the winner, or the note behind the import's current event. The record is
-         written only when the note's newest record does not already hold that text, or when that
-         record is the note's own event and this run replaces it. None is written while a seat's
-         event holds the key.
+         and an `outranked:` line when the texts differ. `kept:` names the note behind the
+         import's current event on the key, or the winner when the key holds none. `outranked:`
+         names that note, or the winner when the outranked note is the one behind the event. The
+         record is written only when the note's newest record does not already hold that text, or
+         when this run replaces the event that record names. None is written while a seat's event
+         holds the key.
       5. A RENAME. A note whose newest import event sits current on another key has that event
-         superseded. The winner written on the new key carries it. When nothing is written there,
-         a `supersede` event on the old key does.
+         superseded, and its new key is looked at as in step 3. The winner written on the new key
+         carries the supersede. When nothing is written there, a `supersede` event on the old key
+         does.
     A re-run over unchanged stores writes nothing.
 
     -WhatIf writes nothing. It runs every check, the leak scan included, through `write.ps1
@@ -90,7 +93,7 @@
 
     Exit codes:
         0  finished, and every note was imported, recorded as merged or outranked, left to a
-           newer seat event, or already there
+           seat's event, or already there
         1  finished, and something needs a look: a note refused or not written, or a note or an
            existing event that could not be read. Each is listed in the report.
         2  could not run: no -Store, a store that is not a directory, a pattern in -Store, two
@@ -321,10 +324,15 @@ function Add-KeyEntry {
     $byKey[$Key].Add($Entry)
 }
 function Set-LastRecord {
-    <# $Id is the event's own id when the record is an event, and $null for a merge record. #>
-    param([string] $Slot, [string] $TsKey, [string] $Hash, [string] $Id)
+    <#
+    $Id is the event's own id when the record is an event. $Kept is the evidence a merge record names
+    as kept. Each is empty for the other kind.
+    #>
+    param([string] $Slot, [string] $TsKey, [string] $Hash, [string] $Id, [string] $Kept)
     $prev = $lastRecord[$Slot]
-    if ($null -eq $prev -or [string]::CompareOrdinal($TsKey, $prev.TsKey) -gt 0) { $lastRecord[$Slot] = @{ TsKey = $TsKey; Hash = $Hash; Id = $Id } }
+    if ($null -eq $prev -or [string]::CompareOrdinal($TsKey, $prev.TsKey) -gt 0) {
+        $lastRecord[$Slot] = @{ TsKey = $TsKey; Hash = $Hash; Id = $Id; Kept = $Kept }
+    }
 }
 # An event is CURRENT unless another event supersedes it or a later `retire` withdrew its key: the
 # guard's first two rules, which lint's conflict check also reads.
@@ -348,12 +356,14 @@ foreach ($ev in $existing) {
         if (-not $mine) { continue }
         $merged = $null
         $hash = $null
+        $keptBy = $null
         foreach ($line in ((ConvertTo-Text $ev.body) -split "`n")) {
             # To the end of the line, not to the first space: a file name may hold one.
             if ($line -match '^merged: (.+?)\s*$') { $merged = $Matches[1] }
+            elseif ($line -match '^kept: (.+?)\s*$') { $keptBy = $Matches[1] }
             elseif ($line -match '^text: (\S+)\s*$') { $hash = $Matches[1] }
         }
-        if ($merged -and $hash) { Set-LastRecord "memory/$($k.Split('/')[1])|$merged" ([string]$ev._tsKey) $hash $null }
+        if ($merged -and $hash) { Set-LastRecord "memory/$($k.Split('/')[1])|$merged" ([string]$ev._tsKey) $hash $null $keptBy }
         continue
     }
     if (-not $k.StartsWith('memory/')) { continue }
@@ -516,8 +526,8 @@ function Get-Cut {
 
 # ------------------------------------------------------------------------------------ plan
 $counts = [ordered]@{
-    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; outranked = 0; seat_newer = 0
-    renamed = 0; refused = 0; not_written = 0; no_front_matter = 0; unreadable = 0; home_normalised = 0
+    seen = 0; imported = 0; superseded = 0; unchanged = 0; merged = 0; outranked = 0; seat_held = 0
+    over_seat = 0; renamed = 0; refused = 0; not_written = 0; no_front_matter = 0; unreadable = 0; home_normalised = 0
     future_date_capped = 0; summary_truncated = 0; body_truncated = 0; type_defaulted = 0
 }
 $refusedNotes = [System.Collections.Generic.List[object]]::new()
@@ -608,6 +618,8 @@ foreach ($n in $notes) {
 
 # Import events this run's winners supersede.
 $replacedNow = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+# "<key>|<evidence>" of each of those events, so a merge record naming one as kept is known stale.
+$replacedKept = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $groups = [ordered]@{}
 foreach ($n in $notes) {
     if (-not $groups.Contains($n.Key)) { $groups[$n.Key] = [System.Collections.Generic.List[object]]::new() }
@@ -634,9 +646,10 @@ foreach ($k in $groups.Keys) {
     foreach ($e in $entries) {
         if ($e.Current -and ($null -eq $live -or [string]::CompareOrdinal($e.TsKey, $live.TsKey) -gt 0)) { $live = $e }
     }
-    # What the key keeps, which every other note's record names: evidence, store, day and text. The
-    # winner by default. The import's current event when that is what the key still holds. $null
-    # when a seat's event holds it, so nothing is merged into anything.
+    # What every other note's record names as kept: evidence, store, day and text. The import's
+    # current event when the key holds one. The winner when the key holds nothing, as after a retire:
+    # the record then names the note that outranked this one, not a live event. $null while a
+    # seat's event holds the key, so nothing is merged into anything.
     $kept = $win.Evidence; $keptLabel = $win.Label; $keptDay = $win.DayText; $keptHash = $win.Hash
     if ($null -ne $live) {
         if ($live.Mine) {
@@ -648,20 +661,30 @@ foreach ($k in $groups.Keys) {
     $keptPlanned = $null
     $written = $false
     $last = $lastRecord["$k|$($win.Evidence)"]
-    if ($null -eq $last -or $last.Hash -cne $win.Hash -or $displaced.Contains($k)) {
-        # A different text from the import's own event, or no current event: the winner replaces it.
-        # The same text: nothing to write, and the winner is merged into it below. A seat's event:
-        # the later day holds the key, and the seat keeps it on a tie.
-        $write = $null -eq $live -or ($live.Mine -and $live.Hash -cne $win.Hash) -or
-            (-not $live.Mine -and $win.Day -gt (Get-WikiEffectiveDate $live.Item).Date)
+    # A rename into this key is looked at too: the note's old record here may be one an earlier
+    # rename already replaced, and trusting it would leave the note on neither key.
+    if ($null -eq $last -or $last.Hash -cne $win.Hash -or $displaced.Contains($k) -or $moved.Count -gt 0) {
+        # No current event: the winner is written. The winner's own earlier event with other text:
+        # replaced, as an edit. Any other event holds the key unless the winner's day is later, and
+        # keeps it on a tie; the winner is then recorded against it below. That holds when the
+        # holder's note is in no store named this run, which the group alone cannot see.
+        $write = $null -eq $live -or
+            ($live.Mine -and $live.Evidence -ceq $win.Evidence -and $live.Hash -cne $win.Hash) -or
+            ($live.Hash -cne $win.Hash -and $win.Day -gt (Get-WikiEffectiveDate $live.Item).Date)
         if ($write) {
             $replaced = @($entries | Where-Object { $_.Current -and $_.Mine } | ForEach-Object { $_.Id })
-            foreach ($x in $replaced) { [void]$replacedNow.Add($x) }
+            foreach ($x in @($entries | Where-Object { $_.Current -and $_.Mine })) {
+                [void]$replacedNow.Add($x.Id)
+                [void]$replacedKept.Add("$k|$($x.Evidence)")
+            }
             $sup = @($replaced + @($moved | ForEach-Object { $_.Prior.Id }))
             if ($sup.Count -gt 0) { $win.Item.supersedes = $sup }
             $keptPlanned = $noteItems.Count
             $noteItems.Add($win.Item)
-            $noteMeta.Add([pscustomobject]@{ Where = $win.Where; Action = $(if ($sup.Count -gt 0) { 'superseded' } else { 'imported' }) })
+            $noteMeta.Add([pscustomobject]@{
+                    Where = $win.Where; Action = $(if ($sup.Count -gt 0) { 'superseded' } else { 'imported' })
+                    OverSeat = $null -ne $live -and -not $live.Mine
+                })
             $written = $true
             $kept = $win.Evidence; $keptLabel = $win.Label; $keptDay = $win.DayText; $keptHash = $win.Hash
         }
@@ -682,12 +705,14 @@ foreach ($k in $groups.Keys) {
 
     foreach ($n in $group) {
         if ($written -and $n -eq $win) { continue }
-        if ($null -eq $kept) { $counts.seat_newer++; continue }
-        if ($n.Evidence -ceq $kept) { $counts.unchanged++; continue }
-        # Recorded already, unless the record is the note's own event that this run's winner replaces:
-        # then the key no longer holds its text, and the record says why.
+        if ($null -eq $kept) { $counts.seat_held++; continue }
+        if ($n.Evidence -ceq $kept -and $n.Hash -ceq $keptHash) { $counts.unchanged++; continue }
+        # Recorded already, unless the record is the note's own event, or a merge into an event,
+        # that this run's winner replaces: the key no longer holds that text, and a new record says so.
         $last = $lastRecord["$k|$($n.Evidence)"]
-        if ($null -ne $last -and $last.Hash -ceq $n.Hash -and -not ($last.Id -and $replacedNow.Contains($last.Id))) {
+        if ($null -ne $last -and $last.Hash -ceq $n.Hash -and
+            -not ($last.Id -and $replacedNow.Contains($last.Id)) -and
+            -not ($last.Kept -and $replacedKept.Contains("$k|$($last.Kept)"))) {
             $counts.unchanged++; continue
         }
         $body = "kept: $kept`nmerged: $($n.Evidence)`ntext: $($n.Hash)"
@@ -695,8 +720,11 @@ foreach ($k in $groups.Keys) {
             $summary = "Merged memory note '$($n.Slug)' from $($n.Label) into $keptLabel`: same name, same text"
             $kind = 'merged'
         } else {
-            $summary = "Memory note '$($n.Slug)' from $($n.Label) is outranked by $keptLabel, dated $keptDay`: same name, different text"
-            $body += "`noutranked: $keptLabel $keptDay"
+            # The note behind the kept event, edited since: the winner is what outranked it.
+            $byLabel = if ($n.Evidence -ceq $kept) { $win.Label } else { $keptLabel }
+            $byDay = if ($n.Evidence -ceq $kept) { $win.DayText } else { $keptDay }
+            $summary = "Memory note '$($n.Slug)' from $($n.Label) is outranked by $byLabel, dated $byDay`: same name, different text"
+            $body += "`noutranked: $byLabel $byDay"
             $kind = 'outranked'
         }
         if ($summary.Length -gt $SummaryMax) { $summary = (Get-Cut $summary ($SummaryMax - 3)).TrimEnd() + '...' }
@@ -787,6 +815,7 @@ for ($i = 0; $i -lt $noteResults.Count; $i++) {
         continue
     }
     $counts[$meta.Action]++
+    if ($meta.OverSeat) { $counts.over_seat++ }
 }
 
 # A record pointing at a note this run failed to write would point at nothing, so it is not written.
