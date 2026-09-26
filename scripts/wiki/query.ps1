@@ -226,6 +226,9 @@ if ($History) {
 # ------------------------------------------------------------------------------------ label
 $today = (Get-WikiClock).Date
 function Get-ResultLabel {
+    # Age counts from `noted` when the event has one (FR-014): the day the fact was observed, such as
+    # an imported note's file date. `Get-WikiEffectiveDate` decides it for lint too, and the printed
+    # date is that day, marked `(noted)`.
     param($Item)
     if ([string]$Item._status -ceq 'historical') { return 'historical' }
     $sa = $Item.stale_after
@@ -235,7 +238,7 @@ function Get-ResultLabel {
         if ($today -gt $saDate) { return 'stale' }
     }
     if ([string]$Item._source -ceq 'inbox') { return 'inbox' }
-    $days = [math]::Floor(($today - $Item._utc.Date).TotalDays)
+    $days = [math]::Floor(($today - (Get-WikiEffectiveDate $Item).Date).TotalDays)
     if ($days -lt 14) { return 'fresh' }
     if ($days -le 45) { return 'aging' }
     return 'stale'
@@ -247,10 +250,13 @@ $ordered = @(Sort-WikiHit $results | Select-Object -First $Limit)
 if ($Json) {
     $rows = @(foreach ($r in $ordered) {
             $e = $r.Event
+            $eff = Get-WikiEffectiveDate $e
+            $day = $eff.Date.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
             [ordered]@{
                 id          = [string]$e.id
                 ts          = Format-WikiStamp -Utc $e._utc
-                date        = $e._utc.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+                date        = $day
+                noted       = $(if ($eff.Noted) { $day } else { $null })
                 label       = Get-ResultLabel $e
                 type        = [string]$e.type
                 key         = [string]$e.key
@@ -284,7 +290,9 @@ if ($ordered.Count -eq 0) {
 
 foreach ($r in $ordered) {
     $e = $r.Event
-    $date = $e._utc.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+    $eff = Get-WikiEffectiveDate $e
+    $date = $eff.Date.ToString('yyyy-MM-dd', [cultureinfo]::InvariantCulture)
+    if ($eff.Noted) { $date += ' (noted)' }
     Write-Output "$($e.id)  $date  $($e.seat)  [$(Get-ResultLabel $e)]  $($e.type)  $($e.key)"
     Write-Output "  $($e.summary)"
     Write-Output "  evidence: $($e.evidence)"

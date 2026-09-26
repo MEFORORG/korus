@@ -11,7 +11,8 @@
                              the other. The guard shows only the newest; lint names all of them.
         dead-evidence        a commit that resolves in none of -EvidenceRepo, a ref:path whose path
                              is not at that ref, or (with -Online) a pull request closed unmerged
-        stale                past its stale_after date, or a gotcha or lesson 46 days old or more
+        stale                past its stale_after date, or a gotcha or lesson 46 days old or more,
+                             counted from `noted` when the event has one
         orphan-page          a page that wiki/index.md does not link and no other page links
         promotion-candidate  a key written by two or more distinct seats, or for memory/* keys the
                              same summary text: a lesson learned twice. Two memory: stores count
@@ -454,8 +455,11 @@ foreach ($e in $candidates) {
     }
     $type = [string]$e.type
     if ($type -cin @('gotcha', 'lesson')) {
-        $days = [math]::Floor(($todayDate - $e._utc.Date).TotalDays)
-        if ($days -ge 46) { Add-Finding 'stale' ([string]$e.id) @([string]$e.id) "a $type $days days old; 46 or more is stale" }
+        # Aged from `noted` when the event has one, as the query's label is (spec FR-014).
+        $eff = Get-WikiEffectiveDate $e
+        $days = [math]::Floor(($todayDate - $eff.Date).TotalDays)
+        $since = if ($eff.Noted) { ' since it was noted' } else { '' }
+        if ($days -ge 46) { Add-Finding 'stale' ([string]$e.id) @([string]$e.id) "a $type $days days old$since; 46 or more is stale" }
     }
 }
 

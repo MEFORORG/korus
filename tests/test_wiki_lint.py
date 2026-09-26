@@ -389,6 +389,16 @@ class Staleness(_LintCase):
         self.assertEqual([f"stale:{old['id']}"], [f["id"] for f in found])
 
 
+class StalenessCountsFromNoted(_LintCase):
+    def test_a_recent_lesson_noted_long_ago_is_stale_and_one_noted_recently_is_not(self):
+        today = w.days_ago(0).strftime("%Y-%m-%d")
+        old = self.log(2, key="s/noted-old", type="lesson", noted=w.days_ago(46).strftime("%Y-%m-%d"))
+        self.log(2, key="s/noted-new", type="lesson", noted=w.days_ago(45).strftime("%Y-%m-%d"))
+        found = self.lint_json("-Today", today)["findings"]
+        self.assertEqual([f"stale:{old['id']}"], [f["id"] for f in found])
+        self.assertIn("since it was noted", found[0]["reason"])
+
+
 class Pages(_LintCase):
     def test_a_wikilink_from_another_page_counts_and_a_self_link_does_not(self):
         self.page("a.md", "# a\n\n[[b]]\n")
