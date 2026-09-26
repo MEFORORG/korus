@@ -953,5 +953,132 @@ class TheNewestNoteWinsAcrossRuns(_ImportCase):
         self.assertEqual(2, rep2["counts"]["unchanged"])
 
 
+class WhatCountsAsADate(_ImportCase):
+    def test_a_seat_event_on_a_memory_key_ranks_by_the_day_it_was_written(self):
+        """Only this script's own undated events count as older than every note. An Owner's ruling
+        on a memory key is dated by its write, so a two-year-old note cannot withdraw it."""
+        a = self.store("acct-a")
+        ruling = w.plant(w.inbox_dir(self.state), type="decision", key="memory/billing", seat="manager",
+                         summary="billing is owned by finance", evidence="owner ruling 2026-09-20")
+        self.note(a, "n.md", "billing", "billing is owned by nobody", modified="2024-01-01")
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((0, 1, 0), (rep["counts"]["imported"], rep["counts"]["held"], rep["counts"]["older_superseded"]))
+        self.assertEqual([ruling["id"]], [h["id"] for h in self.live_on("memory/billing", "billing owned")])
+
+    def test_an_unchanged_note_dates_its_own_undated_import(self):
+        """An event imported before notes carried a date is dated by its note, when that note is in
+        the run and unchanged, so an old note from another store does not outrank it."""
+        a, b = self.store("acct-a"), self.store("acct-b")
+        legacy = w.plant(w.inbox_dir(self.state), type="lesson", key="memory/billing", seat="import",
+                         summary="billing was fixed", body="The body.", evidence="memory:acct-a/proj/n.md")
+        self.note(a, "n.md", "billing", "billing was fixed", modified="2026-09-20")
+        self.note(b, "n.md", "billing", "billing is still broken", modified="2025-01-01")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 1, 0), (rep["counts"]["unchanged"], rep["counts"]["held"], rep["counts"]["older_superseded"]))
+        self.assertEqual([legacy["id"]], [h["id"] for h in self.live_on("memory/billing", "billing")])
+        # The CONTROL is TheNewestNoteWinsAcrossRuns.test_an_event_imported_without_a_date_counts_as_older:
+        # with the event's own store left out of the run, the same shape of event is replaced.
+
+    def test_a_long_note_imported_before_the_date_line_is_unchanged(self):
+        """The date line takes room from the body, so a long note is now cut sooner. Its old cut
+        still counts as the same text, or every long note would be imported again once."""
+        a = self.store("acct")
+        marker = "\n\n[truncated at import; the full note is the evidence file]"
+        body = "x" * 25000
+        w.plant(w.inbox_dir(self.state), type="lesson", key="memory/huge", seat="import", summary="huge body",
+                body=body[:20000 - len(marker)] + marker, evidence="memory:acct/proj/huge.md")
+        self.note(a, "huge.md", "huge", "huge body", body)
+        r, rep = self.run_import(a)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 0), (rep["counts"]["unchanged"], rep["counts"]["superseded"]))
+        # CONTROL: an edit of the same note is still seen.
+        self.note(a, "huge.md", "huge", "huge body", "y" * 25000)
+        _, rep2 = self.run_import(a)
+        self.assertEqual(1, rep2["counts"]["superseded"])
+
+
+class AHoldFollowsTheNote(_ImportCase):
+    def test_a_held_note_touched_to_a_newer_date_is_looked_at_again(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(b, "n.md", "billing", "billing was fixed", modified="2026-09-01")
+        pa = self.note(a, "n.md", "billing", "billing is still broken", modified="2026-07-01")
+        self.run_import(a, b)
+        [kept] = self.on_key("memory/billing")
+        set_modified(pa, "2026-09-10")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 1), (rep["counts"]["imported"], rep["counts"]["older_superseded"]))
+        [new] = [e for e in self.on_key("memory/billing") if e["id"] != kept["id"]]
+        self.assertEqual("memory:acct-a/proj/n.md", new["evidence"])
+
+    def test_a_second_hold_of_one_note_replaces_the_first(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(b, "n.md", "billing", "billing was fixed", modified="2026-09-01")
+        pa = self.note(a, "n.md", "billing", "billing is still broken", modified="2026-07-01")
+        self.run_import(a, b)
+        [first] = self.under("memory-held/billing/")
+        pa.write_text(note_text("billing", "billing is still broken today", "The body."), encoding="utf-8")
+        set_modified(pa, "2026-08-01")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, rep["counts"]["held"])
+        [second] = [e for e in self.under("memory-held/billing/") if e["id"] != first["id"]]
+        self.assertEqual([first["id"]], second["supersedes"])
+        self.assertEqual([], self.conflict_keys())
+        _, rep2 = self.run_import(a, b)
+        self.assertEqual(2, rep2["counts"]["unchanged"])
+
+    def test_a_rename_that_is_held_retires_the_old_name(self):
+        """The file no longer carries the old name, so its import under that name must not stay live."""
+        a, c = self.store("acct-a"), self.store("acct-c")
+        pa = self.note(a, "n.md", "billing", "billing is monthly", modified="2026-09-05")
+        self.note(c, "n.md", "invoicing", "invoicing is weekly", modified="2026-09-15")
+        self.run_import(a, c)
+        [old] = self.on_key("memory/billing")
+        pa.write_text(note_text("invoicing", "invoicing is monthly", "The body."), encoding="utf-8")
+        set_modified(pa, "2026-09-12")
+        r, rep = self.run_import(a, c)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual(1, rep["counts"]["held"])
+        [held] = self.under("memory-held/invoicing/")
+        self.assertEqual([old["id"]], held["supersedes"])
+        self.assertEqual([], self.live_on("memory/billing", "billing monthly"))
+        self.assertEqual(["memory:acct-c/proj/n.md"], [h["evidence"] for h in self.live_on("memory/invoicing", "invoicing")])
+        _, rep2 = self.run_import(a, c)
+        self.assertEqual(2, rep2["counts"]["unchanged"])
+
+
+class ANoteThatNeverLandsOutranksNothing(_ImportCase):
+    def test_an_older_note_is_written_when_the_newer_one_is_refused(self):
+        a, b = self.store("acct-a"), self.store("acct-b")
+        self.note(b, "n.md", "billing", "billing was fixed", f"token {forge_token()} here", modified="2026-09-10")
+        self.note(a, "n.md", "billing", "billing is still broken", modified="2026-09-01")
+        r, rep = self.run_import(a, b)
+        self.assertEqual(1, r.returncode, r.stderr)
+        self.assertEqual((1, 1, 0), (rep["counts"]["imported"], rep["counts"]["refused"], rep["counts"]["held"]))
+        self.assertEqual(["memory:acct-a/proj/n.md"], [e["evidence"] for e in self.on_key("memory/billing")])
+
+    def test_a_copy_of_a_text_this_run_outranks_is_held_not_merged(self):
+        a, b, c = self.store("acct-a"), self.store("acct-b"), self.store("acct-c")
+        self.note(a, "n.md", "billing", "billing is monthly", modified="2026-09-01")
+        self.run_import(a)
+        [old] = self.on_key("memory/billing")
+        self.note(c, "n.md", "billing", "billing is monthly", modified="2026-09-03")
+        self.note(b, "n.md", "billing", "billing is weekly", modified="2026-09-05")
+        r, rep = self.run_import(a, b, c)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual((1, 0, 1, 1), (rep["counts"]["imported"], rep["counts"]["merged"], rep["counts"]["held"],
+                                        rep["counts"]["older_superseded"]))
+        self.assertEqual([], self.under("memory-merge/billing/"))
+        [held] = self.under("memory-held/billing/")
+        self.assertEqual("memory:acct-c/proj/n.md", held["evidence"])
+        [new] = [e for e in self.on_key("memory/billing") if e["id"] != old["id"]]
+        self.assertEqual([old["id"]], new["supersedes"])
+        _, rep2 = self.run_import(a, b, c)
+        self.assertEqual(3, rep2["counts"]["unchanged"])
+
+
 if __name__ == "__main__":
     unittest.main()

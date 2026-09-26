@@ -455,7 +455,7 @@ foreach ($e in $candidates) {
     $type = [string]$e.type
     if ($type -cin @('gotcha', 'lesson')) {
         $days = [math]::Floor(($todayDate - $e._utc.Date).TotalDays)
-        if ($days -ge 46) { Add-Finding 'stale' ([string]$e.id) @([string]$e.id) "a $type $days days old; 46 or more is stale" }
+        if ($days -gt $script:WikiStaleDays) { Add-Finding 'stale' ([string]$e.id) @([string]$e.id) "a $type $days days old; $($script:WikiStaleDays + 1) or more is stale" }
     }
 }
 

@@ -60,6 +60,11 @@ $script:WikiBodyControl = '[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'
 
 $script:WikiLimits = @{ key = 200; summary = 400; evidence = 500; body = 20000; path = 400 }
 
+# The last age, in whole days, at which an event is not yet stale by age: 46 days old is stale.
+# query.ps1 and lint.ps1 read it, and import.ps1 sets an imported note's stale_after from it, so all
+# three turn an event stale on the same day.
+$script:WikiStaleDays = 45
+
 # FR-005: evidence names a commit, a pull request, a file path at a ref, a memory note, or an Owner
 # ruling with its date. Deliberately loose -- it refuses "trust me", not an unusual spelling of a real citation. A
 # path needs `/` or `.` so a clock time (`14:05`) is not a ref:path. A sha may be all digits --

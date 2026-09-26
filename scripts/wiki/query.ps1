@@ -237,7 +237,7 @@ function Get-ResultLabel {
     if ([string]$Item._source -ceq 'inbox') { return 'inbox' }
     $days = [math]::Floor(($today - $Item._utc.Date).TotalDays)
     if ($days -lt 14) { return 'fresh' }
-    if ($days -le 45) { return 'aging' }
+    if ($days -le $script:WikiStaleDays) { return 'aging' }
     return 'stale'
 }
 
