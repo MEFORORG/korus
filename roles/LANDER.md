@@ -1640,6 +1640,13 @@ and to do, and a separate blocker table.
 which is the point: the cadence must not drift with how busy the queue is. A status render every turn
 is noise, and the owner asked for the fourth deliberately.
 
+**ALL TIMES ARE US CENTRAL, INCLUDING THE DAY BOUNDARY.** Owner-set. Displaying Central while
+filtering "today" by UTC prints rows a reader can see are dated yesterday. Measured on the day it was
+set: FIVE of TWENTY-ONE rows.
+
+`zoneinfo` has no tzdata on this box, so convert by hand, with known-answer controls that run on
+import, including both DST transition instants.
+
 ### Table 1 -- the work
 
 | Item | Ref | State | Evidence |
@@ -1662,6 +1669,7 @@ is noise, and the owner asked for the fourth deliberately.
 | --- | --- |
 | Keep it separate, not a fourth state | A blocker is work that cannot advance no matter how much time this seat spends. Merging the tables lets a blocked item read as merely pending. |
 | `Needs` names the PARTY, not the condition | "Owner decision", "the author", "a plain terminal". Not "a decision". |
+| Say WHO PLACED each hold | An owner ruling and your own caution are different obligations. If you are holding against a ruling the owner already made, lead with that and say why. |
 | Where the reason lives | *The role file holds only what never expires* states it, and this table exists to satisfy it. Do not restate it here. |
 | What is NOT a blocker | Work you have not reached yet is TO DO. A hard task is not a blocked one. |
 | The test | Whether it stops the ASSIGNED work. An unrelated annoyance is not a blocker. |
@@ -1669,112 +1677,25 @@ is noise, and the owner asked for the fourth deliberately.
 | If the session was compacted, say so in one line above the tables | Detail before that point comes from the handoff rather than recall, and the reader cannot tell that from the rows. |
 | A COMPLETED row that was wrong first and fixed after is still COMPLETED -- say which | The session that produced this convention put two such rows in its own first table. Reporting only the clean path is how a seat's error rate becomes invisible to the person who most needs it. |
 
-### 18a. Build the landing queue board, and give the owner its link EVERY SECOND CYCLE
+### The landing queue board is retired, and the owner reads the Watchdog's Lander Board instead
 
-**Owner-set 2026-08-26.** A published page the owner opens, not a table they scroll back for. The relay
-under *Every time you generate the board* hangs off this.
+**Owner ruling 2026-09-26, to a Lander seat in chat:** *"that's outdated... update to remove that.
+The watcher does the board now"*. The owner means the Watchdog's Lander Board: [WATCHDOG.md](WATCHDOG.md),
+*YOUR FIRST STANDING DUTY*. It is a different page and did not inherit this board's sections.
 
-**The link goes to the owner at the end of every second cycle.** A cycle is one of your turns, the
-unit section 18 counts. **A missing link is a missed duty, not a quiet turn.**
+So this seat no longer builds or republishes a board, or sends the Manager the stopped list that
+fired on generating it. Sections 18a, 18a-BUILD, 18a-BLOCKED, 18b and 18c went with it. A citation
+of any is stale, and none of those ids may be reused.
 
-**The board itself is the durable second copy.** It sits at the artifact URL recorded under *HOW to
-build and republish it*, so a send that fails silently still leaves a page the owner can open. The
-owner set this cadence and had to ask for it twice, because it lived in conversation and not here.
+Read the retired text with
+`git -C <korus clone> show 239c4d88641553887487360e6b654485e27e71db:roles/LANDER.md`.
 
-**FIVE sections. Owner-ruled 2026-08-29: the board is authoritative and this list matches it.** The
-list said FOUR and named a different set until then. The two overlapped without either containing the
-other, so it was not drift one edit could reconcile.
+A question review cannot settle still goes to the owner every turn, through *Never use
+AskUserQuestion. Put the decision in a table and nag*. Blockers still go in *Table 2 -- the
+blockers, separate on purpose*.
 
-| Section | Answers |
-|---|---|
-| Landed | What actually reached `main`, split yours from work you carried for others |
-| In CI | What is running now |
-| **Blocked, with a named owner** | What needs a decision, **WHO placed the hold**, and what each one blocks |
-| Handed to me, not yet landed | Work routed to this seat and still in your hands |
-| Instrument corrections | Measurements retracted or repaired, so a reader is not acting on a number that moved |
-
-| Item | Rule |
-| --- | --- |
-| `WHO PLACED THE HOLD` is the load-bearing column | An owner ruling and a Lander's own caution are different obligations. Flattening them invites the owner to re-decide something they already settled while missing the one item that is actually theirs. |
-| The "Stranded" section is RETIRED | The owner took that cost explicitly on 2026-08-29, and with it the duty to report lanes open more than three days with an action against each. |
-| It was deliberate | A SIXTH-section option was offered and NOT taken. Retired deliberately, not dropped silently. Do not re-add it. |
-| The rule it carried, which now binds nothing | Say what you are DOING, not what the item is; where the answer is "nothing yet", write that. |
-| You compute `bucket`, `blocks_merge` and `failing_required` yourself | The Dispatcher seat is retired and no JSON fence survives it. |
-| Measured 2026-09-02 | The needles `blocks_merge` and `failing_required` each return exactly ONE hit in this tree, the line you are reading. Control, same command: `bucket` returns many files. |
-| Define each field once and reuse it | A second definition of the `bucket` column produced "5 parked" against the board's 3 on the first attempt, which is the whole reason that field existed. |
-| Say you derived it | Where the fence is gone, say you derived the column yourself. |
-| ALL TIMES ARE US CENTRAL, INCLUDING THE DAY BOUNDARY | Owner-set. Displaying Central while filtering "today" by UTC prints rows a reader can see are dated yesterday. Measured on the day it was set: FIVE of TWENTY-ONE rows. |
-| How the rule is implemented | `zoneinfo` has no tzdata on this box, so it is hand-rolled and carries known-answer controls that RUN ON IMPORT, including both DST transition instants. |
-| Stamp TWO timestamps, never one | When you read the PR data, and when the board was last REPUBLISHED to its artifact URL. |
-| Why | `docs/boards/README.md` records that the local source can be freshly regenerated while the published page has not been republished for hours. |
-| The defect that fuses them | They are different readings, and one label over both is the mixed-vintage defect this project keeps finding elsewhere. |
-| **EXPIRY** | The owner stops asking for it, or a fleet-wide board replaces it. |
-
-### 18a-BUILD. HOW to build and republish it -- 18a says WHAT it contains and never HOW
-
-**Every line here cost a lander something to find out, and none of it is recoverable from the section
-above.**
-
-| Item | Rule |
-| --- | --- |
-| Source | `docs/boards/landing-queue-status-board.html` **IN THE VAULT**, with `docs/boards/README.md` beside it. The path matters because the section above names none, so a successor authors a NEW file and orphans the existing one. |
-| **The published URL, and it is load-bearing** | The URL is private and is NOT recorded in this public file. It is in the vault beside the board's source, and the owner has it saved. |
-| How to get it | Ask the owner or read it from the vault. Do not author a new one, which is the failure this row exists to prevent. |
-| Republish | The Artifact tool, **SAME file path AND the `url` parameter.** Same path alone suffices within one session; from any other session the `url` is REQUIRED. |
-| **What omitting the `url` does** | It silently forks the board to a new address and leaves the owner's saved link on a stale page. **NOTHING ERRORS.** |
-| Where that was written until now | Only in `docs/boards/README.md`, a file a successor has no reason to open. Verified: that README names the URL three times and this playbook named it zero. |
-| A column-count control before every publish | Header cells == body cells for EVERY row, asserted and not eyeballed. |
-| What it caught on its first use | A new column left one row at 4 cells against a 5-cell header, and that row lost its Class pill. That is worse than a crash: **a table rendering with a shifted row looks like DATA rather than a mistake.** |
-| The page must be THEME-AWARE | It renders in the VIEWER's theme, three states, and a body with no explicit background borrows the host's. |
-| How | Define the light palette on bare `:root`, then redefine under **both** a `prefers-color-scheme` guard **and** a `[data-theme]` selector. Getting this wrong is invisible to the author and broken for the reader. |
-| Nothing checks that the source and the published page agree | Re-publishing is the only thing that reconciles them, and the README says so rather than implying a check exists. |
-
-### 18a-BLOCKED. The "Being fixed?" column. Owner-set 2026-08-29
-
-The blocked table already said WHO OWNS each blocker and never whether anyone is ACTUALLY WORKING IT.
-So a row with an owner, a row whose owner deliberately deferred, a row waiting on another PR, and a row
-nobody holds at all **all rendered identically**.
-
-| Item | Rule |
-| --- | --- |
-| Use this vocabulary, not free text | `needs owner` / `yes, by #N` / `yes, in repair` / `deferred by author` / `not started` / `no owner` / `no`. |
-| `no` and `no owner` are deliberately different | One means nothing needs doing. The other means something does and NOBODY HOLDS IT. |
-| What it bought | It immediately exposed that THREE OF EIGHT blocked rows had nobody working them. |
-| Why that is the point | All three were true before and the board did not say so. **A column that changes the reading of rows already on the page is doing the job the page exists for.** |
-
-### 18b. Every time you generate the board, send the "stopped, waiting on a person" list to the Manager
-
-**Owner-set 2026-08-26, and the reason is theirs verbatim: communications fail sometimes and items get
-stuck. This exists to be sure those items are placed before them.** The Manager is the only seat the
-owner talks to, so it carries this list. The Console held that route until 2026-09-10.
-
-| Item | Rule |
-| --- | --- |
-| It is a REDUNDANT path on purpose | The board already shows the stopped list and the owner can read it. This is a second carrier for the same facts. |
-| What it guards against | Not "the owner disagreed". It is "nobody ever put it in front of them", which leaves no trace anywhere. |
-| Send it on the BOARD's cadence, not the queue's | Tie it to generating the board so it cannot drift with how busy landing is. |
-| A MISSING send is itself a signal | Tell the Manager that, so an absence reads as a problem rather than as nothing to report. |
-| Every item carries WHO placed the hold | 18a's row *`WHO PLACED THE HOLD` is the load-bearing column* has the reason. The column renders the authority split under *Authority model*. |
-| Say what CHANGED since the last send, per item | A list byte-identical four times running teaches the reader to skim it. If nothing changed, say that in three words rather than re-describing it. |
-| If you are holding against a ruling the owner already made, LEAD WITH THAT and say why | The worst version of this list silently omits a ruled item because you have not executed the ruling yet. State the ruling, the fact that arrived after it, and say plainly that one word releases it. |
-| An item needing a DECISION belongs on this list even when no PR is stopped | The first send omitted a four-day-old item whose only blocker was an owner ruling, because it lived in a PR comment rather than in a queue. |
-| The rule | **Writing "needs a ruling" somewhere is not the same as asking for one.** |
-
-### 18c. A terser companion board is SPECCED, not yet built
-
-`docs/boards/LANDER-STATUS-BOARD-SPEC.md`, in the **vault** repository, specs a second board: six
-KPI cards plus one merges-per-hour chart, values only, no prose. It complements 18a. 18a answers
-what is blocked and why; this one answers how the shift is going now, in numbers a script can fill.
-
-**Nothing in it is built.** No generator, no `docs/boards/boards.json` entry, no artifact URL
-recorded anywhere durable. Whoever builds it must register the published URL in `boards.json` and
-describe it in `docs/boards/README.md` before treating any link to it as stable -- an artifact URL
-is account-scoped, and this project has already lost one to a silent account switch.
-
-**Why this section exists here and not only in the vault.** It was first written into the vault's
-copy of this file, which opens with a banner calling itself stale and sending the reader here. A
-Lander following that would have read 18a and 18b and never learned 18c existed. The spec belongs in
-the vault; the pointer to it belongs in the copy seats are told to read.
+**EXPIRY:** the owner hands a board back to this seat. Check it by reading WATCHDOG.md at korus
+`origin/main`: while it names the board as the Watchdog's duty, this retirement holds.
 
 ## Task rules live in skills, loaded at their trigger
 
