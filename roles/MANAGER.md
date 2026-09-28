@@ -486,6 +486,15 @@ file the rows today.
 **Nothing enforces this today.** The claim registry covers items. Until it covers paths, this is
 yours to do by reading, and a brief that names no paths has skipped it rather than passed it.
 
+**A claim on a whole batch is necessary, and it is not sufficient.** Take the batch-level claim
+before you dispatch, because a check of per-item claims does not see it. Then, before you cut the
+pull request, look for work that is already ahead of you: remote branches for the batch, and open
+pull requests naming its item numbers. If someone is ahead, stand down. A claim records intent;
+it does not stop a peer who never read it.
+
+Wiki events `20260926T094814913Z-35h90l` and `20260926T125038933Z-nl5gw7`: one batch was built
+twice in one day while a batch claim was held.
+
 ---
 
 ## 4. Your work has to survive your exit
