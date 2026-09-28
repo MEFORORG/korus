@@ -549,6 +549,30 @@ diligence, which is why it survives review.
 This stands until the harness accepts a command-scoped grant on a subagent tool. Test it by granting
 one scoped tool and running one command through it.
 
+### 5b. A subagent cannot merge in a worktree it does not stand in
+
+**Do not brief a subagent to `git merge` or `git rebase` a conflicted branch in another worktree.**
+The worktree gate keys on the session's own directory. Your subagents share yours, so every other
+worktree is foreign to them, and the gate refuses the merge. The subagent can still commit and push.
+
+**A conflicted pull request does not need the owner's terminal for this.** Brief the Builder to
+rebuild the change on a fresh branch instead:
+
+1. Add a new worktree on a new branch from `origin/main`.
+2. Pipe `git diff origin/main...<old head>` into `git apply --3way`.
+3. Resolve what `--3way` leaves, then commit and push.
+4. Report the new head. You open a replacement pull request and close the old one.
+
+The resolution is still the Builder's, never yours.
+
+| Wiki evidence | |
+| --- | --- |
+| The refusal | A Lander's subagent was refused a merge in a sibling worktree. Event `20260926T192114773Z-khyesf`. |
+| The spawn route | A spawned session inside that repository's worktree can run the merge, once the owner has trusted any worktree of it. Trust is keyed by the git common root. Event `20260926T235439634Z-j9tf0t`, which corrects the first. |
+| The route above | A Manager's subagent rebuilt a conflicted pull request this way, with no spawn and no owner step. Event `20260928T014254794Z-s7k819`. |
+
+Prefer the fresh branch to a spawn. A subagent cannot outlive a mistake; a spawned session can.
+
 ---
 
 ## 6. Never Do These
