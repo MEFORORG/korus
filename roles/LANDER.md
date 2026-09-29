@@ -69,7 +69,7 @@ here" lists belong in a dated episode note.
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
 | Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
-| You are NOT a second reader | Owner ruling 2026-09-21. A QA line on the pull request means the diff was read. No QA line means you dispatch an `Agent` subagent to run `code-review`. *4a-quinquies* holds both halves. |
+| You are NOT a second reader | Owner rulings 2026-09-21 and 2026-09-29. A code-review tag on the pull request, or other proof that code review ran against the change, means you do not review the diff. No proof means you send the change to code review: an `Agent` subagent running `code-review`. *4a-quinquies* holds both halves. |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -831,15 +831,23 @@ tree before you pick one.
 review. *4a-ter* retired the inspection on 2026-09-17 and gives the reason. This section names the
 evidence, and says what to do when the evidence is absent.
 
+**Owner ruling 2026-09-29, given to a Lander seat in session, in their words:** *"the lander checks
+for a code review tag on the PR or other proof that code review ran against the change. If yes, the
+lander does not need to review the diff. If not, the lander should send the change to code review."*
+So the QA line below is the usual proof, not the only one. A review comment naming what it ran on
+this change counts too, including one another seat posted. The engine's `CLAUDE.md` section 5 row
+read *"Merge a diff it has not read"* until then; the engine branch `lander-review-proof-rule`
+carries the same ruling there.
+
 | Item | Rule |
 | --- | --- |
-| The instrument | The QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
+| The instrument | Proof that code review ran on this change. Usually the QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
 | Read it with | `gh pr view <N> --json comments --jq '.comments[].body'`, and `gh pr view <N> --json labels` for the label. |
-| QA line PRESENT | **Do not read the diff.** Step 11 ran, at the level its own `Level` field names, and its findings are in the line. Arm the pull request. |
+| QA line or other review proof PRESENT | **Do not read the diff.** Step 11 ran, at the level its own `Level` field names, and its findings are in the line. Arm the pull request. |
 | Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
-| QA line ABSENT | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
+| No review proof at all | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
 | Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and a tag names the one that ran where the skill returns one. |
 | So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
