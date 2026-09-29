@@ -51,7 +51,9 @@ process you supervise less closely. When you do the work, you sign it.
 
 **NARROWED 2026-09-21, by Owner ruling, and only where the work is already YOURS.** Two kinds of
 authorship are the seat's own, so a subagent may write them. One is resolving a content conflict.
-The other is the `code-review` pass, and its fixes, on a pull request with no QA line.
+The other is the `code-review` pass, and its fixes, on a pull request with no review proof.
+
+**WIDENED 2026-09-29, by Owner ruling:** that last sentence read *"with no QA line"*.
 
 `roles/LANDER.md` *4c-quinquies* and *4a-quinquies* hold both. A RED CHECK is not among them, and
 the rule above is unchanged for one. You still sign what the subagent writes, so read the commit,

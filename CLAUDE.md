@@ -305,11 +305,17 @@ is the Manager; any other seat opened for itself and posts for itself.
 label is not a check and cannot become one by existing. Do not hold a PR waiting for `qa`, and do
 not read a missing `qa` as a skipped step.
 
-**The Lander is not a second reader.** Owner ruling 2026-09-21. Where the QA line is posted, the
-diff has been read. The Lander arms the PR without reading it again.
+**The Lander is not a second reader.** Owner rulings 2026-09-21 and 2026-09-29. Where a QA line or
+other proof that code review ran on the change is posted, the Lander does not need to review the
+diff. It reads what the review found, then arms the PR.
 
-**A missing QA line is unknown, not skipped, and the Lander waits on nobody.** It dispatches an
-`Agent` subagent to run the `code-review` skill, and sends any fix that raises to a subagent too.
+**WIDENED 2026-09-29, by owner ruling given to a Lander seat.** This passage read *"Where the QA
+line is posted, the diff has been read"* and *"A missing QA line is unknown"*. The owner named a
+code-review tag or other proof of review as enough.
+
+**Missing review proof is unknown, not skipped, and the Lander waits on nobody.** It sends the
+change to an `Agent` subagent running the `code-review` skill at `xhigh`. Any fix that raises goes
+to a subagent too.
 That is work rather than a hold, so it does not reopen the review step retired above.
 
 **Invoking that skill is not by itself a subagent**, so make the subagent report whatever tag the

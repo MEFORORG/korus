@@ -69,7 +69,7 @@ here" lists belong in a dated episode note.
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
 | Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
-| You are NOT a second reader | Owner rulings 2026-09-21 and 2026-09-29. A code-review tag on the pull request, or other proof that code review ran against the change, means you do not review the diff. No proof means you send the change to code review: an `Agent` subagent running `code-review`. *4a-quinquies* holds both halves. |
+| You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -299,7 +299,8 @@ restates them; the routing does not.
 | Who decides WHEN -- ADDED 2026-09-23 | **The Manager.** Owner ruling. It cuts one pull request per wave by default. [MANAGER.md](MANAGER.md), *When to cut a pull request*. You own the pull request from the handover on, and you do not choose what goes in one. |
 | The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
-| Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **Nothing reads a diff before the merge, and you do not wait for one.** |
+| Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **You do not wait for a reader.** |
+| That row's last sentence -- CORRECTED 2026-09-29 | It read *"Nothing reads a diff before the merge, and you do not wait for one."* A merge now needs review proof. *4a-quinquies* holds it. |
 | That row's successor -- ADDED 2026-09-16 | **Something replaced it, and it is YOU.** Owner ruling 2026-09-16, `docs/METHOD.md:24`, engine PR 1193. Section 2 carries it. |
 | That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for it there returns zero. Control on *This table governs the roster*: 1 hit, so the grep was live. |
 | Neither you nor the Builder ever started it | Part of the same retired row. A Builder's process has already exited when its PR opens. |
@@ -821,7 +822,10 @@ The capability is enabled and it did not fire. **So an armed PR still needs a ma
 | Measured 2026-08-22 | A seat published a conflict-hunk count from a check that could never have found anything, and corrected it on the PR as well as in the handoff. |
 | Keep a running list | Track the numeric claims you have put in PR bodies, so retiring an instrument hands you a bounded sweep set instead of a memory search. |
 
-### 4a-quinquies. You are NOT a second reader, and the Builder's QA line is what tells you
+### 4a-quinquies. You are NOT a second reader, and proof that code review ran is what tells you
+
+**RETITLED 2026-09-29, same id.** The heading ended *"and the Builder's QA line is what tells you"*.
+The owner ruling below widened the evidence past the QA line.
 
 **RENUMBERED from `4a-quater` on 2026-09-21.** That id already names a section in
 `lander-relay-or-correct-a-claim`. A section id is a repository-wide name, so census the whole
@@ -831,19 +835,25 @@ tree before you pick one.
 review. *4a-ter* retired the inspection on 2026-09-17 and gives the reason. This section names the
 evidence, and says what to do when the evidence is absent.
 
-**Owner ruling 2026-09-29, given to a Lander seat in session, in their words:** *"the lander checks
-for a code review tag on the PR or other proof that code review ran against the change. If yes, the
-lander does not need to review the diff. If not, the lander should send the change to code review."*
+**Owner ruling 2026-09-29, to a Lander seat, verbatim:** *"the lander checks for a code review tag
+on the PR or other proof that code review ran against the change. If yes, the lander does not need
+to review the diff. If not, the lander should send the change to code review."*
+
 So the QA line below is the usual proof, not the only one. A review comment naming what it ran on
-this change counts too, including one another seat posted. The engine's `CLAUDE.md` section 5 row
-read *"Merge a diff it has not read"* until then; the engine branch `lander-review-proof-rule`
-carries the same ruling there.
+this change counts too, including one another seat posted.
+
+Engine `main` still carries the old text until engine PR 1812 merges. That covers the `CLAUDE.md`
+section 5 Lander row, *"Merge a diff it has not read"*, and its merge bullet, *"Reading a diff
+before merging it is still the job"*.
 
 | Item | Rule |
 | --- | --- |
 | The instrument | Proof that code review ran on this change. Usually the QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
-| Read it with | `gh pr view <N> --json comments --jq '.comments[].body'`, and `gh pr view <N> --json labels` for the label. |
-| QA line or other review proof PRESENT | **Do not read the diff.** Step 11 ran, at the level its own `Level` field names, and its findings are in the line. Arm the pull request. |
+| Read it with | `gh pr view <N> --json reviews,comments` for reviews and comments, `--json labels` for the label. Inline comments: `gh api repos/<owner>/<repo>/pulls/<N>/comments`. **WIDENED 2026-09-29:** it read `--json comments` alone, which misses a PR review. |
+| QA line or other review proof PRESENT | **You do not need to review the diff.** Read what the review found, not only that it ran. A QA line names step 11's `Level` and holds its findings. Arm the pull request. |
+| Two rows renamed -- CORRECTED 2026-09-29 | *"QA line PRESENT"* above opened *"Do not read the diff."* *"QA line ABSENT"* is now *No review proof at all*. |
+| The proof must cover the change you merge | A review of an earlier head still counts after a push that only merges `main` in or resolves a conflict without new content. A later commit that changes content needs its own proof. |
+| A single inline pass is weaker proof | When that is all a pull request carries, you may send the change to a `code-review` subagent at `xhigh`. |
 | Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
@@ -856,7 +866,7 @@ carries the same ruling there.
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |
 | Post what you ran, and do not dress it as a QA line | That line cites `BUILDER.md` step 11, a step you did not run. Say in your own words what you ran and what it found. |
-| What none of this licenses | A quality opinion on a diff that already carries a QA line. Article II: post the reading, not a second verdict. |
+| What none of this licenses | A quality opinion on a diff that already carries review proof. Article II: post the reading, not a second verdict. **WIDENED 2026-09-29:** this row read *"already carries a QA line"*. |
 
 ### 4b. UNKNOWN is not NOT-BEHIND
 
@@ -1055,9 +1065,12 @@ queue.** Section 3a carries the two that do not, korus among them.
 
 ### 4i. Before you arm, check what the merge leaves in the RECORD
 
-With `required_approving_review_count: 0`, nobody reads the diff and the PR title is the durable
-record of what shipped. Three arming preconditions follow, all measured 2026-08-22. Each one leaves
-`main` carrying a document or a control that is trusted and wrong if you skip it.
+With `required_approving_review_count: 0`, no GitHub approval gates the merge, and the PR title is
+the durable record of what shipped. Three arming preconditions follow, all measured 2026-08-22.
+Each one leaves `main` carrying a document or a control that is trusted and wrong if you skip it.
+
+**CORRECTED 2026-09-29:** the first sentence read *"nobody reads the diff"*. A merge now needs
+proof that code review ran, which *4a-quinquies* names.
 
 | Item | Rule |
 | --- | --- |
