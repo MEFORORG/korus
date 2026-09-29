@@ -839,21 +839,22 @@ evidence, and says what to do when the evidence is absent.
 on the PR or other proof that code review ran against the change. If yes, the lander does not need
 to review the diff. If not, the lander should send the change to code review."*
 
-So the QA line below is the usual proof, not the only one. A review comment naming what it ran on
-this change counts too, including one another seat posted.
+This widens the 2026-09-21 ruling from the Builder's own review to any proof. So the QA line below
+is the usual proof, not the only one. A review comment naming what it ran on this change counts
+too, including one another seat posted.
 
-Engine `main` still carries the old text until engine PR 1812 merges. That covers the `CLAUDE.md`
-section 5 Lander row, *"Merge a diff it has not read"*, and its merge bullet, *"Reading a diff
-before merging it is still the job"*.
+As of 2026-09-29, engine `main` carried the old text until engine PR 1812, which changes
+`CLAUDE.md` section 5, `docs/METHOD.md` and the Lander card. That covers the section 5 Lander row,
+*"Merge a diff it has not read"*, and its merge bullet, *"Reading a diff before merging it is still
+the job"*.
 
 | Item | Rule |
 | --- | --- |
 | The instrument | Proof that code review ran on this change. Usually the QA line, posted on the pull request under the `qa` label. Its first line reads `QA -- korus roles/BUILDER.md step 11`, and `roles/BUILDER.md` 4e holds the shape. |
-| Read it with | `gh pr view <N> --json reviews,comments` for reviews and comments, `--json labels` for the label. Inline comments: `gh api repos/<owner>/<repo>/pulls/<N>/comments`. **WIDENED 2026-09-29:** it read `--json comments` alone, which misses a PR review. |
+| Read it with | `gh pr view <N> --json reviews,comments` for reviews and comments, `--json labels` for the label. Inline comments: `gh api --paginate repos/<owner>/<repo>/pulls/<N>/comments`. **WIDENED 2026-09-29:** it read `--json comments` alone, which misses a PR review. |
 | QA line or other review proof PRESENT | **You do not need to review the diff.** Read what the review found, not only that it ran. A QA line names step 11's `Level` and holds its findings. Arm the pull request. |
 | Two rows renamed -- CORRECTED 2026-09-29 | *"QA line PRESENT"* above opened *"Do not read the diff."* *"QA line ABSENT"* is now *No review proof at all*. |
-| The proof must cover the change you merge | A review of an earlier head still counts after a push that only merges `main` in or resolves a conflict without new content. A later commit that changes content needs its own proof. |
-| A single inline pass is weaker proof | When that is all a pull request carries, you may send the change to a `code-review` subagent at `xhigh`. |
+| The proof must cover the change you merge | A review of an earlier head still counts after a push that only merges `main` in cleanly. A conflict resolution you wrote yourself needs its own review. So does a later commit that changes content. |
 | Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |

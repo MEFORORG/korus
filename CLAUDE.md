@@ -305,9 +305,10 @@ is the Manager; any other seat opened for itself and posts for itself.
 label is not a check and cannot become one by existing. Do not hold a PR waiting for `qa`, and do
 not read a missing `qa` as a skipped step.
 
-**The Lander is not a second reader.** Owner rulings 2026-09-21 and 2026-09-29. Where a QA line or
-other proof that code review ran on the change is posted, the Lander does not need to review the
-diff. It reads what the review found, then arms the PR.
+**The Lander is not a second reader.** Owner rulings 2026-09-21 and 2026-09-29. Given a QA line or
+other review proof on the change, the Lander need not review the diff. It reads the findings and
+arms the PR. A finding of a defect the merge would ship goes to the owner (LANDER.md
+*4a-quinquies*).
 
 **WIDENED 2026-09-29, by owner ruling given to a Lander seat.** This passage read *"Where the QA
 line is posted, the diff has been read"* and *"A missing QA line is unknown"*. The owner named a

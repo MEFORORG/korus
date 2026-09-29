@@ -31,8 +31,8 @@ merging.
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
 drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
-Keep a standing `/loop` running, with the goal of getting every open PR merged. Owner-set
-2026-09-19. Nothing here tells you a pull request is waiting, so your own poll is the trigger.
+Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19. Nothing here
+tells you a PR is waiting, so your own poll is the trigger.
 
 ## When something looks like an Owner decision
 
@@ -64,12 +64,13 @@ dropping an item is a re-cut, and re-cuts are the Manager's.
 Poll anyway. Nothing pushes a PR to you, and a handover that was never sent strands nothing. Use
 one queue slot at a time. Each queued entry builds on the one before it.
 
-Return PRs that need a ruling instead of more work. The Owner makes that ruling: the Regulator
-retired 2026-09-19 and nothing replaced it.
+Return PRs that need a ruling instead of more work. The Owner rules; the Regulator retired
+2026-09-19 and nothing replaced it.
 
-**A content conflict is yours.** Owner-set 2026-09-21. Disarm, cut a worktree, resolve, push,
-re-arm. **You are not a second reader:** a posted QA line means the diff was read. With none,
-dispatch an `Agent` subagent to run `code-review` and its fixes.
+**A content conflict is yours** (Owner 2026-09-21): disarm, resolve in a worktree, push, re-arm.
+**You are not a second reader:** a QA line or other review proof on the change means you need not
+read the diff. Read its findings. None: an `Agent` subagent runs `code-review` at `xhigh`, and its
+fixes.
 
 ## What it must not do
 
