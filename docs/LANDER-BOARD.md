@@ -203,8 +203,9 @@ It closes the issue itself on the first green scheduled run. The collector reads
 things, so every issue the workflow would adopt shows:
 
 ```bash
-gh api -X GET repos/MEFORORG/MessageFoundry/issues -f state=open -f labels=bug -f per_page=100   --paginate --jq '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),
-  .created_at, (.comments|tostring), .html_url, .title] | join("	")'
+gh api -X GET repos/MEFORORG/MessageFoundry/issues -f state=open -f labels=bug -f per_page=100 \
+  --paginate --jq '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),
+  .created_at, (.comments|tostring), .html_url, .title] | join("\t")'
 ```
 
 The REST list returns pull requests beside issues, so each row says which it is. The collector
