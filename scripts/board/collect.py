@@ -89,7 +89,19 @@ def closed_window(full, since):
 # other repository is NOT READ, and the board says so rather than printing a clean zero for it.
 NIGHTLY_NOTICE_REPOS = ("MEFORORG/MessageFoundry",)
 NIGHTLY_LABEL = "bug"
-NIGHTLY_TITLE = re.compile(r"^Nightly (.+) is failing$")
+# Applied with fullmatch, never match plus `$`: `$` also matches before a trailing newline, and the
+# workflow compares titles exactly, so "Nightly CI is failing\n" is not an issue it would adopt.
+NIGHTLY_TITLE = re.compile(r"Nightly (.+) is failing")
+
+
+def aware_instant(s):
+    """True when `s` is an ISO timestamp carrying a zone, the only form the board can age."""
+    if not isinstance(s, str):
+        return False
+    try:
+        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
 
 
 def nightly_reds(full):
@@ -122,7 +134,7 @@ def nightly_reds(full):
                                                    "exit %d" % r.returncode)}, []
     found, skipped = [], []
     # A JSON line holds no raw newline, so splitting on "\n" alone is exact. str.splitlines()
-    # would also cut at U+2028, NEL and form feed, which `@json` leaves unescaped.
+    # would also cut at U+2028, U+2029 and NEL, which JSON may carry raw.
     for line in r.stdout.split("\n"):
         if not line.strip():
             continue
@@ -138,10 +150,10 @@ def nightly_reds(full):
         if not isinstance(title, str):
             skipped.append("a row with no readable title: %r" % line[:120])
             continue
-        m = NIGHTLY_TITLE.match(title)
+        m = NIGHTLY_TITLE.fullmatch(title)
         if not m or kind == "pr":
             continue
-        ok = (kind == "issue" and isinstance(opened, str) and isinstance(url, str)
+        ok = (kind == "issue" and aware_instant(opened) and isinstance(url, str)
               and all(isinstance(x, int) and not isinstance(x, bool) for x in (number, comments)))
         if not ok:
             skipped.append("a row could not be read: %r" % title[:120])

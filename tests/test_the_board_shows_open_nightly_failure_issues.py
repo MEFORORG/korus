@@ -61,7 +61,7 @@ def done(stdout="", code=0, stderr=""):
 def row(n, title, kind="issue", opened="2026-09-30T12:00:01Z", comments=0):
     """One line in the shape the collector's own `--jq` program prints: a JSON array."""
     url = "https://github.com/%s/issues/%s" % (ENGINE, n)
-    return json.dumps([n, kind, opened, comments, url, title])
+    return json.dumps([n, kind, opened, comments, url, title], ensure_ascii=False)
 
 
 def read_all(*lines, code=0):
@@ -173,9 +173,23 @@ class TheCollectorReadsWhatTheWorkflowWrites(unittest.TestCase):
     def test_a_line_separator_inside_any_title_does_not_break_the_read(self):
         # The label read returns EVERY open bug issue. str.splitlines() would cut this unrelated
         # title at U+2028 and turn the whole read into a parse failure.
-        got, _ = read(row(5, "Crash on paste\u2028of a long line"),
-                      row(1830, "Nightly Security is failing"))
+        got, skipped, _ = read_all(row(5, "Crash on paste\u2028of a long line"),
+                                   row(1830, "Nightly Security is failing"))
+        self.assertIn("\u2028", row(5, "a\u2028b"))
         self.assertEqual([i["n"] for i in got], [1830])
+        self.assertEqual(skipped, [])
+
+    def test_a_title_with_a_trailing_newline_is_not_the_workflows_title(self):
+        # `$` matches before a trailing newline; the workflow compares titles exactly.
+        got, _ = read(row(1, "Nightly CI is failing\n"), row(2, "Nightly CI is failing"))
+        self.assertEqual([i["n"] for i in got], [2])
+
+    def test_a_matching_row_with_no_usable_timestamp_is_skipped(self):
+        got, skipped, _ = read_all(row(1, "Nightly CI is failing", opened=""),
+                                   row(2, "Nightly DAST is failing", opened="2026-09-20T12:00:00"),
+                                   row(3, "Nightly Security is failing"))
+        self.assertEqual([i["n"] for i in got], [3])
+        self.assertEqual(len(skipped), 2)
 
     def test_every_repository_read_for_these_is_one_the_board_reads(self):
         boards = {full for full, _short in collect.REPOS}
@@ -353,6 +367,47 @@ class TheBoardShowsThemAndHowLongEachHasBeenOpen(unittest.TestCase):
         self.assertIn("Engine: 1 row not shown", p)
         self.assertIn("Nightly Fake is failing", p)
         self.assertNotIn("No nightly-failure issue is open", p)
+
+    def test_a_naive_or_unparseable_timestamp_in_data_json_is_not_shown_and_never_raises(self):
+        for opened in ("2026-09-20T12:00:00", "2026-09-20", "not a time"):
+            with self.subTest(opened=opened):
+                p = panel(board([issue(1, "CI", opened), issue(9, "DAST", "2026-09-20T12:00:00Z")]))
+                self.assertIn("#9</a>", p)
+                self.assertIn("Engine: 1 row not shown", p)
+
+    def test_a_malformed_skipped_value_is_reported_and_never_raises(self):
+        for odd in (3, True, "oops"):
+            with self.subTest(odd=odd):
+                p = panel(board([], skipped=odd))
+                self.assertIn("Engine: 1 row not shown: unrecognised nightly_skipped value", p)
+                self.assertNotIn("o; o; p; s", p)
+                self.assertNotIn("No nightly-failure issue is open", p)
+
+    def test_the_oldest_is_decided_by_instant_not_by_string(self):
+        # 12:00+05:00 is 07:00Z, which is older than 09:00Z though it sorts later as text.
+        p = panel(board([issue(2, "CI", "2026-09-20T09:00:00Z"),
+                         issue(1, "DAST", "2026-09-20T12:00:00+05:00")]))
+        self.assertLess(p.index("#1</a>"), p.index("#2</a>"))
+        self.assertIn("The oldest has been open <b>11h 00m</b>", p)
+
+    def test_a_partial_read_makes_the_count_a_floor(self):
+        p = panel(board([issue(9, "CI", "2026-09-20T12:00:00Z")], skipped=["x"]))
+        self.assertIn("<b>at least 1</b> open. The oldest shown has been open", p)
+
+    def test_skipped_rows_beside_a_failed_read_are_still_reported(self):
+        p = panel(board({"error": "the read failed: HTTP 502"}, skipped=["kept reason"]))
+        self.assertIn("Engine: not read: the read failed: HTTP 502.", p)
+        self.assertIn("kept reason", p)
+
+    def test_a_long_skip_list_names_a_few_and_counts_the_rest(self):
+        p = panel(board([], skipped=["r%d" % n for n in range(40)]))
+        self.assertIn("40 rows not shown: r0; r1; r2; r3; r4; and 35 more", p)
+        self.assertNotIn("r39", p)
+
+    def test_a_literal_missing_string_is_unrecognised_not_an_old_data_json(self):
+        p = panel(board("missing"))
+        self.assertIn("Engine: not read: unrecognised value", p)
+        self.assertNotIn("predates this read", p)
 
     def test_the_panel_never_says_each_issue_closes_by_itself(self):
         # Round-two finding 7. The panel shows orphans and duplicates the workflow never closes.

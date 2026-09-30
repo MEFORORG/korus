@@ -328,15 +328,17 @@ person_rows = person_table()
 # the Lander. A scheduled run has no pull request, so nothing above can show it. The collector
 # reads the issues the engine's `nightly-notice.yml` opens; LANDER-BOARD.md section 4d has why.
 #
-# FOUR STATES PER REPOSITORY, AND ONLY ONE OF THEM IS A ZERO. A list is a reading. None is a
-# repository the collector declares it does not read, because it carries no such workflow. A dict
-# is a read that failed. A MISSING key is a data.json written before the collector read these at
-# all. The last three must never print as "none open": a repository nobody looked at, or whose read
-# failed, is not a repository with nothing red.
-NIGHTLY_NOT_READ = {
-    None: "not read: this repository carries no nightly-notice workflow",
-    "missing": "not read: data.json predates this read; run collect.py again",
-}
+# ONLY ONE STATE PER REPOSITORY IS A ZERO: a list with every row shown and none skipped. A list
+# with a row not shown is PARTIAL, and never clear. None is a repository the collector declares it
+# does not read, because it carries no such workflow. A dict is a read that failed. A MISSING key
+# is a data.json written before the collector read these at all. Any other value is unrecognised.
+# None of those may print as "none open": a repository nobody looked at, or whose read failed, is
+# not a repository with nothing red.
+_MISSING = object()
+NIGHTLY_NOT_READ_NONE = "not read: this repository carries no nightly-notice workflow"
+NIGHTLY_NOT_READ_MISSING = "not read: data.json predates this read; run collect.py again"
+# A garbled read can skip every line. Name a few reasons and count the rest.
+NIGHTLY_REASONS_SHOWN = 5
 
 
 def opened_at(iso):
@@ -354,64 +356,92 @@ def opened_at(iso):
 NIGHTLY_ITEM = {"n": int, "workflow": str, "opened": str, "comments": int, "url": str}
 
 
-def nightly_item_ok(i):
-    """True when an issue row carries every field the table prints, each of the right type.
+def nightly_opened(i):
+    """The row's opening instant as an AWARE datetime, or None when the row cannot supply one.
 
-    A bad row is reported beside the table rather than raised: one malformed row in data.json
-    must not stop the whole board, which is the failure this panel was written to avoid."""
+    Every later step reads this, never the raw string: string order is not time order once an
+    offset or a fraction appears, and a naive value cannot be subtracted from the aware stamp."""
     if not isinstance(i, dict):
-        return False
+        return None
     for key, kind in NIGHTLY_ITEM.items():
         v = i.get(key)
         if not isinstance(v, kind) or isinstance(v, bool):
-            return False
+            return None
     try:
-        P(i["opened"])
+        t = P(i["opened"])
     except ValueError:
-        return False
-    return True
+        return None
+    return t if t.tzinfo is not None else None
+
+
+def nightly_skipped(k):
+    """The collector's skipped-row reasons for repository `k`, whatever shape data.json holds.
+
+    A missing key is none. A list is its reasons. Anything else is itself one reason, so a
+    malformed value is reported rather than iterated or raised on."""
+    got = by[k].get("nightly_skipped", [])
+    if isinstance(got, list):
+        return [str(x) for x in got]
+    return ["unrecognised nightly_skipped value %r in data.json" % (got,)]
+
+
+def not_shown(bad):
+    """One note for rows not shown, naming at most a few reasons."""
+    named = "; ".join(bad[:NIGHTLY_REASONS_SHOWN])
+    more = len(bad) - NIGHTLY_REASONS_SHOWN
+    return "%d row%s not shown: %s%s" % (len(bad), "" if len(bad) == 1 else "s", named,
+                                         "; and %d more" % more if more > 0 else "")
 
 
 def nightly_panel():
-    # `clear` holds repositories read in full; a repository with any row not shown is left out
-    # of the clean headline, because a zero beside an unreadable row is not a zero.
-    issues, clear, partial, unread = [], [], [], []
+    # `clear` holds repositories read in full. A repository with any row not shown is left out of
+    # the clean headline, and marks every count above it as a floor: a zero, or an age, beside an
+    # unreadable row is not a measurement.
+    issues, clear, unread = [], [], []
+    partial = False
     for k in order:
-        got = by[k].get("nightly", "missing")
-        bad = list(by[k].get("nightly_skipped") or [])
+        got = by[k].get("nightly", _MISSING)
+        bad = nightly_skipped(k)
         if isinstance(got, list):
-            good = [i for i in got if nightly_item_ok(i)]
-            bad += ["a row in data.json is malformed"] * (len(got) - len(good))
-            issues += [(NAMES[k], i) for i in good]
+            rows = [(nightly_opened(i), i) for i in got]
+            good = [(t, i) for t, i in rows if t is not None]
+            bad += ["a row in data.json is malformed"] * (len(rows) - len(good))
+            issues += [(NAMES[k], t, i) for t, i in good]
             if bad:
-                partial.append(NAMES[k])
-                unread.append((NAMES[k], "%d row%s not shown: %s"
-                               % (len(bad), "" if len(bad) == 1 else "s",
-                                  "; ".join(str(b) for b in bad))))
+                partial = True
+                unread.append((NAMES[k], not_shown(bad)))
             else:
                 clear.append(NAMES[k])
-        elif isinstance(got, dict):
-            unread.append((NAMES[k], "not read: %s" % got.get("error", "the read failed")))
-        elif got is None or got == "missing":
-            unread.append((NAMES[k], NIGHTLY_NOT_READ[got]))
+            continue
+        if isinstance(got, dict):
+            why = "not read: %s" % got.get("error", "the read failed")
+        elif got is None:
+            why = NIGHTLY_NOT_READ_NONE
+        elif got is _MISSING:
+            why = NIGHTLY_NOT_READ_MISSING
         else:
             # Anything else is a value this builder does not know. Say so; never raise.
-            unread.append((NAMES[k], "not read: unrecognised value %r in data.json" % (got,)))
-    read = clear
-    issues.sort(key=lambda x: x[1]["opened"])
+            why = "not read: unrecognised value %r in data.json" % (got,)
+        unread.append((NAMES[k], why))
+        if bad:
+            # Skipped reasons beside an unread marker are still evidence. Keep them.
+            partial = True
+            unread.append((NAMES[k], not_shown(bad)))
+    issues.sort(key=lambda x: x[1])
     stamp = clock(d["generated_utc"])
     # The stamp is taken before any read, so an issue opened during the collect is younger than
     # the stamp. Clamp it to zero rather than print a negative span.
-    span = lambda i: dur(max(0.0, ago(i["opened"])))
+    span = lambda t: dur(max(0.0, (now - t).total_seconds() / 60.0))
     if issues:
-        head = ("<b>%d</b> open. The oldest has been open <b>%s</b> as of %s."
-                % (len(issues), span(issues[0][1]), esc(stamp)))
-    elif read:
+        floor, shown = ("at least ", " shown") if partial else ("", "")
+        head = ("<b>%s%d</b> open. The oldest%s has been open <b>%s</b> as of %s."
+                % (floor, len(issues), shown, span(issues[0][1]), esc(stamp)))
+    elif clear and not partial:
         # Scoped on purpose. The notice watches some scheduled workflows, not all of them, and
         # files only on a run that concluded as a failure. So this is not "nothing is red".
         head = ("No nightly-failure issue is open in <b>%s</b>. That covers only the scheduled "
                 "workflows the nightly failure notice watches, and only a run that failed."
-                % esc(", ".join(read)))
+                % esc(", ".join(clear)))
     elif partial:
         head = ("<b>No row could be shown</b>, and some could not be read, so this is not a "
                 "clear reading.")
@@ -421,8 +451,8 @@ def nightly_panel():
         '<tr><td>%s</td><td><a href="%s">#%d</a></td><td>%s</td><td>%s</td><td>%s</td>'
         '<td>%d</td></tr>'
         % (esc(name), esc(i["url"]), i["n"], esc(i["workflow"]), esc(opened_at(i["opened"])),
-           esc(span(i)), i["comments"])
-        for name, i in issues)
+           esc(span(t)), i["comments"])
+        for name, t, i in issues)
     table = ('<div class="ptab-wrap"><table class="ptab">'
              '<thead><tr><th>Repository</th><th>Issue</th><th>Workflow</th><th>Opened</th>'
              '<th>Open, as of %s</th><th>Comments</th></tr></thead><tbody>%s</tbody>'

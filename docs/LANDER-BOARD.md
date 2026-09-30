@@ -215,7 +215,8 @@ drops pull requests and titles that do not match.
 a newline or a carriage return. Raw text let such a title forge a row or blank the panel.
 
 A row that still cannot be read is skipped and listed on the panel as *not shown*. The rows beside
-it are kept, and the collect goes on. A repository with a row not shown never reads as clear.
+it are kept, and the collect goes on. A repository with a row not shown never reads as clear,
+and the count above it reads as a floor: *at least N open*.
 
 **A match is not always an issue the workflow will close.** One left behind by a workflow since
 dropped from the watch list matches. So does a duplicate the workflow lost track of.
