@@ -321,8 +321,12 @@ Builders push their branches and their managers open the pull requests. The land
 requests and takes the ones whose checks are green.
 
 Read any comments already on the pull request. The required checks, `gates (ubuntu-latest)` and
-`gates (windows-latest)`, cannot establish that anyone read the diff, and since 2026-09-12 no seat
-is assigned to.
+`gates (windows-latest)`, cannot establish that anyone read the diff. From 2026-09-12 until
+2026-09-29, no seat was assigned to read it.
+
+**CORRECTED 2026-09-29:** the sentence before read *"since 2026-09-12 no seat is assigned to"*, cut
+off mid-clause. Since an owner ruling that day, the lander merges only on proof that code review
+ran, or sends the change to code review.
 
 [Running multiple sessions](RUNNING-MULTIPLE-SESSIONS.md) defines the lander's authority and route. Authority cannot transfer; a worker
 unable to reach the lander remains blocked from merging.

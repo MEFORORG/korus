@@ -120,7 +120,8 @@ the answer closed it rather than the question expiring.
 
 | Item | Rule |
 | --- | --- |
-| What routes a PR now | Push your own branch, open your own PR, and the Lander merges it. No seat reads the diff first. |
+| What routes a PR now | Push your own branch, open your own PR, and the Lander merges it. |
+| **CORRECTED 2026-09-29, owner ruling** | That row ended *"No seat reads the diff first."* The Lander now merges only on proof that code review ran, or sends the change to code review. [LANDER.md](LANDER.md), *4a-quinquies*. |
 | **NARROWED 2026-09-18** | A Builder under a Manager pushes and reports; the **Manager** opens the PR and hands it to the Lander with five fields. Every other seat still opens its own. |
 | **NARROWED 2026-09-24, owner ruling** | Only a Manager's subagent counts as under it. A Builder in its own session, chip-started or spawned, opens its own. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | **ADDED 2026-09-23** | The Manager decides when to cut the PR. One PR usually carries a whole wave of Builders' branches. |
