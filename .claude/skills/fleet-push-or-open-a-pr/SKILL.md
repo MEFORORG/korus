@@ -61,7 +61,11 @@ Source of record: `tests/tooling_manifest.txt` and its guard
 | --- | --- |
 | When it applies | You added a file under `tests/`. Ask before you commit, not after CI answers for you. |
 | The question | Does it import `messagefoundry`, `messagefoundry_webconsole`, `harness` or `tee`? If yes, it is exempt. |
-| The rule | If it imports none of them, add its path to `tests/tooling_manifest.txt` in the same commit. |
+| The rule | If it imports none of them, classify it in the same commit, in one of two places. |
+| Tooling subject | A test of `scripts/**`, `.github/**` or the ledger goes in `tests/tooling_manifest.txt`. |
+| Engine subject | A test that reads engine source off disk goes in `_STAYS_WITHOUT_IMPORTING` in `tests/test_tooling_partition.py`, with a comment naming the file it reads. |
+| When ambiguous | Choose `_STAYS_WITHOUT_IMPORTING`, as the guard's own failure message says. |
+| Why that way | A manifest line takes the test off every engine leg. The tooling job's path gate does not fire on an engine diff, so the change the test guards would face nothing. |
 | The path form | Write the path exactly as `git diff --name-only` reports it. `ci.yml` matches with `grep -qxFf`, so a bare basename matches nothing. |
 | Do not sort | The manifest is read as a `set()` and is already unsorted on `main`. Sorting it rewrites unrelated lines into your diff. |
 | Insert, do not move | Put the one new line at its alphabetical slot and leave every other line untouched. |
