@@ -222,6 +222,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
   </section>
 
   <section class="wide">
+    <article class="card card-wide ac-crit">
+      <h3>Scheduled runs failing</h3>
+      <p class="note">A scheduled run has no pull request, so nothing above can show its red. Each row is an open issue the engine's nightly failure notice keeps: opened on the first failed night, commented on after each later failure, closed by itself on the first green night. The Lander triages these. The Watchdog measures how long they stay open and never acts on them.</p>
+      {{NIGHTLY_ROWS}}
+    </article>
+  </section>
+
+  <section class="wide">
     <article class="card">
       <h3>In the queue right now</h3>
       <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>

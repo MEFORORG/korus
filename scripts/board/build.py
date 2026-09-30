@@ -323,6 +323,55 @@ def person_table():
 
 person_rows = person_table()
 
+# ------------------------------------------------- scheduled-run reds ----
+# Owner ruling 2026-09-26: the Lander owns a scheduled run's red, and this panel is how it reaches
+# the Lander. A scheduled run has no pull request, so nothing above can show it. The collector
+# reads the issues the engine's `nightly-notice.yml` opens; LANDER-BOARD.md section 4d has why.
+#
+# THREE STATES PER REPOSITORY, AND ONLY ONE OF THEM IS A ZERO. A list is a reading. None is a
+# repository the collector declares it does not read, because it carries no such workflow. A MISSING
+# key is a data.json written before the collector read these at all. The last two must never print
+# as "none open": a repository nobody looked at is not a repository with nothing red.
+NIGHTLY_NOT_READ = {
+    None: "not read: this repository carries no nightly-notice workflow",
+    "missing": "not read: data.json predates this read; run collect.py again",
+}
+
+
+def nightly_panel():
+    issues, read, unread = [], [], []
+    for k in order:
+        got = by[k].get("nightly", "missing")
+        if isinstance(got, list):
+            read.append(NAMES[k])
+            issues += [(NAMES[k], i) for i in got]
+        else:
+            unread.append((NAMES[k], NIGHTLY_NOT_READ[got]))
+    issues.sort(key=lambda x: x[1]["opened"])
+    stamp = clock(d["generated_utc"])
+    if issues:
+        head = ("<b>%d</b> open. The oldest has been open <b>%s</b> as of %s."
+                % (len(issues), dur(ago(issues[0][1]["opened"])), esc(stamp)))
+    elif read:
+        head = "No scheduled run is red in <b>%s</b>." % esc(", ".join(read))
+    else:
+        head = "<b>Nothing was read</b>, so this panel says nothing about scheduled runs."
+    body = "".join(
+        '<tr><td>%s</td><td><a href="%s">#%d</a></td><td>%s</td><td>%s</td><td>%s</td>'
+        '<td>%d</td></tr>'
+        % (esc(name), esc(i["url"]), i["n"], esc(i["workflow"]), esc(clock(i["opened"])),
+           esc(dur(ago(i["opened"]))), i["comments"])
+        for name, i in issues)
+    table = ('<div class="ptab-wrap"><table class="ptab">'
+             '<thead><tr><th>Repository</th><th>Issue</th><th>Workflow</th><th>Opened</th>'
+             '<th>Open, as of %s</th><th>Comments</th></tr></thead><tbody>%s</tbody>'
+             '</table></div>' % (esc(stamp), body)) if issues else ""
+    gaps = "".join('<p class="note">%s: %s.</p>' % (esc(name), esc(why)) for name, why in unread)
+    return '<p class="note">%s</p>%s%s' % (head, table, gaps)
+
+
+nightly_rows = nightly_panel()
+
 legend_mix = "".join('<span class="lg" title="%s: %s"><i class="sw %s"></i>%s</span>'
                      % (k, STATE_SAY[k], c, k) for k, c in ORD)
 
@@ -337,6 +386,7 @@ out = (tpl
        .replace("{{QUEUE_ROWS}}", queue_rows)
        .replace("{{MIX_ROWS}}", mix_rows)
        .replace("{{PERSON_ROWS}}", person_rows)
+       .replace("{{NIGHTLY_ROWS}}", nightly_rows)
        .replace("{{LEGEND_MIX}}", legend_mix)
        .replace("{{SVGW}}", str(W)).replace("{{SVGH}}", str(H))
        .replace("{{GRID}}", grid).replace("{{BANDS}}", bands)

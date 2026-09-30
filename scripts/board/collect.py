@@ -9,6 +9,7 @@ leaves the last good file in place (section 9). A default here would be a silent
 """
 import json, subprocess, sys, time, datetime as dt
 import os
+import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
@@ -68,6 +69,60 @@ def closed_window(full, since):
         page += 1
     refuse("The closed pull request read for %s hit the page cap before reaching %s."
            % (full, since))
+
+# SCHEDULED-RUN REDS. Owner ruling 2026-09-26: the Lander owns them, and they reach the Lander
+# through this board. A scheduled run has no pull request, so no required check and no merge state
+# ever shows its red; before this, the only record was an issue nobody polled. Engine issue 288,
+# *Nightly Security is failing*, stayed open 48 days with 49 comments (vault BACKLOG #1800).
+#
+# THE MATCH IS THE WRITER'S OWN PREDICATE, NOT A GUESS. The engine's `nightly-notice.yml` sets
+# `TITLE="Nightly $WF_NAME is failing"` and `LABEL="bug"`, and finds the issue to comment on by an
+# OPEN issue with that label whose title is exactly that. Any issue this predicate matches is one
+# the workflow itself would adopt, so reading the same predicate here shows exactly its issues.
+# The workflow name is left free rather than listed: the watch list is that repository's, and a
+# copy here would drift the day a workflow joins it.
+#
+# ONLY THE ENGINE CARRIES THE WORKFLOW. Measured 2026-09-30: neither korus nor the vault has a
+# `nightly-notice.yml` among its workflows. A repository missing from this list is NOT READ, and
+# the board says so rather than printing a clean zero for it.
+NIGHTLY_NOTICE_REPOS = ("MEFORORG/MessageFoundry",)
+NIGHTLY_LABEL = "bug"
+NIGHTLY_TITLE = re.compile(r"^Nightly (.+) is failing$")
+
+
+def nightly_reds(full):
+    """The OPEN issues `nightly-notice.yml` keeps in `full`, oldest first.
+
+    Read off REST, filtered to the workflow's label, and paged to the end. The REST issues list
+    carries pull requests too, so each row says which it is and a pull request is dropped here,
+    where a test can see it. A failed read refuses: "no scheduled run is red" is exactly the
+    reading a default would forge."""
+    r = subprocess.run(
+        ["gh", "api", "-X", "GET", "repos/%s/issues" % full, "-f", "state=open",
+         "-f", "labels=" + NIGHTLY_LABEL, "-f", "per_page=100", "--paginate", "--jq",
+         '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),'
+         ' .created_at, .updated_at, (.comments|tostring), .title] | join("\\t")'],
+        capture_output=True, encoding="utf-8", errors="replace")
+    if r.returncode:
+        refuse("The nightly failure issue read for %s failed: %s"
+               % (full, (r.stderr or "").strip()[:300]))
+    found = []
+    for line in r.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 5)
+        if len(parts) != 6:
+            refuse("The nightly failure issue read for %s returned a row it cannot parse: %r"
+                   % (full, line[:200]))
+        number, kind, opened, updated, comments, title = parts
+        m = NIGHTLY_TITLE.match(title)
+        if kind != "issue" or not m:
+            continue
+        found.append({"n": int(number), "workflow": m.group(1), "title": title,
+                      "opened": opened, "updated": updated, "comments": int(comments),
+                      "url": "https://github.com/%s/issues/%s" % (full, number)})
+    return sorted(found, key=lambda x: x["opened"])
+
 
 def required_contexts(full):
     """The required set from branch protection, read live. The count moves; never pin it."""
@@ -255,6 +310,8 @@ def main():
         # open read already in hand. Without this the reconstructed open line in section 5b
         # loses every arrival that has not closed yet, which is most of a busy window.
         created += [p["createdAt"] for p in openprs if p["createdAt"] >= since_iso]
+        # None is "this repository keeps no such issues", a declared scope and not a reading.
+        nightly = nightly_reds(full) if full in NIGHTLY_NOTICE_REPOS else None
         buckets = {}
         for p in openprs:
             buckets[p["mergeStateStatus"]] = buckets.get(p["mergeStateStatus"], 0) + 1
@@ -279,6 +336,7 @@ def main():
             "merged": merged,
             "created": created,
             "closed": closed,
+            "nightly": nightly,
         })
 
     out = {"generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "repos": repos}
@@ -288,7 +346,8 @@ def main():
         print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d%s"
               % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
                  r["enqueued"], len(r["merged"]),
-                 "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else ""))
+                 "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
+              + ("  nightly-red=%d" % len(r["nightly"]) if r["nightly"] is not None else ""))
 
 
 if __name__ == "__main__":

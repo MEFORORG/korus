@@ -180,6 +180,52 @@ Count runs of three hours or more with no merge in any repository, and report th
 **The window changes the answer.** The same day read over 24 hours gave a longest run of 9 hours,
 because the worst stall was half outside the window. Use 48.
 
+### 4d. A scheduled run's red has no pull request, so the board reads its issue
+
+**Owner ruling 2026-09-26: the Lander owns scheduled-run reds, and they reach it on this board.**
+The Watchdog measures how long each stays open and never acts on one.
+
+A scheduled run has no pull request. No required check, merge state or queue entry above can carry
+its red, so before this panel the only record was an issue nobody polled.
+
+Engine issue 288, *Nightly Security is failing*, was open from 2026-08-08 to 2026-09-25 and
+gathered 49 comments. The released line pinned a vulnerable dependency throughout. Vault BACKLOG
+#1800 is the record.
+
+**The panel reads the writer's own predicate, not a guessed title.** The engine's
+`nightly-notice.yml` looks for an OPEN issue labelled `bug` titled exactly
+`Nightly $WF_NAME is failing`. It opens one when none exists, and comments on each later failure.
+
+It closes the issue itself on the first green scheduled run. So an issue matching those three
+things is one the workflow would adopt, and the collector matches exactly those:
+
+```bash
+gh api -X GET repos/MEFORORG/MessageFoundry/issues -f state=open -f labels=bug -f per_page=100 \
+  --paginate --jq '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),
+  .created_at, .updated_at, (.comments|tostring), .title] | join("\t")'
+```
+
+The REST list returns pull requests beside issues, so each row says which it is. The collector
+drops pull requests and titles that do not match, and refuses the run on a failed read.
+
+The workflow name is left free. The watch list belongs to the engine, and a copy here would drift
+the day a workflow joins it.
+
+**Only the engine carries that workflow.** Measured 2026-09-30: neither korus nor the vault lists
+it among its workflows. `NIGHTLY_NOTICE_REPOS` in `collect.py` names the engine alone.
+
+Each other repository reads **not read** on the panel, never "none open". A `data.json` written
+before this read existed says the same. A repository nobody looked at is not a clear one.
+
+Each row shows the issue, its workflow, the Central clock time it opened, and how long it has been
+open as of the board's own stamp. It also shows the comment count.
+
+The workflow adds one comment per later failed run, so the count tracks failed nights. A person's
+comment adds one too, so read it as an upper bound.
+
+`tests/test_the_board_shows_open_nightly_failure_issues.py` pins both arms on one fixture. An
+issue the workflow would adopt shows. A pull request, or a title one word off, does not.
+
 ---
 
 ## 5. The chart
