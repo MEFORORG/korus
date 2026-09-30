@@ -351,17 +351,53 @@ def opened_at(iso):
                                      "AM" if t.hour < 12 else "PM")
 
 
+NIGHTLY_ITEM = {"n": int, "workflow": str, "opened": str, "comments": int, "url": str}
+
+
+def nightly_item_ok(i):
+    """True when an issue row carries every field the table prints, each of the right type.
+
+    A bad row is reported beside the table rather than raised: one malformed row in data.json
+    must not stop the whole board, which is the failure this panel was written to avoid."""
+    if not isinstance(i, dict):
+        return False
+    for key, kind in NIGHTLY_ITEM.items():
+        v = i.get(key)
+        if not isinstance(v, kind) or isinstance(v, bool):
+            return False
+    try:
+        P(i["opened"])
+    except ValueError:
+        return False
+    return True
+
+
 def nightly_panel():
-    issues, read, unread = [], [], []
+    # `clear` holds repositories read in full; a repository with any row not shown is left out
+    # of the clean headline, because a zero beside an unreadable row is not a zero.
+    issues, clear, partial, unread = [], [], [], []
     for k in order:
         got = by[k].get("nightly", "missing")
+        bad = list(by[k].get("nightly_skipped") or [])
         if isinstance(got, list):
-            read.append(NAMES[k])
-            issues += [(NAMES[k], i) for i in got]
+            good = [i for i in got if nightly_item_ok(i)]
+            bad += ["a row in data.json is malformed"] * (len(got) - len(good))
+            issues += [(NAMES[k], i) for i in good]
+            if bad:
+                partial.append(NAMES[k])
+                unread.append((NAMES[k], "%d row%s not shown: %s"
+                               % (len(bad), "" if len(bad) == 1 else "s",
+                                  "; ".join(str(b) for b in bad))))
+            else:
+                clear.append(NAMES[k])
         elif isinstance(got, dict):
             unread.append((NAMES[k], "not read: %s" % got.get("error", "the read failed")))
-        else:
+        elif got is None or got == "missing":
             unread.append((NAMES[k], NIGHTLY_NOT_READ[got]))
+        else:
+            # Anything else is a value this builder does not know. Say so; never raise.
+            unread.append((NAMES[k], "not read: unrecognised value %r in data.json" % (got,)))
+    read = clear
     issues.sort(key=lambda x: x[1]["opened"])
     stamp = clock(d["generated_utc"])
     # The stamp is taken before any read, so an issue opened during the collect is younger than
@@ -376,6 +412,9 @@ def nightly_panel():
         head = ("No nightly-failure issue is open in <b>%s</b>. That covers only the scheduled "
                 "workflows the nightly failure notice watches, and only a run that failed."
                 % esc(", ".join(read)))
+    elif partial:
+        head = ("<b>No row could be shown</b>, and some could not be read, so this is not a "
+                "clear reading.")
     else:
         head = "<b>Nothing was read</b>, so this panel says nothing about scheduled runs."
     body = "".join(

@@ -99,35 +99,56 @@ def nightly_reds(full):
     carries pull requests too, so each row says which it is and a pull request is dropped here,
     where a test can see it.
 
-    A failed or unparseable read returns {"error": ...} rather than refusing the whole collect.
-    This is a secondary panel, and refusing would freeze every merge reading beside it. It is not
-    a default either: the board renders the marker as "not read: the read failed", never as a
-    zero, because "no scheduled run is red" is exactly the reading a default would forge."""
+    Returns (issues, skipped). A failed read returns ({"error": ...}, []) rather than refusing the
+    whole collect: this is a secondary panel, and refusing would freeze every merge reading beside
+    it. It is not a default either: the board renders the marker as "not read: the read failed",
+    never as a zero, because "no scheduled run is red" is exactly the reading a default would forge.
+
+    ONE ROW IS ONE `@json` ARRAY, never tab-joined text. The label read returns every open `bug`
+    issue, and any title may hold a newline or a carriage return. Raw text let such a title forge a
+    row or cut one in half; `@json` escapes both, so a line is always exactly one issue.
+
+    A row that still cannot be read is SKIPPED AND REPORTED in `skipped`, and the rows beside it
+    are kept. A row whose title is readable and does not match is filtered like any other, so an
+    unrelated issue cannot fill the report."""
     r = subprocess.run(
         ["gh", "api", "-X", "GET", "repos/%s/issues" % full, "-f", "state=open",
          "-f", "labels=" + NIGHTLY_LABEL, "-f", "per_page=100", "--paginate", "--jq",
-         '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),'
-         ' .created_at, (.comments|tostring), .html_url, .title] | join("\\t")'],
+         '.[] | [.number, (if .pull_request then "pr" else "issue" end),'
+         ' .created_at, .comments, .html_url, .title] | @json'],
         capture_output=True, encoding="utf-8", errors="replace")
     if r.returncode:
         return {"error": "the read failed: %s" % ((r.stderr or "").strip()[:200] or
-                                                   "exit %d" % r.returncode)}
-    found = []
-    # jq ends each record with a newline and nothing else, so split on that alone.
-    # str.splitlines() also breaks on U+2028, NEL and form feed, which a title may carry.
+                                                   "exit %d" % r.returncode)}, []
+    found, skipped = [], []
+    # A JSON line holds no raw newline, so splitting on "\n" alone is exact. str.splitlines()
+    # would also cut at U+2028, NEL and form feed, which `@json` leaves unescaped.
     for line in r.stdout.split("\n"):
         if not line.strip():
             continue
-        parts = line.split("\t", 5)
-        if len(parts) != 6:
-            return {"error": "a row could not be parsed: %r" % line[:120]}
-        number, kind, opened, comments, url, title = parts
-        m = NIGHTLY_TITLE.match(title)
-        if kind != "issue" or not m:
+        try:
+            fields = json.loads(line)
+        except ValueError:
+            skipped.append("not a JSON row: %r" % line[:120])
             continue
-        found.append({"n": int(number), "workflow": m.group(1), "opened": opened,
-                      "comments": int(comments), "url": url})
-    return found
+        if not isinstance(fields, list) or len(fields) != 6:
+            skipped.append("not a six-field row: %r" % line[:120])
+            continue
+        number, kind, opened, comments, url, title = fields
+        if not isinstance(title, str):
+            skipped.append("a row with no readable title: %r" % line[:120])
+            continue
+        m = NIGHTLY_TITLE.match(title)
+        if not m or kind == "pr":
+            continue
+        ok = (kind == "issue" and isinstance(opened, str) and isinstance(url, str)
+              and all(isinstance(x, int) and not isinstance(x, bool) for x in (number, comments)))
+        if not ok:
+            skipped.append("a row could not be read: %r" % title[:120])
+            continue
+        found.append({"n": number, "workflow": m.group(1), "opened": opened,
+                      "comments": comments, "url": url})
+    return found, skipped
 
 
 def required_contexts(full):
@@ -317,7 +338,8 @@ def main():
         # loses every arrival that has not closed yet, which is most of a busy window.
         created += [p["createdAt"] for p in openprs if p["createdAt"] >= since_iso]
         # None is "this repository keeps no such issues", a declared scope and not a reading.
-        nightly = nightly_reds(full) if full in NIGHTLY_NOTICE_REPOS else None
+        nightly, nightly_skipped = (nightly_reds(full) if full in NIGHTLY_NOTICE_REPOS
+                                    else (None, []))
         buckets = {}
         for p in openprs:
             buckets[p["mergeStateStatus"]] = buckets.get(p["mergeStateStatus"], 0) + 1
@@ -343,6 +365,7 @@ def main():
             "created": created,
             "closed": closed,
             "nightly": nightly,
+            "nightly_skipped": nightly_skipped,
         })
 
     out = {"generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "repos": repos}
@@ -355,7 +378,9 @@ def main():
                  "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
               + ("" if r["nightly"] is None else
                  "  nightly-red=%d" % len(r["nightly"]) if isinstance(r["nightly"], list) else
-                 "  NIGHTLY-READ-FAILED"))
+                 "  NIGHTLY-READ-FAILED")
+              + ("  nightly-skipped=%d" % len(r["nightly_skipped"])
+                 if r["nightly_skipped"] else ""))
 
 
 if __name__ == "__main__":

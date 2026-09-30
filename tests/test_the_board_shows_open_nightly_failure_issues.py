@@ -18,6 +18,11 @@ data.json written before this read existed is the same case, and so is a failed 
 does NOT refuse the whole collect: this is a secondary panel, and refusing would freeze every merge
 reading beside it. It writes a marker the page renders as "not read: the read failed".
 
+ONE ROW IS ONE JSON ARRAY. The label read returns every open `bug` issue, not only nightly ones, and
+any issue's title may hold a newline or a carriage return. A tab-joined row let such a title forge a
+row or blank the panel; `@json` escapes both, so one line is always one issue. A row that still
+cannot be read is skipped and REPORTED, and the rows beside it are kept.
+
 Nothing here calls GitHub. `subprocess` is replaced inside the collector, and `build.py` is run as
 a subprocess over a fixture, which is the real rendering path.
 """
@@ -54,20 +59,25 @@ def done(stdout="", code=0, stderr=""):
 
 
 def row(n, title, kind="issue", opened="2026-09-30T12:00:01Z", comments=0):
-    """One line in the shape the collector's own `--jq` program prints."""
-    url = "https://github.com/%s/issues/%d" % (ENGINE, n)
-    return "\t".join([str(n), kind, opened, str(comments), url, title])
+    """One line in the shape the collector's own `--jq` program prints: a JSON array."""
+    url = "https://github.com/%s/issues/%s" % (ENGINE, n)
+    return json.dumps([n, kind, opened, comments, url, title])
 
 
-def read(*lines, code=0):
-    """Run nightly_reds over a faked `gh`, returning (result, the argv it passed)."""
+def read_all(*lines, code=0):
+    """Run nightly_reds over a faked `gh`: (issues or error marker, skipped rows, argv)."""
     calls = []
 
     def run_(args, **_):
         calls.append(args)
         return done("\n".join(lines) + "\n", code=code, stderr="HTTP 502" if code else "")
     with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
-        got = collect.nightly_reds(ENGINE)
+        got, skipped = collect.nightly_reds(ENGINE)
+    return got, skipped, calls
+
+
+def read(*lines, code=0):
+    got, _skipped, calls = read_all(*lines, code=code)
     return got, calls
 
 
@@ -110,6 +120,7 @@ class TheCollectorReadsWhatTheWorkflowWrites(unittest.TestCase):
         self.assertIn("labels=bug", args)
         self.assertIn("--paginate", args)
         self.assertEqual(collect.NIGHTLY_LABEL, "bug")
+        self.assertTrue(args[args.index("--jq") + 1].rstrip().endswith("@json"))
 
     def test_a_title_holding_a_tab_is_kept_whole(self):
         got, _ = read(row(1, "Nightly Odd\tName is failing"))
@@ -120,10 +131,44 @@ class TheCollectorReadsWhatTheWorkflowWrites(unittest.TestCase):
         self.assertIsInstance(got, dict)
         self.assertIn("HTTP 502", got["error"])
 
-    def test_a_row_it_cannot_parse_is_marked_never_read_as_clean(self):
-        got, _ = read("1830\tissue\t2026-09-30T12:00:01Z")
-        self.assertIsInstance(got, dict)
-        self.assertIn("could not be parsed", got["error"])
+    def test_a_row_it_cannot_parse_is_skipped_and_reported_and_the_rest_kept(self):
+        got, skipped, _ = read_all("1830\tissue\t2026-09-30T12:00:01Z",
+                                   row(9, "Nightly CI is failing"))
+        self.assertEqual([i["n"] for i in got], [9])
+        self.assertEqual(len(skipped), 1)
+        self.assertIn("not a JSON row", skipped[0])
+
+    def test_a_newline_in_a_title_cannot_forge_a_row(self):
+        # Round-two finding 1. Under tab-joined rows this title became a second, forged row.
+        forged = ("junk\n9999\tissue\t2020-01-01T00:00:00Z\t5\t"
+                  "https://evil.example/\tNightly Fake is failing")
+        got, skipped, _ = read_all(row(5, forged), row(1830, "Nightly Security is failing"))
+        self.assertEqual([i["n"] for i in got], [1830])
+        self.assertEqual(skipped, [])
+        self.assertNotIn("https://evil.example/", json.dumps(got))
+
+    def test_a_carriage_return_in_any_title_cannot_blank_the_panel(self):
+        # Round-two finding 1, second half. A bare CR cut the row and lost #1830 with it.
+        got, skipped, _ = read_all(row(5, "Nightly A\rB is failing"),
+                                   row(1830, "Nightly Security is failing"))
+        self.assertIsInstance(got, list)
+        self.assertEqual(sorted(i["n"] for i in got), [5, 1830])
+        self.assertEqual(skipped, [])
+
+    def test_a_malformed_matching_row_is_skipped_and_reported(self):
+        # Round-two finding 2. int("1x") used to raise and stop the whole collect.
+        got, skipped, _ = read_all(row("1x", "Nightly Fake is failing"),
+                                   row(1830, "Nightly Security is failing", comments="many"),
+                                   row(7, "Nightly CI is failing"))
+        self.assertEqual([i["n"] for i in got], [7])
+        self.assertEqual(len(skipped), 2)
+        self.assertTrue(all("Nightly" in x for x in skipped), skipped)
+
+    def test_a_malformed_row_whose_title_does_not_match_is_not_reported(self):
+        # An unrelated bug issue is filtered like any other, so it cannot fill the report.
+        got, skipped, _ = read_all(row("1x", "Crash on paste"), row(7, "Nightly CI is failing"))
+        self.assertEqual([i["n"] for i in got], [7])
+        self.assertEqual(skipped, [])
 
     def test_a_line_separator_inside_any_title_does_not_break_the_read(self):
         # The label read returns EVERY open bug issue. str.splitlines() would cut this unrelated
@@ -179,6 +224,7 @@ class TheCollectorWritesItPerRepository(unittest.TestCase):
             got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
         by = {r["short"]: r for r in got["repos"]}
         self.assertEqual([i["n"] for i in by["engine"]["nightly"]], [1830])
+        self.assertEqual(by["engine"]["nightly_skipped"], [])
         self.assertIsNone(by["r"]["nightly"])
         issue_reads = [a for a in calls if any("/issues" in x for x in a)]
         self.assertEqual(len(issue_reads), 1)
@@ -194,18 +240,30 @@ class TheCollectorWritesItPerRepository(unittest.TestCase):
         self.assertIn("HTTP 502", by["engine"]["nightly"]["error"])
         self.assertEqual(by["engine"]["required"], ["gates"])
 
+    def test_a_malformed_matching_row_never_stops_the_collect(self):
+        answer = done(row("1x", "Nightly Fake is failing") + "\n" +
+                      row(1830, "Nightly Security is failing") + "\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_main(answer, tmp)
+            got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
+        by = {r["short"]: r for r in got["repos"]}
+        self.assertEqual([i["n"] for i in by["engine"]["nightly"]], [1830])
+        self.assertEqual(len(by["engine"]["nightly_skipped"]), 1)
+
 
 def issue(n, workflow, opened, comments=0):
     return {"n": n, "workflow": workflow, "opened": opened, "comments": comments,
             "url": "https://github.com/%s/issues/%d" % (ENGINE, n)}
 
 
-def board(engine, korus=None, vault=None, drop_key=False):
+def board(engine, korus=None, vault=None, drop_key=False, skipped=None):
     """Render the real board. The fixture clock is 2026-09-20T18:00:00Z, set by render()."""
     repos = [repo("engine", []), repo("korus", []), repo("vault", [])]
     if not drop_key:
         for r, v in zip(repos, (engine, korus, vault)):
             r["nightly"] = v
+    if skipped is not None:
+        repos[0]["nightly_skipped"] = skipped
     return render(repos)
 
 
@@ -275,6 +333,32 @@ class TheBoardShowsThemAndHowLongEachHasBeenOpen(unittest.TestCase):
         self.assertIn("Engine: not read: the read failed: HTTP 502.", p)
         self.assertIn("<b>Nothing was read</b>", p)
         self.assertNotIn("No nightly-failure issue is open", p)
+
+    def test_an_unexpected_nightly_value_renders_as_not_read_and_never_raises(self):
+        # Round-two finding 4. A value outside the four states raised KeyError in build.py and
+        # stopped the whole board for one secondary panel.
+        for odd in ("weird", 7, True, 1.5):
+            with self.subTest(odd=odd):
+                p = panel(board(odd))
+                self.assertIn("Engine: not read: unrecognised value", p)
+                self.assertNotIn("No nightly-failure issue is open", p)
+
+    def test_a_malformed_issue_inside_the_list_is_reported_not_raised(self):
+        p = panel(board([{"n": 1}, issue(9, "CI", "2026-09-20T12:00:00Z")]))
+        self.assertIn("#9</a>", p)
+        self.assertIn("Engine: 1 row not shown", p)
+
+    def test_skipped_rows_are_reported_and_block_the_clear_headline(self):
+        p = panel(board([], skipped=["a row could not be read: 'Nightly Fake is failing'"]))
+        self.assertIn("Engine: 1 row not shown", p)
+        self.assertIn("Nightly Fake is failing", p)
+        self.assertNotIn("No nightly-failure issue is open", p)
+
+    def test_the_panel_never_says_each_issue_closes_by_itself(self):
+        # Round-two finding 7. The panel shows orphans and duplicates the workflow never closes.
+        p = panel(board([]))
+        self.assertNotIn("by itself", p)
+        self.assertIn("orphan", p)
 
     def test_a_data_json_from_before_this_read_says_nothing_was_read(self):
         p = panel(board(None, drop_key=True))

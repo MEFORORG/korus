@@ -204,12 +204,18 @@ things, so every issue the workflow would adopt shows:
 
 ```bash
 gh api -X GET repos/MEFORORG/MessageFoundry/issues -f state=open -f labels=bug -f per_page=100 \
-  --paginate --jq '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),
-  .created_at, (.comments|tostring), .html_url, .title] | join("\t")'
+  --paginate --jq '.[] | [.number, (if .pull_request then "pr" else "issue" end),
+  .created_at, .comments, .html_url, .title] | @json'
 ```
 
 The REST list returns pull requests beside issues, so each row says which it is. The collector
 drops pull requests and titles that do not match.
+
+**One line is one `@json` array.** The read returns every open `bug` issue, and any title may hold
+a newline or a carriage return. Raw text let such a title forge a row or blank the panel.
+
+A row that still cannot be read is skipped and listed on the panel as *not shown*. The rows beside
+it are kept, and the collect goes on. A repository with a row not shown never reads as clear.
 
 **A match is not always an issue the workflow will close.** One left behind by a workflow since
 dropped from the watch list matches. So does a duplicate the workflow lost track of.
