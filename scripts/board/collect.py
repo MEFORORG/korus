@@ -77,51 +77,57 @@ def closed_window(full, since):
 #
 # THE MATCH IS THE WRITER'S OWN PREDICATE, NOT A GUESS. The engine's `nightly-notice.yml` sets
 # `TITLE="Nightly $WF_NAME is failing"` and `LABEL="bug"`, and finds the issue to comment on by an
-# OPEN issue with that label whose title is exactly that. Any issue this predicate matches is one
-# the workflow itself would adopt, so reading the same predicate here shows exactly its issues.
-# The workflow name is left free rather than listed: the watch list is that repository's, and a
-# copy here would drift the day a workflow joins it.
+# OPEN issue with that label whose title is exactly that. So every issue the workflow would adopt
+# matches here. The converse does not hold: an issue for a workflow since dropped from its watch
+# list, or a duplicate it lost track of, also matches and will never be closed by it. Showing those
+# is deliberate -- an orphan is a red nobody will clear, which is the thing this panel is for.
+# The name is left free rather than listed: the watch list is the engine's, and a copy here drifts.
 #
-# ONLY THE ENGINE CARRIES THE WORKFLOW. Measured 2026-09-30: neither korus nor the vault has a
-# `nightly-notice.yml` among its workflows. A repository missing from this list is NOT READ, and
-# the board says so rather than printing a clean zero for it.
+# ONLY THE ENGINE CARRIES THE WORKFLOW. Measured 2026-09-30 with
+# `git ls-tree --name-only origin/main .github/workflows/ | grep -c nightly-notice`: korus 0 at
+# 4a5af872d, the vault 0 at 4c9855c75, and the engine 1 at ce9a8ddba, which is the control. Every
+# other repository is NOT READ, and the board says so rather than printing a clean zero for it.
 NIGHTLY_NOTICE_REPOS = ("MEFORORG/MessageFoundry",)
 NIGHTLY_LABEL = "bug"
 NIGHTLY_TITLE = re.compile(r"^Nightly (.+) is failing$")
 
 
 def nightly_reds(full):
-    """The OPEN issues `nightly-notice.yml` keeps in `full`, oldest first.
+    """The OPEN issues matching `nightly-notice.yml`'s own predicate in `full`.
 
     Read off REST, filtered to the workflow's label, and paged to the end. The REST issues list
     carries pull requests too, so each row says which it is and a pull request is dropped here,
-    where a test can see it. A failed read refuses: "no scheduled run is red" is exactly the
-    reading a default would forge."""
+    where a test can see it.
+
+    A failed or unparseable read returns {"error": ...} rather than refusing the whole collect.
+    This is a secondary panel, and refusing would freeze every merge reading beside it. It is not
+    a default either: the board renders the marker as "not read: the read failed", never as a
+    zero, because "no scheduled run is red" is exactly the reading a default would forge."""
     r = subprocess.run(
         ["gh", "api", "-X", "GET", "repos/%s/issues" % full, "-f", "state=open",
          "-f", "labels=" + NIGHTLY_LABEL, "-f", "per_page=100", "--paginate", "--jq",
          '.[] | [(.number|tostring), (if .pull_request then "pr" else "issue" end),'
-         ' .created_at, .updated_at, (.comments|tostring), .title] | join("\\t")'],
+         ' .created_at, (.comments|tostring), .html_url, .title] | join("\\t")'],
         capture_output=True, encoding="utf-8", errors="replace")
     if r.returncode:
-        refuse("The nightly failure issue read for %s failed: %s"
-               % (full, (r.stderr or "").strip()[:300]))
+        return {"error": "the read failed: %s" % ((r.stderr or "").strip()[:200] or
+                                                   "exit %d" % r.returncode)}
     found = []
-    for line in r.stdout.splitlines():
+    # jq ends each record with a newline and nothing else, so split on that alone.
+    # str.splitlines() also breaks on U+2028, NEL and form feed, which a title may carry.
+    for line in r.stdout.split("\n"):
         if not line.strip():
             continue
         parts = line.split("\t", 5)
         if len(parts) != 6:
-            refuse("The nightly failure issue read for %s returned a row it cannot parse: %r"
-                   % (full, line[:200]))
-        number, kind, opened, updated, comments, title = parts
+            return {"error": "a row could not be parsed: %r" % line[:120]}
+        number, kind, opened, comments, url, title = parts
         m = NIGHTLY_TITLE.match(title)
         if kind != "issue" or not m:
             continue
-        found.append({"n": int(number), "workflow": m.group(1), "title": title,
-                      "opened": opened, "updated": updated, "comments": int(comments),
-                      "url": "https://github.com/%s/issues/%s" % (full, number)})
-    return sorted(found, key=lambda x: x["opened"])
+        found.append({"n": int(number), "workflow": m.group(1), "opened": opened,
+                      "comments": int(comments), "url": url})
+    return found
 
 
 def required_contexts(full):
@@ -347,7 +353,9 @@ def main():
               % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
                  r["enqueued"], len(r["merged"]),
                  "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
-              + ("  nightly-red=%d" % len(r["nightly"]) if r["nightly"] is not None else ""))
+              + ("" if r["nightly"] is None else
+                 "  nightly-red=%d" % len(r["nightly"]) if isinstance(r["nightly"], list) else
+                 "  NIGHTLY-READ-FAILED"))
 
 
 if __name__ == "__main__":

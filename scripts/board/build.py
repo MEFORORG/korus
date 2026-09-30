@@ -328,14 +328,27 @@ person_rows = person_table()
 # the Lander. A scheduled run has no pull request, so nothing above can show it. The collector
 # reads the issues the engine's `nightly-notice.yml` opens; LANDER-BOARD.md section 4d has why.
 #
-# THREE STATES PER REPOSITORY, AND ONLY ONE OF THEM IS A ZERO. A list is a reading. None is a
-# repository the collector declares it does not read, because it carries no such workflow. A MISSING
-# key is a data.json written before the collector read these at all. The last two must never print
-# as "none open": a repository nobody looked at is not a repository with nothing red.
+# FOUR STATES PER REPOSITORY, AND ONLY ONE OF THEM IS A ZERO. A list is a reading. None is a
+# repository the collector declares it does not read, because it carries no such workflow. A dict
+# is a read that failed. A MISSING key is a data.json written before the collector read these at
+# all. The last three must never print as "none open": a repository nobody looked at, or whose read
+# failed, is not a repository with nothing red.
 NIGHTLY_NOT_READ = {
     None: "not read: this repository carries no nightly-notice workflow",
     "missing": "not read: data.json predates this read; run collect.py again",
 }
+
+
+def opened_at(iso):
+    """A Central clock time, with the DATE whenever it is not today.
+
+    `clock` gives a weekday, which is enough for a merge but not here: these issues stay open for
+    weeks, and a weekday cannot tell last Saturday from one seven weeks ago."""
+    t = P(iso).astimezone(CT)
+    if t.date() == now.astimezone(CT).date():
+        return clock(iso)
+    return "%s %d, %d:%02d %s CT" % (t.strftime("%b"), t.day, (t.hour % 12) or 12, t.minute,
+                                     "AM" if t.hour < 12 else "PM")
 
 
 def nightly_panel():
@@ -345,29 +358,41 @@ def nightly_panel():
         if isinstance(got, list):
             read.append(NAMES[k])
             issues += [(NAMES[k], i) for i in got]
+        elif isinstance(got, dict):
+            unread.append((NAMES[k], "not read: %s" % got.get("error", "the read failed")))
         else:
             unread.append((NAMES[k], NIGHTLY_NOT_READ[got]))
     issues.sort(key=lambda x: x[1]["opened"])
     stamp = clock(d["generated_utc"])
+    # The stamp is taken before any read, so an issue opened during the collect is younger than
+    # the stamp. Clamp it to zero rather than print a negative span.
+    span = lambda i: dur(max(0.0, ago(i["opened"])))
     if issues:
         head = ("<b>%d</b> open. The oldest has been open <b>%s</b> as of %s."
-                % (len(issues), dur(ago(issues[0][1]["opened"])), esc(stamp)))
+                % (len(issues), span(issues[0][1]), esc(stamp)))
     elif read:
-        head = "No scheduled run is red in <b>%s</b>." % esc(", ".join(read))
+        # Scoped on purpose. The notice watches some scheduled workflows, not all of them, and
+        # files only on a run that concluded as a failure. So this is not "nothing is red".
+        head = ("No nightly-failure issue is open in <b>%s</b>. That covers only the scheduled "
+                "workflows the nightly failure notice watches, and only a run that failed."
+                % esc(", ".join(read)))
     else:
         head = "<b>Nothing was read</b>, so this panel says nothing about scheduled runs."
     body = "".join(
         '<tr><td>%s</td><td><a href="%s">#%d</a></td><td>%s</td><td>%s</td><td>%s</td>'
         '<td>%d</td></tr>'
-        % (esc(name), esc(i["url"]), i["n"], esc(i["workflow"]), esc(clock(i["opened"])),
-           esc(dur(ago(i["opened"]))), i["comments"])
+        % (esc(name), esc(i["url"]), i["n"], esc(i["workflow"]), esc(opened_at(i["opened"])),
+           esc(span(i)), i["comments"])
         for name, i in issues)
     table = ('<div class="ptab-wrap"><table class="ptab">'
              '<thead><tr><th>Repository</th><th>Issue</th><th>Workflow</th><th>Opened</th>'
              '<th>Open, as of %s</th><th>Comments</th></tr></thead><tbody>%s</tbody>'
              '</table></div>' % (esc(stamp), body)) if issues else ""
     gaps = "".join('<p class="note">%s: %s.</p>' % (esc(name), esc(why)) for name, why in unread)
-    return '<p class="note">%s</p>%s%s' % (head, table, gaps)
+    # An issue title is written by whoever can label an issue, and html.escape leaves braces
+    # alone. The template is filled by a chain of str.replace calls, so a `{{BARS}}` in a title
+    # would be filled by a LATER call. Escaping the brace here keeps this panel's text inert.
+    return ('<p class="note">%s</p>%s%s' % (head, table, gaps)).replace("{", "&#123;")
 
 
 nightly_rows = nightly_panel()

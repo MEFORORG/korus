@@ -14,8 +14,9 @@ may a pull request, which the REST issues list returns beside issues.
 
 A ZERO IS ONLY A ZERO WHERE SOMETHING WAS READ. The vault and korus carry no such workflow, so the
 collector does not read them, and the page must say "not read" there rather than "none open". A
-data.json written before this read existed is the same case, and so is a failed read, which
-refuses the run and leaves the last good file in place.
+data.json written before this read existed is the same case, and so is a failed read. That one
+does NOT refuse the whole collect: this is a secondary panel, and refusing would freeze every merge
+reading beside it. It writes a marker the page renders as "not read: the read failed".
 
 Nothing here calls GitHub. `subprocess` is replaced inside the collector, and `build.py` is run as
 a subprocess over a fixture, which is the real rendering path.
@@ -52,9 +53,10 @@ def done(stdout="", code=0, stderr=""):
     return types.SimpleNamespace(returncode=code, stdout=stdout, stderr=stderr)
 
 
-def row(n, title, kind="issue", opened="2026-09-30T12:00:01Z", updated=None, comments=0):
+def row(n, title, kind="issue", opened="2026-09-30T12:00:01Z", comments=0):
     """One line in the shape the collector's own `--jq` program prints."""
-    return "\t".join([str(n), kind, opened, updated or opened, str(comments), title])
+    url = "https://github.com/%s/issues/%d" % (ENGINE, n)
+    return "\t".join([str(n), kind, opened, str(comments), url, title])
 
 
 def read(*lines, code=0):
@@ -109,22 +111,26 @@ class TheCollectorReadsWhatTheWorkflowWrites(unittest.TestCase):
         self.assertIn("--paginate", args)
         self.assertEqual(collect.NIGHTLY_LABEL, "bug")
 
-    def test_the_oldest_issue_comes_first(self):
-        got, _ = read(row(9, "Nightly CI is failing", opened="2026-09-29T06:00:00Z"),
-                      row(4, "Nightly DAST is failing", opened="2026-09-01T06:00:00Z"))
-        self.assertEqual([i["n"] for i in got], [4, 9])
-
     def test_a_title_holding_a_tab_is_kept_whole(self):
         got, _ = read(row(1, "Nightly Odd\tName is failing"))
         self.assertEqual([i["workflow"] for i in got], ["Odd\tName"])
 
-    def test_a_failed_read_refuses_rather_than_reading_clean(self):
-        with self.assertRaises(SystemExit):
-            read(code=1)
+    def test_a_failed_read_is_marked_never_read_as_clean(self):
+        got, _ = read(code=1)
+        self.assertIsInstance(got, dict)
+        self.assertIn("HTTP 502", got["error"])
 
-    def test_a_row_it_cannot_parse_refuses(self):
-        with self.assertRaises(SystemExit):
-            read("1830\tissue\t2026-09-30T12:00:01Z")
+    def test_a_row_it_cannot_parse_is_marked_never_read_as_clean(self):
+        got, _ = read("1830\tissue\t2026-09-30T12:00:01Z")
+        self.assertIsInstance(got, dict)
+        self.assertIn("could not be parsed", got["error"])
+
+    def test_a_line_separator_inside_any_title_does_not_break_the_read(self):
+        # The label read returns EVERY open bug issue. str.splitlines() would cut this unrelated
+        # title at U+2028 and turn the whole read into a parse failure.
+        got, _ = read(row(5, "Crash on paste\u2028of a long line"),
+                      row(1830, "Nightly Security is failing"))
+        self.assertEqual([i["n"] for i in got], [1830])
 
     def test_every_repository_read_for_these_is_one_the_board_reads(self):
         boards = {full for full, _short in collect.REPOS}
@@ -178,17 +184,19 @@ class TheCollectorWritesItPerRepository(unittest.TestCase):
         self.assertEqual(len(issue_reads), 1)
         self.assertIn("repos/%s/issues" % ENGINE, issue_reads[0])
 
-    def test_a_failed_issue_read_leaves_the_last_good_data_json(self):
+    def test_a_failed_issue_read_marks_the_panel_and_keeps_the_merge_board(self):
+        # Refusing here would leave every merge reading stale for one secondary panel's sake.
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "data.json").write_text("LAST GOOD", encoding="utf-8")
-            with self.assertRaises(SystemExit):
-                self.run_main(done(code=1, stderr="HTTP 502"), tmp)
-            self.assertEqual(Path(tmp, "data.json").read_text(encoding="utf-8"), "LAST GOOD")
+            self.run_main(done(code=1, stderr="HTTP 502"), tmp)
+            got = json.loads(Path(tmp, "data.json").read_text(encoding="utf-8"))
+        by = {r["short"]: r for r in got["repos"]}
+        self.assertIn("HTTP 502", by["engine"]["nightly"]["error"])
+        self.assertEqual(by["engine"]["required"], ["gates"])
 
 
 def issue(n, workflow, opened, comments=0):
-    return {"n": n, "workflow": workflow, "title": "Nightly %s is failing" % workflow,
-            "opened": opened, "updated": opened, "comments": comments,
+    return {"n": n, "workflow": workflow, "opened": opened, "comments": comments,
             "url": "https://github.com/%s/issues/%d" % (ENGINE, n)}
 
 
@@ -224,6 +232,22 @@ class TheBoardShowsThemAndHowLongEachHasBeenOpen(unittest.TestCase):
         p = panel(board([issue(1, "CI", "2026-09-20T15:30:00Z")]))
         self.assertIn("<td>2h 30m</td>", p)
         self.assertIn("Open, as of 1:00 PM CT", p)
+        self.assertIn("<td>10:30 AM CT</td>", p)
+
+    def test_an_issue_opened_on_another_day_shows_its_date(self):
+        # A weekday alone cannot tell last Saturday from one seven weeks ago.
+        p = panel(board([issue(288, "Security", "2026-08-08T06:52:18Z")]))
+        self.assertIn("<td>Aug 8, 1:52 AM CT</td>", p)
+
+    def test_an_issue_opened_after_the_stamp_reads_zero_not_negative(self):
+        p = panel(board([issue(1, "CI", "2026-09-20T18:01:30Z")]))
+        self.assertIn("<td>0m</td>", p)
+        self.assertNotIn("-1m", p)
+
+    def test_a_template_token_in_a_workflow_name_stays_text(self):
+        p = panel(board([issue(1, "{{SVGW}}", "2026-09-20T15:30:00Z")]))
+        self.assertIn("&#123;&#123;SVGW}}", p)
+        self.assertNotIn("<td>900</td>", p)
 
     def test_the_oldest_leads_and_the_count_covers_every_issue(self):
         p = panel(board([issue(9, "CI", "2026-09-20T12:00:00Z"),
@@ -234,19 +258,28 @@ class TheBoardShowsThemAndHowLongEachHasBeenOpen(unittest.TestCase):
 
     def test_no_open_issue_reads_as_none_and_names_what_was_read(self):
         p = panel(board([]))
-        self.assertIn("No scheduled run is red in <b>Engine</b>.", p)
+        self.assertIn("No nightly-failure issue is open in <b>Engine</b>. That covers only", p)
         self.assertNotIn("<table", p)
 
     def test_a_repository_that_was_not_read_never_counts_as_clear(self):
         p = panel(board([]))
         self.assertIn("Vault: not read: this repository carries no nightly-notice workflow.", p)
         self.assertIn("KORUS: not read: this repository carries no nightly-notice workflow.", p)
+        # The exact headline, so a builder that counted all three as read cannot pass.
+        self.assertIn("is open in <b>Engine</b>.", p)
         self.assertNotIn("Vault</b>", p)
+        self.assertNotIn("KORUS</b>", p)
+
+    def test_a_failed_read_says_not_read_and_never_none_open(self):
+        p = panel(board({"error": "the read failed: HTTP 502"}))
+        self.assertIn("Engine: not read: the read failed: HTTP 502.", p)
+        self.assertIn("<b>Nothing was read</b>", p)
+        self.assertNotIn("No nightly-failure issue is open", p)
 
     def test_a_data_json_from_before_this_read_says_nothing_was_read(self):
         p = panel(board(None, drop_key=True))
         self.assertIn("<b>Nothing was read</b>", p)
-        self.assertNotIn("No scheduled run is red", p)
+        self.assertNotIn("No nightly-failure issue is open", p)
         self.assertIn("Engine: not read: data.json predates this read", p)
 
 

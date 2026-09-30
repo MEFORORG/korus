@@ -451,6 +451,7 @@ The Lander Board lists each under *Scheduled runs failing*, with how long it has
 | What you do | Triage it as you would a red required check. Read the failing job, rule out a capacity artifact, and dispatch a repair for a genuine failure. |
 | A red only the owner can clear | Some need an owner act, such as a release or a `security.txt` renewal. Put it in *Table 2 -- the blockers*, and nag. |
 | Leave the issue to the workflow | SEAT PRACTICE, not measured. It closes itself on the next green scheduled run. A hand close loses the age the board measures, and the next red night opens a fresh issue. |
+| Unless the workflow never will | An issue for a workflow no longer on its watch list, or an older duplicate of a newer issue, stays open forever. Close it by hand, and say why in a comment. LANDER-BOARD.md section 4d names both shapes. |
 | The Watchdog's part | It measures how long each issue stays open, and never acts on one. [WATCHDOG.md](WATCHDOG.md), *YOUR FIRST STANDING DUTY*. |
 | Worked case | Engine issue 288, *Nightly Security is failing*, open 2026-08-08 to 2026-09-25 with 49 comments while no seat read it. Vault BACKLOG #1800. |
 
@@ -619,6 +620,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Item | Rule |
 | --- | --- |
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
+| The loop covers scheduled-run reds | The prompt says *poll each queue*. Read the board's *Scheduled runs failing* panel on the same tick. *A scheduled run's red is yours too* holds the duty. |
 | Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* binds this. Send no ACK, and invent no work to fill a quiet tick. Mark it `noop: true` when nothing moved, `noop: false` on a landing, filed item or finding. |

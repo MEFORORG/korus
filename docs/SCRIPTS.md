@@ -132,7 +132,7 @@ their failure criteria and the run's stopping point.
 | Script | Does | Doc |
 |---|---|---|
 | `scripts/board/refresh.ps1` | Rebuilds the board: collect, series, build, in order, stopping at the first failure so a half-rebuilt board is never published. `-OutDir` writes elsewhere, `-SkipCollect` re-renders without calling GitHub. Does not publish -- that needs a session | [The Lander Board](LANDER-BOARD.md) |
-| `scripts/board/collect.py` | Reads the required contexts, open pull requests with their checks, the merge queue, create/merge/close timestamps and the engine's open nightly-failure issues into `data.json`. Refuses to write when a read fails. Needs `gh`; no standalone `jq` | [The Lander Board](LANDER-BOARD.md) |
+| `scripts/board/collect.py` | Reads the required contexts, open pull requests with their checks, the merge queue, create/merge/close timestamps and the engine's open nightly-failure issues into `data.json`. Refuses to write when a read fails, except the issue read, which it marks failed. Needs `gh` | [The Lander Board](LANDER-BOARD.md) |
 | `scripts/board/series.py` | Derives the hourly merge and open-count series, the idle runs and the per-repository rates from `data.json` into `series.json` | [The Lander Board](LANDER-BOARD.md) |
 | `scripts/board/build.py` | Renders `board.html` from `series.json` and `template.html`. Writes beside the scripts, or into `LANDER_BOARD_OUT` | [The Lander Board](LANDER-BOARD.md) |
 | `scripts/board/seatstate.py` | Reads a watched seat's transcript and returns WORKING, IDLE or BLOCKED-ON-A-QUESTION. Output cannot tell the three apart; the last entry can | [The Lander Board](LANDER-BOARD.md) |
