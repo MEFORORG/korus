@@ -290,13 +290,13 @@ ported notice covers only the repositories someone ports it to, and only its own
 
 Every other conclusion is red, so a conclusion GitHub adds later shows rather than hides.
 
-**A red whose file no longer declares a schedule is named, not shown.** The vault's `ci.yml`
+**A red whose file no longer declares a schedule is named, not shown.** The vault's *CI* workflow
 dropped its cron, and its last scheduled run was red. Without the check that row would show for
 the whole window, about a red nobody can clear by fixing the workflow.
 
 The check matches the trigger key, `schedule:` or `on: [..., schedule]`, on lines that are not
-whole-line comments. A bare word match also fired on `github.event_name == 'schedule'`, which
-engine `ci.yml`, `security.yml` and `fuzz.yml` carry.
+whole-line comments. A bare word match also fired on `github.event_name == 'schedule'`, which the
+engine's *CI*, *Security* and *Fuzz* workflows carry.
 
 **A file gone from the default branch declares no schedule.** GitHub keeps a deleted workflow
 listed as `active`; three engine workflows answered 404 on 2026-10-01. Refusing there would freeze
