@@ -40,6 +40,10 @@ SCHEDULED_YAML = "on:\n  schedule:\n    - cron: '17 6 * * *'\n  workflow_dispatc
 NO_CRON_YAML = "on:\n  push:\n    branches: [main]\n"
 # The vault's ci.yml dropped its cron and kept a comment naming the old `schedule:` trigger.
 COMMENTED_CRON_YAML = "# the nightly `schedule:` trigger was removed\non:\n  push:\n"
+# Engine ci.yml, security.yml and fuzz.yml name the event in a step condition. A bare word match
+# read that as a trigger, so a dropped cron there would have stayed red for the whole window.
+EVENT_NAME_ONLY_YAML = ("on:\n  push:\njobs:\n  x:\n"
+                        "    if: github.event_name == 'schedule'\n")
 
 
 def done(stdout="", code=0, stderr=""):
@@ -61,7 +65,16 @@ def lines(rows, total=None):
     return "\n".join(json.dumps([total] + r[1:]) for r in rows) + "\n"
 
 
-def fake(flows, runs, yaml=SCHEDULED_YAML, total=None, fail=None):
+def contents(yaml, encoding="base64"):
+    """The contents read's answer, in the shape the collector's own `--jq` program prints.
+
+    A file over 1 MB comes back with an empty content and encoding `none`."""
+    body = base64.b64encode(yaml.encode()).decode() if encoding == "base64" else ""
+    return json.dumps([body, encoding]) + "\n"
+
+
+def fake(flows, runs, yaml=SCHEDULED_YAML, total=None, fail=None, stderr="HTTP 502",
+         encoding="base64"):
     """A `gh` that answers the three reads. `fail` names a read to fail: flows, runs, contents."""
     calls = []
 
@@ -70,11 +83,10 @@ def fake(flows, runs, yaml=SCHEDULED_YAML, total=None, fail=None):
         joined = " ".join(args)
         for key, answer in (("actions/workflows", "\n".join(flows) + "\n"),
                             ("actions/runs", lines(runs, total)),
-                            ("/contents/", json.dumps(base64.b64encode(
-                                yaml.encode()).decode()) + "\n")):
+                            ("/contents/", contents(yaml, encoding))):
             if key in joined:
                 if fail and fail in key:
-                    return done(code=1, stderr="HTTP 502")
+                    return done(code=1, stderr=stderr)
                 return done(answer)
         raise AssertionError("unexpected call: %s" % joined)
     return calls, mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_))
@@ -130,11 +142,41 @@ class TheCollectorReadsEachWorkflowsLatestVerdict(unittest.TestCase):
         self.assertEqual((got["read"], got["reds"]), (0, []))
 
     def test_a_red_whose_file_dropped_its_cron_is_named_not_shown(self):
-        for yaml in (NO_CRON_YAML, COMMENTED_CRON_YAML):
+        for yaml in (NO_CRON_YAML, COMMENTED_CRON_YAML, EVENT_NAME_ONLY_YAML):
             got, _ = read([flow(1, "CI")], [run(1, 1, "failure", "2026-09-16T03:30:24Z")],
                           yaml=yaml)
             with self.subTest(yaml=yaml):
                 self.assertEqual((got["reds"], got["unscheduled"]), ([], ["CI"]))
+
+    def test_every_spelling_of_the_trigger_keeps_the_red(self):
+        for yaml in (SCHEDULED_YAML, "on: [push, schedule]\n", '"on":\n  "schedule":\n'):
+            got, _ = read([flow(1, "CI")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                          yaml=yaml)
+            with self.subTest(yaml=yaml):
+                self.assertEqual(len(got["reds"]), 1)
+
+    def test_a_red_filed_as_unscheduled_is_not_counted_as_read(self):
+        # The clear headline says the latest run of each READ workflow passed.
+        got, _ = read([flow(1, "Green"), flow(2, "CI")],
+                      [run(2, 2, "failure", "2026-09-16T03:30:24Z"),
+                       run(1, 1, "success", "2026-10-01T00:00:00Z")], yaml=NO_CRON_YAML)
+        self.assertEqual((got["read"], got["unscheduled"]), (1, ["CI"]))
+
+    def test_a_workflow_file_gone_from_the_branch_is_unscheduled_not_a_refusal(self):
+        # GitHub lists a deleted workflow as active. Refusing would freeze the board for weeks.
+        got, _ = read([flow(1, "Probe")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                      fail="contents", stderr="gh: Not Found (HTTP 404)")
+        self.assertEqual((got["reds"], got["unscheduled"]), ([], ["Probe"]))
+
+    def test_a_file_the_api_will_not_inline_keeps_its_red_shown(self):
+        got, _ = read([flow(1, "Big")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                      yaml="", encoding="none")
+        self.assertEqual([r["workflow"] for r in got["reds"]], ["Big"])
+
+    def test_a_workflow_github_turned_off_for_inactivity_is_named(self):
+        got, _ = read([flow(1, "Weekly", state="disabled_inactivity"),
+                       flow(2, "Off", state="disabled_manually")], [])
+        self.assertEqual(got["stopped"], ["Weekly"])
 
     def test_the_schedule_check_asks_only_about_a_red_and_reads_the_default_branch(self):
         _, calls = read([flow(1, "Green"), flow(2, "Red")],
@@ -203,9 +245,12 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
         self.assertRefuses([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
                            total=2)
 
-    def test_a_window_past_the_api_cap_refuses(self):
-        self.assertRefuses([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
-                           total=collect.RUNS_API_CAP + 1)
+    def test_a_window_past_the_api_cap_refuses_and_says_to_narrow_it(self):
+        # The completeness check would also refuse here, so the message is what tells them apart.
+        with self.assertRaises(SystemExit) as cm:
+            read([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
+                 total=collect.RUNS_API_CAP + 1)
+        self.assertIn("narrow SCHEDULE_WINDOW_DAYS", str(cm.exception.code))
 
 
 def pr_page():
@@ -235,7 +280,7 @@ class TheCollectorReadsEveryRepository(unittest.TestCase):
             if "actions/runs" in joined:
                 return runs_answer
             if "/contents/" in joined:
-                return done(json.dumps(base64.b64encode(SCHEDULED_YAML.encode()).decode()))
+                return done(contents(SCHEDULED_YAML))
             raise AssertionError("unexpected call: %s" % joined)
         repos = [("MEFORORG/MessageFoundry", "engine"), ("o/r", "r"), (VAULT, "vault")]
         with mock.patch.object(collect, "OUT", out), \
@@ -339,16 +384,32 @@ class TheBoardShowsEachRedAndHowLongItHasBeenRed(unittest.TestCase):
     def test_a_malformed_red_row_is_reported_and_blocks_the_clear_headline(self):
         for bad in ({"workflow": "x"}, dict(red("x", "2026-09-20T00:00:00"), floor=False),
                     dict(red("x", "2026-09-20T00:00:00Z"), streak=True),
-                    dict(red("x", "2026-09-20T00:00:00Z"), streak=0), "row"):
+                    dict(red("x", "2026-09-20T00:00:00Z"), streak=0),
+                    dict(red("x", "0001-01-01T00:00:00+01:00")), "row"):
             with self.subTest(bad=bad):
                 p = part(board(vault=sched([bad])))
                 self.assertIn("Vault: 1 red row in data.json is malformed and not shown.", p)
                 self.assertIn("not every repository was read", p)
 
+    def test_a_partial_read_says_the_longest_is_of_those_shown(self):
+        p = part(board(vault=sched([red("Shown", "2026-09-20T00:00:00Z"), "row"])))
+        self.assertIn("<b>at least 1</b> scheduled workflow red. The longest shown has", p)
+
     def test_a_dropped_cron_is_named(self):
         p = part(board(vault=sched(unscheduled=["CI"])))
         self.assertIn("Vault: CI last ran red on a schedule, but the workflow file no longer "
                       "declares one", p)
+
+    def test_a_workflow_turned_off_for_inactivity_is_named(self):
+        p = part(board(vault=dict(sched(), stopped=["Weekly"])))
+        self.assertIn("Vault: Weekly was turned off by GitHub for inactivity", p)
+
+    def test_a_malformed_name_list_is_reported_and_blocks_the_clear_headline(self):
+        for key in ("unscheduled", "stopped"):
+            with self.subTest(key=key):
+                p = part(board(vault=dict(sched(), **{key: "CI"})))
+                self.assertIn("Vault: not read: unrecognised %s value" % key, p)
+                self.assertIn("not every repository was read", p)
 
     def test_a_template_token_in_a_workflow_name_stays_text(self):
         p = part(board(vault=sched([red("{{BARS}}", "2026-09-20T00:00:00Z")])))

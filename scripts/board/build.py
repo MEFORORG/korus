@@ -498,9 +498,19 @@ def sched_since(i):
         return None
     try:
         times = [P(x) for x in (i["since"], i["latest"], green) if x is not None]
-    except ValueError:
+        # The table renders each in Central time. An instant at the edge of the calendar
+        # overflows there, so it is tried here, where an overflow is a malformed row.
+        for t in times:
+            t.astimezone(CT)
+    except (ValueError, OverflowError):
         return None
     return times[0] if all(t.tzinfo is not None for t in times) else None
+
+
+def names_list(got, key):
+    """A list of workflow names from `got[key]`, [] when absent, or None when it is malformed."""
+    v = got.get(key, [])
+    return v if isinstance(v, list) and all(isinstance(x, str) for x in v) else None
 
 
 def scheduled_panel():
@@ -519,28 +529,36 @@ def scheduled_panel():
         rows = [(sched_since(i), i) for i in got["reds"]]
         good = [(t, i) for t, i in rows if t is not None]
         reds += [(NAMES[k], t, i) for t, i in good]
-        if len(good) < len(rows):
-            partial = True
-            bad = len(rows) - len(good)
+        gone, stopped = names_list(got, "unscheduled"), names_list(got, "stopped")
+        bad = len(rows) - len(good)
+        if bad:
             notes.append("%s: %d red row%s in data.json %s malformed and not shown."
                          % (NAMES[k], bad, "" if bad == 1 else "s", "is" if bad == 1 else "are"))
+        for key, names in (("unscheduled", gone), ("stopped", stopped)):
+            if names is None:
+                notes.append("%s: not read: unrecognised %s value %r in data.json."
+                             % (NAMES[k], key, got.get(key)))
+        if bad or gone is None or stopped is None:
+            partial = True
         else:
             clear.append((NAMES[k], got["read"], got["window_days"]))
-        gone = got.get("unscheduled", [])
-        if isinstance(gone, list) and gone:
+        if gone:
             notes.append("%s: %s last ran red on a schedule, but the workflow file no longer "
-                         "declares one, so it is not shown."
-                         % (NAMES[k], ", ".join(str(x) for x in gone)))
+                         "declares one, so it is not shown." % (NAMES[k], ", ".join(gone)))
+        if stopped:
+            notes.append("%s: %s was turned off by GitHub for inactivity, so its schedule no "
+                         "longer runs." % (NAMES[k], ", ".join(stopped)))
     reds.sort(key=lambda x: x[1])
     stamp = clock(d["generated_utc"])
     span = lambda t: dur(max(0.0, (now - t).total_seconds() / 60.0))
     if reds:
         first = reds[0][2]
         floor = "at least " if first["floor"] else ""
-        head = ("<b>%s%d</b> scheduled workflow%s red. The longest has been red <b>%s%s</b> "
+        # A row not shown may be the oldest, so on a partial read the age is of those shown.
+        head = ("<b>%s%d</b> scheduled workflow%s red. The longest%s has been red <b>%s%s</b> "
                 "as of %s." % ("at least " if partial else "", len(reds),
-                               "" if len(reds) == 1 else "s", floor, span(reds[0][1]),
-                               esc(stamp)))
+                               "" if len(reds) == 1 else "s", " shown" if partial else "",
+                               floor, span(reds[0][1]), esc(stamp)))
     elif clear and not partial:
         flows = sum(r for _n, r, _w in clear)
         head = ("No scheduled run is red in <b>%s</b>. %d workflow%s ran on a schedule in the last "

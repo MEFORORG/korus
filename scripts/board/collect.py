@@ -143,39 +143,62 @@ def is_int(x):
     return isinstance(x, int) and not isinstance(x, bool)
 
 
-def declares_schedule(full, path):
-    """Whether the workflow file at the default branch still names a schedule trigger.
+# The TRIGGER KEY, block form `schedule:` or flow form `on: [push, schedule]`. A bare word match
+# also fired on `github.event_name == 'schedule'`, which engine ci.yml, security.yml and fuzz.yml
+# carry, so a dropped cron there would never have been noticed. Measured 2026-10-01.
+SCHEDULE_KEY = re.compile(r"""^\s*(["']?schedule["']?\s*:|["']?on["']?\s*:.*\bschedule\b)""")
 
-    A word match on every line that is not a whole-line comment. It can only err toward True, and
-    True keeps the red shown, which is the safe side."""
-    rows = gh_json_rows(["repos/%s/contents/%s" % (full, path), "--jq", ".content | @json"],
-                        "workflow file %s in %s" % (path, full))
-    if len(rows) != 1 or not isinstance(rows[0], str):
-        refuse("The workflow file %s in %s did not come back as one file." % (path, full))
+
+def declares_schedule(full, path):
+    """Whether the workflow file at the default branch still declares a schedule trigger.
+
+    A file gone from the default branch declares none. GitHub keeps a deleted workflow listed as
+    `active` (measured 2026-10-01: three engine workflows 404), and refusing there would freeze the
+    whole board until its last run left the window. A file the API will not inline, over 1 MB,
+    counts as declaring one: that keeps its red shown, which is the safe side."""
+    what = "workflow file %s in %s" % (path, full)
+    r = subprocess.run(["gh", "api", "repos/%s/contents/%s" % (full, path), "--jq",
+                        "[.content, .encoding] | @json"],
+                       capture_output=True, encoding="utf-8", errors="replace")
+    if r.returncode and "HTTP 404" in (r.stderr or ""):
+        return False
+    if r.returncode:
+        refuse("The %s read failed: %s"
+               % (what, (r.stderr or "").strip()[:300] or "exit %d" % r.returncode))
     try:
-        text = base64.b64decode(rows[0]).decode("utf-8", errors="replace")
+        content, encoding = json.loads(r.stdout)
+    except (ValueError, TypeError):
+        refuse("The %s did not come back as one file: %r" % (what, r.stdout[:120]))
+    if encoding != "base64" or not isinstance(content, str):
+        return True
+    try:
+        text = base64.b64decode(content).decode("utf-8", errors="replace")
     except ValueError:
-        refuse("The workflow file %s in %s is not base64." % (path, full))
-    return any(re.search(r"\bschedule\b", ln) for ln in text.splitlines()
+        refuse("The %s is not base64." % what)
+    return any(SCHEDULE_KEY.search(ln) for ln in text.splitlines()
                if not ln.lstrip().startswith("#"))
 
 
 def scheduled_reds(full, since_day):
     """Each active workflow in `full` whose latest scheduled run with a verdict did not pass.
 
-    Returns {"window_days", "read", "reds", "unscheduled"}. `read` counts the workflows that had
-    a verdict in the window, so a zero beside it says how much was looked at."""
+    Returns {"window_days", "read", "reds", "unscheduled", "stopped"}. `read` counts the
+    workflows judged green or red, so a zero beside it says how much was looked at. A red filed as
+    `unscheduled` is not in `read`: the clear headline says each read workflow passed."""
     flows = gh_json_rows(["-X", "GET", "repos/%s/actions/workflows" % full, "-f", "per_page=100",
                           "--paginate", "--jq",
                           ".workflows[] | [.id, .state, .path, .name] | @json"],
                          "workflow list for %s" % full)
-    active = {}
+    active, stopped = {}, []
     for f in flows:
         if not (isinstance(f, list) and len(f) == 4 and is_int(f[0])
                 and all(isinstance(x, str) for x in f[1:])):
             refuse("The workflow list for %s holds a row it cannot read: %r" % (full, f))
         if f[1] == "active":
             active[f[0]] = {"path": f[2], "name": f[3]}
+        elif f[1] == "disabled_inactivity":
+            # GitHub turned a scheduled workflow off, and nobody chose it. Named on the board.
+            stopped.append(f[3])
     runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
                          "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
                          "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
@@ -206,8 +229,8 @@ def scheduled_reds(full, since_day):
         verdicts = sorted(by_flow.get(flow, []), key=lambda x: x[0], reverse=True)
         if not verdicts:
             continue
-        read += 1
         if verdicts[0][1] in RUN_PASS:
+            read += 1
             continue
         streak = []
         for run in verdicts:
@@ -217,6 +240,7 @@ def scheduled_reds(full, since_day):
         if not declares_schedule(full, info["path"]):
             unscheduled.append(info["name"])
             continue
+        read += 1
         green = verdicts[len(streak)][2] if len(streak) < len(verdicts) else None
         reds.append({"workflow": info["name"], "path": info["path"],
                      "conclusion": verdicts[0][1] or "none", "latest": verdicts[0][2],
@@ -224,7 +248,7 @@ def scheduled_reds(full, since_day):
                      # Every run in the window failed, so the streak and its start are floors.
                      "floor": green is None, "last_green": green})
     return {"window_days": SCHEDULE_WINDOW_DAYS, "read": read, "reds": reds,
-            "unscheduled": unscheduled}
+            "unscheduled": unscheduled, "stopped": sorted(stopped)}
 
 
 def P(s):
@@ -237,7 +261,7 @@ def aware_instant(s):
     if not isinstance(s, str):
         return False
     try:
-        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).tzinfo is not None
+        return P(s).tzinfo is not None
     except ValueError:
         return False
 

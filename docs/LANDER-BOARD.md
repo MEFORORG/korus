@@ -294,8 +294,16 @@ Every other conclusion is red, so a conclusion GitHub adds later shows rather th
 dropped its cron, and its last scheduled run was red. Without the check that row would show for
 the whole window, about a red nobody can clear by fixing the workflow.
 
-The check is a word match on lines that are not whole-line comments. It can only err toward
-keeping a red shown.
+The check matches the trigger key, `schedule:` or `on: [..., schedule]`, on lines that are not
+whole-line comments. A bare word match also fired on `github.event_name == 'schedule'`, which
+engine `ci.yml`, `security.yml` and `fuzz.yml` carry.
+
+**A file gone from the default branch declares no schedule.** GitHub keeps a deleted workflow
+listed as `active`; three engine workflows answered 404 on 2026-10-01. Refusing there would freeze
+the whole board until that run left the window.
+
+A file over 1 MB comes back with no content, and keeps its red shown. A workflow GitHub turned off
+for inactivity, `disabled_inactivity`, is named on the panel, because nobody chose to stop it.
 
 **The window is 35 days, so a monthly cron is still read.** A workflow with no scheduled run in
 that window is not read, and the panel's clear headline says so. It also says how many workflows
