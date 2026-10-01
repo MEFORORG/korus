@@ -24,8 +24,8 @@ new pull requests arrive while it drains. The board shows both sides so the read
 The owner's chart that prompted it showed a flat open-count line and read as a stall. The count was
 flat because arrivals matched merges, which is a different problem with a different fix.
 
-It answers a second one too, since 2026-09-26: **which nightly-failure issues are open, and for
-how long?** Section 4d holds it.
+It answers a second one too, since 2026-09-26: **which scheduled runs are red, and for how long?**
+Section 4d holds the engine's nightly-failure issues, and section 4e every repository's run list.
 
 ---
 
@@ -245,12 +245,15 @@ git ls-tree --name-only origin/main .github/workflows/ | grep -c nightly-notice
 read** on the panel, never "none open". A `data.json` written before this read existed says the
 same.
 
-**This does not bring korus's or the vault's scheduled reds to the board, and nothing else does.**
-At the same refs korus runs 2 scheduled workflows and the vault 13, and no notice carries a red
-from any of them.
+**This issue read does not bring korus's or the vault's scheduled reds to the board.** No notice
+carries a red from either. Section 4e now does, for every repository.
+
+**CORRECTED 2026-10-01.** This paragraph read *"and nothing else does"*, and counted 13 vault
+scheduled workflows. Measured 2026-10-01, the vault had 4 ACTIVE ones; the rest are
+`disabled_manually`. Section 4e's read is what changed the first half.
 
 The engine's own notice watches 6 of its 15 scheduled workflows, and files only on a run that
-concluded as a failure. So the panel's zero says *no nightly-failure issue is open*, never *nothing
+concluded as a failure. So this half's zero says *no nightly-failure issue is open*, never *nothing
 is red*.
 
 Each row shows the issue, its workflow, when it opened, and how long it has been open as of the
@@ -261,6 +264,63 @@ adds one too, so read it as an upper bound on failed nights.
 
 `tests/test_the_board_shows_open_nightly_failure_issues.py` pins both arms on one fixture. An
 issue the workflow would adopt shows. A pull request, or a title one word off, does not.
+
+### 4e. Every repository's scheduled runs are read straight off its run list
+
+**Owner instruction 2026-10-01.** The issue read in section 4d reaches only the engine. A red
+scheduled run in korus or the vault reached no seat, and the panel said "not read" for both.
+
+Measured the same day: the vault's *ASVS scorecard* had failed its last 30 scheduled runs, with no
+row on the board.
+
+**The read is each repository's own run list, not a ported notice.** Every repository has one, so
+a scheduled workflow added later, or a repository added to `REPOS`, is covered with no edit. A
+ported notice covers only the repositories someone ports it to, and only its own watch list.
+
+`scheduled_reds` in `collect.py` makes three reads per repository:
+
+| Read | What it gives |
+| --- | --- |
+| `repos/<o/n>/actions/workflows` | Which workflows are `active`. A disabled one is not read. |
+| `repos/<o/n>/actions/runs` with `event=schedule` and `created>=` the window | Every scheduled run in the last 35 days, paged to the end |
+| `repos/<o/n>/contents/<path>`, for a red only | Whether the file on the default branch still declares a schedule |
+
+**A workflow is red when its latest finished scheduled run did not pass.** Pass is `success`,
+`neutral` or `skipped`. A `cancelled` run reached no verdict and is stepped over.
+
+Every other conclusion is red, so a conclusion GitHub adds later shows rather than hides.
+
+**A red whose file no longer declares a schedule is named, not shown.** The vault's `ci.yml`
+dropped its cron, and its last scheduled run was red. Without the check that row would show for
+the whole window, about a red nobody can clear by fixing the workflow.
+
+The check is a word match on lines that are not whole-line comments. It can only err toward
+keeping a red shown.
+
+**The window is 35 days, so a monthly cron is still read.** A workflow with no scheduled run in
+that window is not read, and the panel's clear headline says so. It also says how many workflows
+were read, so the zero has a size.
+
+**The runs endpoint returns at most 1,000 results for a filtered query.** Measured 2026-10-01 over
+35 days: engine 294, vault 133, korus 50. A repository past the cap refuses rather than reading a
+truncated list as complete.
+
+**A failed read refuses the whole collect, unlike section 4d.** Owner instruction 2026-10-01: keep
+the fail-closed rule. A refused collect leaves the last good board and its old stamp, which a
+reader can see.
+
+Each row shows the repository, the workflow linked to its latest run, and the result. It also
+shows when the red streak started, how long it has been red as of the board's stamp, the failed
+runs in a row, and the last green run.
+
+**When every run in the window failed, the streak is a floor.** The row then says *on or before*,
+*at least* and *or more*, and the last green reads *none in the window*.
+
+The vault's ASVS scorecard read that way on 2026-10-01. Its red is stale anchors in the ASVS record
+against a moving engine `main`, and the workflow's own alarm issue has carried it since 2026-08-20.
+
+`tests/test_the_board_shows_every_repositorys_scheduled_reds.py` pins both arms on one fixture,
+and each refusal.
 
 ---
 
