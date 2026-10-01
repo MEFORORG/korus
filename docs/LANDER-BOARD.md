@@ -302,6 +302,9 @@ engine `ci.yml`, `security.yml` and `fuzz.yml` carry.
 listed as `active`; three engine workflows answered 404 on 2026-10-01. Refusing there would freeze
 the whole board until that run left the window.
 
+A 404 counts as a deletion only when the workflow directory listing answers and lacks the file. A
+token that reads Actions but not Contents also answers 404, and would otherwise hide every red.
+
 A file over 1 MB comes back with no content, and keeps its red shown. A workflow GitHub turned off
 for inactivity, `disabled_inactivity`, is named on the panel, because nobody chose to stop it.
 
