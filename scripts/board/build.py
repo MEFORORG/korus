@@ -466,6 +466,139 @@ def nightly_panel():
 
 nightly_rows = nightly_panel()
 
+# ------------------------------------------- latest scheduled run, per repository ----
+# Owner instruction 2026-10-01: the issue panel above reaches only the engine, so a red scheduled
+# run in korus or the vault reached nobody. The collector now reads each repository's own run list;
+# LANDER-BOARD.md section 4e has why.
+#
+# THE SAME ZERO RULE AS ABOVE. A repository is clear only when its read is a well-formed dict with
+# every red row readable. A missing key is a data.json written before this read existed, and any
+# other value is unrecognised. Neither may print as "nothing is red".
+SCHED_ITEM = {"workflow": str, "path": str, "conclusion": str, "latest": str, "url": str,
+              "since": str, "streak": int, "floor": bool}
+SCHED_NOT_READ_MISSING = "not read: data.json predates the scheduled-run read; run collect.py again"
+
+
+def is_count(x):
+    return isinstance(x, int) and not isinstance(x, bool) and x >= 0
+
+
+def sched_since(i):
+    """The red streak's first instant as an AWARE datetime, or None for a row that cannot supply it.
+
+    Checks every field the table reads, so a malformed row is reported rather than raised on."""
+    if not isinstance(i, dict):
+        return None
+    for key, kind in SCHED_ITEM.items():
+        v = i.get(key)
+        if not isinstance(v, kind) or (kind is int and isinstance(v, bool)):
+            return None
+    green = i.get("last_green")
+    if i["streak"] < 1 or not (green is None or isinstance(green, str)):
+        return None
+    try:
+        times = [P(x) for x in (i["since"], i["latest"], green) if x is not None]
+        if any(t.tzinfo is None for t in times):
+            return None
+        # The table renders each in Central time. An instant at the edge of the calendar
+        # overflows there, so it is tried here, where an overflow is a malformed row.
+        for t in times:
+            t.astimezone(CT)
+    except (ValueError, OverflowError, OSError):
+        return None
+    return times[0]
+
+
+def names_list(got, key):
+    """A list of workflow names from `got[key]`, [] when absent, or None when it is malformed."""
+    v = got.get(key, [])
+    return v if isinstance(v, list) and all(isinstance(x, str) for x in v) else None
+
+
+def scheduled_panel():
+    reds, clear, notes = [], [], []
+    partial = False
+    for k in order:
+        got = by[k].get("scheduled", _MISSING)
+        ok = (isinstance(got, dict) and isinstance(got.get("reds"), list)
+              and is_count(got.get("read")) and is_count(got.get("window_days")))
+        if not ok:
+            why = (SCHED_NOT_READ_MISSING if got is _MISSING else
+                   "not read: unrecognised value %r in data.json" % (got,))
+            notes.append("%s: %s." % (NAMES[k], why))
+            partial = True
+            continue
+        rows = [(sched_since(i), i) for i in got["reds"]]
+        good = [(t, i) for t, i in rows if t is not None]
+        reds += [(NAMES[k], t, i) for t, i in good]
+        gone, stopped = names_list(got, "unscheduled"), names_list(got, "stopped")
+        bad = len(rows) - len(good)
+        if bad:
+            notes.append("%s: %d red row%s in data.json %s malformed and not shown."
+                         % (NAMES[k], bad, "" if bad == 1 else "s", "is" if bad == 1 else "are"))
+        for key, names in (("unscheduled", gone), ("stopped", stopped)):
+            if names is None:
+                notes.append("%s: not read: unrecognised %s value %r in data.json."
+                             % (NAMES[k], key, got.get(key)))
+        if bad or gone is None or stopped is None:
+            partial = True
+        else:
+            clear.append((NAMES[k], got["read"], got["window_days"]))
+        if gone:
+            notes.append("%s: %s last ran red on a schedule, but the workflow file no longer "
+                         "declares one, so it is not shown." % (NAMES[k], ", ".join(gone)))
+        if stopped:
+            notes.append("%s: %s was turned off by GitHub for inactivity, so its schedule no "
+                         "longer runs." % (NAMES[k], ", ".join(stopped)))
+    reds.sort(key=lambda x: x[1])
+    stamp = clock(d["generated_utc"])
+    span = lambda t: dur(max(0.0, (now - t).total_seconds() / 60.0))
+    if reds:
+        first = reds[0][2]
+        floor = "at least " if first["floor"] else ""
+        # A row not shown may be the oldest, so on a partial read the age is of those shown.
+        head = ("<b>%s%d</b> scheduled workflow%s red. The longest%s has been red <b>%s%s</b> "
+                "as of %s." % ("at least " if partial else "", len(reds),
+                               "" if len(reds) == 1 else "s", " shown" if partial else "",
+                               floor, span(reds[0][1]), esc(stamp)))
+    elif clear and not partial:
+        flows = sum(r for _n, r, _w in clear)
+        head = ("No scheduled run is red in <b>%s</b>. %d workflow%s judged on scheduled runs "
+                "in the last %d days, and the latest finished run of each passed. A workflow "
+                "with no scheduled run in that window is not judged."
+                % (esc(", ".join(n for n, _r, _w in clear)), flows,
+                   " was" if flows == 1 else "s were",
+                   max(w for _n, _r, w in clear)))
+    elif clear:
+        head = ("No scheduled run is red in <b>%s</b>, but not every repository was read, so "
+                "this is not a clear reading." % esc(", ".join(n for n, _r, _w in clear)))
+    else:
+        head = "<b>Nothing was read</b>, so this part says nothing about scheduled runs."
+
+    def cells(t, i):
+        # A floor means every run in the window failed, so the true start is earlier still.
+        floor = i["floor"]
+        green = i.get("last_green")
+        return (("on or before " if floor else "") + opened_at(i["since"]),
+                ("at least " if floor else "") + span(t),
+                "%d%s" % (i["streak"], " or more" if floor else ""),
+                opened_at(green) if isinstance(green, str) else "none in the window")
+    body = "".join(
+        '<tr><td>%s</td><td><a href="%s">%s</a></td><td>%s</td>%s</tr>'
+        % (esc(name), esc(i["url"]), esc(i["workflow"]), esc(i["conclusion"]),
+           "".join("<td>%s</td>" % esc(c) for c in cells(t, i)))
+        for name, t, i in reds)
+    table = ('<div class="ptab-wrap"><table class="ptab">'
+             '<thead><tr><th>Repository</th><th>Workflow</th><th>Result</th><th>Red since</th>'
+             '<th>Red for, as of %s</th><th>Failed runs in a row</th><th>Last green</th></tr>'
+             '</thead><tbody>%s</tbody></table></div>' % (esc(stamp), body)) if reds else ""
+    gaps = "".join('<p class="note">%s</p>' % esc(n) for n in notes)
+    # A workflow name is written by whoever can push a workflow file. Same brace guard as above.
+    return ('<p class="note">%s</p>%s%s' % (head, table, gaps)).replace("{", "&#123;")
+
+
+scheduled_rows = scheduled_panel()
+
 legend_mix = "".join('<span class="lg" title="%s: %s"><i class="sw %s"></i>%s</span>'
                      % (k, STATE_SAY[k], c, k) for k, c in ORD)
 
@@ -480,6 +613,7 @@ out = (tpl
        .replace("{{QUEUE_ROWS}}", queue_rows)
        .replace("{{MIX_ROWS}}", mix_rows)
        .replace("{{PERSON_ROWS}}", person_rows)
+       .replace("{{SCHEDULED_ROWS}}", scheduled_rows)
        .replace("{{NIGHTLY_ROWS}}", nightly_rows)
        .replace("{{LEGEND_MIX}}", legend_mix)
        .replace("{{SVGW}}", str(W)).replace("{{SVGH}}", str(H))

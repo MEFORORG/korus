@@ -7,6 +7,7 @@ check reads BEHIND and would be counted ready. LANDER-BOARD.md section 4a has th
 A read this file cannot trust stops the run BEFORE data.json is written, so a failed collect
 leaves the last good file in place (section 9). A default here would be a silent false clean.
 """
+import base64
 import json, subprocess, sys, time, datetime as dt
 import os
 import re
@@ -94,12 +95,183 @@ NIGHTLY_LABEL = "bug"
 NIGHTLY_TITLE = re.compile(r"Nightly (.+) is failing")
 
 
+# SCHEDULED-RUN CONCLUSIONS, read off Actions for EVERY repository in REPOS. Owner instruction
+# 2026-10-01. The issue read above reaches only the engine, and only the workflows its notice
+# watches, so korus and the vault printed "not read" and a red there reached nobody. Measured
+# 2026-10-01: the vault's ASVS scorecard had failed its last 30 scheduled runs with no row here.
+#
+# WHY RUNS AND NOT A PORTED NOTICE. Every repository has a run list, so a repository added to
+# REPOS, or a scheduled workflow added to one, is read with no edit anywhere. A ported notice
+# covers only the repositories someone remembers to port it to, and only its own watch list.
+#
+# WHAT COUNTS. An ACTIVE workflow with a scheduled run in the window. Its state is its latest
+# completed scheduled run that reached a verdict. `cancelled` is no verdict and is stepped over;
+# every conclusion not in RUN_PASS is red, so a conclusion GitHub adds later shows rather than hides.
+# A red whose workflow file no longer declares a schedule is not shown, and is named instead: the
+# vault's ci.yml dropped its cron, and its last scheduled run, red, would otherwise show for weeks.
+#
+# A FAILED READ REFUSES THE COLLECT, unlike the issue read. Owner instruction 2026-10-01: keep the
+# fail-closed rule. A refused collect leaves the last good board and its old stamp, which a reader
+# can see. "No scheduled run is red" off a read that failed is the false clean this file refuses.
+SCHEDULE_WINDOW_DAYS = 35
+RUN_PASS = {"success", "neutral", "skipped"}
+RUN_NO_VERDICT = {"cancelled"}
+# The runs endpoint returns at most 1,000 results for a filtered query, so a window holding more
+# cannot be read whole. Measured 2026-10-01 over 35 days: engine 294, vault 133, korus 50.
+RUNS_API_CAP = 1000
+
+
+def gh_json_rows(args, what):
+    """Every line of a `gh api ... --jq '... | @json'` read, parsed. Refuses on any failure."""
+    r = subprocess.run(["gh", "api"] + args, capture_output=True, encoding="utf-8",
+                       errors="replace")
+    if r.returncode:
+        refuse("The %s read failed: %s"
+               % (what, (r.stderr or "").strip()[:300] or "exit %d" % r.returncode))
+    rows = []
+    for line in r.stdout.split("\n"):
+        if not line.strip():
+            continue
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            refuse("The %s read returned a line that is not JSON: %r" % (what, line[:120]))
+    return rows
+
+
+def is_int(x):
+    return isinstance(x, int) and not isinstance(x, bool)
+
+
+# The TRIGGER KEY, block form `schedule:` or flow form `on: [push, schedule]`. A bare word match
+# also fired on `github.event_name == 'schedule'`, which engine ci.yml, security.yml and fuzz.yml
+# carry, so a dropped cron there would never have been noticed. Measured 2026-10-01.
+SCHEDULE_KEY = re.compile(r"""(?:^|[\s{,\[])["']?schedule["']?\s*:"""
+                          r"""|^\s*["']?on["']?\s*:.*\bschedule\b""")
+
+
+def declares_schedule(full, path):
+    """Whether the workflow file at the default branch still declares a schedule trigger.
+
+    A file gone from the default branch declares none. GitHub keeps a deleted workflow listed as
+    `active` (measured 2026-10-01: three engine workflows 404), and refusing there would freeze the
+    whole board until its last run left the window. A file the API will not inline, over 1 MB,
+    counts as declaring one: that keeps its red shown, which is the safe side."""
+    what = "workflow file %s in %s" % (path, full)
+    r = subprocess.run(["gh", "api", "repos/%s/contents/%s" % (full, path), "--jq",
+                        "[.content, .encoding] | @json"],
+                       capture_output=True, encoding="utf-8", errors="replace")
+    if r.returncode and "HTTP 404" in (r.stderr or ""):
+        # A 404 can also mean a token that reads Actions but not Contents. Only a listing of the
+        # workflow directory that answers, and lacks the file, makes it a deletion.
+        folder, _, name = path.rpartition("/")
+        names = gh_json_rows(["repos/%s/contents/%s" % (full, folder), "--jq",
+                              ".[].name | @json"], "workflow directory %s in %s" % (folder, full))
+        if not names or name in names:
+            refuse("The %s answered 404, and its directory listing does not show it deleted."
+                   % what)
+        return False
+    if r.returncode:
+        refuse("The %s read failed: %s"
+               % (what, (r.stderr or "").strip()[:300] or "exit %d" % r.returncode))
+    try:
+        content, encoding = json.loads(r.stdout)
+    except (ValueError, TypeError):
+        refuse("The %s did not come back as one file: %r" % (what, r.stdout[:120]))
+    if encoding != "base64" or not isinstance(content, str):
+        return True
+    try:
+        text = base64.b64decode(content).decode("utf-8", errors="replace")
+    except ValueError:
+        refuse("The %s is not base64." % what)
+    return any(SCHEDULE_KEY.search(ln) for ln in text.splitlines()
+               if not ln.lstrip().startswith("#"))
+
+
+def scheduled_reds(full, since_day):
+    """Each active workflow in `full` whose latest scheduled run with a verdict did not pass.
+
+    Returns {"window_days", "read", "reds", "unscheduled", "stopped"}. `read` counts the
+    workflows judged green or red, so a zero beside it says how much was looked at. A red filed as
+    `unscheduled` is not in `read`: the clear headline says each read workflow passed."""
+    flows = gh_json_rows(["-X", "GET", "repos/%s/actions/workflows" % full, "-f", "per_page=100",
+                          "--paginate", "--jq",
+                          ".workflows[] | [.id, .state, .path, .name] | @json"],
+                         "workflow list for %s" % full)
+    active, stopped = {}, []
+    for f in flows:
+        if not (isinstance(f, list) and len(f) == 4 and is_int(f[0])
+                and all(isinstance(x, str) for x in f[1:])):
+            refuse("The workflow list for %s holds a row it cannot read: %r" % (full, f))
+        # GitHub turns a scheduled workflow off for inactivity, and nobody chose that. It is still
+        # judged, so its last red shows, and it is also named on the board.
+        if f[1] in ("active", "disabled_inactivity"):
+            active[f[0]] = {"path": f[2], "name": f[3]}
+        if f[1] == "disabled_inactivity":
+            stopped.append(f[3])
+    runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
+                         "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
+                         "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
+                         " .status, .conclusion, .created_at, .html_url] | @json"],
+                        "scheduled run list for %s" % full)
+    seen, totals, by_flow = set(), set(), {}
+    for r in runs:
+        if not (isinstance(r, list) and len(r) == 7 and all(is_int(x) for x in r[:3])
+                and isinstance(r[3], str) and (r[4] is None or isinstance(r[4], str))
+                and aware_instant(r[5]) and isinstance(r[6], str)):
+            refuse("The scheduled run list for %s holds a row it cannot read: %r" % (full, r))
+        total, run_id, flow, status, conclusion, created, url = r
+        totals.add(total)
+        # A run created mid-read shifts the newest-first pages, so a row can arrive twice.
+        if run_id in seen:
+            continue
+        seen.add(run_id)
+        if status == "completed" and conclusion not in RUN_NO_VERDICT:
+            by_flow.setdefault(flow, []).append((P(created), conclusion, created, url))
+    if totals and max(totals) > RUNS_API_CAP:
+        refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
+               "SCHEDULE_WINDOW_DAYS." % (full, max(totals), SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
+    if totals and len(seen) < min(totals):
+        refuse("%s reports %d scheduled runs in the window but %d were read."
+               % (full, min(totals), len(seen)))
+    reds, unscheduled, read = [], [], 0
+    for flow, info in sorted(active.items(), key=lambda kv: kv[1]["name"]):
+        verdicts = sorted(by_flow.get(flow, []), key=lambda x: x[0], reverse=True)
+        if not verdicts:
+            continue
+        if verdicts[0][1] in RUN_PASS:
+            read += 1
+            continue
+        streak = []
+        for run in verdicts:
+            if run[1] in RUN_PASS:
+                break
+            streak.append(run)
+        if not declares_schedule(full, info["path"]):
+            unscheduled.append(info["name"])
+            continue
+        read += 1
+        green = verdicts[len(streak)][2] if len(streak) < len(verdicts) else None
+        reds.append({"workflow": info["name"], "path": info["path"],
+                     "conclusion": verdicts[0][1] or "none", "latest": verdicts[0][2],
+                     "url": verdicts[0][3], "since": streak[-1][2], "streak": len(streak),
+                     # Every run in the window failed, so the streak and its start are floors.
+                     "floor": green is None, "last_green": green})
+    return {"window_days": SCHEDULE_WINDOW_DAYS, "read": read, "reds": reds,
+            "unscheduled": unscheduled, "stopped": sorted(stopped)}
+
+
+def P(s):
+    """An ISO instant, `Z` or offset, as a datetime. Callers check awareness first."""
+    return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
 def aware_instant(s):
     """True when `s` is an ISO timestamp carrying a zone, the only form the board can age."""
     if not isinstance(s, str):
         return False
     try:
-        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).tzinfo is not None
+        return P(s).tzinfo is not None
     except ValueError:
         return False
 
@@ -320,6 +492,7 @@ def main():
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
     # The series is 48 hours wide and the collector must cover it with room for the hour edges.
     since_iso = (now - dt.timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    since_day = (now - dt.timedelta(days=SCHEDULE_WINDOW_DAYS)).strftime("%Y-%m-%d")
 
     repos = []
     for full, short in REPOS:
@@ -352,6 +525,7 @@ def main():
         # None is "this repository keeps no such issues", a declared scope and not a reading.
         nightly, nightly_skipped = (nightly_reds(full) if full in NIGHTLY_NOTICE_REPOS
                                     else (None, []))
+        scheduled = scheduled_reds(full, since_day)
         buckets = {}
         for p in openprs:
             buckets[p["mergeStateStatus"]] = buckets.get(p["mergeStateStatus"], 0) + 1
@@ -378,6 +552,7 @@ def main():
             "closed": closed,
             "nightly": nightly,
             "nightly_skipped": nightly_skipped,
+            "scheduled": scheduled,
         })
 
     out = {"generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "repos": repos}
@@ -392,7 +567,8 @@ def main():
                  "  nightly-red=%d" % len(r["nightly"]) if isinstance(r["nightly"], list) else
                  "  NIGHTLY-READ-FAILED")
               + ("  nightly-skipped=%d" % len(r["nightly_skipped"])
-                 if r["nightly_skipped"] else ""))
+                 if r["nightly_skipped"] else "")
+              + "  scheduled-red=%d/%d" % (len(r["scheduled"]["reds"]), r["scheduled"]["read"]))
 
 
 if __name__ == "__main__":

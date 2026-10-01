@@ -224,7 +224,10 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
   <section class="wide">
     <article class="card card-wide ac-crit">
       <h3>Scheduled runs failing</h3>
-      <p class="note">A scheduled run has no pull request, so nothing above can show its red. Each row is an open issue in the shape the engine's nightly failure notice writes. The notice opens one on the first failed night. It comments on each later failure. It closes the issue when that run goes green again. It never closes an orphan left by a workflow it stopped watching. It never closes a duplicate it cannot find either. Someone has to close those. The Lander triages these. The Watchdog measures how long they stay open and never acts on them.</p>
+      <p class="note">A scheduled run has no pull request, so nothing above can show its red. The Lander triages these. The Watchdog measures how long they stay red and never acts on them.</p>
+      <p class="note"><b>Latest scheduled run, every repository.</b> Read straight off each repository's run list, so a new scheduled workflow, or a new repository on this board, is covered with no edit. A row is an active workflow whose most recent finished scheduled run did not pass. A cancelled run is stepped over, because it reached no verdict.</p>
+      {{SCHEDULED_ROWS}}
+      <p class="note"><b>Open nightly-failure issues, engine only.</b> Each row is an open issue in the shape the engine's nightly failure notice writes. The notice opens one on the first failed night. It comments on each later failure. It closes the issue when that run goes green again. It never closes an orphan left by a workflow it stopped watching. It never closes a duplicate it cannot find either. Someone has to close those.</p>
       {{NIGHTLY_ROWS}}
     </article>
   </section>

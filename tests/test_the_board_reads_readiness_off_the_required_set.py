@@ -322,7 +322,8 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
         replies = iter([done("CI gate\ntest (ubuntu-latest)\n"),
                         page([dict(pr(GREEN), createdAt=stamp)]),
                         done(json.dumps({"data": {"repository": {"mergeQueue": None}}})),
-                        done("")])
+                        # The closed pulls page, then the workflow list and the scheduled runs.
+                        done(""), done(""), done("")])
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.object(collect, "OUT", tmp), \
                     mock.patch.object(collect, "REPOS", [("o/r", "r")]), \

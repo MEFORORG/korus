@@ -225,6 +225,8 @@ class TheCollectorWritesItPerRepository(unittest.TestCase):
                 return done("")
             if "/issues" in joined:
                 return nightly_answer
+            if "/actions/" in joined:
+                return done("")
             raise AssertionError("unexpected call: %s" % joined)
         with mock.patch.object(collect, "OUT", out), \
                 mock.patch.object(collect, "REPOS", [(ENGINE, "engine"), ("o/r", "r")]), \
