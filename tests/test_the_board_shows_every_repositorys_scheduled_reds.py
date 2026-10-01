@@ -74,13 +74,16 @@ def contents(yaml, encoding="base64"):
 
 
 def fake(flows, runs, yaml=SCHEDULED_YAML, total=None, fail=None, stderr="HTTP 502",
-         encoding="base64"):
+         encoding="base64", listing=()):
     """A `gh` that answers the three reads. `fail` names a read to fail: flows, runs, contents."""
     calls = []
 
     def run_(args, **_):
         calls.append(args)
         joined = " ".join(args)
+        if ".[].name" in joined:
+            # The workflow directory listing, asked for only after a 404 on one file.
+            return done("".join(json.dumps(n) + "\n" for n in listing))
         for key, answer in (("actions/workflows", "\n".join(flows) + "\n"),
                             ("actions/runs", lines(runs, total)),
                             ("/contents/", contents(yaml, encoding))):
@@ -149,7 +152,8 @@ class TheCollectorReadsEachWorkflowsLatestVerdict(unittest.TestCase):
                 self.assertEqual((got["reds"], got["unscheduled"]), ([], ["CI"]))
 
     def test_every_spelling_of_the_trigger_keeps_the_red(self):
-        for yaml in (SCHEDULED_YAML, "on: [push, schedule]\n", '"on":\n  "schedule":\n'):
+        for yaml in (SCHEDULED_YAML, "on: [push, schedule]\n", '"on":\n  "schedule":\n',
+                     "on:\n  {push: {}, schedule: [{cron: '0 6 * * *'}]}\n"):
             got, _ = read([flow(1, "CI")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
                           yaml=yaml)
             with self.subTest(yaml=yaml):
@@ -164,19 +168,37 @@ class TheCollectorReadsEachWorkflowsLatestVerdict(unittest.TestCase):
 
     def test_a_workflow_file_gone_from_the_branch_is_unscheduled_not_a_refusal(self):
         # GitHub lists a deleted workflow as active. Refusing would freeze the board for weeks.
-        got, _ = read([flow(1, "Probe")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
-                      fail="contents", stderr="gh: Not Found (HTTP 404)")
+        got, calls = read([flow(1, "Probe")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                          fail="contents", stderr="gh: Not Found (HTTP 404)",
+                          listing=["ci.yml"])
         self.assertEqual((got["reds"], got["unscheduled"]), ([], ["Probe"]))
+        self.assertTrue(any("repos/%s/contents/.github/workflows" % VAULT in a for a in calls))
+
+    def test_a_404_the_directory_listing_does_not_confirm_refuses(self):
+        # A token that reads Actions but not Contents answers 404 too, and would hide every red.
+        for listing in (["probe.yml", "ci.yml"], []):
+            with self.subTest(listing=listing), self.assertRaises(SystemExit):
+                read([flow(1, "Probe")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                     fail="contents", stderr="gh: Not Found (HTTP 404)", listing=listing)
+
+    def test_any_other_contents_failure_refuses(self):
+        for stderr in ("gh: Forbidden (HTTP 403)", "HTTP 502: 404 bytes"):
+            with self.subTest(stderr=stderr), self.assertRaises(SystemExit):
+                read([flow(1, "CI")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
+                     fail="contents", stderr=stderr, listing=["other.yml"])
 
     def test_a_file_the_api_will_not_inline_keeps_its_red_shown(self):
         got, _ = read([flow(1, "Big")], [run(1, 1, "failure", "2026-10-01T00:00:00Z")],
                       yaml="", encoding="none")
         self.assertEqual([r["workflow"] for r in got["reds"]], ["Big"])
 
-    def test_a_workflow_github_turned_off_for_inactivity_is_named(self):
+    def test_a_workflow_github_turned_off_for_inactivity_is_named_and_still_judged(self):
         got, _ = read([flow(1, "Weekly", state="disabled_inactivity"),
-                       flow(2, "Off", state="disabled_manually")], [])
+                       flow(2, "Off", state="disabled_manually")],
+                      [run(2, 1, "failure", "2026-10-01T00:00:00Z"),
+                       run(1, 2, "failure", "2026-10-01T00:00:00Z")])
         self.assertEqual(got["stopped"], ["Weekly"])
+        self.assertEqual([r["workflow"] for r in got["reds"]], ["Weekly"])
 
     def test_the_schedule_check_asks_only_about_a_red_and_reads_the_default_branch(self):
         _, calls = read([flow(1, "Green"), flow(2, "Red")],
@@ -365,7 +387,8 @@ class TheBoardShowsEachRedAndHowLongItHasBeenRed(unittest.TestCase):
 
     def test_every_repository_read_and_none_red_says_so_and_how_much_was_read(self):
         p = part(board())
-        self.assertIn("No scheduled run is red in <b>Engine, Vault, KORUS</b>. 12 workflows", p)
+        self.assertIn("No scheduled run is red in <b>Engine, Vault, KORUS</b>. "
+                      "12 workflows were judged", p)
         self.assertIn("last 35 days", p)
 
     def test_a_repository_not_read_never_counts_as_clear(self):
@@ -385,7 +408,8 @@ class TheBoardShowsEachRedAndHowLongItHasBeenRed(unittest.TestCase):
         for bad in ({"workflow": "x"}, dict(red("x", "2026-09-20T00:00:00"), floor=False),
                     dict(red("x", "2026-09-20T00:00:00Z"), streak=True),
                     dict(red("x", "2026-09-20T00:00:00Z"), streak=0),
-                    dict(red("x", "0001-01-01T00:00:00+01:00")), "row"):
+                    dict(red("x", "0001-01-01T00:00:00+01:00")),
+                    dict(red("x", "1960-01-01T00:00:00"), floor=False), "row"):
             with self.subTest(bad=bad):
                 p = part(board(vault=sched([bad])))
                 self.assertIn("Vault: 1 red row in data.json is malformed and not shown.", p)

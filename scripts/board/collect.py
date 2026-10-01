@@ -146,7 +146,8 @@ def is_int(x):
 # The TRIGGER KEY, block form `schedule:` or flow form `on: [push, schedule]`. A bare word match
 # also fired on `github.event_name == 'schedule'`, which engine ci.yml, security.yml and fuzz.yml
 # carry, so a dropped cron there would never have been noticed. Measured 2026-10-01.
-SCHEDULE_KEY = re.compile(r"""^\s*(["']?schedule["']?\s*:|["']?on["']?\s*:.*\bschedule\b)""")
+SCHEDULE_KEY = re.compile(r"""(?:^|[\s{,\[])["']?schedule["']?\s*:"""
+                          r"""|^\s*["']?on["']?\s*:.*\bschedule\b""")
 
 
 def declares_schedule(full, path):
@@ -161,6 +162,14 @@ def declares_schedule(full, path):
                         "[.content, .encoding] | @json"],
                        capture_output=True, encoding="utf-8", errors="replace")
     if r.returncode and "HTTP 404" in (r.stderr or ""):
+        # A 404 can also mean a token that reads Actions but not Contents. Only a listing of the
+        # workflow directory that answers, and lacks the file, makes it a deletion.
+        folder, _, name = path.rpartition("/")
+        names = gh_json_rows(["repos/%s/contents/%s" % (full, folder), "--jq",
+                              ".[].name | @json"], "workflow directory %s in %s" % (folder, full))
+        if not names or name in names:
+            refuse("The %s answered 404, and its directory listing does not show it deleted."
+                   % what)
         return False
     if r.returncode:
         refuse("The %s read failed: %s"
@@ -194,10 +203,11 @@ def scheduled_reds(full, since_day):
         if not (isinstance(f, list) and len(f) == 4 and is_int(f[0])
                 and all(isinstance(x, str) for x in f[1:])):
             refuse("The workflow list for %s holds a row it cannot read: %r" % (full, f))
-        if f[1] == "active":
+        # GitHub turns a scheduled workflow off for inactivity, and nobody chose that. It is still
+        # judged, so its last red shows, and it is also named on the board.
+        if f[1] in ("active", "disabled_inactivity"):
             active[f[0]] = {"path": f[2], "name": f[3]}
-        elif f[1] == "disabled_inactivity":
-            # GitHub turned a scheduled workflow off, and nobody chose it. Named on the board.
+        if f[1] == "disabled_inactivity":
             stopped.append(f[3])
     runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
                          "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",

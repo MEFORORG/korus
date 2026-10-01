@@ -498,13 +498,15 @@ def sched_since(i):
         return None
     try:
         times = [P(x) for x in (i["since"], i["latest"], green) if x is not None]
+        if any(t.tzinfo is None for t in times):
+            return None
         # The table renders each in Central time. An instant at the edge of the calendar
         # overflows there, so it is tried here, where an overflow is a malformed row.
         for t in times:
             t.astimezone(CT)
-    except (ValueError, OverflowError):
+    except (ValueError, OverflowError, OSError):
         return None
-    return times[0] if all(t.tzinfo is not None for t in times) else None
+    return times[0]
 
 
 def names_list(got, key):
@@ -561,10 +563,11 @@ def scheduled_panel():
                                floor, span(reds[0][1]), esc(stamp)))
     elif clear and not partial:
         flows = sum(r for _n, r, _w in clear)
-        head = ("No scheduled run is red in <b>%s</b>. %d workflow%s ran on a schedule in the last "
-                "%d days, and the latest finished run of each passed. A workflow with no "
-                "scheduled run in that window is not read."
-                % (esc(", ".join(n for n, _r, _w in clear)), flows, "" if flows == 1 else "s",
+        head = ("No scheduled run is red in <b>%s</b>. %d workflow%s judged on scheduled runs "
+                "in the last %d days, and the latest finished run of each passed. A workflow "
+                "with no scheduled run in that window is not judged."
+                % (esc(", ".join(n for n, _r, _w in clear)), flows,
+                   " was" if flows == 1 else "s were",
                    max(w for _n, _r, w in clear)))
     elif clear:
         head = ("No scheduled run is red in <b>%s</b>, but not every repository was read, so "
