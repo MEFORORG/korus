@@ -9,6 +9,7 @@ leaves the last good file in place (section 9). A default here would be a silent
 """
 import json, subprocess, sys, time, datetime as dt
 import os
+import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
@@ -68,6 +69,99 @@ def closed_window(full, since):
         page += 1
     refuse("The closed pull request read for %s hit the page cap before reaching %s."
            % (full, since))
+
+# SCHEDULED-RUN REDS. Owner ruling 2026-09-26: the Lander owns them, and they reach the Lander
+# through this board. A scheduled run has no pull request, so no required check and no merge state
+# ever shows its red; before this, the only record was an issue nobody polled. Engine issue 288,
+# *Nightly Security is failing*, stayed open 48 days with 49 comments (vault BACKLOG #1800).
+#
+# THE MATCH IS THE WRITER'S OWN PREDICATE, NOT A GUESS. The engine's `nightly-notice.yml` sets
+# `TITLE="Nightly $WF_NAME is failing"` and `LABEL="bug"`, and finds the issue to comment on by an
+# OPEN issue with that label whose title is exactly that. So every issue the workflow would adopt
+# matches here. The converse does not hold: an issue for a workflow since dropped from its watch
+# list, or a duplicate it lost track of, also matches and will never be closed by it. Showing those
+# is deliberate -- an orphan is a red nobody will clear, which is the thing this panel is for.
+# The name is left free rather than listed: the watch list is the engine's, and a copy here drifts.
+#
+# ONLY THE ENGINE CARRIES THE WORKFLOW. Measured 2026-09-30 with
+# `git ls-tree --name-only origin/main .github/workflows/ | grep -c nightly-notice`: korus 0 at
+# 4a5af872d, the vault 0 at 4c9855c75, and the engine 1 at ce9a8ddba, which is the control. Every
+# other repository is NOT READ, and the board says so rather than printing a clean zero for it.
+NIGHTLY_NOTICE_REPOS = ("MEFORORG/MessageFoundry",)
+NIGHTLY_LABEL = "bug"
+# Applied with fullmatch, never match plus `$`: `$` also matches before a trailing newline, and the
+# workflow compares titles exactly, so "Nightly CI is failing\n" is not an issue it would adopt.
+NIGHTLY_TITLE = re.compile(r"Nightly (.+) is failing")
+
+
+def aware_instant(s):
+    """True when `s` is an ISO timestamp carrying a zone, the only form the board can age."""
+    if not isinstance(s, str):
+        return False
+    try:
+        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
+
+
+def nightly_reds(full):
+    """The OPEN issues matching `nightly-notice.yml`'s own predicate in `full`.
+
+    Read off REST, filtered to the workflow's label, and paged to the end. The REST issues list
+    carries pull requests too, so each row says which it is and a pull request is dropped here,
+    where a test can see it.
+
+    Returns (issues, skipped). A failed read returns ({"error": ...}, []) rather than refusing the
+    whole collect: this is a secondary panel, and refusing would freeze every merge reading beside
+    it. It is not a default either: the board renders the marker as "not read: the read failed",
+    never as a zero, because "no scheduled run is red" is exactly the reading a default would forge.
+
+    ONE ROW IS ONE `@json` ARRAY, never tab-joined text. The label read returns every open `bug`
+    issue, and any title may hold a newline or a carriage return. Raw text let such a title forge a
+    row or cut one in half; `@json` escapes both, so a line is always exactly one issue.
+
+    A row that still cannot be read is SKIPPED AND REPORTED in `skipped`, and the rows beside it
+    are kept. A row whose title is readable and does not match is filtered like any other, so an
+    unrelated issue cannot fill the report."""
+    r = subprocess.run(
+        ["gh", "api", "-X", "GET", "repos/%s/issues" % full, "-f", "state=open",
+         "-f", "labels=" + NIGHTLY_LABEL, "-f", "per_page=100", "--paginate", "--jq",
+         '.[] | [.number, (if .pull_request then "pr" else "issue" end),'
+         ' .created_at, .comments, .html_url, .title] | @json'],
+        capture_output=True, encoding="utf-8", errors="replace")
+    if r.returncode:
+        return {"error": "the read failed: %s" % ((r.stderr or "").strip()[:200] or
+                                                   "exit %d" % r.returncode)}, []
+    found, skipped = [], []
+    # A JSON line holds no raw newline, so splitting on "\n" alone is exact. str.splitlines()
+    # would also cut at U+2028, U+2029 and NEL, which JSON may carry raw.
+    for line in r.stdout.split("\n"):
+        if not line.strip():
+            continue
+        try:
+            fields = json.loads(line)
+        except ValueError:
+            skipped.append("not a JSON row: %r" % line[:120])
+            continue
+        if not isinstance(fields, list) or len(fields) != 6:
+            skipped.append("not a six-field row: %r" % line[:120])
+            continue
+        number, kind, opened, comments, url, title = fields
+        if not isinstance(title, str):
+            skipped.append("a row with no readable title: %r" % line[:120])
+            continue
+        m = NIGHTLY_TITLE.fullmatch(title)
+        if not m or kind == "pr":
+            continue
+        ok = (kind == "issue" and aware_instant(opened) and isinstance(url, str)
+              and all(isinstance(x, int) and not isinstance(x, bool) for x in (number, comments)))
+        if not ok:
+            skipped.append("a row could not be read: %r" % title[:120])
+            continue
+        found.append({"n": number, "workflow": m.group(1), "opened": opened,
+                      "comments": comments, "url": url})
+    return found, skipped
+
 
 def required_contexts(full):
     """The required set from branch protection, read live. The count moves; never pin it."""
@@ -255,6 +349,9 @@ def main():
         # open read already in hand. Without this the reconstructed open line in section 5b
         # loses every arrival that has not closed yet, which is most of a busy window.
         created += [p["createdAt"] for p in openprs if p["createdAt"] >= since_iso]
+        # None is "this repository keeps no such issues", a declared scope and not a reading.
+        nightly, nightly_skipped = (nightly_reds(full) if full in NIGHTLY_NOTICE_REPOS
+                                    else (None, []))
         buckets = {}
         for p in openprs:
             buckets[p["mergeStateStatus"]] = buckets.get(p["mergeStateStatus"], 0) + 1
@@ -279,6 +376,8 @@ def main():
             "merged": merged,
             "created": created,
             "closed": closed,
+            "nightly": nightly,
+            "nightly_skipped": nightly_skipped,
         })
 
     out = {"generated_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "repos": repos}
@@ -288,7 +387,12 @@ def main():
         print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d%s"
               % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
                  r["enqueued"], len(r["merged"]),
-                 "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else ""))
+                 "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
+              + ("" if r["nightly"] is None else
+                 "  nightly-red=%d" % len(r["nightly"]) if isinstance(r["nightly"], list) else
+                 "  NIGHTLY-READ-FAILED")
+              + ("  nightly-skipped=%d" % len(r["nightly_skipped"])
+                 if r["nightly_skipped"] else ""))
 
 
 if __name__ == "__main__":

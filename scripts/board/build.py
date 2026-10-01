@@ -323,6 +323,149 @@ def person_table():
 
 person_rows = person_table()
 
+# ------------------------------------------------- scheduled-run reds ----
+# Owner ruling 2026-09-26: the Lander owns a scheduled run's red, and this panel is how it reaches
+# the Lander. A scheduled run has no pull request, so nothing above can show it. The collector
+# reads the issues the engine's `nightly-notice.yml` opens; LANDER-BOARD.md section 4d has why.
+#
+# ONLY ONE STATE PER REPOSITORY IS A ZERO: a list with every row shown and none skipped. A list
+# with a row not shown is PARTIAL, and never clear. None is a repository the collector declares it
+# does not read, because it carries no such workflow. A dict is a read that failed. A MISSING key
+# is a data.json written before the collector read these at all. Any other value is unrecognised.
+# None of those may print as "none open": a repository nobody looked at, or whose read failed, is
+# not a repository with nothing red.
+_MISSING = object()
+NIGHTLY_NOT_READ_NONE = "not read: this repository carries no nightly-notice workflow"
+NIGHTLY_NOT_READ_MISSING = "not read: data.json predates this read; run collect.py again"
+# A garbled read can skip every line. Name a few reasons and count the rest.
+NIGHTLY_REASONS_SHOWN = 5
+
+
+def opened_at(iso):
+    """A Central clock time, with the DATE whenever it is not today.
+
+    `clock` gives a weekday, which is enough for a merge but not here: these issues stay open for
+    weeks, and a weekday cannot tell last Saturday from one seven weeks ago."""
+    t = P(iso).astimezone(CT)
+    if t.date() == now.astimezone(CT).date():
+        return clock(iso)
+    return "%s %d, %d:%02d %s CT" % (t.strftime("%b"), t.day, (t.hour % 12) or 12, t.minute,
+                                     "AM" if t.hour < 12 else "PM")
+
+
+NIGHTLY_ITEM = {"n": int, "workflow": str, "opened": str, "comments": int, "url": str}
+
+
+def nightly_opened(i):
+    """The row's opening instant as an AWARE datetime, or None when the row cannot supply one.
+
+    Every later step reads this, never the raw string: string order is not time order once an
+    offset or a fraction appears, and a naive value cannot be subtracted from the aware stamp."""
+    if not isinstance(i, dict):
+        return None
+    for key, kind in NIGHTLY_ITEM.items():
+        v = i.get(key)
+        if not isinstance(v, kind) or isinstance(v, bool):
+            return None
+    try:
+        t = P(i["opened"])
+    except ValueError:
+        return None
+    return t if t.tzinfo is not None else None
+
+
+def nightly_skipped(k):
+    """The collector's skipped-row reasons for repository `k`, whatever shape data.json holds.
+
+    A missing key is none. A list is its reasons. Anything else is itself one reason, so a
+    malformed value is reported rather than iterated or raised on."""
+    got = by[k].get("nightly_skipped", [])
+    if isinstance(got, list):
+        return [str(x) for x in got]
+    return ["unrecognised nightly_skipped value %r in data.json" % (got,)]
+
+
+def not_shown(bad):
+    """One note for rows not shown, naming at most a few reasons."""
+    named = "; ".join(bad[:NIGHTLY_REASONS_SHOWN])
+    more = len(bad) - NIGHTLY_REASONS_SHOWN
+    return "%d row%s not shown: %s%s" % (len(bad), "" if len(bad) == 1 else "s", named,
+                                         "; and %d more" % more if more > 0 else "")
+
+
+def nightly_panel():
+    # `clear` holds repositories read in full. A repository with any row not shown is left out of
+    # the clean headline, and marks every count above it as a floor: a zero, or an age, beside an
+    # unreadable row is not a measurement.
+    issues, clear, unread = [], [], []
+    partial = False
+    for k in order:
+        got = by[k].get("nightly", _MISSING)
+        bad = nightly_skipped(k)
+        if isinstance(got, list):
+            rows = [(nightly_opened(i), i) for i in got]
+            good = [(t, i) for t, i in rows if t is not None]
+            bad += ["a row in data.json is malformed"] * (len(rows) - len(good))
+            issues += [(NAMES[k], t, i) for t, i in good]
+            if bad:
+                partial = True
+                unread.append((NAMES[k], not_shown(bad)))
+            else:
+                clear.append(NAMES[k])
+            continue
+        if isinstance(got, dict):
+            why = "not read: %s" % got.get("error", "the read failed")
+        elif got is None:
+            why = NIGHTLY_NOT_READ_NONE
+        elif got is _MISSING:
+            why = NIGHTLY_NOT_READ_MISSING
+        else:
+            # Anything else is a value this builder does not know. Say so; never raise.
+            why = "not read: unrecognised value %r in data.json" % (got,)
+        unread.append((NAMES[k], why))
+        if bad:
+            # Skipped reasons beside an unread marker are still evidence. Keep them.
+            partial = True
+            unread.append((NAMES[k], not_shown(bad)))
+    issues.sort(key=lambda x: x[1])
+    stamp = clock(d["generated_utc"])
+    # The stamp is taken before any read, so an issue opened during the collect is younger than
+    # the stamp. Clamp it to zero rather than print a negative span.
+    span = lambda t: dur(max(0.0, (now - t).total_seconds() / 60.0))
+    if issues:
+        floor, shown = ("at least ", " shown") if partial else ("", "")
+        head = ("<b>%s%d</b> open. The oldest%s has been open <b>%s</b> as of %s."
+                % (floor, len(issues), shown, span(issues[0][1]), esc(stamp)))
+    elif clear and not partial:
+        # Scoped on purpose. The notice watches some scheduled workflows, not all of them, and
+        # files only on a run that concluded as a failure. So this is not "nothing is red".
+        head = ("No nightly-failure issue is open in <b>%s</b>. That covers only the scheduled "
+                "workflows the nightly failure notice watches, and only a run that failed."
+                % esc(", ".join(clear)))
+    elif partial:
+        head = ("<b>No row could be shown</b>, and some could not be read, so this is not a "
+                "clear reading.")
+    else:
+        head = "<b>Nothing was read</b>, so this panel says nothing about scheduled runs."
+    body = "".join(
+        '<tr><td>%s</td><td><a href="%s">#%d</a></td><td>%s</td><td>%s</td><td>%s</td>'
+        '<td>%d</td></tr>'
+        % (esc(name), esc(i["url"]), i["n"], esc(i["workflow"]), esc(opened_at(i["opened"])),
+           esc(span(t)), i["comments"])
+        for name, t, i in issues)
+    table = ('<div class="ptab-wrap"><table class="ptab">'
+             '<thead><tr><th>Repository</th><th>Issue</th><th>Workflow</th><th>Opened</th>'
+             '<th>Open, as of %s</th><th>Comments</th></tr></thead><tbody>%s</tbody>'
+             '</table></div>' % (esc(stamp), body)) if issues else ""
+    gaps = "".join('<p class="note">%s: %s.</p>' % (esc(name), esc(why)) for name, why in unread)
+    # An issue title is written by whoever can label an issue, and html.escape leaves braces
+    # alone. The template is filled by a chain of str.replace calls, so a `{{BARS}}` in a title
+    # would be filled by a LATER call. Escaping the brace here keeps this panel's text inert.
+    return ('<p class="note">%s</p>%s%s' % (head, table, gaps)).replace("{", "&#123;")
+
+
+nightly_rows = nightly_panel()
+
 legend_mix = "".join('<span class="lg" title="%s: %s"><i class="sw %s"></i>%s</span>'
                      % (k, STATE_SAY[k], c, k) for k, c in ORD)
 
@@ -337,6 +480,7 @@ out = (tpl
        .replace("{{QUEUE_ROWS}}", queue_rows)
        .replace("{{MIX_ROWS}}", mix_rows)
        .replace("{{PERSON_ROWS}}", person_rows)
+       .replace("{{NIGHTLY_ROWS}}", nightly_rows)
        .replace("{{LEGEND_MIX}}", legend_mix)
        .replace("{{SVGW}}", str(W)).replace("{{SVGH}}", str(H))
        .replace("{{GRID}}", grid).replace("{{BANDS}}", bands)

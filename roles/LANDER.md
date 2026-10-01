@@ -329,6 +329,7 @@ restates them; the routing does not.
 | Drive the merge queue | Keep armed PRs moving to `main`, one at a time, without idling. |
 | Keep the loop running | Nothing wakes this seat. A standing `/loop` is what makes "without idling" true. See *Keep a standing `/loop` running*. |
 | Settle CI | Triage red legs, separate real failures from flakes, keep the required-context set satisfied. |
+| **Triage scheduled-run reds too** | Added 2026-09-26 by owner ruling. A red nightly run has no pull request, and it reaches you as an issue on the Lander Board. See *A scheduled run's red is yours too, and it arrives as an issue*. |
 | **Release the Builder's claim with the ledger update** | Added 2026-09-18, and both in the SAME act. An orphaned claim blocks the next session on that row and **nothing anywhere reports it**. See *Close the item and release the claim in one act*. |
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
 | File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. They hand you the item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
@@ -431,6 +432,28 @@ from the message, and treat them as claims to check rather than facts to inherit
 | The neighbouring case | A rollup still reporting the PREVIOUS attempt's failure after you re-ran it. The `lander-triage-a-red-check` skill carries it under *Distinguish "retry in flight" from "suppressed"*. |
 | Failure direction | An unreadable run status is a **wake**, never a pass. |
 | What you say either way | Name which of the two you read, and the command you read it with. A red you dismissed and a red nobody looked at are indistinguishable in the record otherwise. |
+
+#### A scheduled run's red is yours too, and it arrives as an issue
+
+**Owner ruling 2026-09-26, after adversarial review: this seat owns scheduled-run reds.** Your red
+triage widens from a pull request's checks to the engine's scheduled runs.
+
+A scheduled run has no pull request, so no check rollup or queue entry carries its red. The
+engine's `nightly-notice.yml` keeps one open issue per failing workflow instead, titled
+`Nightly <workflow> is failing`.
+
+The Lander Board lists each under *Scheduled runs failing*, with how long it has been open.
+[LANDER-BOARD.md](../docs/LANDER-BOARD.md) section 4d holds the read and how it matches.
+
+| Item | Rule |
+| --- | --- |
+| Where you see it | The board panel, or the read in LANDER-BOARD.md section 4d. Nothing sends it to you, so poll it as you poll the queue. |
+| What you do | Triage it as you would a red required check. Read the failing job, rule out a capacity artifact, and dispatch a repair for a genuine failure. |
+| A red only the owner can clear | Some need an owner act, such as a release or a `security.txt` renewal. Put it in *Table 2 -- the blockers*, and nag. |
+| Leave the issue to the workflow | SEAT PRACTICE, not measured. It closes itself on the next green scheduled run. A hand close loses the age the board measures, and the next red night opens a fresh issue. |
+| Unless the workflow never will | An issue for a workflow no longer on its watch list, or an older duplicate of a newer issue, stays open forever. Close it by hand, and say why in a comment. LANDER-BOARD.md section 4d names both shapes. |
+| The Watchdog's part | It measures how long each issue stays open, and never acts on one. [WATCHDOG.md](WATCHDOG.md), *YOUR FIRST STANDING DUTY*. |
+| Worked case | Engine issue 288, *Nightly Security is failing*, open 2026-08-08 to 2026-09-25 with 49 comments while no seat read it. Vault BACKLOG #1800. |
 
 #### Prefer a SPAWNED SESSION over a subagent when you dispatch a repair
 
@@ -597,6 +620,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Item | Rule |
 | --- | --- |
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
+| The loop covers scheduled-run reds | The prompt says *poll each queue*. Read the board's *Scheduled runs failing* panel on the same tick. *A scheduled run's red is yours too* holds the duty. |
 | Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* binds this. Send no ACK, and invent no work to fill a quiet tick. Mark it `noop: true` when nothing moved, `noop: false` on a landing, filed item or finding. |

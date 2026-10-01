@@ -222,6 +222,14 @@ foot code{font-family:"IBM Plex Mono",monospace; font-size:11.5px; background:va
   </section>
 
   <section class="wide">
+    <article class="card card-wide ac-crit">
+      <h3>Scheduled runs failing</h3>
+      <p class="note">A scheduled run has no pull request, so nothing above can show its red. Each row is an open issue in the shape the engine's nightly failure notice writes. The notice opens one on the first failed night. It comments on each later failure. It closes the issue when that run goes green again. It never closes an orphan left by a workflow it stopped watching. It never closes a duplicate it cannot find either. Someone has to close those. The Lander triages these. The Watchdog measures how long they stay open and never acts on them.</p>
+      {{NIGHTLY_ROWS}}
+    </article>
+  </section>
+
+  <section class="wide">
     <article class="card">
       <h3>In the queue right now</h3>
       <p class="note">Read the entry, never the pull request. A queued PR reports null for auto-merge and CLEAN while its entry is UNMERGEABLE.</p>

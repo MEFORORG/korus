@@ -16,13 +16,16 @@ names each one.
 
 ## 1. What the board answers
 
-One question: **is merge-ready work reaching `main`, or piling up?**
+Its first question: **is merge-ready work reaching `main`, or piling up?**
 
 That is not the same as "is the queue busy". A queue can run all day and still lose ground, because
 new pull requests arrive while it drains. The board shows both sides so the reader can tell.
 
 The owner's chart that prompted it showed a flat open-count line and read as a stall. The count was
 flat because arrivals matched merges, which is a different problem with a different fix.
+
+It answers a second one too, since 2026-09-26: **which nightly-failure issues are open, and for
+how long?** Section 4d holds it.
 
 ---
 
@@ -180,6 +183,85 @@ Count runs of three hours or more with no merge in any repository, and report th
 **The window changes the answer.** The same day read over 24 hours gave a longest run of 9 hours,
 because the worst stall was half outside the window. Use 48.
 
+### 4d. A scheduled run's red has no pull request, so the board reads its issue
+
+**Owner ruling 2026-09-26: the Lander owns scheduled-run reds, and they reach it on this board.**
+The Watchdog measures how long each stays open and never acts on one.
+
+A scheduled run has no pull request. No required check, merge state or queue entry above can carry
+its red, so before this panel the only record was an issue nobody polled.
+
+Engine issue 288, *Nightly Security is failing*, was open from 2026-08-08 to 2026-09-25 and
+gathered 49 comments. The released line pinned a vulnerable dependency throughout. Vault BACKLOG
+#1800 is the record.
+
+**The panel reads the writer's own predicate, not a guessed title.** The engine's
+`nightly-notice.yml` looks for an OPEN issue labelled `bug` titled exactly
+`Nightly $WF_NAME is failing`. It opens one when none exists, and comments on each later failure.
+
+It closes the issue itself on the first green scheduled run. The collector reads the same three
+things, so every issue the workflow would adopt shows:
+
+```bash
+gh api -X GET repos/MEFORORG/MessageFoundry/issues -f state=open -f labels=bug -f per_page=100 \
+  --paginate --jq '.[] | [.number, (if .pull_request then "pr" else "issue" end),
+  .created_at, .comments, .html_url, .title] | @json'
+```
+
+The REST list returns pull requests beside issues, so each row says which it is. The collector
+drops pull requests and titles that do not match.
+
+**One line is one `@json` array.** The read returns every open `bug` issue, and any title may hold
+a newline or a carriage return. Raw text let such a title forge a row or blank the panel.
+
+A row that still cannot be read is skipped and listed on the panel as *not shown*. The rows beside
+it are kept, and the collect goes on. A repository with a row not shown never reads as clear,
+and the count above it reads as a floor: *at least N open*.
+
+**A match is not always an issue the workflow will close.** One left behind by a workflow since
+dropped from the watch list matches. So does a duplicate the workflow lost track of.
+
+The workflow finds its issue among the first 50 open `bug` issues, so a longer list can make it
+open a second. The panel shows these on purpose: a red nobody will close is what it exists for.
+
+The workflow name is left free. The watch list belongs to the engine, and a copy here would drift
+the day a workflow joins it.
+
+**A failed read does not refuse the whole collect**, unlike every other read here. This panel is
+secondary, and refusing would freeze every merge reading beside it.
+
+It writes a marker instead, and the panel prints *not read: the read failed*. That is a reading,
+not a default, so it never shows as a zero.
+
+**Only the engine carries that workflow.** Measured 2026-09-30, the needle below, per repository at
+its `origin/main`: korus 0 at `4a5af872d`, the vault 0 at `4c9855c75`. The control is the engine: 1
+at `ce9a8ddba`.
+
+```bash
+git ls-tree --name-only origin/main .github/workflows/ | grep -c nightly-notice
+```
+
+`NIGHTLY_NOTICE_REPOS` in `collect.py` names the engine alone. Each other repository reads **not
+read** on the panel, never "none open". A `data.json` written before this read existed says the
+same.
+
+**This does not bring korus's or the vault's scheduled reds to the board, and nothing else does.**
+At the same refs korus runs 2 scheduled workflows and the vault 13, and no notice carries a red
+from any of them.
+
+The engine's own notice watches 6 of its 15 scheduled workflows, and files only on a run that
+concluded as a failure. So the panel's zero says *no nightly-failure issue is open*, never *nothing
+is red*.
+
+Each row shows the issue, its workflow, when it opened, and how long it has been open as of the
+board's own stamp. The opening time carries its date unless it is today.
+
+It also shows the comment count. The workflow adds one per later failed run, and a person's comment
+adds one too, so read it as an upper bound on failed nights.
+
+`tests/test_the_board_shows_open_nightly_failure_issues.py` pins both arms on one fixture. An
+issue the workflow would adopt shows. A pull request, or a title one word off, does not.
+
 ---
 
 ## 5. The chart
@@ -253,6 +335,9 @@ gh api -X GET repos/<owner/name>/pulls -f state=closed -f sort=updated -f direct
 `closed_window` in `scripts/board/collect.py` does this, and refuses on any failed page. A closed
 list holds no open pull request, so the open read supplies those creates. Without them the
 section 5b open line drops every arrival still open, which is most of a busy window.
+
+
+The open nightly-failure issues, for the scheduled-run panel, are the read in section 4d.
 
 ---
 
