@@ -338,7 +338,8 @@ class TheBoardShowsEachRedAndHowLongItHasBeenRed(unittest.TestCase):
 
     def test_a_malformed_red_row_is_reported_and_blocks_the_clear_headline(self):
         for bad in ({"workflow": "x"}, dict(red("x", "2026-09-20T00:00:00"), floor=False),
-                    dict(red("x", "2026-09-20T00:00:00Z"), streak=True), "row"):
+                    dict(red("x", "2026-09-20T00:00:00Z"), streak=True),
+                    dict(red("x", "2026-09-20T00:00:00Z"), streak=0), "row"):
             with self.subTest(bad=bad):
                 p = part(board(vault=sched([bad])))
                 self.assertIn("Vault: 1 red row in data.json is malformed and not shown.", p)
