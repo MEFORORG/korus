@@ -40,7 +40,36 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 | `scripts/coord/alloc.ps1` | Allocate the next number in a shared sequence atomically, so two sessions can never be handed the same one; `-ShowFloor` inspects without spending one. `seq_check.py` is the other half -- neither is sufficient alone | [Sequence allocation](SEQUENCE-ALLOC.md) |
 | `scripts/coord/mail.ps1` | Send, list or inspect the file-drop queue that reaches a peer in another Claude account or editor extension. `-Send -To <worktree path>` or `all`, `-List`, `-Status`. Queued is not delivered; the recipient's drain does that | [Session mail](SESSION-MAIL.md) |
 | `scripts/coord/seat.ps1` | Write this session's episode record -- seat, goal, handoff -- so the next session is not guessing. `-Declare` also writes the role-card marker and refuses an unrostered seat; `-Record` never invents a goal | [Role cards](ROLE-CARDS.md) |
+| `scripts/coord/fleet.ps1` | Read the records `seat.ps1` wrote and print the fleet, receipt first. A stop condition fires whenever the roster may be incomplete. `-Json` for a board, `-Chip` for one replacement briefing. Read-only | [Below](#the-fleet-roster-json-is-a-contract) |
 | `bin/ccx-steer.ps1` | Queue a steering note from a second terminal while a session is mid-task | [Steering](STEERING.md) |
+
+### The fleet roster JSON is a contract
+
+`fleet.ps1 -Json` prints one object. A board or another tool reads these fields, so they keep their
+names and types. Extra fields may be added.
+
+| Field | Type | Means |
+|---|---|---|
+| `receipt.renderedAtUtc` | string | When it was read, as `yyyy-MM-ddTHH:mm:ssZ` |
+| `receipt.liveSessionsInRepo` | integer | Live sessions whose working directory is in one of this clone's worktrees |
+| `receipt.liveSessionsWithoutRecord` | integer | Of those, how many no open seat record covers. A record covers a session by its id, or by its worktree when it names no session |
+| `receipt.stopConditions` | array of strings | Each reason the roster may be incomplete. Always an array, possibly empty |
+| `rows[].Seat` | string or null | The declared seat. Null means none was declared |
+| `rows[].Box` | string | The worktree's record directory, `<slug>-<hash>` |
+| `rows[].Branch` | string | The branch the record names |
+| `rows[].State` | string | One of `RUNNING`, `POSSIBLY RUNNING`, `INTERRUPTED`, `ORPHANED-STALE`, `SUPERSEDED`, `CLOSED`, `UNKNOWN-NO-FENCE` |
+| `rows[].AgeHours` | number or null | Hours since the record was last written |
+
+The receipt also counts what was examined, and `receipt.notCarried` names the inputs the engine
+repository reads that korus has no writer for.
+
+The exit code is 2 when the fence had nothing to examine: no config root, or no readable session
+record in one. Rows then read `UNKNOWN-NO-FENCE`, except `CLOSED` and `SUPERSEDED` rows. It is
+also 2 outside a git repository, and when `-Chip` names a row that does not exist. Otherwise it is 0.
+
+The records are read from `<git-common-dir>/ccx-coord/seats/`, the directory `seat.ps1` writes.
+`-SeatsRoot` and `-ConfigRoot` point the reader somewhere else, for a test or a control.
+`tests/test_the_fleet_roster_states_what_it_examined.py` pins the contract.
 
 ## The fleet wiki
 
