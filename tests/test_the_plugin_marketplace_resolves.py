@@ -53,6 +53,22 @@ def _non_ascii(path: Path) -> str | None:
     return None
 
 
+#: A file a classic hook command reaches through the plugin's own root. A renamed shim leaves the
+#: row naming a file that is gone, and the harness then runs nothing, silently.
+PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([^\"'\s]+)")
+
+
+def _plugin_root_paths(hooks: dict) -> list[tuple[str, str]]:
+    """Each (event, relative path) a classic `hooks` block's commands name under the plugin root."""
+    named: list[tuple[str, str]] = []
+    for event, groups in hooks.items():
+        for group in groups or []:
+            for hook in group.get("hooks", []) if isinstance(group, dict) else []:
+                command = hook.get("command", "") if isinstance(hook, dict) else ""
+                named.extend((event, m.group(1)) for m in PLUGIN_ROOT_PATH.finditer(command))
+    return named
+
+
 def problems(root: Path) -> tuple[list[str], int]:
     """Every defect in the marketplace under `root`, and how many plugins it read.
 
@@ -111,13 +127,18 @@ def problems(root: Path) -> tuple[list[str], int]:
         hooks_json = folder / "hooks" / "hooks.json"
         if hooks_json.is_file():
             try:
-                modules = json.loads(hooks_json.read_text(encoding="utf-8")).get("modules", [])
+                spec = json.loads(hooks_json.read_text(encoding="utf-8"))
+                modules = spec.get("modules", [])
+                commands = _plugin_root_paths(spec.get("hooks") or {})
             except (UnicodeDecodeError, json.JSONDecodeError, AttributeError) as err:
                 found.append(f"{name}: hooks/hooks.json does not parse: {err}")
-                modules = []
+                modules, commands = [], []
             for module in modules:
                 if not (hooks_json.parent / module).is_file():
                     found.append(f"{name}: hooks module {module} does not exist")
+            for event, rel in commands:
+                if not (folder / rel).is_file():
+                    found.append(f"{name}: a {event} hook runs ${{CLAUDE_PLUGIN_ROOT}}/{rel}, which does not exist")
         for path in sorted(folder.rglob("*")):
             if not path.is_file() or "node_modules" in path.parts:
                 continue
@@ -192,6 +213,40 @@ class TheMarketplaceResolves(unittest.TestCase):
         self.assertEqual(read, 0)
         self.assertEqual(len(found), 1)
         self.assertIn("does not parse", found[0])
+
+
+class AClassicHookRowNamesAFileThatExists(unittest.TestCase):
+    """A `hooks` block row that runs `${CLAUDE_PLUGIN_ROOT}/<file>` must find that file."""
+
+    def plant(self, root: Path, shipped: bool) -> None:
+        _plant(root, name_in_plugin="demo", register="export const register = () => {}\n",
+               extra_entry=False)
+        hooks = root / "plugins" / "demo" / "hooks"
+        row = {"type": "command", "command": 'pwsh -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/hooks/shim.ps1" -X'}
+        (hooks / "hooks.json").write_text(
+            json.dumps({"hooks": {"SessionStart": [{"hooks": [row]}]}}), encoding="ascii"
+        )
+        if shipped:
+            (hooks / "shim.ps1").write_text("exit 0\n", encoding="ascii")
+
+    def test_a_row_whose_file_exists_is_clean(self):
+        """The control: the same plant with the file present must come back clean."""
+        with tempfile.TemporaryDirectory() as tmp:
+            self.plant(Path(tmp), shipped=True)
+            self.assertEqual(problems(Path(tmp)), ([], 1))
+
+    def test_a_row_whose_file_is_missing_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.plant(Path(tmp), shipped=False)
+            found, _ = problems(Path(tmp))
+        self.assertEqual(
+            found, ["demo: a SessionStart hook runs ${CLAUDE_PLUGIN_ROOT}/hooks/shim.ps1, which does not exist"]
+        )
+
+    def test_the_live_card_plugin_rows_are_read(self):
+        """The live zero above means nothing unless the scan reaches the live rows."""
+        spec = json.loads((t.REPO_ROOT / "plugins" / "korus-card" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(_plugin_root_paths(spec["hooks"])), 2)
 
 
 class TheWriteScanFiresOnEachSpelling(unittest.TestCase):
