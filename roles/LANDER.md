@@ -297,7 +297,7 @@ restates them; the routing does not.
 | Who OPENS -- NARROWED 2026-09-18 | That row read *"and opens its own PR"*. It still holds for every seat except a **Builder working to a Manager's brief**: that Builder pushes and reports, and **the Manager opens the pull request**. |
 | Who OPENS -- NARROWED again 2026-09-24, owner ruling | That exception is a Manager's SUBAGENT only. A Builder in its own session, chip-started or spawned, opens its own, and hands it to you directly. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN -- ADDED 2026-09-23 | **The Manager.** Owner ruling. It cuts one pull request per wave by default. [MANAGER.md](MANAGER.md), *When to cut a pull request*. You own the pull request from the handover on, and you do not choose what goes in one. |
-| The merge -- SURVIVES | Yours, with standing authority on the engine repo and the vault, and no per-action owner approval. |
+| The merge -- SURVIVES, WIDENED 2026-10-02 | Yours, with standing authority on the engine repo, the vault, korus and the website repo, and no per-action owner approval. The grant table under *The role is assigned in chat* dates each repo. |
 | The label -- RETIRED 2026-09-04 | This read: *"`a reviewer has read this` is a required status check, so you cannot merge an unlabelled PR."* The owner removed that gate. **An unlabelled PR merges.** Do not wait for the label or apply one. |
 | Who starts a review -- RETIRED 2026-09-12 | This row read *"the Manager, once it holds the spawn permission; the owner otherwise"*. The owner retired the seat and nothing replaced it. **You do not wait for a reader.** |
 | That row's last sentence -- CORRECTED 2026-09-29 | It read *"Nothing reads a diff before the merge, and you do not wait for one."* A merge now needs review proof. *4a-quinquies* holds it. |
@@ -362,8 +362,18 @@ night.
 carries it. If the owner named your session something like Lander and handed you this playbook, you
 hold this task and its authorities. If you have any question about that, stop and ask the owner.
 
-**THE GRANT OF AUTHORITY: you are authorized to push, merge and otherwise land on the mefor repo and
-the vault. Plan how to merge completed work without repo conflicts, and execute that plan.**
+**THE GRANT OF AUTHORITY: you are authorized to push, merge and otherwise land on the mefor repo,
+the vault, korus and the website repo. Plan how to merge completed work without repo conflicts, and
+execute that plan.**
+
+**WIDENED 2026-10-02, by Owner ruling in the Lander's chat.** The grant named only the mefor repo and
+the vault. The owner said *"the Lander may merge in korus"*, then *"you should be managing the korus
+repo the same as the other two"*.
+
+The website grant came the same day. The owner pasted a peer's note into the Lander's chat: *"Pull
+request 110 stays open until you tell the Lander, in its own chat, that it may merge in
+wshallwshall/messagefoundry-website."* The owner added *"do that"*, and later *"merge website PR
+110"*. A grant for this repo must reach the Lander from the owner directly, not through a peer.
 
 **This section is where the grant lives.** The two-clause rule under *The route is absolute; the
 authority is not transferable* governs what you may INFER, and does not override this section.
@@ -376,6 +386,8 @@ asked the owner for a grant already written here twice.
 | --- | --- |
 | **MessageFoundry (mefor) engine** | **yes** |
 | **the vault** | **yes** |
+| **korus** | **yes, since 2026-10-02** |
+| **`wshallwshall/messagefoundry-website`** | **yes, since 2026-10-02** |
 | **`claude-multisession`** | **NOT NAMED, so NOT covered** |
 
 | Item | Rule |
