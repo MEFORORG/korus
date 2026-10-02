@@ -14,6 +14,11 @@
       "name": "korus-card",
       "source": "./plugins/korus-card",
       "description": "Runs the repository's own role-card hook at every session start, and its reprime hook after a compaction"
+    },
+    {
+      "name": "korus-inbox",
+      "source": "./plugins/korus-inbox",
+      "description": "Writes one file per session under ~/.korus-inbox: open questions and hook-refused shell commands from every session, in an /inbox pane and a status-line count"
     }
   ]
 }
