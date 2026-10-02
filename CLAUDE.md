@@ -91,7 +91,7 @@ ruling 2026-09-16.
 
 The review gate it fed was retired 2026-09-04, so no label blocks a merge and no review step sits
 ahead of a PR. Do not open a review step back up, and do not hold a PR waiting for one.
-*Commits, pushes and PRs are yours; the merge is the Owner's* holds the branch-protection reading.
+*Commits, pushes and PRs are yours; the merge is the Lander's* holds the branch-protection reading.
 
 Files under `roles/retired/` are the record of what a seat did. A document that routes work through
 one is stale.
@@ -243,14 +243,20 @@ characters.
 
 Run `pytest tests/test_prose_rules_hold.py` before pushing prose.
 
-## Commits, pushes and PRs are yours; the merge is the Owner's
+## Commits, pushes and PRs are yours; the merge is the Lander's
 
 **Commit on your own judgment.** One coherent layer per commit, with a clear message. Do not use
 `--no-verify` to get past a gate. If a gate fires, fix the cause or say plainly that you cannot.
 
 **Push your own branch and open your own PR, without asking.** [roles/COMMON.md](roles/COMMON.md),
-*Coordinate before you write*, grants every seat that and needs no approval. The MERGE is still
-the Owner's here.
+*Coordinate before you write*, grants every seat that and needs no approval. The MERGE is the
+Lander's, here as in the engine and the vault. [roles/LANDER.md](roles/LANDER.md) says how.
+
+**CHANGED 2026-10-02, by Owner ruling to the Lander: the merge was the Owner's here until then.**
+The Owner said *"the Lander may merge in korus"*, then *"you should be managing the korus repo the
+same as the other two"*. The heading read *"the merge is the Owner's"*. The line above read *"The
+MERGE is still the Owner's here."* The cross-reference near the top of this file followed the
+heading. [roles/LANDER.md](roles/LANDER.md) records the same ruling in its grant table.
 
 **NARROWED 2026-09-18, by Owner ruling: a Builder working to a Manager's brief does not open the
 PR.** It pushes, reports and exits, and the **Manager** opens the PR after checking the branch
