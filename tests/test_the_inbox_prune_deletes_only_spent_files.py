@@ -58,6 +58,11 @@ class ThePruneDeletesOnlySpentFiles(unittest.TestCase):
         self.plant("other-format-5.json", json.dumps({"format": "x/1", "ended": True}))
         self.plant("notes.txt", "keep me", mtime=old)
         self.plant("has space.json", _inbox("x", ended=True))
+        # Shapes the plugin never reads as ended: an empty object, a one-item array, a key in the
+        # wrong case. Each must survive, and the empty object must not stop the run.
+        self.plant("aa-empty-8.json", "{}")
+        self.plant("array-9.json", "[" + _inbox("array-9", ended=True) + "]")
+        self.plant("upper-10.json", '{"format":"korus-inbox/1","ENDED":true}')
         self.plant("sub/ended-6.json", _inbox("ended-6", ended=True), mtime=old)
         # Beside the folder, not in it: spent by both rules, and out of reach.
         self.outside = self.root / "ended-7.json"
@@ -83,6 +88,7 @@ class ThePruneDeletesOnlySpentFiles(unittest.TestCase):
         ".korus-inbox/live-1.json", ".korus-inbox/ended-2.json", ".korus-inbox/stale-3.json",
         ".korus-inbox/half-4.json", ".korus-inbox/other-format-5.json", ".korus-inbox/notes.txt",
         ".korus-inbox/has space.json", ".korus-inbox/sub/ended-6.json", "ended-7.json",
+        ".korus-inbox/aa-empty-8.json", ".korus-inbox/array-9.json", ".korus-inbox/upper-10.json",
     }
 
     def test_a_dry_run_names_the_spent_files_and_deletes_nothing(self):

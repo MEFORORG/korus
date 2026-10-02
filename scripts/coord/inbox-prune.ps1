@@ -79,15 +79,20 @@ function Get-SpentReason {
     if ($NowUtc - $File.LastWriteTimeUtc -gt $MaxAge) { return 'not written for 24 hours' }
     if ($File.Length -gt $MaxBytes) { return $null }
     try {
-        $body = Get-Content -LiteralPath $File.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        # -NoEnumerate keeps a one-item array an array, so it is not read as the object inside it.
+        $body = Get-Content -LiteralPath $File.FullName -Raw -ErrorAction Stop |
+            ConvertFrom-Json -NoEnumerate -ErrorAction Stop
     } catch {
         # A file caught half-written does not parse. It is kept, and the age rule takes it later.
         return $null
     }
     if ($body -isnot [pscustomobject]) { return $null }
-    $names = $body.PSObject.Properties.Name
-    if ($names -contains 'format' -and $body.format -ceq $Format -and
-        $names -contains 'ended' -and $body.ended -is [bool] -and $body.ended) {
+    # Matched case-sensitively, as the plugin's JSON.parse reads them: "ENDED" is not "ended".
+    $props = @($body.PSObject.Properties)
+    $formatProp = @($props | Where-Object { $_.Name -ceq 'format' })
+    $endedProp = @($props | Where-Object { $_.Name -ceq 'ended' })
+    if ($formatProp.Count -eq 1 -and $formatProp[0].Value -is [string] -and $formatProp[0].Value -ceq $Format -and
+        $endedProp.Count -eq 1 -and $endedProp[0].Value -is [bool] -and $endedProp[0].Value) {
         return 'ended'
     }
     return $null
@@ -107,7 +112,13 @@ foreach ($file in $files) {
         Write-Output "keep    $($file.Name): not a file the plugin writes"
         continue
     }
-    $reason = Get-SpentReason -File $file -NowUtc $nowUtc
+    try {
+        $reason = Get-SpentReason -File $file -NowUtc $nowUtc
+    } catch {
+        # One odd file must not stop the run halfway, with some files deleted and the rest unread.
+        Write-Output "keep    $($file.Name): could not be read ($($_.Exception.Message))"
+        continue
+    }
     if (-not $reason) { continue }
     $spent++
     if (-not $Apply) {

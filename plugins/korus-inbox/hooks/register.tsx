@@ -342,7 +342,8 @@ async function poll($: Engine): Promise<void> {
     let parsed = cached !== undefined && cached.mtimeMs === one.mtimeMs ? cached.parsed : undefined
     if (parsed === undefined) {
       const text = await $.fs.read(`${place.dir}${place.sep}${one.name}`).catch(() => undefined)
-      parsed = typeof text === 'string' ? parseFile(stem, text, now) : undefined
+      // The listing checked the size; a file can grow between the listing and the read.
+      parsed = typeof text === 'string' && text.length <= MAX_FILE_BYTES ? parseFile(stem, text, now) : undefined
       if (parsed !== undefined) lastGood.set(stem, { mtimeMs: one.mtimeMs, parsed })
       else if (cached !== undefined) parsed = cached.parsed // a write in flight: keep the last good read
       else continue
@@ -394,7 +395,14 @@ function captureCommand(command: string): { command?: string; withheld?: string 
 // ----------------------------------------------------------------------- run
 
 async function shellArgv($: Engine, shell: InboxEntry['shell'], command: string): Promise<string[]> {
-  if (shell === 'PowerShell') return ['pwsh', '-NoProfile', '-Command', command]
+  if (shell === 'PowerShell') {
+    // By path where the installer puts it, so a pwsh.exe sitting in the
+    // refused call's folder is not the one a cwd-first lookup finds.
+    const programFiles = await $.env.get('ProgramFiles')
+    const installed = programFiles !== undefined ? `${programFiles}\\PowerShell\\7\\pwsh.exe` : undefined
+    const pwsh = installed !== undefined && (await $.fs.exists(installed).catch(() => false)) ? installed : 'pwsh'
+    return [pwsh, '-NoProfile', '-Command', command]
+  }
   // Bash runs by path, never as a bare `bash`: on Windows that name can
   // resolve to WSL's System32\bash.exe, not the Git Bash the Bash tool runs.
   // Where no known path exists, Run fails and says so; Copy still works.
@@ -574,6 +582,9 @@ export const register: Register = on => {
     const command = e.command
     const isMainLoop = e.agentId === undefined
     const cwd = await $.session.cwd().catch(() => '')
+    // Run happens in the folder the owner reads; a folder the screen would
+    // show altered (cut, or with characters stripped) is Copy only.
+    const isCwdShown = clean(cwd, 500) === cwd
     let denied: string | undefined
     let ran: Awaited<ReturnType<typeof next>>
     try {
@@ -595,7 +606,7 @@ export const register: Register = on => {
           shell,
           ...captureCommand(command),
           cwd: clean(cwd, 500),
-          isRunnable: isMainLoop,
+          isRunnable: isMainLoop && isCwdShown,
           refusal: looksSecret(line) ? REFUSAL_SECRET : line,
         })
       }
@@ -657,7 +668,9 @@ export const register: Register = on => {
           {entry.kind === 'refused' && entry.command !== undefined && !canRun && run?.status !== 'running' && (
             <Text dimColor>
               {entry.isRunnable !== true
-                ? 'Copy only: a subagent raised it, and its folder is not known.'
+                ? entry.agentId !== undefined
+                  ? 'Copy only: a subagent raised it, and its folder is not known.'
+                  : 'Copy only: its folder holds characters the screen cannot show.'
                 : 'Copy only: the command holds characters the screen cannot show.'}
             </Text>
           )}

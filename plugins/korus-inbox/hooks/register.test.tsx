@@ -33,17 +33,17 @@ type World = {
 
 // The engine beneath the plugin: an in-memory shared folder, a fixed session,
 // a recorded process runner and clipboard. Nothing touches the real disk.
-function world(on: On): World {
+function world(on: On, opts: { env?: Record<string, string>; cwd?: string } = {}): World {
   const files = new Map<string, { text: string; mtimeMs: number }>()
   const runs: World['runs'] = []
   const copies: string[] = []
   let status: string | undefined
   const clock = mock.clock(on, { now: NOW })
-  mock.env(on, { USERPROFILE: HOME })
+  mock.env(on, { USERPROFILE: HOME, ...opts.env })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   on('session.id', () => ({ value: ME }))
-  on('session.cwd', () => ({ value: CWD }))
+  on('session.cwd', () => ({ value: opts.cwd ?? CWD }))
   on('session.root', () => ({ value: CWD }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -509,4 +509,33 @@ test('a write after the session ended does not bring its file back', async ($, o
   await w.settle()
   const file = JSON.parse(w.files.get(MY_FILE)?.text ?? '{}') as { ended: boolean }
   expect(file.ended).toBe(true)
+})
+
+test('PowerShell runs through the installed pwsh by path where it exists', async ($, on) => {
+  const installed = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'
+  const w = world(on, { env: { ProgramFiles: 'C:\\Program Files' } })
+  w.files.set(installed, { text: '', mtimeMs: 0 })
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toEqual([{ argv: [installed, '-NoProfile', '-Command', 'git push origin main'], cwd: CWD }])
+  await ui.unmount()
+})
+
+test('a refusal in a folder the screen would show altered is Copy only', async ($, on) => {
+  const w = world(on, { cwd: 'C:\\work\\re\u200bpo' })
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+  expect(await ui.find({ key: `copy:${id}` })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^Copy only: its folder holds/ })).toBeDefined()
+  expect(w.runs).toHaveLength(0)
+  await ui.unmount()
 })

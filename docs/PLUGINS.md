@@ -177,10 +177,13 @@ hook error, and the session goes on without a card.
 `korus-inbox` collects two kinds of entry from every session on the machine, and shows them in one
 place.
 
-| Entry | Where it comes from | It clears when |
+| Entry | Where it comes from | It stops waiting when |
 |---|---|---|
 | A pending question | An open `AskUserQuestion` call | The question is answered, or Dismiss is pressed |
-| A refused command | A Bash or PowerShell call that a settings `PreToolUse` hook refused | A Run finishes, or Dismiss is pressed |
+| A refused command | A Bash or PowerShell call that a settings `PreToolUse` hook refused | A Run ends with an exit code of any value, or Dismiss is pressed |
+
+A Run that could not start leaves its entry waiting. A Run that ended leaves its row in the pane
+with the output's last lines, out of the count, until Dismiss is pressed.
 
 The plugin reads a refusal through `classic.PreToolUse`. A tool result that starts with
 `PreToolUse:Bash hook` or `PreToolUse:PowerShell hook` is the fallback.
@@ -227,12 +230,14 @@ Run takes two presses. The first arms it and shows `Run now`, and the second run
 after 60 seconds, and two quick presses run the command once.
 
 The command comes from the session's own state at the moment of the press. It never comes from the
-screen or the disk. A command holding a character the screen strips is Copy only, so what runs is
-what the owner read.
+screen or the disk. A command or folder holding a character the screen strips is Copy only, so what
+runs is what the owner read.
 
-PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Bash runs through
-Git Bash by its path. It never runs as a bare `bash`, which on Windows can be WSL. Where no Git Bash
-is found, the Run fails and says so.
+PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. It uses
+`<ProgramFiles>\PowerShell\7\pwsh.exe` where that exists, and `pwsh` from the path otherwise.
+
+Bash runs through Git Bash by its path. It never runs as a bare `bash`, which on Windows can be WSL.
+Where no Git Bash is found, the Run fails and says so.
 
 ### Everything read from disk is untrusted text
 
@@ -271,6 +276,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 21 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 23 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
