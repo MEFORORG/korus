@@ -1,10 +1,16 @@
 {
   "name": "korus-fleet",
-  "version": "0.1.0",
-  "description": "Read-only: seat and usage on the status line, and a /fleet pane listing RUNNING seat records from the fleet script's -Json output",
+  "version": "0.2.0",
+  "description": "Read-only: an opt-in status line with seat and usage, and a /fleet pane listing RUNNING seat records from the fleet script's -Json output",
   "author": { "name": "MEFORORG" },
   "types": "./types/index.d.ts",
   "userConfig": {
+    "statusLine": {
+      "type": "boolean",
+      "title": "Status line",
+      "description": "Draw seat, context and rate limits on the status line. Off by default",
+      "default": false
+    },
     "fleetScript": {
       "type": "string",
       "title": "Fleet script",

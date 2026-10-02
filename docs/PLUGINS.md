@@ -6,7 +6,7 @@
 
 | Plugin | What it does |
 |---|---|
-| `korus-fleet` | Shows your seat and usage on the status line, and opens a fleet board pane. Read-only. |
+| `korus-fleet` | Opens a fleet board pane, and can show your seat and usage on the status line. Read-only. |
 | `korus-card` | Runs the repository's own role-card hook at session start, and its reprime after a compaction. |
 | `korus-inbox` | Gathers what waits on the owner from every session: open questions and refused commands. |
 
@@ -22,11 +22,12 @@ before you push a change to a plugin.
 
 | Where | What it shows |
 |---|---|
-| Status line | `seat <x> \| ctx N% \| <limit kind> N%`. The seat comes from `.claude/seat.local.txt`, which `scripts/coord/seat.ps1 -Declare` writes. Usage comes from the session. |
+| Status line | **Off by default.** Turn it on with the `statusLine` option, below. When on: `seat <x> \| ctx N% \| <limit> N%`, with one `<limit>` part per rate limit the session reports, for example `seat manager \| ctx 26% \| 5h 6% \| 7d 0%`. The seat comes from `.claude/seat.local.txt`, which `scripts/coord/seat.ps1 -Declare` writes. Usage comes from the session. `5h` is its `five_hour` limit and `7d` its `seven_day` limit; any other limit shows under the name the session gives it. |
 | `/fleet` | Opens a pane that runs the fleet script with `-Json` and lists every record whose `State` is `RUNNING`, newest first. |
 
 The status line says `no seat marker` when the marker file is missing, and `undeclared` when it is
-empty. It refreshes every minute and after each turn.
+empty. When on, it refreshes every minute and after each turn. When off, it draws nothing and reads
+no usage.
 
 The pane refreshes every five minutes while it is open, and on its Refresh button. The pilot this
 plugin came from timed one run of the MessageFoundry fleet script at about 26 seconds. That reading
@@ -48,6 +49,12 @@ Run these inside a Claude Code session, from any config root.
 
 A local clone works as the marketplace too. Pass its path to `/plugin marketplace add` in place of
 `MEFORORG/korus`.
+
+## The status line is an option
+
+Set `statusLine` to true in `/config` to draw the status line. It defaults to false, so a fresh
+install shows nothing there. Like every option, it is stored under `pluginConfigs` in settings,
+keyed by the plugin's name. The `/fleet` pane works either way.
 
 ## The fleet script is an option
 
