@@ -435,9 +435,12 @@ function binaryText(binary: string): string {
 // SPACE_RUN: 4 or more spaces in a row. Padding is how a wrapped line forges a
 // row start; an ordinary command rarely holds more than 2 together. No row
 // wraps now, so this guards the rows' columns, not their starts.
-// LABEL_LIKE: `argv` anywhere, or `folder:`. The cut falls at the same place on
-// every pane, so a command could put `argv[4]: x` at the start of a `  + ` row
-// and have it read as a new element. A command naming either is Copy only.
+// LABEL_LIKE: any label the views draw (`argv[`, `folder:`, `line 2:`,
+// `out:`, `error:`, a shell name and colon). The cut falls at the same place
+// on every pane, so a command could put `argv[4]: x` at the start of a `  + `
+// row and have it read as a new row. Text holding a label is Copy only. Each
+// is matched anywhere, since the cut can fall right before it: so `stdout:`
+// is Copy only too, while a bare `sys.argv` with no `[` still runs.
 // RUN_ASCII: printable ASCII and newlines only. Every such character is one
 // cell wide on every surface. A tab, a wide character, a combining mark or a
 // look-alike letter is not, so the rows above would not line up as counted.
@@ -449,7 +452,7 @@ const MAX_RUN_LINES = 6
 const SPACE_RUN = /[^\S\n]{4,}/
 const RUN_ASCII = /^[\x20-\x7e\n]*$/
 const TRAILING_SPACE = / (\n|$)/
-const LABEL_LIKE = /argv|folder\s*:/i
+const LABEL_LIKE = /argv\s*\[|(folder|out|error|bash|shell)\s*:|line\s*\d+\s*:/i
 const RUN_COLUMNS = 12 + RUN_CHUNK
 
 type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing' | 'label'
@@ -473,7 +476,7 @@ const COMMAND_PROBLEM: Record<ShowProblem, string> = {
   lines: `Copy only: too many lines to show safely (over ${MAX_RUN_LINES}).`,
   spaces: 'Copy only: it holds a run of 4 or more spaces, which can line text up to look like something else.',
   trailing: 'Copy only: a line ends in a space, which the screen cannot show.',
-  label: 'Copy only: it holds `argv` or `folder:`, which could read as a row of the confirm view.',
+  label: 'Copy only: it holds a label the confirm view draws, such as `argv[` or `out:`, which could read as a row of it.',
 }
 
 const FOLDER_PROBLEM: Record<ShowProblem, string> = {
@@ -483,7 +486,7 @@ const FOLDER_PROBLEM: Record<ShowProblem, string> = {
   lines: 'Copy only: its folder holds a line break.',
   spaces: 'Copy only: its folder holds a run of 4 or more spaces, which can line text up to look like something else.',
   trailing: 'Copy only: its folder ends in a space, which the screen cannot show.',
-  label: 'Copy only: its folder holds `argv` or `folder:`, which could read as a row of the confirm view.',
+  label: 'Copy only: its folder holds a label the confirm view draws, such as `argv[` or `out:`.',
 }
 
 // Why Run is not offered for this entry, or undefined when it is. Render, the
@@ -515,12 +518,12 @@ function chunks(line: string): string[] {
 }
 
 // The rows of one labelled value. The first row carries the label; a row cut
-// from the same line starts `  + `, and a row after a newline starts `  | `.
-// Only a label starts a row with anything else, so no text can draw one.
+// from the same line starts `  + `, and a new line starts `  line N: `. A
+// pipe would read as a shell pipe, so no mark uses one.
 function labelledRows(head: string, text: string): string[] {
   return text.split('\n').flatMap((line, lineIndex) =>
     chunks(line).map((row, rowIndex) =>
-      rowIndex > 0 ? `  + ${row}` : lineIndex > 0 ? `  | ${row}` : `${head}${row}`,
+      rowIndex > 0 ? `  + ${row}` : lineIndex > 0 ? `  line ${lineIndex + 1}: ${row}` : `${head}${row}`,
     ),
   )
 }
@@ -652,8 +655,11 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
     runBefore = entry.run?.startedAt
     try {
       const argv = await shellArgv($, entry.shell, entry.command)
-      if (argv.some(part => showProblem(part, MAX_RUN_LINES) !== undefined)) {
-        throw new Error('the shell path holds characters the screen cannot show; Copy the command instead')
+      for (const part of argv) {
+        const problem = showProblem(part, MAX_RUN_LINES)
+        if (problem !== undefined) {
+          throw new Error(`the shell path cannot be shown exactly (${problem}); Copy the command instead`)
+        }
       }
       armedArgv = argv
     } catch (error: unknown) {
@@ -846,7 +852,7 @@ export const register: Register = on => {
       const textBlock = runBlock(entry)
       const block =
         textBlock === undefined && e.props.bodyColumns < RUN_COLUMNS
-          ? `Copy only here: the pane is ${e.props.bodyColumns} columns wide, and the command needs ${RUN_COLUMNS} to show whole.`
+          ? `Copy only here: the pane is ${e.props.bodyColumns} columns wide, and Run needs ${RUN_COLUMNS} so that no row is cut short.`
           : textBlock
       const canRun = block === undefined && run?.status !== 'running'
       // Rows the view draws itself, each cut at the edge and never wrapped, so
@@ -865,7 +871,7 @@ export const register: Register = on => {
           {entry.kind === 'question' && <Text wrap="wrap">{questionText(entry.questions ?? [])}</Text>}
           {entry.kind === 'refused' && (
             <Box flexDirection="column">
-              {textBlock === undefined && command !== undefined ? (
+              {block === undefined && command !== undefined ? (
                 <Box flexDirection="column">{drawRows('head', labelledRows(`${entry.shell ?? 'shell'}: `, command))}</Box>
               ) : (
                 <Text wrap="wrap">{`${entry.shell ?? 'shell'}: ${command ?? `(${entry.withheld ?? 'command not stored'})`}`}</Text>

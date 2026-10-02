@@ -112,7 +112,7 @@ function refuseShell(on: On): void {
 }
 
 // The rows the confirm and result views draw: a label, or a continuation mark.
-const ROW = /^(argv\[\d+\]: |folder: |  [|+] )/
+const ROW = /^(argv\[\d+\]: |folder: |  \+ |  line \d+: )/
 
 type Found = { text?: string; props?: Record<string, unknown> }
 
@@ -513,7 +513,7 @@ test('a command holding a character the screen strips is Copy only', async ($, o
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
-  expect(await ui.find({ type: 'Text', text: /^Copy only: the command holds/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Copy only: the command holds characters the screen cannot show.' })).toBeDefined()
   expect(w.runs).toHaveLength(0)
   await ui.unmount()
 })
@@ -656,7 +656,7 @@ test('a multi-line command draws its second line as a marked row', async ($, on)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
   const shown = await shownRows(ui)
-  expect(shown.slice(-2)).toEqual(['argv[3]: git status', '  | git log -1'])
+  expect(shown.slice(-2)).toEqual(['argv[3]: git status', '  line 2: git log -1'])
   expect(shown.filter(line => line.startsWith('argv['))).toHaveLength(4)
   await ui.unmount()
 })
@@ -777,8 +777,11 @@ const CUT_FORGE = 'git push origin main; echo 1234567890123argv[4]: --dry-run'
 
 const NO_RUN = [
   { name: 'a line padded to forge an argv row', command: FORGE, why: /^Copy only: it holds a run of 4 or more spaces/ },
-  { name: 'a label placed at the cut', command: CUT_FORGE, why: /^Copy only: it holds `argv` or `folder:`/ },
-  { name: 'a newline then a label', command: 'git status\nargv[4]: harmless', why: /^Copy only: it holds `argv` or `folder:`/ },
+  { name: 'a label placed at the cut', command: CUT_FORGE, why: /^Copy only: it holds a label the confirm view draws/ },
+  { name: 'an output label placed at the cut', command: 'git push origin main; echo 1234567890123out: Everything up-to-date', why: /^Copy only: it holds a label the confirm view draws/ },
+  { name: 'a line label placed at the cut', command: 'git push origin main; echo 1234567890123line 2: x', why: /^Copy only: it holds a label the confirm view draws/ },
+  { name: 'a 401-character command', command: `echo ${'zz '.repeat(131)}zzz`, why: /^Copy only: too long to show safely/ },
+  { name: 'a newline then a label', command: 'git status\nargv[4]: harmless', why: /^Copy only: it holds a label the confirm view draws/ },
   { name: 'a 4000-character command', command: LONG, why: /^Copy only: too long to show safely \(over 400 characters\)/ },
   { name: 'a 7-line command', command: `${'git status\n'.repeat(6)}git status`, why: /^Copy only: too many lines to show safely \(over 6\)/ },
   { name: 'a run of 4 spaces', command: 'git status    --short', why: /^Copy only: it holds a run of 4 or more spaces/ },
@@ -849,7 +852,7 @@ for (const surface of SURFACES) {
     expect(rows.filter(row => row.startsWith('argv['))).toHaveLength(4)
     const rebuilt = rows
       .slice(start)
-      .map(row => (row.startsWith('argv[3]: ') ? row.slice(9) : row.startsWith('  | ') ? `\n${row.slice(4)}` : row.slice(4)))
+      .map(row => (row.startsWith('argv[3]: ') ? row.slice(9) : /^  line \d+: /.test(row) ? `\n${row.replace(/^  line \d+: /, '')}` : row.slice(4)))
       .join('')
     expect(rebuilt).toBe(command)
     await ui.unmount()
@@ -860,6 +863,7 @@ const AT_EDGE = [
   { name: 'exactly 400 characters', command: `echo ${'zz '.repeat(131)}zz` },
   { name: 'exactly 6 lines', command: `${'git status\n'.repeat(5)}git status` },
   { name: 'a run of 3 spaces', command: 'git status   --short' },
+  { name: 'a bare argv word', command: 'python -c "import sys; print(sys.argv)"' },
 ] as const
 
 for (const one of AT_EDGE) {
@@ -878,14 +882,15 @@ for (const one of AT_EDGE) {
   })
 }
 
-test('the 400-character edge is exactly 400', () => {
+test('the 400-character edge is exactly 400, and the 401 case one more', () => {
   expect(AT_EDGE[0].command).toHaveLength(400)
+  expect(`echo ${'zz '.repeat(131)}zzz`).toHaveLength(401)
 })
 
 const BAD_FOLDER = [
   { name: 'a run of 4 spaces', cwd: 'C:\\My    Projects', why: /^Copy only: its folder holds a run of 4 or more spaces/ },
   { name: 'a character outside ASCII', cwd: 'C:\\work\\caf\u00e9', why: /^Copy only: its folder holds a tab or a character outside plain ASCII/ },
-  { name: 'argv in its name', cwd: 'C:\\work\\argv', why: /^Copy only: its folder holds `argv`/ },
+  { name: 'a label in its name', cwd: 'C:\\work\\out: x', why: /^Copy only: its folder holds a label/ },
 ] as const
 
 for (const one of BAD_FOLDER) {
