@@ -261,6 +261,10 @@ That separately filed gap is now covered in [the leak gate's detector history](L
 Copy the example entries into a real settings file to enable them. There is no automatic update to
 existing worktrees; unwired ones keep their prior behavior.
 
+**The `korus-card` plugin wires the card hook with no copy step.** It runs this repository's own
+script at every session start, and it stands down where a settings file already runs it.
+[Plugins](PLUGINS.md#korus-card-the-role-card-and-the-reprime-with-no-paths-to-edit) has the install.
+
 **The `UserPromptSubmit` key in that example was created, not edited.** PR 130 removed the key
 entirely on 2026-09-19 when `context-budget.ps1` went, because that hook was its only entry.
 

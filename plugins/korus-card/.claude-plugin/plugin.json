@@ -1,0 +1,6 @@
+{
+  "name": "korus-card",
+  "version": "0.1.0",
+  "description": "Runs the repository's own role-card hook at every session start, and its reprime hook after a compaction, with no paths to edit",
+  "author": { "name": "MEFORORG" }
+}

@@ -10,6 +10,16 @@
     "on purpose -- a hook with a wrong path fails silently, and a silent hook is indistinguishable",
     "from a hook that decided to allow.",
     "",
+    "THE ROLE CARD AND THE REPRIME HAVE A PLUGIN NOW, AND IT IS THE ROUTE TO TAKE. Install",
+    "korus-card from this repository's marketplace and both run at SessionStart with no path to",
+    "edit. The two rows below that name role-card-inject.ps1 and precompact-reprime.ps1 are the",
+    "FALLBACK, for a config root that cannot take a plugin. The plugin stands down for a script",
+    "that a settings file already runs, so copying a row and installing the plugin does not",
+    "double the card. docs/PLUGINS.md, section korus-card, has the install.",
+    "",
+    "THE REPRIME RUNS AT SessionStart, NOT PreCompact. Its own guard keeps it quiet on every start",
+    "but `compact`. A PreCompact row put nothing in context, so delete one if you copied it.",
+    "",
     "These are the HAND-WIRED hooks. The gates that an installer writes -- the worktree gate, the",
     "collision gate, the session banner, the announce hook -- are not here. docs/HOOKS.md has the",
     "full event map and says which installer owns which."
@@ -23,6 +33,12 @@
             "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/role-card-inject.ps1\"",
             "timeout": 15,
             "statusMessage": "Reading this worktree's role card"
+          },
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/precompact-reprime.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Checking for ledger state a compaction dropped"
           },
           {
             "type": "command",
@@ -53,18 +69,6 @@
             "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/mail-drain.ps1\" -Event Stop",
             "timeout": 15,
             "statusMessage": "Consuming the session mail this session displayed"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -File \"REPLACE_WITH_ABSOLUTE_PATH_TO_YOUR_CHECKOUT/scripts/hooks/precompact-reprime.ps1\"",
-            "timeout": 15,
-            "statusMessage": "Carrying held ledger state across the compaction"
           }
         ]
       }

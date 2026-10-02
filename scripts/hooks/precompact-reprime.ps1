@@ -1,7 +1,8 @@
 #Requires -Version 7.3
 <#
 .SYNOPSIS
-    PreCompact hook: put back the ledger facts a compaction destroys.
+    SessionStart hook, scoped to the `compact` source: put back the ledger facts a compaction
+    destroys.
 
 .DESCRIPTION
     POSTURE: FAILS OPEN, AND NEVER BLOCKS. Every path exits 0.
@@ -14,8 +15,8 @@
 
     WHY IT READS RATHER THAN ASKS. At SessionStart the right move is to ask, because nothing is
     known yet and a machine that invents an intent writes a record that looks declared and says
-    nothing. At PreCompact the record ALREADY EXISTS on disk. The compaction is about to drop it
-    from context, not from the record. So this hook reads it back, which restates a stated intent
+    nothing. After a compaction the record ALREADY EXISTS on disk. The compaction dropped it from
+    context, not from the record. So this hook reads it back, which restates a stated intent
     rather than inventing one.
 
     IT RESTORES BOTH HALVES. The DECLARATION half reads scripts/coord/seat.ps1's episode record:
@@ -36,8 +37,17 @@
     an earlier session's than this one's, and restoring it as current intent would be a
     confidently-wrong coordination fact.
 
-    WIRING IS NOT ASSERTED HERE ON PURPOSE. Whether this script is referenced by a PreCompact
-    matcher is a property of a settings file, not of this script.
+    IT RUNS AT SessionStart, NOT PreCompact. It was wired on PreCompact first, and it put nothing
+    back there. The harness refuses `PreCompact` as a hookSpecificOutput.hookEventName, and
+    PreCompact fires BEFORE the summary is written, so anything it added would be summarised away.
+    The MessageFoundry copy of this hook measured both on 2026-09-15 and moved to SessionStart; this
+    copy follows it. The payload now names `SessionStart`.
+
+    THE SOURCE GUARD LIVES HERE, AND IT IS THE ONLY ONE. The settings row stays match-all, with no
+    `"matcher": "compact"`, so the guard below is the one place that decides. A plugin or a settings
+    row that runs this script must not add a second guard: two guards can disagree, and the one
+    that is wrong is silent. The guard goes quiet only when the payload POSITIVELY says this is not
+    a compaction restart. No payload, or one it cannot parse, speaks anyway.
 
     Adopted from gastown, which registers its primer at SessionStart AND PreCompact for this reason.
 #>
@@ -49,7 +59,7 @@ function Write-Context {
     param([string] $Text)
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{
-            hookEventName     = 'PreCompact'
+            hookEventName     = 'SessionStart'
             additionalContext = $Text
         }
     }
@@ -66,9 +76,33 @@ function Compare-Path {
     return $na -eq $nb
 }
 
+# ---- scope: a compaction restart, and nothing else --------------------------------------------
+# Read before any other work, so a cold start costs one JSON parse and exits.
+$hookSource = ''
+$hookEvent = ''
 try {
-    $null = [Console]::In.ReadToEnd()
+    $raw = [Console]::In.ReadToEnd()
+    if ($raw) {
+        $payload = $raw | ConvertFrom-Json -ErrorAction Stop
+        $names = @($payload.PSObject.Properties.Name)
+        if ($names -contains 'source' -and $payload.source) { $hookSource = [string]$payload.source }
+        if ($names -contains 'hook_event_name' -and $payload.hook_event_name) {
+            $hookEvent = [string]$payload.hook_event_name
+        }
+    }
+}
+catch {
+    # An unreadable payload is the fail-open case: both stay empty and the hook speaks.
+}
 
+# The test is "not a compaction", an equality against `compact`. A list of the other sources
+# (`startup`, `resume`, `clear`, `fork`) would be one short the day the harness adds one.
+# A payload naming another event is a leftover registration, for instance an old PreCompact row.
+# Its output never reaches context, so it stays quiet.
+if ($hookSource -and $hookSource -ne 'compact') { exit 0 }
+if ($hookEvent -and $hookEvent -ne 'SessionStart') { exit 0 }
+
+try {
     $common = (& git rev-parse --path-format=absolute --git-common-dir 2>$null)
     if ($LASTEXITCODE -ne 0 -or -not $common) { exit 0 }
     $stateRoot = Join-Path $common.Trim() 'ccx-coord'
@@ -248,7 +282,7 @@ try {
     else { '' }
 
     Write-Context (
-        "[precompact] A compaction is about to drop what this session knows about its own held " +
+        "[precompact] A compaction has just dropped what this session knew about its own held " +
         "state. These are read from the ledger on disk, not from the conversation, so they survive " +
         "it:`n`n$body$caveat"
     )

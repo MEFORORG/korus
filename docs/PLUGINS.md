@@ -116,3 +116,60 @@ Run the plugin tests from the repository root:
 ```
 claude plugin test plugins/korus-fleet
 ```
+
+## korus-card: the role card and the reprime, with no paths to edit
+
+`korus-card` runs two of this repository's own hooks at every session start. The role card comes
+back at each start, including after a compaction. The reprime speaks only after a compaction.
+
+It is the documented route for both. The rows in `.claude/settings.example.json` are the fallback,
+for a config root that cannot take a plugin. Those rows need an absolute path typed in by hand, and
+a row with the placeholder left in runs nothing and says nothing.
+
+### Install it
+
+Run these inside a Claude Code session, from any config root.
+
+```
+/plugin marketplace add MEFORORG/korus
+/plugin install korus-card@korus
+```
+
+### What it runs, and where it stays silent
+
+Both rows call one shim, `plugins/korus-card/hooks/run-project-hook.ps1`. The shim runs the copy of
+the script in the repository the session is in. The plugin carries no copy of either script,
+because a copy drifts from the scripts it was taken from.
+
+The shim prints nothing, and runs nothing, in any of these cases.
+
+| Case | Why |
+|---|---|
+| The repository has no `ccx.config.json` at its root | A user-scope install fires in every repository on the machine. [Hooks](HOOKS.md) says to gate on that file. |
+| The repository has no `scripts/hooks/<script>` of its own | There is nothing to run. |
+| A settings file already runs that script at `SessionStart` | The project's own wiring wins, so the card is not injected twice. |
+
+The third case reads at least the project's `.claude/settings.json` and `.claude/settings.local.json`,
+and the user `settings.json`. Each script is checked on its own.
+
+A `SessionStart` command counts as wiring when it names the script by a path that exists, through a
+variable, or with no directory at all. A row that runs nothing does not count, so the plugin still
+speaks. That covers a row with the example's placeholder left in, and a path to a deleted checkout.
+
+**The shim adds no compaction guard.** `precompact-reprime.ps1` decides for itself, and a second
+guard could disagree with it. The reprime used to run on `PreCompact`, whose context output the
+harness refuses. It now runs at `SessionStart` and checks `source` itself.
+
+### What it needs
+
+`pwsh` on `PATH`, because both rows start it by name. On a machine without it, each row fails as a
+hook error, and the session goes on without a card.
+
+### What CI checks for it, and what it cannot
+
+| Check | Where it runs |
+|---|---|
+| `claude plugin validate plugins/korus-card` | **Your machine only.** |
+| `claude plugin test plugins/korus-card` | Nothing to run. The plugin has no hooks module, and the test kit runs no settings-style hook. |
+| Each row runs a shim that exists, and every file is ASCII | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
+| The card arrives where nothing wires it, is silent where something does, and the reprime keeps its own guard | CI, through `tests/test_the_korus_card_plugin_runs_the_projects_own_hooks.py`, which drives the real rows over a throwaway repository. |

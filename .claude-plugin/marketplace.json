@@ -9,6 +9,11 @@
       "name": "korus-fleet",
       "source": "./plugins/korus-fleet",
       "description": "Read-only: an opt-in status line with seat and usage, and a /fleet pane listing RUNNING seat records"
+    },
+    {
+      "name": "korus-card",
+      "source": "./plugins/korus-card",
+      "description": "Runs the repository's own role-card hook at every session start, and its reprime hook after a compaction"
     }
   ]
 }
