@@ -41,6 +41,7 @@ Python hooks exit 1 on import, while the worktree gate exits 0 and enforces noth
 | `scripts/coord/mail.ps1` | Send, list or inspect the file-drop queue that reaches a peer in another Claude account or editor extension. `-Send -To <worktree path>` or `all`, `-List`, `-Status`. Queued is not delivered; the recipient's drain does that | [Session mail](SESSION-MAIL.md) |
 | `scripts/coord/seat.ps1` | Write this session's episode record -- seat, goal, handoff -- so the next session is not guessing. `-Declare` also writes the role-card marker and refuses an unrostered seat; `-Record` never invents a goal | [Role cards](ROLE-CARDS.md) |
 | `scripts/coord/fleet.ps1` | Read the records `seat.ps1` wrote and print the fleet, receipt first. A stop condition fires whenever the roster may be incomplete. `-Json` for a board, `-Chip` for one replacement briefing. Read-only | [Below](#the-fleet-roster-json-is-a-contract) |
+| `scripts/coord/inbox-prune.ps1` | Delete the `korus-inbox` plugin's spent files in `~/.korus-inbox`: ended, or not written for 24 hours. A dry run that only lists unless `-Apply` is passed. It reads no subfolder, follows no link, and refuses a folder of any other name | [Plugins](PLUGINS.md#korus-inbox-what-waits-on-the-owner-in-every-session) |
 | `bin/ccx-steer.ps1` | Queue a steering note from a second terminal while a session is mid-task | [Steering](STEERING.md) |
 
 ### The fleet roster JSON is a contract

@@ -10,9 +10,14 @@ THE FAILURE IT PINS. A rename that moves the folder, or edits one name and not t
 `/plugin install korus-fleet@korus` failing for every reader who copies this repository. Nothing
 else in the suite opens these files.
 
-ONE MORE PIN, ON A CLAIM THE DOCS MAKE. `docs/PLUGINS.md` says the plugin is read-only. A source
+ONE MORE PIN, ON A CLAIM THE DOCS MAKE. `docs/PLUGINS.md` says `korus-fleet` is read-only. A source
 that reaches for `fs.write` breaks that claim, so the checker refuses one. It is a token scan over
 the plain spellings, not a proof; `FS_WRITE` below names what it covers.
+
+ONE PLUGIN WRITES, AND SAYS SO. `korus-inbox` writes one file per session to a shared folder, which
+is its whole job. `WRITERS` names it with what it writes, so the exemption is a visible diff. A
+listed writer whose sources no longer reach for `fs.write` is named too, so the list cannot outlive
+the reason for it.
 
 ARTICLE V. The checker is a function so a planted control can reach it. It runs over three trees:
 the live one, which must come back clean having read at least one plugin, a planted clean copy,
@@ -43,6 +48,11 @@ FS_WRITE = re.compile(
     r"|\{[^}]*\bwrite\b[^}]*\}\s*=\s*[\w$.]*\bfs\b"
 )
 SOURCE_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
+#: Plugins documented as writing files, each with what `docs/PLUGINS.md` says it writes. Every
+#: plugin not named here is read-only, and the scan above refuses a write in it.
+WRITERS: dict[str, str] = {
+    "korus-inbox": "one JSON file per session in the home folder's .korus-inbox",
+}
 
 
 def _non_ascii(path: Path) -> str | None:
@@ -69,11 +79,13 @@ def _plugin_root_paths(hooks: dict) -> list[tuple[str, str]]:
     return named
 
 
-def problems(root: Path) -> tuple[list[str], int]:
+def problems(root: Path, writers: dict[str, str] | None = None) -> tuple[list[str], int]:
     """Every defect in the marketplace under `root`, and how many plugins it read.
 
     The count is returned so a caller can tell a clean marketplace from one that listed nothing.
+    `writers` defaults to `WRITERS`; a planted tree passes its own.
     """
+    writers = WRITERS if writers is None else writers
     found: list[str] = []
     manifest = root / MARKETPLACE
     if not manifest.is_file():
@@ -139,6 +151,7 @@ def problems(root: Path) -> tuple[list[str], int]:
             for event, rel in commands:
                 if not (folder / rel).is_file():
                     found.append(f"{name}: a {event} hook runs ${{CLAUDE_PLUGIN_ROOT}}/{rel}, which does not exist")
+        writes = False
         for path in sorted(folder.rglob("*")):
             if not path.is_file() or "node_modules" in path.parts:
                 continue
@@ -146,7 +159,11 @@ def problems(root: Path) -> tuple[list[str], int]:
             if path.suffix in SOURCE_SUFFIXES and FS_WRITE.search(
                 path.read_text(encoding="utf-8", errors="replace")
             ):
-                found.append(f"{name}: {path.name} reaches for fs.write; the plugin is documented read-only")
+                writes = True
+                if name not in writers:
+                    found.append(f"{name}: {path.name} reaches for fs.write; the plugin is documented read-only")
+        if name in writers and not writes:
+            found.append(f"{name}: listed in WRITERS but no source reaches for fs.write; drop it from the list")
     for path in scanned:
         bad = _non_ascii(path)
         if bad is not None:
@@ -213,6 +230,34 @@ class TheMarketplaceResolves(unittest.TestCase):
         self.assertEqual(read, 0)
         self.assertEqual(len(found), 1)
         self.assertIn("does not parse", found[0])
+
+
+class AListedWriterIsExemptAndOnlyWhileItWrites(unittest.TestCase):
+    """`WRITERS` lifts the read-only scan for a named plugin, and a stale name on it is refused."""
+
+    def test_a_listed_writer_that_writes_is_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _plant(root, name_in_plugin="demo", register="void $.fs.write('x', 'y')\n", extra_entry=False)
+            self.assertEqual(problems(root, {"demo": "x"}), ([], 1))
+            # The control: the same tree with no exemption must fire.
+            found, _ = problems(root, {})
+        self.assertEqual(len(found), 1)
+        self.assertIn("reaches for fs.write", found[0])
+
+    def test_a_listed_writer_that_no_longer_writes_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _plant(root, name_in_plugin="demo", register="export const register = () => {}\n",
+                   extra_entry=False)
+            found, _ = problems(root, {"demo": "x"})
+        self.assertEqual(found, ["demo: listed in WRITERS but no source reaches for fs.write; drop it from the list"])
+
+    def test_every_live_writer_is_in_the_marketplace(self):
+        """A name on the list that no entry carries exempts nothing and would hide a later one."""
+        market = json.loads((t.REPO_ROOT / MARKETPLACE).read_text(encoding="utf-8"))
+        listed = {entry["name"] for entry in market["plugins"]}
+        self.assertEqual(set(WRITERS) - listed, set())
 
 
 class AClassicHookRowNamesAFileThatExists(unittest.TestCase):
