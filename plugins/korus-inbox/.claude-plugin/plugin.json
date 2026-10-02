@@ -1,0 +1,7 @@
+{
+  "name": "korus-inbox",
+  "version": "0.1.0",
+  "description": "Gathers what waits on the owner across sessions: open questions and hook-refused shell commands, in an /inbox pane and a status-line count",
+  "author": { "name": "MEFORORG" },
+  "types": "./types/index.d.ts"
+}

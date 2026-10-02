@@ -1,0 +1,70 @@
+// The korus-inbox contract: what the pane draws from, held in $.state.
+
+/** One option of a pending question, as the model offered it. */
+export type InboxOption = { label: string; description: string }
+
+/** One question of a pending AskUserQuestion call. */
+export type InboxQuestion = { header: string; question: string; options: InboxOption[] }
+
+/** The result of a Run the owner pressed. Held in this session only, never written to disk. */
+export type InboxRun = {
+  status: 'running' | 'done' | 'failed'
+  startedAt: number
+  finishedAt?: number
+  exitCode?: number
+  tail?: string
+}
+
+/**
+ * One entry this session raised. `command` is the exact text the hook refused,
+ * kept only in this session's $.state; it is absent when it looked like it
+ * carried a secret, or was too long to keep, and `withheld` says why.
+ */
+export type InboxEntry = {
+  id: string
+  kind: 'question' | 'refused'
+  createdAt: number
+  agentId?: string
+  questions?: InboxQuestion[]
+  shell?: 'Bash' | 'PowerShell'
+  command?: string
+  withheld?: string
+  cwd?: string
+  refusal?: string
+  /** True for a main-loop refusal; a subagent's folder is not known, so it is Copy only. */
+  isRunnable?: boolean
+  /** When the owner pressed Run; Run now is offered for a minute after it. */
+  armedAt?: number
+  run?: InboxRun
+}
+
+/**
+ * One entry read from another session's file in the shared folder. Every
+ * field is untrusted text: it is shown and copied, never run.
+ */
+export type InboxRemoteEntry = {
+  key: string
+  sessionLabel: string
+  kind: 'question' | 'refused'
+  createdAt: number
+  questions: InboxQuestion[]
+  shell?: string
+  command?: string
+  withheld?: string
+  cwd?: string
+  refusal?: string
+}
+
+/** A remote entry the owner dismissed: its key and when. */
+export type InboxDismissal = { key: string; at: number }
+
+declare module 'claude-code' {
+  interface PluginState {
+    'korus-inbox': {
+      own: InboxEntry[]
+      remote: InboxRemoteEntry[]
+      dismissed: InboxDismissal[]
+      folderNote: string | null
+    }
+  }
+}
