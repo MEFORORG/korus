@@ -8,7 +8,7 @@
     {
       "name": "korus-fleet",
       "source": "./plugins/korus-fleet",
-      "description": "Read-only: seat and usage on the status line, and a /fleet pane listing RUNNING seat records"
+      "description": "Read-only: an opt-in status line with seat and usage, and a /fleet pane listing RUNNING seat records"
     }
   ]
 }
