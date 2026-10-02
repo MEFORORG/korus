@@ -8,8 +8,8 @@ import type { FleetBoard, FleetJson, FleetRow } from '../types'
 
 const PANE = 'korus-fleet'
 const STATUS_EVERY_MS = 60_000
-// The MessageFoundry fleet script took about 26 s when measured, so the board refreshes rarely
-// and only while the pane is open.
+// The pilot timed one run of the MessageFoundry fleet script at about 26 s (not re-measured
+// here), so the board refreshes rarely and only while the pane is open.
 const BOARD_EVERY_MS = 5 * 60_000
 const FLEET_TIMEOUT_MS = 120_000
 
@@ -55,38 +55,63 @@ async function refreshStatus($: Api): Promise<void> {
 
 // The board consumes the FleetJson contract (types/index.d.ts) and nothing else. Anything that
 // does not have that shape is reported as a contract mismatch rather than drawn half-read.
+function isNullableString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === 'string'
+}
+
 function isFleetJson(value: unknown): value is FleetJson {
   if (typeof value !== 'object' || value === null) return false
   const v = value as { receipt?: unknown; rows?: unknown }
   if (typeof v.receipt !== 'object' || v.receipt === null || !Array.isArray(v.rows)) return false
-  const r = v.receipt as { renderedAtUtc?: unknown; liveSessionsInRepo?: unknown }
+  const r = v.receipt as { renderedAtUtc?: unknown; liveSessionsInRepo?: unknown; stopConditions?: unknown }
   if (typeof r.renderedAtUtc !== 'string' || typeof r.liveSessionsInRepo !== 'number') return false
+  const stops = r.stopConditions
+  if (!isNullableString(stops) && !(Array.isArray(stops) && stops.every(s => typeof s === 'string'))) {
+    return false
+  }
   return v.rows.every(row => {
     if (typeof row !== 'object' || row === null) return false
-    const x = row as { Box?: unknown; State?: unknown; AgeHours?: unknown }
-    return typeof x.Box === 'string' && typeof x.State === 'string' && typeof x.AgeHours === 'number'
+    const x = row as { Seat?: unknown; Box?: unknown; Branch?: unknown; State?: unknown; AgeHours?: unknown }
+    return (
+      typeof x.Box === 'string' &&
+      typeof x.State === 'string' &&
+      isNullableString(x.Seat) &&
+      isNullableString(x.Branch) &&
+      (x.AgeHours === null || typeof x.AgeHours === 'number')
+    )
   })
 }
 
+// A script may print its stop conditions as one string or as a list, and a healthy run's list is
+// empty. Both an empty list and an empty string mean "none".
+function stopText(stops: FleetJson['receipt']['stopConditions']): string | null {
+  const text = Array.isArray(stops) ? stops.join('; ') : (stops ?? '')
+  return text.trim() === '' ? null : text
+}
+
 async function loadBoard($: Api, script: string): Promise<FleetBoard> {
-  const now = new Date(await $.clock.now()).toISOString()
-  const failed = (error: string): FleetBoard => ({
-    renderedAt: now,
+  const failed = async (error: string): Promise<FleetBoard> => ({
+    renderedAt: new Date(await $.clock.now()).toISOString(),
     liveSessions: 0,
     stopConditions: null,
+    warning: null,
     running: [],
     error,
   })
-  if (!(await $.fs.exists(script))) {
-    return failed(`fleet script not found: ${script}. Set the korus-fleet fleetScript option to its path.`)
-  }
   let stdout: string
+  let warning: string | null = null
   try {
+    if (!(await $.fs.exists(script))) {
+      return failed(`fleet script not found: ${script}. Set the korus-fleet fleetScript option to its path.`)
+    }
     const ran = await $.process.run(['pwsh', '-NoProfile', '-File', script, '-Json'], {
       timeoutMs: FLEET_TIMEOUT_MS,
     })
     if (ran.exitCode !== 0 && ran.stdout.trim() === '') {
       return failed(`${script} exited ${ran.exitCode} with no output`)
+    }
+    if (ran.exitCode !== 0) {
+      warning = `${script} exited ${ran.exitCode}; the rows below may be incomplete`
     }
     stdout = ran.stdout
   } catch (err) {
@@ -101,9 +126,11 @@ async function loadBoard($: Api, script: string): Promise<FleetBoard> {
   if (!isFleetJson(parsed)) {
     return failed(`${script} output does not match the fleet JSON contract`)
   }
+  // A row with no age sorts last rather than first, so it never reads as the newest.
+  const sortAge = (h: number | null): number => (h === null ? Number.POSITIVE_INFINITY : h)
   const running: FleetRow[] = parsed.rows
     .filter(row => row.State === 'RUNNING')
-    .sort((a, b) => a.AgeHours - b.AgeHours)
+    .sort((a, b) => sortAge(a.AgeHours) - sortAge(b.AgeHours))
     .map(row => ({
       seat: row.Seat ?? null,
       box: row.Box,
@@ -113,19 +140,27 @@ async function loadBoard($: Api, script: string): Promise<FleetBoard> {
   return {
     renderedAt: parsed.receipt.renderedAtUtc,
     liveSessions: parsed.receipt.liveSessionsInRepo,
-    stopConditions: parsed.receipt.stopConditions ?? null,
+    stopConditions: stopText(parsed.receipt.stopConditions),
+    warning,
     running,
     error: null,
   }
 }
 
+// The guard is module memory, set before the first await, so two presses close together cannot
+// both pass it. The isRefreshing atom only drives the button label. A module reload starts with
+// the guard clear, so a refresh cut off by a reload never blocks the next one.
+let inFlight = false
+
 async function refreshBoard($: Api, script: string): Promise<void> {
-  if (await read($, isRefreshing)) return
-  await update($, isRefreshing, () => true)
+  if (inFlight) return
+  inFlight = true
   try {
+    await update($, isRefreshing, () => true)
     const next = await loadBoard($, script)
     await update($, board, () => next)
   } finally {
+    inFlight = false
     await update($, isRefreshing, () => false)
   }
 }
@@ -135,7 +170,8 @@ async function isPaneShown($: Api): Promise<boolean> {
   return panes.some(pane => pane.id === PANE && pane.isShown)
 }
 
-function age(hours: number): string {
+function age(hours: number | null): string {
+  if (hours === null) return '?'
   return hours < 1 ? `${Math.round(hours * 60)}m` : `${hours.toFixed(1)}h`
 }
 
@@ -150,7 +186,9 @@ export const register: Register = (on, options) => {
     void refreshStatus($)
     $.clock.every(STATUS_EVERY_MS, () => void refreshStatus($))
     $.clock.every(BOARD_EVERY_MS, () => {
-      void isPaneShown($).then(shown => (shown ? refreshBoard($, script) : undefined))
+      void isPaneShown($)
+        .then(shown => (shown ? refreshBoard($, script) : undefined))
+        .catch(() => undefined)
     })
     return next(e)
   })
@@ -171,7 +209,6 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const current = await read($, board)
     const busy = await read($, isRefreshing)
-    const room = Math.max(1, (e.viewport?.rows ?? 24) - 7)
 
     return (
       <Box flexDirection="column">
@@ -185,17 +222,15 @@ export const register: Register = (on, options) => {
             <Text dimColor>
               rendered {current.renderedAt} | live in repo {current.liveSessions} | RUNNING records {current.running.length}
             </Text>
+            {current.warning !== null && <Text color="yellow">WARNING: {current.warning}</Text>}
             {current.stopConditions !== null && (
               <Text color="yellow">STOP CONDITION: {current.stopConditions}</Text>
             )}
-            {current.running.slice(0, room).map(row => (
+            {current.running.map(row => (
               <Text>
                 {(row.seat ?? 'UNDECLARED').padEnd(10)} {age(row.ageHours).padStart(6)} {row.box}
               </Text>
             ))}
-            {current.running.length > room && (
-              <Text dimColor>...and {current.running.length - room} more</Text>
-            )}
           </Box>
         )}
       </Box>

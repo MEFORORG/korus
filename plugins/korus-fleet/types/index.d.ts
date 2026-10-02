@@ -5,14 +5,16 @@ export type FleetJsonRow = {
   Box: string
   Branch: string | null
   State: string
-  AgeHours: number
+  // null where the script could not read the record's age.
+  AgeHours: number | null
 }
 
 export type FleetJson = {
   receipt: {
     renderedAtUtc: string
     liveSessionsInRepo: number
-    stopConditions?: string | null
+    // One string or a list of them; an empty list or string means none.
+    stopConditions?: string | string[] | null
   }
   rows: FleetJsonRow[]
 }
@@ -22,13 +24,15 @@ export type FleetRow = {
   seat: string | null
   box: string
   branch: string | null
-  ageHours: number
+  ageHours: number | null
 }
 
 export type FleetBoard = {
   renderedAt: string
   liveSessions: number
   stopConditions: string | null
+  // Set when the script exited non-zero but still printed a board.
+  warning: string | null
   running: FleetRow[]
   error: string | null
 }

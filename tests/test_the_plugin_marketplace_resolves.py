@@ -11,7 +11,8 @@ THE FAILURE IT PINS. A rename that moves the folder, or edits one name and not t
 else in the suite opens these files.
 
 ONE MORE PIN, ON A CLAIM THE DOCS MAKE. `docs/PLUGINS.md` says the plugin is read-only. A source
-that calls `$.fs.write` breaks that claim, so the checker refuses one.
+that reaches for `fs.write` breaks that claim, so the checker refuses one. It is a token scan over
+the plain spellings, not a proof; `FS_WRITE` below names what it covers.
 
 ARTICLE V. The checker is a function so a planted control can reach it. It runs over three trees:
 the live one, which must come back clean having read at least one plugin, a planted clean copy,
@@ -33,8 +34,14 @@ from pathlib import Path
 import _ccxtest as t
 
 MARKETPLACE = Path(".claude-plugin") / "marketplace.json"
-#: A call, not a mention: a comment naming the API is not a write.
-FS_WRITE_CALL = re.compile(r"\$\.fs\.write\s*\(")
+#: A reach for the file-write API: `fs.write`, `fs["write"]`, or `write` destructured out of an
+#: `fs` object. A token scan, not a proof: it names the spellings a plain edit would use, and an
+#: alias built some other way gets past it. `docs/PLUGINS.md` says so.
+FS_WRITE = re.compile(
+    r"\bfs\s*\.\s*write\b"
+    r"|\bfs\s*\[\s*['\"`]write['\"`]\s*\]"
+    r"|\{[^}]*\bwrite\b[^}]*\}\s*=\s*[\w$.]*\bfs\b"
+)
 SOURCE_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
 
 
@@ -114,14 +121,11 @@ def problems(root: Path) -> tuple[list[str], int]:
         for path in sorted(folder.rglob("*")):
             if not path.is_file() or "node_modules" in path.parts:
                 continue
-            # The editor types `/plugin-types` writes are generated and git-ignored.
-            if ".claude-plugin" in path.parts and "types" in path.parts:
-                continue
             scanned.append(path)
-            if path.suffix in SOURCE_SUFFIXES and FS_WRITE_CALL.search(
+            if path.suffix in SOURCE_SUFFIXES and FS_WRITE.search(
                 path.read_text(encoding="utf-8", errors="replace")
             ):
-                found.append(f"{name}: {path.name} calls $.fs.write; the plugin is documented read-only")
+                found.append(f"{name}: {path.name} reaches for fs.write; the plugin is documented read-only")
     for path in scanned:
         bad = _non_ascii(path)
         if bad is not None:
@@ -175,7 +179,7 @@ class TheMarketplaceResolves(unittest.TestCase):
         joined = "\n".join(found)
         self.assertIn("demo: plugin.json names itself 'demo-renamed'", joined)
         self.assertIn("ghost: source ./plugins/ghost does not exist", joined)
-        self.assertIn("calls $.fs.write", joined)
+        self.assertIn("reaches for fs.write", joined)
         self.assertIn("non-ASCII byte 0xC3", joined)
         self.assertEqual(len(found), 4, joined)
 
@@ -188,6 +192,30 @@ class TheMarketplaceResolves(unittest.TestCase):
         self.assertEqual(read, 0)
         self.assertEqual(len(found), 1)
         self.assertIn("does not parse", found[0])
+
+
+class TheWriteScanFiresOnEachSpelling(unittest.TestCase):
+    """Each spelling FS_WRITE names must fire, and a comment that only describes writing must not."""
+
+    def test_each_spelling_fires(self):
+        for source in (
+            "await $.fs.write('a', 'b')",
+            "await $.fs .write('a', 'b')",
+            "const { fs } = $; fs.write('a', 'b')",
+            "$.fs['write']('a', 'b')",
+            "const { read, write } = $.fs",
+        ):
+            with self.subTest(source=source):
+                self.assertIsNotNone(FS_WRITE.search(source))
+
+    def test_prose_about_writing_does_not_fire(self):
+        for source in (
+            "// it never writes to the repository and calls no file-write API",
+            "const text = await $.fs.read('x')",
+            "$.ui.status(text)",
+        ):
+            with self.subTest(source=source):
+                self.assertIsNone(FS_WRITE.search(source))
 
 
 class TheFleetScriptDefaultIsStatedOnce(unittest.TestCase):

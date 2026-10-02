@@ -84,6 +84,7 @@ function engineForBoard(
   on: On,
   stdout: string,
   existing: readonly string[] = [DEFAULT_SCRIPT],
+  exitCode = 0,
 ): { argvs: string[][]; asked: string[] } {
   const argvs: string[][] = []
   const asked: string[] = []
@@ -99,7 +100,7 @@ function engineForBoard(
   on('process.run', ($, e) => {
     argvs.push([...e.argv])
     return {
-      value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+      value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
     }
   })
   return { argvs, asked }
@@ -155,7 +156,70 @@ for (const surface of SURFACES) {
     const message = `${DEFAULT_SCRIPT} output does not match the fleet JSON contract`
     expect((await ui.find({ type: 'Text', text: message }))?.text).toBe(message)
   })
+
+  test(`board refuses a row whose Seat is not a string on ${surface}`, async ($, on) => {
+    const rows = [{ Seat: 7, Box: 'box-alpha', Branch: null, State: 'RUNNING', AgeHours: 1 }]
+    engineForBoard(on, JSON.stringify({ receipt: { renderedAtUtc: 'x', liveSessionsInRepo: 1 }, rows }))
+    const ui = await $.ui.mount({ ...MOUNT, surface })
+    await ui.press({ key: 'refresh' })
+    expect((await ui.find({ type: 'Text', text: /does not match the fleet JSON contract/ }))?.text).toBeDefined()
+  })
 }
+
+// The MessageFoundry fleet script prints stopConditions as a list, empty when healthy, and a
+// null AgeHours for a record whose age it could not read. Both shapes are in the contract.
+function fleetWith(stopConditions: unknown, rows: readonly object[]): string {
+  return JSON.stringify({
+    receipt: { renderedAtUtc: '2026-01-01T00:00:00Z', liveSessionsInRepo: 1, stopConditions },
+    rows,
+  })
+}
+
+const ROW = { Seat: 'builder', Box: 'box-alpha', Branch: null, State: 'RUNNING', AgeHours: 1 }
+
+test('an empty stopConditions list draws no stop line', async ($, on) => {
+  engineForBoard(on, fleetWith([], [ROW]))
+  const ui = await $.ui.mount({ ...MOUNT, surface: 'terminal' })
+  await ui.press({ key: 'refresh' })
+  expect((await ui.find({ type: 'Text', text: /RUNNING records 1/ }))?.text).toBeDefined()
+  expect(await ui.findAll({ type: 'Text', text: /STOP CONDITION/ })).toHaveLength(0)
+})
+
+test('a stopConditions list is drawn joined', async ($, on) => {
+  engineForBoard(on, fleetWith(['fence down', 'queue stalled'], [ROW]))
+  const ui = await $.ui.mount({ ...MOUNT, surface: 'terminal' })
+  await ui.press({ key: 'refresh' })
+  const stop = await ui.find({ type: 'Text', text: /STOP CONDITION/ })
+  expect(stop?.text).toContain('fence down; queue stalled')
+})
+
+test('a row with no age is drawn with a question mark, after the aged rows', async ($, on) => {
+  const unaged = { ...ROW, Box: 'box-unaged', AgeHours: null }
+  engineForBoard(on, fleetWith(null, [unaged, { ...ROW, AgeHours: 3 }]))
+  const ui = await $.ui.mount({ ...MOUNT, surface: 'terminal' })
+  await ui.press({ key: 'refresh' })
+  const rows = (await ui.findAll({ type: 'Text', text: /box-/ })).map(row => row.text)
+  expect(rows).toHaveLength(2)
+  expect(rows[0]).toContain('box-alpha')
+  expect(rows[1]).toContain('box-unaged')
+  expect(rows[1]).toContain('?')
+})
+
+test('a non-zero exit with a board draws the board and a warning', async ($, on) => {
+  engineForBoard(on, fleetWith(null, [ROW]), [DEFAULT_SCRIPT], 2)
+  const ui = await $.ui.mount({ ...MOUNT, surface: 'terminal' })
+  await ui.press({ key: 'refresh' })
+  const warning = await ui.find({ type: 'Text', text: /WARNING/ })
+  expect(warning?.text).toContain(`${DEFAULT_SCRIPT} exited 2`)
+  expect(await ui.findAll({ type: 'Text', text: /box-alpha/ })).toHaveLength(1)
+})
+
+test('a zero exit draws no warning', async ($, on) => {
+  engineForBoard(on, fleetWith(null, [ROW]))
+  const ui = await $.ui.mount({ ...MOUNT, surface: 'terminal' })
+  await ui.press({ key: 'refresh' })
+  expect(await ui.findAll({ type: 'Text', text: /WARNING/ })).toHaveLength(0)
+})
 
 const CUSTOM_SCRIPT = 'tools/other-fleet.ps1'
 

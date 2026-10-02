@@ -23,12 +23,14 @@ running a script by hand.
 The status line says `no seat marker` when the marker file is missing, and `undeclared` when it is
 empty. It refreshes every minute and after each turn.
 
-The pane refreshes every five minutes while it is open, and on its Refresh button. One run of the
-MessageFoundry fleet script took about 26 seconds when measured, so the pane does not poll faster.
+The pane refreshes every five minutes while it is open, and on its Refresh button. The pilot this
+plugin came from timed one run of the MessageFoundry fleet script at about 26 seconds. That reading
+was not repeated here, and it is why the pane does not poll faster.
 
-**It writes nothing.** It reads one file and runs one script. It never writes to the repository, the
-coordination directory, or a peer. `tests/test_the_plugin_marketplace_resolves.py` fails on a source
-that calls the file-write API.
+**It writes nothing.** It reads one file and runs one script, and writes to no file and no peer.
+
+`tests/test_the_plugin_marketplace_resolves.py` fails on a source that reaches for `fs.write` by a
+plain spelling. It is a token scan, so an alias built another way gets past it.
 
 ## Install it
 
@@ -62,11 +64,11 @@ The pane reads this shape from the script's standard output, and nothing else.
   "receipt": {
     "renderedAtUtc": "<string>",
     "liveSessionsInRepo": <number>,
-    "stopConditions": "<string>" | null      (optional)
+    "stopConditions": "<string>" | ["<string>", ...] | null      (optional)
   },
   "rows": [
     { "Seat": "<string>" | null, "Box": "<string>", "Branch": "<string>" | null,
-      "State": "<string>", "AgeHours": <number> }
+      "State": "<string>", "AgeHours": <number> | null }
   ]
 }
 ```
@@ -74,9 +76,16 @@ The pane reads this shape from the script's standard output, and nothing else.
 `plugins/korus-fleet/types/index.d.ts` declares the same contract as `FleetJson`. Change both in one
 commit, or the page and the code disagree.
 
+**Two fields take more than one shape, because the MessageFoundry fleet script prints them that
+way.** Its `stopConditions` is a list, empty when nothing is wrong. Its `AgeHours` is null for a
+record whose age it could not read.
+
+An empty list or string means no stop condition. A row with no age draws `?` and sorts last.
+
 | Output | What the pane shows |
 |---|---|
-| The shape above | The receipt line, any stop condition in yellow, and the `RUNNING` rows. |
+| The shape above | The receipt line, any stop condition in yellow, and every `RUNNING` row. The pane scrolls when they do not fit. |
+| The shape above and a non-zero exit | The same, under a yellow line: `WARNING: <path> exited <code>; the rows below may be incomplete` |
 | Not JSON | `<path> output was not JSON` |
 | JSON of another shape | `<path> output does not match the fleet JSON contract` |
 | No output and a non-zero exit | `<path> exited <code> with no output` |
@@ -87,11 +96,13 @@ commit, or the page and the code disagree.
 |---|---|
 | `claude plugin validate .` and `claude plugin validate plugins/korus-fleet` | **Your machine only.** |
 | `claude plugin test plugins/korus-fleet` | **Your machine only.** Neither `gates` runner has the `claude` CLI. |
-| The marketplace parses, every listed source exists, each plugin names itself as listed, its hooks modules exist, every file is ASCII, and no source calls the file-write API | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
+| The marketplace parses, every listed source exists, each plugin names itself as listed, its hooks modules exist, every file is ASCII, and no source reaches for `fs.write` | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 
-**The two option tests need Claude Code 2.1.284 or later.** Measured 2026-10-02: under 2.1.283
-`claude plugin test` passes the plugin its manifest defaults instead of the test's options, so 10
-pass and 2 fail. Under 2.1.284 all 12 pass.
+**The two option tests need Claude Code 2.1.284 or later.** Measured 2026-10-02 with `claude plugin
+test plugins/korus-fleet`, on the commit that added this sentence.
+
+Under 2.1.283 the kit passes the plugin its manifest defaults, not the test's options. So 17 pass
+and the 2 option tests fail. Under 2.1.284 all 19 pass.
 
 Run the plugin tests from the repository root:
 
