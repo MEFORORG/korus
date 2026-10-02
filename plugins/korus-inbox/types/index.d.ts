@@ -39,6 +39,8 @@ export type InboxEntry = {
   copyOnly?: string
   /** When the owner pressed Run; Run now is offered for a minute after it, and ignores a press within 600 ms of the last one. */
   armedAt?: number
+  /** When Run now was last pressed and ignored; the 600 ms gap runs from it too. */
+  quietFrom?: number
   /** The argv the arming press resolved, shown before Run now and checked again at it. */
   armedArgv?: string[]
   /** Why the arming press found no shell to run; Run now then records it and runs nothing. */

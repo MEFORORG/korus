@@ -589,7 +589,26 @@ test('a held Enter on Run now, repeating every 100 ms, never runs the command', 
   await ui.unmount()
 })
 
-test('Cancel clears the shown argv, and a later arm shows it again', async ($, on) => {
+test('ignored Run now presses do not keep the arm alive past its minute', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  for (let i = 0; i < 122; i++) {
+    await w.advance(500)
+    await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
+  }
+  await ui.redraw()
+  expect(w.runs).toHaveLength(0)
+  expect(await ui.find({ key: `confirm:${id}` })).toBeUndefined()
+  expect(await ui.find({ key: `run:${id}` })).toBeDefined()
+  await ui.unmount()
+})
+
+test('Cancel clears the shown argv and Run now', async ($, on) => {
   const w = world(on)
   refuseShell(on)
   await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })

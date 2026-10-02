@@ -427,8 +427,8 @@ function argvText(argv: readonly string[]): string {
     .join('\n')
 }
 
-// Bumped by every Run and Cancel press, so an arming press that finishes
-// after a later press, or after a claim, writes nothing.
+// Bumped by every Run and Cancel press and by every claim, so an arming press
+// that finishes after any of them writes nothing.
 const armSeq = new Map<string, number>()
 
 function sameArgv(a: readonly string[] | undefined, b: readonly string[]): boolean {
@@ -474,8 +474,11 @@ async function runOwn($: Engine, id: string): Promise<void> {
     claimed = undefined
     isIgnored = false
     return list.map(one => {
+      // The gap runs from the last press, Run or an ignored Run now; the
+      // minute's lapse runs from the Run press alone.
       const isArmed = one.armedAt !== undefined && startedAt - one.armedAt < ARM_MS
-      const isFresh = isArmed && one.armedAt !== undefined && startedAt - one.armedAt >= ARM_GAP_MS
+      const lastPress = Math.max(one.armedAt ?? 0, one.quietFrom ?? 0)
+      const isFresh = isArmed && startedAt - lastPress >= ARM_GAP_MS
       const isRunnable =
         one.id === id &&
         one.kind === 'refused' &&
@@ -489,11 +492,11 @@ async function runOwn($: Engine, id: string): Promise<void> {
       // again: a held Enter or a run of clicks never reaches the command.
       if (!isFresh) {
         isIgnored = true
-        return { ...one, armedAt: startedAt }
+        return { ...one, quietFrom: startedAt }
       }
       claimed = one
       const run: InboxRun = { status: 'running', startedAt, argv: one.armedArgv }
-      return { ...one, armedAt: undefined, armedArgv: undefined, armedError: undefined, run }
+      return { ...one, armedAt: undefined, quietFrom: undefined, armedArgv: undefined, armedError: undefined, run }
     })
   })
   if (isIgnored) {
@@ -525,10 +528,11 @@ async function runOwn($: Engine, id: string): Promise<void> {
       tail: lastLines(output, TAIL_LINES),
     }
   } catch (error: unknown) {
+    // Nothing in here may throw, or the entry would stay running.
     result = {
       status: 'failed',
       startedAt,
-      finishedAt: await $.clock.now(),
+      finishedAt: await $.clock.now().catch(() => startedAt),
       argv: shown,
       tail: clean(errorText(error), 300),
     }
@@ -569,7 +573,7 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
       // A later Run or Cancel press, or a run that started meanwhile, wins.
       const isStale = armSeq.get(id) !== seq || (isArmed && one.run?.startedAt !== runBefore)
       if (isStale) return one
-      return { ...one, armedAt: isArmed ? now : undefined, armedArgv, armedError }
+      return { ...one, armedAt: isArmed ? now : undefined, quietFrom: undefined, armedArgv, armedError }
     }),
   )
   // Redraw once the arming lapses, so a stale Run now is not left on screen.

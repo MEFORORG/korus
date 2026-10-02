@@ -246,9 +246,11 @@ pane sees the Dismiss, and it does not bring it back.
 Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
 after 60 seconds, and two quick presses run the command once.
 
-**`Run now` ignores a press that comes less than 600 ms after the last press.** Each ignored press
-starts the 600 ms again, so a double click, a held Enter or a run of clicks cannot reach the command.
-The arm stays, and the pane and a toast both say so.
+**`Run now` ignores a press less than 600 ms after the last press.** Each ignored press starts the
+600 ms again, so a double click, a held Enter or a run of clicks cannot reach the command. The pane
+states the rule, and a toast says when a press was ignored.
+
+The arm stays through ignored presses, and still lapses 60 seconds after the Run press.
 
 The command comes from the session's own state at the moment of the press. It never comes from the
 screen or the disk. A command or folder holding a character the screen strips is Copy only, so what
@@ -315,6 +317,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 36 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 37 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
