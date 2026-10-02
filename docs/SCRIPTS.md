@@ -124,9 +124,9 @@ Once installed, these controls run through client events or git hooks.
 | `scripts/hooks/seq_check.py` | `pre-commit` | Refuses a colliding, unallocated, or unindexed sequence number; `--ci` re-runs the collision rules against a freshly fetched trunk. No installer wires it | [Sequence allocation](SEQUENCE-ALLOC.md) |
 | `scripts/hooks/block-blanket-git-stage.ps1` | `PreToolUse` | Opt-in. Denies `git add -A/--all/-u/.` and `git commit -a/-am/--all`. Fails open | [Hooks](HOOKS.md) |
 | `scripts/hooks/steer-inject.ps1` | `PreToolUse` | Opt-in per worktree. Delivers a queued steering note at the next tool-call boundary rather than at the end of the turn | [Steering](STEERING.md) |
-| `scripts/hooks/role-card-inject.ps1` | `SessionStart` | Hand-wired. Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. Never guesses from a branch or directory name -- it stays silent instead | [Role cards](ROLE-CARDS.md) |
+| `scripts/hooks/role-card-inject.ps1` | `SessionStart` | The `korus-card` plugin, or hand-wired. Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. Never guesses from a branch or directory name -- it stays silent instead | [Role cards](ROLE-CARDS.md) |
 | `scripts/hooks/mail-drain.ps1` | `SessionStart`, `Stop` | Hand-wired, one script on two events. Renders this worktree's session mail at `SessionStart` and leaves it in the inbox; at `Stop` it consumes only what it displayed | [Session mail](SESSION-MAIL.md) |
-| `scripts/hooks/precompact-reprime.ps1` | `PreCompact` | Hand-wired. Reads back what a compaction drops: the seat declaration on disk, and the allocations, claims and unpushed work this worktree holds. An unfiled allocation burns | [Hooks](HOOKS.md) |
+| `scripts/hooks/precompact-reprime.ps1` | `SessionStart` | The `korus-card` plugin, or hand-wired. Speaks only after a compaction. Reads back what a compaction drops: the seat declaration on disk, and the allocations, claims and unpushed work this worktree holds. An unfiled allocation burns | [Hooks](HOOKS.md) |
 | `scripts/hooks/block-api-burn.ps1` | `PreToolUse` | Hand-wired. Denies `gh run watch`, any `gh --watch`, and hand-rolled `gh` poll loops. Every seat spends one shared 5000/hr budget, and the seat that pays is not the seat that spent | [Hooks](HOOKS.md) |
 
 ## Scheduled jobs

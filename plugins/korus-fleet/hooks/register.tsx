@@ -23,6 +23,12 @@ const isRefreshing = atom({ plugin: 'korus-fleet', key: 'isRefreshing' } as cons
 
 type Api = Engine
 
+// The status line is opt-in (owner instruction 2026-10-02). The userConfig field `statusLine`
+// defaults to false, and only a stored true turns it on.
+function isStatusLineOn(options: PluginOptions): boolean {
+  return options['statusLine'] === true
+}
+
 function fleetScriptFrom(options: PluginOptions): string {
   const value = options['fleetScript']
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : DEFAULT_FLEET_SCRIPT
@@ -37,6 +43,17 @@ async function readSeat($: Api): Promise<string> {
   }
 }
 
+// Short labels for the rate-limit kinds the session reports (owner instruction 2026-10-02).
+// Any other kind is shown as the session names it.
+const LIMIT_LABELS: ReadonlyMap<string, string> = new Map([
+  ['five_hour', '5h'],
+  ['seven_day', '7d'],
+])
+
+function limitLabel(kind: string): string {
+  return LIMIT_LABELS.get(kind) ?? kind
+}
+
 async function refreshStatus($: Api): Promise<void> {
   const parts = [`seat ${await readSeat($)}`]
   try {
@@ -45,7 +62,7 @@ async function refreshStatus($: Api): Promise<void> {
       parts.push(`ctx ${Math.round(usage.context.percent)}%`)
     }
     for (const limit of usage.rateLimits) {
-      parts.push(`${limit.kind} ${Math.round(limit.percentUsed)}%`)
+      parts.push(`${limitLabel(limit.kind)} ${Math.round(limit.percentUsed)}%`)
     }
   } catch (err) {
     parts.push(`usage unread: ${err instanceof Error ? err.name : 'error'}`)
@@ -177,14 +194,20 @@ function age(hours: number | null): string {
 
 export const register: Register = (on, options) => {
   const script = fleetScriptFrom(options)
+  const showStatus = isStatusLineOn(options)
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'fleet',
       description: 'Open the KORUS fleet board (read-only)',
     })
-    void refreshStatus($)
-    $.clock.every(STATUS_EVERY_MS, () => void refreshStatus($))
+    if (showStatus) {
+      void refreshStatus($)
+      $.clock.every(STATUS_EVERY_MS, () => void refreshStatus($))
+    } else {
+      // Off: clear any line a load with the option on drew before this reload, and read no usage.
+      $.ui.status(undefined)
+    }
     $.clock.every(BOARD_EVERY_MS, () => {
       void isPaneShown($)
         .then(shown => (shown ? refreshBoard($, script) : undefined))
@@ -195,7 +218,7 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    void refreshStatus($)
+    if (showStatus) void refreshStatus($)
     return done
   })
 

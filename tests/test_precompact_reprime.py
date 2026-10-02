@@ -109,10 +109,10 @@ class _RepoCase(unittest.TestCase):
             encoding="ascii",
         )
 
-    def run_hook(self) -> subprocess.CompletedProcess:
+    def run_hook(self, payload: str = "{}") -> subprocess.CompletedProcess:
         return subprocess.run(
             [self.pwsh, "-NoProfile", "-File", str(HOOK)],
-            input="{}",
+            input=payload,
             capture_output=True,
             text=True,
             cwd=str(self.repo),
@@ -263,9 +263,54 @@ class TheHookNeverFailsATurn(_RepoCase):
         self.assertEqual(0, r.returncode, r.stderr)
 
     def test_it_never_returns_a_permission_decision(self):
-        """A PreCompact hook that could deny would block the compaction it exists to survive."""
+        """A hook that could deny would block the session it exists to help."""
         self.write_alloc("adr", "0015")
         self.assertNotIn("permissionDecision", self.run_hook().stdout)
+
+
+class ItSpeaksOnlyAfterACompaction(_RepoCase):
+    """The source guard in the script is the only guard, so it is pinned here.
+
+    The settings row and the `korus-card` plugin both run this script match-all on SessionStart.
+    Neither adds a matcher, so a guard that went quiet on `compact`, or spoke on `startup`, would
+    reach every session with nothing else to catch it.
+    """
+
+    def payload(self, **fields: str) -> str:
+        return json.dumps(fields)
+
+    def test_a_compact_restart_speaks(self):
+        """The control for every silent case below: the same repo, the one source that speaks."""
+        self.write_alloc("adr", "0021")
+        r = self.run_hook(self.payload(hook_event_name="SessionStart", source="compact"))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn("adr #0021", _context(r) or "")
+
+    def test_the_payload_names_session_start(self):
+        """The harness refuses PreCompact as a hookEventName, so the old payload never landed."""
+        r = self.run_hook(self.payload(hook_event_name="SessionStart", source="compact"))
+        self.assertEqual("SessionStart", json.loads(r.stdout)["hookSpecificOutput"]["hookEventName"])
+
+    def test_every_other_start_is_silent(self):
+        self.write_alloc("adr", "0021")
+        for source in ("startup", "resume", "clear", "fork", "a-source-added-later"):
+            with self.subTest(source=source):
+                r = self.run_hook(self.payload(hook_event_name="SessionStart", source=source))
+                self.assertEqual(0, r.returncode, r.stderr)
+                self.assertEqual("", r.stdout.strip())
+
+    def test_a_leftover_precompact_row_is_silent(self):
+        self.write_alloc("adr", "0021")
+        r = self.run_hook(self.payload(hook_event_name="PreCompact", trigger="auto"))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout.strip())
+
+    def test_an_unreadable_payload_speaks(self):
+        """Fail open: only a payload that POSITIVELY says 'not a compaction' silences it."""
+        self.write_alloc("adr", "0021")
+        for payload in ("", "not json {{{"):
+            with self.subTest(payload=payload):
+                self.assertIn("adr #0021", _context(self.run_hook(payload)) or "")
 
 
 class ItRestoresTheDeclarationHalfToo(_RepoCase):
