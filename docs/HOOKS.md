@@ -49,7 +49,10 @@ table use portable, standard-library Python behind `/bin/sh` shims.
 </figure>
 
 Four harness events support these controls: `SessionStart` opens a chat, `PreToolUse` precedes a
-tool call, `UserPromptSubmit` receives a prompt, and `PreCompact` precedes a summary.
+tool call, `UserPromptSubmit` receives a prompt, and `Stop` ends a turn.
+
+`SessionStart` also fires after a compaction, with `source` set to `compact`. No control here uses
+`PreCompact`. It fires before the summary is written, so anything it adds is summarised away.
 
 Fail-open controls allow work when their check breaks. Fail-closed controls refuse it.
 
@@ -61,10 +64,10 @@ Fail-open controls allow work when their check breaks. Fail-closed controls refu
 | `PreToolUse` | `scripts/hooks/collision_gate.ps1` | `Edit\|Write\|MultiEdit\|NotebookEdit` | Denies an edit to a file a live peer **worktree** has uncommitted changes in -- your own worktree is skipped, so a second session in it is invisible. Reports, without denying, a file already committed on a live peer's branch. | fail open, **loud** |
 | `PreToolUse` | `scripts/hooks/block-blanket-git-stage.ps1` | `Bash\|PowerShell` (hand-wired) | Denies `git add -A/--all/-u/.` and `git commit -a/-am/--all`. | fail open, **loud** |
 | `PreToolUse` | `scripts/hooks/steer-inject.ps1` | `*` (opt-in, hand-wired) | Delivers a queued steering note as `additionalContext` at the next tool-call boundary. Decides nothing. | fail open, silent |
-| `SessionStart` | `scripts/hooks/role-card-inject.ps1` | -- (hand-wired) | Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. **Never guesses from a branch or directory name** -- it stays silent instead, because a wrong card outranks the document the session should be reading. Decides nothing. | fail open, silent |
+| `SessionStart` | `scripts/hooks/role-card-inject.ps1` | -- (the `korus-card` plugin, or hand-wired) | Injects this worktree's role card, resolved from `.claude/seat.local.txt` then `$env:KORUS_SEAT`. **Never guesses from a branch or directory name** -- it stays silent instead, because a wrong card outranks the document the session should be reading. Decides nothing. | fail open, silent |
 | `UserPromptSubmit` | `scripts/hooks/seat-declare.ps1` | -- (hand-wired) | Declares a seat when the prompt is EXACTLY a roster label, then loads that card at once. `special` declares; `special seat` and `claude/special-d4c4b4` do nothing. **Reads the prompt, never a ref.** Writes the role, never the goal. Decides nothing. | fail open, silent unless it declared |
 | `UserPromptSubmit` | `scripts/hooks/announce-session.ps1` | -- | Resolves live peers and asks the model to announce itself to them. Decides nothing. | fail open, **loud** |
-| `PreCompact` | `scripts/hooks/precompact-reprime.ps1` | -- (hand-wired) | Reads back what a compaction drops: the **declaration** `scripts/coord/seat.ps1` recorded, and the **ledger** of allocations, claims and unpushed work this worktree holds. Never invents a goal, and flags a record from another branch rather than restoring it. Decides nothing. | fail open, silent |
+| `SessionStart` | `scripts/hooks/precompact-reprime.ps1` | `compact` only, by the script's own guard (the `korus-card` plugin, or hand-wired) | Reads back what a compaction drops: the **declaration** `scripts/coord/seat.ps1` recorded, and the **ledger** of allocations, claims and unpushed work this worktree holds. Never invents a goal, and flags a record from another branch rather than restoring it. Decides nothing. | fail open, silent |
 | `PreToolUse` | `scripts/hooks/block-api-burn.ps1` | `Bash\|PowerShell` (hand-wired) | Denies `gh run watch`, any `gh --watch`, and hand-rolled `gh` poll loops. Every seat draws on one shared 5000/hr GitHub budget, and the seat that pays is not the seat that spent. | fail open, **loud** |
 | `SessionStart` | `scripts/hooks/mail-drain.ps1` | -- (hand-wired) | **Renders** this worktree's session mail and leaves it in the inbox. Consuming here would lose mail to a phantom: one measured launch fired six `SessionStart` events and only one session ever submitted a prompt. Decides nothing. | fail open, silent |
 | `Stop` | `scripts/hooks/mail-drain.ps1` | -- (hand-wired) | **Consumes** the messages this session displayed, and only those: an exclusive open, a receipt, a move out. A discarded session never reaches `Stop`. Speaks only when it filed something, but every fault path still speaks. Decides nothing. | fail open, silent unless it filed |
@@ -84,7 +87,8 @@ Installers:
 | `scripts/worktree/install-selfheal.ps1` | selfheal backstop | one config dir at a time, as an installed **copy** |
 | `scripts/coord/install-git-hooks.ps1` | claim gate, push guard | the clone's shared git hooks directory |
 
-You must wire every script marked hand-wired, plus `seq_check.py`. No installer enables them.
+You must wire every script marked hand-wired, plus `seq_check.py`. No installer enables them. The
+role-card injector and the reprime have a plugin that wires them for you.
 
 To enable a control without an installer, add it to the appropriate live settings or hook file.
 
@@ -92,6 +96,7 @@ Use these three locations:
 
 | Control | Where it goes |
 |---|---|
+| Role-card injector, precompact reprime | Install the `korus-card` plugin. [Plugins](PLUGINS.md#korus-card-the-role-card-and-the-reprime-with-no-paths-to-edit) has the two commands. The fallback is the next row |
 | Blanket-stage guard, API-burn guard, role-card injector, precompact reprime, mail drain | Copy their tracked rows out of `.claude/settings.example.json` into a real `settings.json`, and replace every loud placeholder path |
 | Steering injector | A `settings.local.json` row, per worktree. [Steering](STEERING.md) has it |
 | Sequence gate | **Not a settings row at all** -- a `pre-commit` hook you own. [Wiring the pre-commit hook](SEQUENCE-ALLOC.md#wiring-the-pre-commit-hook) has the snippet |
