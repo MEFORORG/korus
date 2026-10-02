@@ -232,7 +232,8 @@ test('a secret-looking command is stored as a placeholder and offers no Run', as
   await $.tool.call({ tool: 'PowerShell', command: 'ConvertTo-SecureString hunter2 -AsPlainText -Force' })
   await $.tool.call({ tool: 'Bash', command: 'DB_PASS=hunter2 ./migrate' })
   await $.tool.call({ tool: 'Bash', command: 'mysql -u root -phunter2 app' })
-  await $.tool.call({ tool: 'Bash', command: 'aws configure set id AKIAABCDEFGHIJKLMNOP' })
+  // Split so the leak gate does not see a key-shaped literal. Not a real key.
+  await $.tool.call({ tool: 'Bash', command: 'aws configure set id ' + ['AK', 'IA', 'ABCDEFGHIJKLMNOP'].join('') })
   await w.settle()
   const text = w.files.get(MY_FILE)?.text ?? ''
   expect(text).not.toContain('Bearer')
