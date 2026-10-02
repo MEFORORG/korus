@@ -2,14 +2,19 @@
 
 ## TLDR/BLUF
 
-**What this is.** This repository is a Claude Code plugin marketplace. Its one plugin,
-`korus-fleet`, shows your seat and usage on the status line and opens a fleet board pane.
+**What this is.** This repository is a Claude Code plugin marketplace with three plugins.
 
-**Who it is for.** Anyone running KORUS seats who wants the seat and the fleet in view without
-running a script by hand.
+| Plugin | What it does |
+|---|---|
+| `korus-fleet` | Shows your seat and usage on the status line, and opens a fleet board pane. Read-only. |
+| `korus-card` | Runs the repository's own role-card hook at session start, and its reprime after a compaction. |
+| `korus-inbox` | Gathers what waits on the owner from every session: open questions and refused commands. |
 
-**The one thing to get right.** The plugin is read-only, and CI cannot run its tests. Run
-`claude plugin test` yourself before you push a change to it.
+**Who it is for.** Anyone running KORUS seats who wants the seat, the fleet and the owner's queue
+in view without running a script by hand.
+
+**The one thing to get right.** CI cannot run the plugin tests. Run `claude plugin test` yourself
+before you push a change to a plugin.
 
 ---
 
@@ -166,3 +171,106 @@ hook error, and the session goes on without a card.
 | `claude plugin test plugins/korus-card` | Nothing to run. The plugin has no hooks module, and the test kit runs no settings-style hook. |
 | Each row runs a shim that exists, and every file is ASCII | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The card arrives where nothing wires it, is silent where something does, and the reprime keeps its own guard | CI, through `tests/test_the_korus_card_plugin_runs_the_projects_own_hooks.py`, which drives the real rows over a throwaway repository. |
+
+## korus-inbox: what waits on the owner in every session
+
+`korus-inbox` collects two kinds of entry from every session on the machine, and shows them in one
+place.
+
+| Entry | Where it comes from | It clears when |
+|---|---|---|
+| A pending question | An open `AskUserQuestion` call | The question is answered, or Dismiss is pressed |
+| A refused command | A Bash or PowerShell call that a settings `PreToolUse` hook refused | A Run finishes, or Dismiss is pressed |
+
+The plugin reads a refusal through `classic.PreToolUse`. A tool result that starts with
+`PreToolUse:Bash hook` or `PreToolUse:PowerShell hook` is the fallback.
+
+| Where | What it shows |
+|---|---|
+| Status line | `inbox N`, the count across every session. Nothing when there is nothing. |
+| `/inbox` | Opens a pane listing every entry, newest first, with its session, age and buttons. |
+
+### Install it
+
+Run these inside a Claude Code session, from any config root.
+
+```
+/plugin marketplace add MEFORORG/korus
+/plugin install korus-inbox@korus
+```
+
+### Every session writes one file and reads all the others
+
+Each session writes `<session id>.json` into `.korus-inbox` in the home folder. The home folder is
+`USERPROFILE`, or `HOME` where that is unset. Every pane reads every file there each five seconds,
+so the inbox spans sessions and Claude accounts on one machine.
+
+A file holds only what waits on the owner: the entries, and the keys of entries the owner
+dismissed. Run output is never written. A reader ignores a file not written for 24 hours.
+
+**This is the one plugin here that writes.** `WRITERS` in
+`tests/test_the_plugin_marketplace_resolves.py` names it, and the scan refuses a write anywhere else.
+
+**Dismiss is shared.** A Dismiss pressed in any pane hides that entry in every pane, the session
+that raised it included.
+
+### Run is offered only for this session's own refusals
+
+| Entry | Buttons |
+|---|---|
+| A refused command this session's main loop raised | Run, Copy, Dismiss |
+| A refused command a subagent raised | Copy and Dismiss. The subagent's folder is not known. |
+| Anything read from another session's file | Copy and Dismiss. Never Run. |
+| A question | Copy and Dismiss |
+
+Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
+after 60 seconds, and two quick presses run the command once.
+
+The command comes from the session's own state at the moment of the press. It never comes from the
+screen or the disk. A command holding a character the screen strips is Copy only, so what runs is
+what the owner read.
+
+PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Bash runs through
+Git Bash by its path. It never runs as a bare `bash`, which on Windows can be WSL. Where no Git Bash
+is found, the Run fails and says so.
+
+### Everything read from disk is untrusted text
+
+Any process on the machine can write into the folder. So each field read from another session's
+file is checked for type and cut to a length. Control characters, zero-width marks and
+bidirectional marks are stripped, so a file cannot repaint the terminal or hide text.
+
+### A command that looks like a secret is never stored
+
+The check looks for a token, a password, a key, a URL credential or a long random string. A refused
+command that matches is stored as a placeholder: `command withheld: it looked like it carried a
+secret`. That entry offers no Run and no Copy. The check errs toward withholding.
+
+Question text gets a narrower check, on value shapes such as `password=...` only. In prose, words
+like "token" and "key" are ordinary.
+
+### Ended files pile up, and inbox-prune clears them
+
+The plugin's file API has no delete and no rename. So a session that ends overwrites its file with
+`ended: true`, and the file stays.
+
+`scripts/coord/inbox-prune.ps1` clears them. It lists what it would delete, and deletes only when
+`-Apply` is passed.
+
+```
+pwsh -NoProfile -File scripts/coord/inbox-prune.ps1
+pwsh -NoProfile -File scripts/coord/inbox-prune.ps1 -Apply
+```
+
+It deletes a file named `<session id>.json` that is `ended: true` or was not written for 24 hours.
+It reads no subfolder and follows no link. It refuses a `-Folder` whose last segment is not
+`.korus-inbox`, with or without `-Apply`.
+
+### What CI checks for it, and what it cannot
+
+| Check | Where it runs |
+|---|---|
+| `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 21 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
+| The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
