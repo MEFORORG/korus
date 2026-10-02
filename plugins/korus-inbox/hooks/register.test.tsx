@@ -108,6 +108,25 @@ function refuseShell(on: On): void {
   }))
 }
 
+// The rows the confirm and result views draw: a label, or a continuation mark.
+const ROW = /^(argv\[\d+\]: |folder: |  [|+] )/
+
+type Found = { text?: string; props?: Record<string, unknown> }
+
+async function shownRows(ui: { findAll: (query: { type: 'Text'; text: RegExp }) => Promise<Found[]> }): Promise<string[]> {
+  return (await ui.findAll({ type: 'Text', text: ROW })).map(one => one.text ?? '')
+}
+
+// A bare pwsh, as the confirm and result views draw it in the test folder.
+const PWSH_ROWS = [
+  `folder: ${CWD}`,
+  'argv[0]: pwsh (by name: PATH, and on Windows the',
+  '  +  run folder first)',
+  'argv[1]: -NoProfile',
+  'argv[2]: -Command',
+  'argv[3]: git push origin main',
+]
+
 function mine(w: World): { entries: Record<string, unknown>[]; dismissed: string[] } {
   const file = w.files.get(MY_FILE)
   if (file === undefined) return { entries: [], dismissed: [] }
@@ -308,7 +327,7 @@ for (const surface of SURFACES) {
     await ui.press({ key: `run:${id}` })
     expect(w.runs).toHaveLength(0)
     expect(await ui.find({ type: 'Button', text: 'Run now' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^Run now runs this in/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Run now runs this:' })).toBeDefined()
 
     await ui.press({ key: `cancel:${id}` })
     expect(w.runs).toHaveLength(0)
@@ -317,9 +336,8 @@ for (const surface of SURFACES) {
     await w.advance(700)
     await ui.press({ key: `confirm:${id}` })
     expect(w.runs).toEqual([{ argv: ['pwsh', '-NoProfile', '-Command', 'git push origin main'], cwd: CWD }])
-    expect((await ui.find({ type: 'Text', text: /^ran in/ }))?.text).toBe(
-      `ran in ${CWD}: git push origin main  exit 0`,
-    )
+    expect((await ui.find({ type: 'Text', text: /^ran, exit/ }))?.text).toBe('ran, exit 0:')
+    expect(await shownRows(ui)).toEqual(PWSH_ROWS)
     expect(await ui.find({ type: 'Text', text: 'pushed fine' })).toBeDefined()
     expect(await ui.findAll({ type: 'Button', text: /^Run/ })).toHaveLength(1)
     expect(w.status()).toBeUndefined()
@@ -346,7 +364,7 @@ test('with no Git Bash installed, a Bash Run fails and runs nothing, never a bar
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
-  expect((await ui.find({ type: 'Text', text: /^could not run in/ }))?.text).toBe(`could not run in ${CWD}: ls -la`)
+  expect((await ui.find({ type: 'Text', text: /^could not run/ }))?.text).toBe('could not run:')
   expect(await ui.find({ type: 'Text', text: /Git Bash not found/ })).toBeDefined()
   expect(w.status()).toBe('inbox 1')
   await ui.unmount()
@@ -634,9 +652,9 @@ test('a multi-line command cannot draw a fake argv element', async ($, on) => {
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
-  const shown = (await ui.find({ type: 'Text', text: /^argv\[0\]/ }))?.text ?? ''
-  expect(shown).toContain('argv[3]: git status\n  | argv[4]: harmless')
-  expect(shown.split('\n').filter(line => line.startsWith('argv['))).toHaveLength(4)
+  const shown = await shownRows(ui)
+  expect(shown.slice(-2)).toEqual(['argv[3]: git status', '  | argv[4]: harmless'])
+  expect(shown.filter(line => line.startsWith('argv['))).toHaveLength(4)
   await ui.unmount()
 })
 
@@ -672,16 +690,14 @@ test('the confirm and result views name a bare pwsh as found by name, and every 
   await w.settle()
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
-  const lines =
-    'argv[0]: pwsh (by name: PATH, and on Windows the run folder first)\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git push origin main'
-  expect(await ui.find({ type: 'Text', text: lines })).toBeUndefined()
+  expect(await shownRows(ui)).toEqual([])
   await ui.press({ key: `run:${id}` })
-  expect(await ui.find({ type: 'Text', text: `Run now runs this in ${CWD}:` })).toBeDefined()
-  expect(await ui.findAll({ type: 'Text', text: lines })).toHaveLength(1)
+  expect(await ui.find({ type: 'Text', text: 'Run now runs this:' })).toBeDefined()
+  expect(await shownRows(ui)).toEqual(PWSH_ROWS)
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(1)
-  expect(await ui.findAll({ type: 'Text', text: lines })).toHaveLength(1)
+  expect(await shownRows(ui)).toEqual(PWSH_ROWS)
   await ui.unmount()
 })
 
@@ -698,10 +714,17 @@ test('the confirm view names the installed pwsh and Git Bash by their full paths
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${pwshId}` })
   await ui.press({ key: `run:${bashId}` })
-  expect(
-    await ui.find({ type: 'Text', text: `argv[0]: ${installed}\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git status` }),
-  ).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: `argv[0]: ${GIT_BASH}\nargv[1]: -c\nargv[2]: ls` })).toBeDefined()
+  expect(await shownRows(ui)).toEqual([
+    `folder: ${CWD}`,
+    `argv[0]: ${installed}`,
+    'argv[1]: -NoProfile',
+    'argv[2]: -Command',
+    'argv[3]: git status',
+    `folder: ${CWD}`,
+    `argv[0]: ${GIT_BASH}`,
+    'argv[1]: -c',
+    'argv[2]: ls',
+  ])
   expect(await ui.find({ type: 'Text', text: /\(by name/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -740,3 +763,85 @@ test('a shell that resolves differently after arming runs nothing', async ($, on
   expect(await ui.find({ type: 'Text', text: /resolved differently since Run was pressed/ })).toBeDefined()
   await ui.unmount()
 })
+
+// The Lander's forge: one line padded with spaces until a soft wrap would
+// start a screen row with a fake argv element.
+const FORGE = `git status${' '.repeat(70)}argv[4]: harmless`
+const LONG = `echo ${'zz '.repeat(1330)}endzz`
+
+const NO_RUN = [
+  { name: 'a line padded to forge an argv row', command: FORGE, why: /^Copy only: it holds a run of 4 or more spaces/ },
+  { name: 'a 4000-character command', command: LONG, why: /^Copy only: too long to show safely \(over 400 characters\)/ },
+  { name: 'a 7-line command', command: `${'git status\n'.repeat(6)}git status`, why: /^Copy only: too many lines to show safely \(over 6\)/ },
+  { name: 'a run of 4 spaces', command: 'git status    --short', why: /^Copy only: it holds a run of 4 or more spaces/ },
+  { name: 'a tab', command: 'git\tstatus', why: /^Copy only: the command holds a tab or a character outside plain ASCII/ },
+  { name: 'a wide character', command: 'echo \u4e2d', why: /^Copy only: the command holds a tab or a character outside plain ASCII/ },
+  { name: 'a line ending in a space', command: 'git status \nls', why: /^Copy only: a line ends in a space/ },
+] as const
+
+for (const surface of SURFACES) {
+  for (const one of NO_RUN) {
+    test(`${one.name} gets Copy and no Run, on ${surface}`, async ($, on) => {
+      const w = world(on)
+      refuseShell(on)
+      await $.tool.call({ tool: 'PowerShell', command: one.command })
+      await w.settle()
+      const entry = mine(w).entries[0]
+      expect(entry?.command).toBe(one.command)
+      const id = String(entry?.id)
+      const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+      expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+      expect(await ui.find({ type: 'Text', text: one.why })).toBeDefined()
+      // The arming press and the claim refuse it too, drawn or not.
+      await ui.press({ key: `run:${id}` }).catch(() => undefined)
+      await w.advance(700)
+      await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
+      expect(await ui.find({ key: `confirm:${id}` })).toBeUndefined()
+      expect(w.runs).toHaveLength(0)
+      await ui.press({ key: `copy:${id}` })
+      expect(w.copies).toEqual([one.command])
+      await ui.unmount()
+    })
+  }
+
+  test(`an ordinary command still gets Run, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    refuseShell(on)
+    const command = 'git -C C:\\x worktree remove C:\\y'
+    await $.tool.call({ tool: 'PowerShell', command })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    await ui.press({ key: `run:${id}` })
+    expect((await shownRows(ui)).at(-1)).toBe(`argv[3]: ${command}`)
+    await w.advance(700)
+    await ui.press({ key: `confirm:${id}` })
+    expect(w.runs).toEqual([{ argv: ['pwsh', '-NoProfile', '-Command', command], cwd: CWD }])
+    await ui.unmount()
+  })
+
+  test(`every confirm row starts with a label or a mark, is cut not wrapped, and gives back the command, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    refuseShell(on)
+    const command = 'git log --oneline --graph --decorate --all -- docs/one.md docs/two.md docs/three.md\nargv[9]: x'
+    await $.tool.call({ tool: 'PowerShell', command })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    await ui.press({ key: `run:${id}` })
+    const texts: Found[] = await ui.findAll({ type: 'Text', text: ROW })
+    for (const one of texts) {
+      expect(one.props?.wrap).toBe('truncate-end')
+      expect((one.text ?? '').length).toBeLessThanOrEqual(49)
+    }
+    const rows = texts.map(one => one.text ?? '')
+    const start = rows.findIndex(row => row.startsWith('argv[3]: '))
+    expect(rows.filter(row => row.startsWith('argv['))).toHaveLength(4)
+    const rebuilt = rows
+      .slice(start)
+      .map(row => (row.startsWith('argv[3]: ') ? row.slice(9) : row.startsWith('  | ') ? `\n${row.slice(4)}` : row.slice(4)))
+      .join('')
+    expect(rebuilt).toBe(command)
+    await ui.unmount()
+  })
+}

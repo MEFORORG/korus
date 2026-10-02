@@ -419,12 +419,96 @@ function binaryText(binary: string): string {
   return /[\\/]/.test(binary) ? binary : `${binary} (by name: PATH, and on Windows the run folder first)`
 }
 
-// Every argv element starts a line with its index. A newline inside one
-// continues on a line marked `  | `, so a command cannot draw a fake element.
-function argvText(argv: readonly string[]): string {
-  return argv
-    .map((part, index) => `argv[${index}]: ${(index === 0 ? binaryText(part) : part).split('\n').join('\n  | ')}`)
-    .join('\n')
+// The confirm view promises the owner reads exactly what runs. Text that soft-
+// wraps can start a screen line with a forged `argv[N]:`, and a long text can
+// bury its payload far from Run now. So Run is offered only for text the view
+// can show faithfully, and the view draws every row itself, one Text each, cut
+// at the edge rather than wrapped.
+//
+// RUN_CHUNK: the view breaks a line into rows of at most 40 characters. With a
+// prefix of at most 9 (`argv[3]: `), a row needs at most 49 cells, so it fits
+// a docked pane and nothing is left to wrap.
+// MAX_RUN_CHARS: 400 characters is at most 10 such rows. With the line breaks
+// below the whole command fits in about 16 rows, on one screen with Run now.
+// MAX_RUN_LINES: 6 lines. A refused command is one or two lines; 6 still lets
+// a short script run, and more is a script the owner should read in an editor.
+// SPACE_RUN: 4 or more spaces in a row. Padding is how a wrapped line forges a
+// row start; an ordinary command rarely holds more than 2 together. It stays
+// even though no row wraps, in case a surface ignores the cut.
+// RUN_ASCII: printable ASCII and newlines only. Every such character is one
+// cell wide on every surface. A tab, a wide character, a combining mark or a
+// look-alike letter is not, so the rows above would not line up as counted.
+// A line that ends in a space hides that space at the row's end, and a shell
+// can read `\ ` before a newline differently from `\`, so that is Copy only too.
+const RUN_CHUNK = 40
+const MAX_RUN_CHARS = 400
+const MAX_RUN_LINES = 6
+const SPACE_RUN = /[^\S\n]{4,}/
+const RUN_ASCII = /^[\x20-\x7e\n]*$/
+const TRAILING_SPACE = / (\n|$)/
+
+type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing'
+
+// Why the view cannot show this text faithfully, or undefined when it can.
+function showProblem(text: string, maxLines: number): ShowProblem | undefined {
+  if (clean(text, MAX_COMMAND) !== text) return 'stripped'
+  if (!RUN_ASCII.test(text)) return 'ascii'
+  if (text.length > MAX_RUN_CHARS) return 'long'
+  if (text.split('\n').length > maxLines) return 'lines'
+  if (SPACE_RUN.test(text)) return 'spaces'
+  if (TRAILING_SPACE.test(text)) return 'trailing'
+  return undefined
+}
+
+const COMMAND_PROBLEM: Record<ShowProblem, string> = {
+  stripped: 'Copy only: the command holds characters the screen cannot show.',
+  ascii: 'Copy only: the command holds a tab or a character outside plain ASCII, which the screen cannot show at a known width.',
+  long: `Copy only: too long to show safely (over ${MAX_RUN_CHARS} characters).`,
+  lines: `Copy only: too many lines to show safely (over ${MAX_RUN_LINES}).`,
+  spaces: 'Copy only: it holds a run of 4 or more spaces, which can line text up to look like something else.',
+  trailing: 'Copy only: a line ends in a space, which the screen cannot show.',
+}
+
+// Why Run is not offered for this entry, or undefined when it is. Render, the
+// arming press and the claim all ask this one function, so they always agree.
+function runBlock(entry: InboxEntry): string | undefined {
+  if (entry.kind !== 'refused' || entry.command === undefined) return 'Copy only: no command is stored.'
+  if (entry.isRunnable !== true) return entry.copyOnly ?? 'Copy only: its folder is not known.'
+  if (!isAbsolutePath(entry.cwd)) return 'Copy only: the session folder is not known as a full path.'
+  const problem = showProblem(entry.command, MAX_RUN_LINES)
+  if (problem !== undefined) return COMMAND_PROBLEM[problem]
+  if (showProblem(entry.cwd, 1) !== undefined) return 'Copy only: its folder holds characters the screen cannot show.'
+  return undefined
+}
+
+// One source line as screen rows of at most RUN_CHUNK characters. A row never
+// ends in a space: the space moves to the next row, after its fixed prefix,
+// where the owner can see it.
+function chunks(line: string): string[] {
+  const rows: string[] = []
+  let start = 0
+  while (start < line.length) {
+    let end = Math.min(start + RUN_CHUNK, line.length)
+    while (end < line.length && end > start + 1 && line[end - 1] === ' ') end--
+    rows.push(line.slice(start, end))
+    start = end
+  }
+  return rows.length === 0 ? [''] : rows
+}
+
+// The rows of one labelled value. The first row carries the label; a row cut
+// from the same line starts `  + `, and a row after a newline starts `  | `.
+// Only a label starts a row with anything else, so no text can draw one.
+function labelledRows(head: string, text: string): string[] {
+  return text.split('\n').flatMap((line, lineIndex) =>
+    chunks(line).map((row, rowIndex) =>
+      rowIndex > 0 ? `  + ${row}` : lineIndex > 0 ? `  | ${row}` : `${head}${row}`,
+    ),
+  )
+}
+
+function argvRows(argv: readonly string[]): string[] {
+  return argv.flatMap((part, index) => labelledRows(`argv[${index}]: `, index === 0 ? binaryText(part) : part))
 }
 
 // Bumped by every Run and Cancel press and by every claim, so an arming press
@@ -479,14 +563,7 @@ async function runOwn($: Engine, id: string): Promise<void> {
       const isArmed = one.armedAt !== undefined && startedAt - one.armedAt < ARM_MS
       const lastPress = Math.max(one.armedAt ?? 0, one.quietFrom ?? 0)
       const isFresh = isArmed && startedAt - lastPress >= ARM_GAP_MS
-      const isRunnable =
-        one.id === id &&
-        one.kind === 'refused' &&
-        one.isRunnable === true &&
-        isAbsolutePath(one.cwd) &&
-        one.command !== undefined &&
-        clean(one.command, MAX_COMMAND) === one.command &&
-        one.run?.status !== 'running'
+      const isRunnable = one.id === id && runBlock(one) === undefined && one.run?.status !== 'running'
       if (!isRunnable || !isArmed) return one
       // A confirm inside the gap is ignored, not spent, and it starts the gap
       // again: a held Enter or a run of clicks never reaches the command.
@@ -553,7 +630,7 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
   let runBefore: number | undefined
   if (isArmed) {
     const entry = (await read($, own)).find(one => one.id === id)
-    if (entry?.command === undefined || entry.run?.status === 'running') return
+    if (entry?.command === undefined || runBlock(entry) !== undefined || entry.run?.status === 'running') return
     runBefore = entry.run?.startedAt
     try {
       const argv = await shellArgv($, entry.shell, entry.command)
@@ -744,16 +821,18 @@ export const register: Register = on => {
       const where = entry.cwd !== undefined && entry.cwd !== '' ? entry.cwd : '(unknown)'
       const run = entry.run
       const isArmed = entry.armedAt !== undefined && now - entry.armedAt < ARM_MS
-      // Run is offered only for a main-loop refusal (a subagent's folder is
-      // not known), only in a folder known as a full path, and only when the
-      // screen shows exactly the text that runs.
-      const canRun =
-        entry.kind === 'refused' &&
-        entry.isRunnable === true &&
-        isAbsolutePath(entry.cwd) &&
-        entry.command !== undefined &&
-        command === entry.command &&
-        run?.status !== 'running'
+      // Run is offered only when runBlock finds nothing: the claim and the
+      // arming press ask the same function.
+      const block = runBlock(entry)
+      const canRun = block === undefined && run?.status !== 'running'
+      // Rows the view draws itself, each cut at the edge and never wrapped, so
+      // a row starts only where these rows say it does.
+      const rows = (prefix: string, lines: readonly string[]) =>
+        lines.map((line, index) => (
+          <Text key={`${prefix}:${index}`} wrap="truncate-end">
+            {line}
+          </Text>
+        ))
       const copyText = entry.kind === 'question' ? questionText(entry.questions ?? []) : command
       return (
         <Box key={`own:${entry.id}`} flexDirection="column" marginTop={1}>
@@ -770,14 +849,19 @@ export const register: Register = on => {
             <Box flexDirection="column">
               <Text wrap="wrap">
                 {run.status === 'running'
-                  ? `running in ${where}: ${command ?? ''}`
+                  ? 'running:'
                   : run.status === 'done'
-                    ? `ran in ${where}: ${command ?? ''}  exit ${run.exitCode ?? '?'}`
-                    : `could not run in ${where}: ${command ?? ''}`}
+                    ? `ran, exit ${run.exitCode ?? '?'}:`
+                    : 'could not run:'}
               </Text>
-              <Text dimColor wrap="wrap">
-                {run.argv !== undefined ? argvText(run.argv) : 'argv: none, nothing ran'}
-              </Text>
+              {run.argv !== undefined ? (
+                <Box flexDirection="column">
+                  {rows('rfolder', labelledRows('folder: ', where))}
+                  {rows('rargv', argvRows(run.argv))}
+                </Box>
+              ) : (
+                <Text dimColor>argv: none, nothing ran</Text>
+              )}
               {run.tail !== undefined && run.tail !== '' && <Text dimColor wrap="wrap">{run.tail}</Text>}
             </Box>
           )}
@@ -785,23 +869,22 @@ export const register: Register = on => {
             <Box flexDirection="column">
               <Text color="yellow" wrap="wrap">
                 {entry.armedArgv !== undefined
-                  ? `Run now runs this in ${where}:`
+                  ? 'Run now runs this:'
                   : `Run now runs nothing: ${entry.armedError ?? 'no shell was found'}`}
               </Text>
-              {entry.armedArgv !== undefined && <Text wrap="wrap">{argvText(entry.armedArgv)}</Text>}
+              {entry.armedArgv !== undefined && (
+                <Box flexDirection="column">
+                  {rows('folder', labelledRows('folder: ', where))}
+                  {rows('argv', argvRows(entry.armedArgv))}
+                </Box>
+              )}
               <Text dimColor wrap="wrap">
                 {`Run now ignores a press within ${ARM_GAP_MS} ms of the last press, so one double press cannot run it.`}
               </Text>
             </Box>
           )}
-          {entry.kind === 'refused' && entry.command !== undefined && !canRun && run?.status !== 'running' && (
-            <Text dimColor>
-              {entry.isRunnable !== true
-                ? (entry.copyOnly ?? 'Copy only: its folder is not known.')
-                : !isAbsolutePath(entry.cwd)
-                  ? 'Copy only: the session folder is not known as a full path.'
-                  : 'Copy only: the command holds characters the screen cannot show.'}
-            </Text>
+          {entry.kind === 'refused' && entry.command !== undefined && block !== undefined && run?.status !== 'running' && (
+            <Text dimColor wrap="wrap">{block}</Text>
           )}
           <Box>
             {canRun && !isArmed && (
