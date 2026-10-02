@@ -238,7 +238,7 @@ pane sees the Dismiss, and it does not bring it back.
 
 | Entry | Buttons |
 |---|---|
-| A refused command this session's main loop raised | Run, Copy, Dismiss |
+| A refused command this session's main loop raised, in a folder known as a full path | Run, Copy, Dismiss |
 | A refused command a subagent raised | Copy and Dismiss. The subagent's folder is not known. |
 | Anything read from another session's file | Copy and Dismiss. Never Run. |
 | A question | Copy and Dismiss |
@@ -246,8 +246,9 @@ pane sees the Dismiss, and it does not bring it back.
 Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
 after 60 seconds, and two quick presses run the command once.
 
-**`Run now` ignores a press that comes less than 600 ms after the arming press.** So a double click
-or a repeated Enter cannot arm and run in one gesture. The arm stays, and the pane says so.
+**`Run now` ignores a press that comes less than 600 ms after the last press.** Each ignored press
+starts the 600 ms again, so a double click, a held Enter or a run of clicks cannot reach the command.
+The arm stays, and the pane and a toast both say so.
 
 The command comes from the session's own state at the moment of the press. It never comes from the
 screen or the disk. A command or folder holding a character the screen strips is Copy only, so what
@@ -257,14 +258,21 @@ Run needs the folder the session was in, as a full path. Where the session could
 folder, or reported an empty or relative one, the entry is Copy only. Otherwise the command would run
 in whatever folder the Claude Code process happens to be in.
 
+On Windows only a drive path counts. A share path such as `\\server\share` is Copy only everywhere.
+
 The arming press works out the exact command line, and the pane shows every argv element before
 `Run now`. The result shows it again. `Run now` works it out once more and runs nothing if it
 changed, for example when `pwsh.exe` was removed in between.
 
+Each element starts a line with its index. A newline inside one continues on a line that starts with
+`  | `, so a command cannot draw a fake element.
+
 PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Where
 `<ProgramFiles>\PowerShell\7\pwsh.exe` exists, it runs that, and the pane shows the full path as
-`argv[0]`. Otherwise the process runner looks `pwsh` up on `PATH`, and the pane shows
-`argv[0]: pwsh (from PATH)`.
+`argv[0]`. Otherwise it runs a bare `pwsh`, and the process runner finds it by name.
+
+**A bare `pwsh` is not always the one on `PATH`.** On Windows the lookup can try the run folder
+first, so the pane shows `argv[0]: pwsh (by name: PATH, and on Windows the run folder first)`.
 
 Bash runs through Git Bash by its full path, and the pane shows that path as `argv[0]`. It never runs
 as a bare `bash`, which on Windows can be WSL. Where no Git Bash is found, the pane says `Run now`
@@ -307,6 +315,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 31 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 36 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

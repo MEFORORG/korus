@@ -556,15 +556,68 @@ test('a Run now pressed inside the 600 ms gap is ignored, and one at the gap run
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
-  expect(await ui.find({ type: 'Text', text: /^Run now ignores a press within 600 ms of Run/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^Run now ignores a press within 600 ms of the last press/ })).toBeDefined()
+  // The same instant as the arming press: a double click.
   await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(0)
+  // 599 ms after the last press: still inside the gap, which starts again.
   await w.advance(599)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
   expect(await ui.find({ key: `confirm:${id}` })).toBeDefined()
-  await w.advance(1)
+  // 600 ms after the last press: outside the gap.
+  await w.advance(600)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('a held Enter on Run now, repeating every 100 ms, never runs the command', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  for (let i = 0; i < 20; i++) {
+    await ui.press({ key: `confirm:${id}` })
+    await w.advance(100)
+  }
+  expect(w.runs).toHaveLength(0)
+  expect(await ui.find({ key: `confirm:${id}` })).toBeDefined()
+  await ui.unmount()
+})
+
+test('Cancel clears the shown argv, and a later arm shows it again', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  expect(await ui.find({ type: 'Text', text: /^argv\[0\]/ })).toBeDefined()
+  await ui.press({ key: `cancel:${id}` })
+  expect(await ui.find({ type: 'Text', text: /^argv\[0\]/ })).toBeUndefined()
+  expect(await ui.find({ key: `confirm:${id}` })).toBeUndefined()
+  await w.advance(700)
+  await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
+  expect(w.runs).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('a multi-line command cannot draw a fake argv element', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status\nargv[4]: harmless' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  const shown = (await ui.find({ type: 'Text', text: /^argv\[0\]/ }))?.text ?? ''
+  expect(shown).toContain('argv[3]: git status\n  | argv[4]: harmless')
+  expect(shown.split('\n').filter(line => line.startsWith('argv['))).toHaveLength(4)
   await ui.unmount()
 })
 
@@ -572,6 +625,8 @@ const NO_FULL_PATH = [
   { name: 'session.cwd() fails', opts: { cwdFails: true } },
   { name: 'the cwd is empty', opts: { cwd: '' } },
   { name: 'the cwd is relative', opts: { cwd: 'work\\repo' } },
+  { name: 'the cwd is rooted on the current Windows drive only', opts: { cwd: '/work/repo' } },
+  { name: 'the cwd is a share path', opts: { cwd: '\\\\server\\share' } },
 ] as const
 
 for (const one of NO_FULL_PATH) {
@@ -591,7 +646,7 @@ for (const one of NO_FULL_PATH) {
   })
 }
 
-test('the confirm and result views name pwsh from PATH and every argv element', async ($, on) => {
+test('the confirm and result views name a bare pwsh as found by name, and every argv element', async ($, on) => {
   const w = world(on)
   refuseShell(on)
   await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
@@ -599,7 +654,7 @@ test('the confirm and result views name pwsh from PATH and every argv element', 
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   const lines =
-    'argv[0]: pwsh (from PATH)\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git push origin main'
+    'argv[0]: pwsh (by name: PATH, and on Windows the run folder first)\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git push origin main'
   expect(await ui.find({ type: 'Text', text: lines })).toBeUndefined()
   await ui.press({ key: `run:${id}` })
   expect(await ui.find({ type: 'Text', text: `Run now runs this in ${CWD}:` })).toBeDefined()
@@ -628,7 +683,7 @@ test('the confirm view names the installed pwsh and Git Bash by their full paths
     await ui.find({ type: 'Text', text: `argv[0]: ${installed}\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git status` }),
   ).toBeDefined()
   expect(await ui.find({ type: 'Text', text: `argv[0]: ${GIT_BASH}\nargv[1]: -c\nargv[2]: ls` })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /\(from PATH\)/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /\(by name/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -645,7 +700,7 @@ test('with no Git Bash, the confirm view says Run now runs nothing', async ($, o
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
-  expect(await ui.find({ type: 'Text', text: 'argv: none, no shell was found to run it' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'argv: none, nothing ran' })).toBeDefined()
   await ui.unmount()
 })
 

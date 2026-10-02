@@ -33,9 +33,11 @@ export type InboxEntry = {
   withheld?: string
   cwd?: string
   refusal?: string
-  /** True for a main-loop refusal; a subagent's folder is not known, so it is Copy only. */
+  /** True for a main-loop refusal in a folder known as a full path; anything else is Copy only. */
   isRunnable?: boolean
-  /** When the owner pressed Run; Run now is offered for a minute after it, and ignores a press in the first 600 ms. */
+  /** Why a refusal is Copy only, worked out when it was recorded. */
+  copyOnly?: string
+  /** When the owner pressed Run; Run now is offered for a minute after it, and ignores a press within 600 ms of the last one. */
   armedAt?: number
   /** The argv the arming press resolved, shown before Run now and checked again at it. */
   armedArgv?: string[]

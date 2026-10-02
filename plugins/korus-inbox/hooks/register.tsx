@@ -400,20 +400,36 @@ function captureCommand(command: string): { command?: string; withheld?: string 
 // Run happens only in a folder known as a full path. A failed $.session.cwd()
 // records an empty one, and an empty or relative cwd would run the command in
 // whatever folder the host process happens to be in.
-function isAbsolutePath(path: string | undefined): path is string {
-  return path !== undefined && (/^[A-Za-z]:[\\/]/.test(path) || path.startsWith('/'))
+// On Windows only a drive path counts: `/x` there is relative to the current
+// drive. A `//` or `\\` share path is refused everywhere.
+function isAbsolutePath(path: string | undefined, isWindows?: boolean): path is string {
+  if (path === undefined) return false
+  if (/^[A-Za-z]:[\\/]/.test(path)) return true
+  return isWindows !== true && path.startsWith('/') && !path.startsWith('//')
 }
 
-// argv[0] as the owner reads it: a bare name is looked up on PATH by the
-// process runner, so the screen says so rather than implying a known file.
+async function onWindows($: Engine): Promise<boolean> {
+  return (await $.env.get('ProgramFiles')) !== undefined || (await folder($))?.sep === '\\'
+}
+
+// argv[0] as the owner reads it. A bare name is looked up by the process
+// runner, and on Windows that lookup can try the run folder before PATH, so
+// the screen says so rather than implying a known file.
 function binaryText(binary: string): string {
-  return /[\\/]/.test(binary) ? binary : `${binary} (from PATH)`
+  return /[\\/]/.test(binary) ? binary : `${binary} (by name: PATH, and on Windows the run folder first)`
 }
 
-// Every argv element on its own line, so what runs is what the owner read.
+// Every argv element starts a line with its index. A newline inside one
+// continues on a line marked `  | `, so a command cannot draw a fake element.
 function argvText(argv: readonly string[]): string {
-  return argv.map((part, index) => `argv[${index}]: ${index === 0 ? binaryText(part) : part}`).join('\n')
+  return argv
+    .map((part, index) => `argv[${index}]: ${(index === 0 ? binaryText(part) : part).split('\n').join('\n  | ')}`)
+    .join('\n')
 }
+
+// Bumped by every Run and Cancel press, so an arming press that finishes
+// after a later press, or after a claim, writes nothing.
+const armSeq = new Map<string, number>()
 
 function sameArgv(a: readonly string[] | undefined, b: readonly string[]): boolean {
   return a !== undefined && a.length === b.length && a.every((part, index) => part === b[index])
@@ -453,12 +469,13 @@ async function runOwn($: Engine, id: string): Promise<void> {
   // The check and the claim are one write, so two quick presses run it once.
   const startedAt = await $.clock.now()
   let claimed: InboxEntry | undefined
+  let isIgnored = false
   await update($, own, list => {
     claimed = undefined
+    isIgnored = false
     return list.map(one => {
-      // A confirm inside the gap is ignored, not spent: the arm stays.
-      const isFresh =
-        one.armedAt !== undefined && startedAt - one.armedAt >= ARM_GAP_MS && startedAt - one.armedAt < ARM_MS
+      const isArmed = one.armedAt !== undefined && startedAt - one.armedAt < ARM_MS
+      const isFresh = isArmed && one.armedAt !== undefined && startedAt - one.armedAt >= ARM_GAP_MS
       const isRunnable =
         one.id === id &&
         one.kind === 'refused' &&
@@ -467,17 +484,31 @@ async function runOwn($: Engine, id: string): Promise<void> {
         one.command !== undefined &&
         clean(one.command, MAX_COMMAND) === one.command &&
         one.run?.status !== 'running'
-      if (!isRunnable || !isFresh) return one
+      if (!isRunnable || !isArmed) return one
+      // A confirm inside the gap is ignored, not spent, and it starts the gap
+      // again: a held Enter or a run of clicks never reaches the command.
+      if (!isFresh) {
+        isIgnored = true
+        return { ...one, armedAt: startedAt }
+      }
       claimed = one
       const run: InboxRun = { status: 'running', startedAt, argv: one.armedArgv }
       return { ...one, armedAt: undefined, armedArgv: undefined, armedError: undefined, run }
     })
   })
+  if (isIgnored) {
+    $.ui.toast(`Run now ignored: wait ${ARM_GAP_MS} ms after the last press, then press it once.`)
+    return
+  }
   const entry: InboxEntry | undefined = claimed
-  if (entry === undefined || entry.command === undefined || !isAbsolutePath(entry.cwd)) return
+  if (entry === undefined) return
+  armSeq.set(id, (armSeq.get(id) ?? 0) + 1)
   const shown = entry.armedArgv
   let result: InboxRun
   try {
+    // The claim checked all of these. They are checked again here so that a
+    // miss records a failure rather than leaving the entry stuck running.
+    if (entry.command === undefined || !isAbsolutePath(entry.cwd)) throw new Error('not runnable; press Run again')
     if (shown === undefined) throw new Error(entry.armedError ?? 'no command line was shown; press Run again')
     // Resolved again at the press, and run only if it matches what the confirm
     // view showed: a pwsh.exe removed in between must not quietly become PATH.
@@ -511,11 +542,15 @@ async function runOwn($: Engine, id: string): Promise<void> {
 // argv before the second press. A shell that cannot be found arms with the
 // reason instead, and Run now then records that failure and runs nothing.
 async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
+  const seq = (armSeq.get(id) ?? 0) + 1
+  armSeq.set(id, seq)
   let armedArgv: string[] | undefined
   let armedError: string | undefined
+  let runBefore: number | undefined
   if (isArmed) {
     const entry = (await read($, own)).find(one => one.id === id)
-    if (entry?.command === undefined) return
+    if (entry?.command === undefined || entry.run?.status === 'running') return
+    runBefore = entry.run?.startedAt
     try {
       const argv = await shellArgv($, entry.shell, entry.command)
       if (argv.some(part => clean(part, MAX_COMMAND) !== part)) {
@@ -529,7 +564,13 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
   // Stamped after the binary is resolved, which is when Run now first shows.
   const now = await $.clock.now()
   await update($, own, list =>
-    list.map(one => (one.id === id ? { ...one, armedAt: isArmed ? now : undefined, armedArgv, armedError } : one)),
+    list.map(one => {
+      if (one.id !== id) return one
+      // A later Run or Cancel press, or a run that started meanwhile, wins.
+      const isStale = armSeq.get(id) !== seq || (isArmed && one.run?.startedAt !== runBefore)
+      if (isStale) return one
+      return { ...one, armedAt: isArmed ? now : undefined, armedArgv, armedError }
+    }),
   )
   // Redraw once the arming lapses, so a stale Run now is not left on screen.
   if (isArmed) $.clock.after(ARM_MS + 50, () => $.ui.invalidate('ui.render'))
@@ -639,9 +680,8 @@ export const register: Register = on => {
     const isMainLoop = e.agentId === undefined
     const cwd = await $.session.cwd().catch(() => '')
     // Run happens in the folder the owner reads; a folder the screen would
-    // show altered (cut, or with characters stripped) is Copy only, and so is
-    // one not known as a full path.
-    const isCwdShown = clean(cwd, 500) === cwd && isAbsolutePath(cwd)
+    // show altered (cut, or with characters stripped) is Copy only.
+    const isCwdShown = clean(cwd, 500) === cwd
     let denied: string | undefined
     let ran: Awaited<ReturnType<typeof next>>
     try {
@@ -655,6 +695,16 @@ export const register: Register = on => {
       const isRefused = ran.isError === true && (denied !== undefined || HOOK_REFUSAL.test(ran.text ?? ''))
       if (isRefused) {
         const line = firstLine(denied ?? ran.text ?? '')
+        // So is a folder not known as a full path; unsure of the platform,
+        // the Windows rule, the stricter one, applies.
+        const isFullPath = isAbsolutePath(cwd, await onWindows($).catch(() => true))
+        const copyOnly = !isMainLoop
+          ? 'Copy only: a subagent raised it, and its folder is not known.'
+          : !isFullPath
+            ? 'Copy only: the session folder is not known as a full path.'
+            : !isCwdShown
+              ? 'Copy only: its folder holds characters the screen cannot show.'
+              : undefined
         await addOwn($, {
           id: crypto.randomUUID(),
           kind: 'refused',
@@ -663,7 +713,8 @@ export const register: Register = on => {
           shell,
           ...captureCommand(command),
           cwd: clean(cwd, 500),
-          isRunnable: isMainLoop && isCwdShown,
+          isRunnable: copyOnly === undefined,
+          copyOnly,
           refusal: looksSecret(line) ? REFUSAL_SECRET : line,
         })
       }
@@ -721,7 +772,7 @@ export const register: Register = on => {
                     : `could not run in ${where}: ${command ?? ''}`}
               </Text>
               <Text dimColor wrap="wrap">
-                {run.argv !== undefined ? argvText(run.argv) : 'argv: none, no shell was found to run it'}
+                {run.argv !== undefined ? argvText(run.argv) : 'argv: none, nothing ran'}
               </Text>
               {run.tail !== undefined && run.tail !== '' && <Text dimColor wrap="wrap">{run.tail}</Text>}
             </Box>
@@ -734,18 +785,18 @@ export const register: Register = on => {
                   : `Run now runs nothing: ${entry.armedError ?? 'no shell was found'}`}
               </Text>
               {entry.armedArgv !== undefined && <Text wrap="wrap">{argvText(entry.armedArgv)}</Text>}
-              <Text dimColor>{`Run now ignores a press within ${ARM_GAP_MS} ms of Run, so one double press cannot run it.`}</Text>
+              <Text dimColor wrap="wrap">
+                {`Run now ignores a press within ${ARM_GAP_MS} ms of the last press, so one double press cannot run it.`}
+              </Text>
             </Box>
           )}
           {entry.kind === 'refused' && entry.command !== undefined && !canRun && run?.status !== 'running' && (
             <Text dimColor>
-              {entry.isRunnable !== true || !isAbsolutePath(entry.cwd)
-                ? entry.agentId !== undefined
-                  ? 'Copy only: a subagent raised it, and its folder is not known.'
-                  : !isAbsolutePath(entry.cwd)
-                    ? 'Copy only: the session folder is not known as a full path.'
-                    : 'Copy only: its folder holds characters the screen cannot show.'
-                : 'Copy only: the command holds characters the screen cannot show.'}
+              {entry.isRunnable !== true
+                ? (entry.copyOnly ?? 'Copy only: its folder is not known.')
+                : !isAbsolutePath(entry.cwd)
+                  ? 'Copy only: the session folder is not known as a full path.'
+                  : 'Copy only: the command holds characters the screen cannot show.'}
             </Text>
           )}
           <Box>
