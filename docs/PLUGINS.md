@@ -305,6 +305,11 @@ The call returns an entry id straight away and does not wait for the owner. When
 without the owner, `owner_action_done` takes that `id` and an optional one-line `note`. The entry
 moves to Done.
 
+Only the loop that filed it can resolve it: a subagent cannot resolve the main loop's entry.
+
+The tool's input and the engine's own fields arrive in one record. So any `agentId` the input
+carries, `null` included, reads as a subagent, and the entry is Copy only.
+
 ### Done entries collapse into one section
 
 An entry is done once a Run of it exits 0, or it resolved without one. Done entries leave the count
@@ -314,6 +319,9 @@ Dismiss removes it.
 A refused entry resolves itself when a later call succeeds with the same part. The call must come
 from this session's main loop, in the same folder, and the part must run as a whole, plain subcommand.
 A copy of the part inside a quoted string or a comment resolves nothing.
+
+The call's success must be the part's own. So the part must end the call, after nothing but `&&`.
+A later `|| true`, `;` or pipe could hide its failure, and an earlier `cd` could move it.
 
 A Run that exits non-zero leaves the entry waiting, with the output's last lines.
 
@@ -378,12 +386,21 @@ verbatim, as a whole subcommand the shell reads plainly.
 With no blocked part, the headline is the command's first line and Copy takes the whole line. Run is
 not offered, and the card says why.
 
-An earlier part of the line can change the folder, the environment or the control flow. `cd`,
-`Set-Location`, `export`, `$env:`, an assignment, `if` and `exit` are examples. Then the part alone
-could act somewhere else, so the card is Copy only and says why.
+An earlier part of the line can change what the part does alone. Then the card is Copy only and
+says why:
 
-For a signal, Run acts on the filed command. Text the confirm view draws, such as `argv[` or
-`Run now`, anywhere in the signal's filed fields makes it Copy only.
+| The earlier part | For example |
+|---|---|
+| Changes the folder or the environment | `cd`, `Set-Location`, `export`, `$env:`, `source` |
+| Sets a variable | An assignment, `$x += 1`, `Set-Variable`, `-OutVariable`, `read`, `printf -v` |
+| Guards it | Any `\|\|`, a test before `&&` such as `test`, `[` or `Test-Path`, or `if` |
+| Ends the run | `exit`, `return`, `throw` |
+
+A part that reads a variable, with `$`, is Copy only after any earlier part. A part after a plain
+`&&` chain keeps Run. The earlier parts do not run, and the card says Run uses only the part.
+
+For a signal, Run acts on the filed command. Any label below, such as `argv[` or `Run now`,
+anywhere in the signal's filed fields makes it Copy only.
 
 Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
 after 60 seconds, and two quick presses run the command once.
@@ -454,7 +471,8 @@ The text Run would execute is Copy only, with the reason on screen, when any of 
 | Holds a character the screen strips | What runs would not be what the owner read. |
 
 The labels are `argv[`, `folder:`, `out:`, `error:`, `bash:`, `shell:` and `line 2:`, and the card's
-`blocked:`, `why:`, `from:`, `command:`, `do this:` and `for you:`. Case does not matter.
+`blocked:`, `why:`, `from:`, `command:`, `do this:` and `for you:`. A Run's own headers count too:
+`running:`, `ran, exit`, `could not run:`, `done:` and `run now`. Case does not matter.
 
 The folder must pass the same rules, on one line. The pane, the Run press and the `Run now` press
 all ask one check, so they always agree. Copy still works for every one of these, and it puts the
@@ -472,9 +490,11 @@ The check looks for a token, a password, a key, a URL credential or a long rando
 or filed command that matches is stored as a placeholder: `command withheld: it looked like it
 carried a secret`. That entry offers no Run and no Copy. The check errs toward withholding.
 
-A refusal's text gets the same check. Question text, a refusal's `ask` and a signal's fields get a
-narrower check, on value shapes such as `password=...` only. In prose, words like "token" and "key"
-are ordinary.
+A refusal's text gets the same check. Question text and a signal's fields get a narrower check, on
+value shapes such as `password=...` only. In prose, words like "token" and "key" are ordinary.
+
+A refusal's `ask` gets both checks, when it is recorded and when it is read from disk. It is a
+sentence of the refusal, so it can carry what the refusal carried.
 
 ### Ended files pile up, and inbox-prune clears them
 
@@ -498,6 +518,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 155 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 177 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

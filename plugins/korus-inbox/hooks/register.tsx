@@ -308,11 +308,16 @@ function isPlain(text: string, shell: Shell): boolean {
   return quote === ''
 }
 
+// How many places in the command one search tries. Each try reads the text
+// before it, so an unbounded search over a crafted line from another
+// session's file could stall the pane. A real line repeats its part rarely.
+const MAX_TRIES = 16
+
 // Where the part sits in the command as a plain, whole subcommand, or -1.
 function locatePart(command: string, part: string, shell: Shell): number {
   if (!isPlain(part, shell)) return -1
   let from = 0
-  for (;;) {
+  for (let tries = 0; tries < MAX_TRIES; tries++) {
     const at = command.indexOf(part, from)
     if (at < 0) return -1
     const before = command.slice(0, at)
@@ -320,6 +325,13 @@ function locatePart(command: string, part: string, shell: Shell): number {
     if (!isPiped && BEFORE_OK.test(before) && AFTER_OK.test(command.slice(at + part.length)) && isPlain(before, shell)) return at
     from = at + 1
   }
+  return -1
+}
+
+// The separators a plain text uses outside its quotes. Only for text isPlain
+// accepted, where every quote closes and nothing escapes one.
+function separatorsOf(text: string): string[] {
+  return text.replace(/'[^']*'|"[^"]*"/g, '').match(/&&|\|\||[;|\n]/g) ?? []
 }
 
 // The exact subcommand the refusal quotes, or undefined when the first quoted
@@ -333,15 +345,18 @@ function blockedPart(command: string | undefined, refusal: string | undefined, s
 }
 
 // Words in the earlier parts of the line that can change the folder, the
-// environment or the control flow the part ran under, so the part alone could
-// act somewhere else than it would have. Matched anywhere, quotes included:
-// a false match costs a Run, a missed one runs in the wrong place.
+// environment, a variable or the control flow the part ran under, so the part
+// alone could act somewhere else than it would have. Matched anywhere, quotes
+// included: a false match costs a Run, a missed one runs in the wrong place.
+// A test before `&&`, and any `||`, is a guard: alone, the part runs unguarded.
 const CONTEXT_CHANGE =
-  /(^|[^\w$-])(cd|chdir|pushd|popd|set-location|push-location|pop-location|sl|export|source|set|setx|unset|env|builtin|command|exec|eval|alias|function|if|then|else|elif|do|while|until|for|foreach|case|trap|exit|return|break|continue|throw)(?![\w-])|\$env:|\$[^\s;|&=]*\s*=(?!=)|(^|[;&|\n])\s*\.(?=\s)|(^|[;&|\n\s])[A-Za-z_]\w*=/i
+  /(^|[^\w$-])(cd|chdir|pushd|popd|set-location|push-location|pop-location|sl|export|source|set|setx|unset|env|builtin|command|exec|eval|alias|function|if|then|else|elif|do|while|until|for|foreach|case|trap|exit|return|break|continue|throw|set-variable|sv|new-variable|nv|set-item|si|new-item|ni|read|mapfile|readarray|declare|typeset|local|let|test|test-path)(?![\w-])|-(out|error|pipeline|warning|information)variable\b|-(ov|ev|pv|wv|iv)(?![\w-])|\bprintf\s+-v\b|(^|[\s;&|])\[\[?\s|\|\||\$env:|\$[^\s;|&=]*\s*[-+*/%.?]*=(?!=)|(^|[;&|\n])\s*\.(?=\s)|(^|[;&|\n\s])[A-Za-z_]\w*=/i
 
+// Alone, the part could also read a variable an earlier part set in a way no
+// word above names, so a part that reads one runs only at the line's start.
 function changesContext(command: string, part: string, shell: Shell): boolean {
   const at = locatePart(command, part, shell)
-  return at > 0 && CONTEXT_CHANGE.test(command.slice(0, at))
+  return at > 0 && (CONTEXT_CHANGE.test(command.slice(0, at)) || part.includes('$'))
 }
 
 // ---------------------------------------------------------- the shared folder
@@ -542,7 +557,8 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
     if (refusal !== undefined && looksSecret(refusal)) refusal = REFUSAL_SECRET
     let detail = typeof e.detail === 'string' ? clean(e.detail, MAX_DETAIL_SHARED) : undefined
     if (detail !== undefined && looksSecret(detail)) detail = REFUSAL_SECRET
-    const ask = prose(e.ask, 300)
+    const askText = prose(e.ask, 300)
+    const ask = askText !== undefined && looksSecret(askText) ? QUESTION_SECRET : askText
     if (e.kind === 'refused' && (ask === undefined || (ask !== QUESTION_SECRET && handover(ask) === undefined))) return []
     return [
       {
@@ -647,9 +663,14 @@ async function addOwn($: Engine, entry: InboxEntry): Promise<void> {
   // Done entries go first when the list is full, so a waiting one is kept.
   await update($, own, list => {
     const next = [...list.filter(one => one.id !== entry.id), entry]
+    // A running or armed entry is never the one dropped, so a Run's result
+    // always has its entry to land on.
+    const isBusy = (one: InboxEntry): boolean => one.run?.status === 'running' || one.armedAt !== undefined
     while (next.length > MAX_ENTRIES) {
-      const doneAt = next.findIndex(isDone)
-      next.splice(doneAt >= 0 ? doneAt : 0, 1)
+      const doneAt = next.findIndex(one => isDone(one) && !isBusy(one))
+      const at = doneAt >= 0 ? doneAt : next.findIndex(one => !isBusy(one))
+      if (at < 0) break
+      next.splice(at, 1)
     }
     return next
   })
@@ -677,6 +698,16 @@ async function resolveBySuccess($: Engine, command: string, shell: Shell, cwd: s
   const mine = await read($, own)
   const target = (one: InboxEntry): string | undefined =>
     one.kind === 'refused' ? (blockedPart(one.command, one.detail, one.shell) ?? one.command) : undefined
+  // The call's success is the part's only when nothing after the part sets
+  // the exit status, and nothing before it could change where it ran or skip
+  // it: the part ends the line, after `&&` alone.
+  const ranFine = (text: string): boolean => {
+    if (command === text) return true
+    const at = locatePart(command, text, shell)
+    if (at < 0 || command.slice(at + text.length).trim() !== '') return false
+    const before = command.slice(0, at)
+    return separatorsOf(before).every(one => one === '&&') && !CONTEXT_CHANGE.test(before)
+  }
   const matches = (one: InboxEntry): boolean => {
     const text = target(one)
     return (
@@ -684,7 +715,7 @@ async function resolveBySuccess($: Engine, command: string, shell: Shell, cwd: s
       one.run?.status !== 'running' &&
       one.cwd === clean(cwd, 500) &&
       text !== undefined &&
-      (command === text || locatePart(command, text, shell) >= 0)
+      ranFine(text)
     )
   }
   if (!mine.some(matches)) return
@@ -738,8 +769,9 @@ function binaryText(binary: string): string {
 // wraps now, so this guards the rows' columns, not their starts.
 // LABEL_LIKE: any label the views and the card draw: `argv[`, `folder:`,
 // `line 2:`, `out:`, `error:`, a shell name and colon, and the card's own
-// Blocked, Why, From, Command, Do this and For you. The cut falls at the same
-// place on every pane, so a command could put `argv[4]: x` at the start of a
+// Blocked, Why, From, Command, Do this and For you, and a Run's own result
+// headers: running, ran, exit N, could not run, Done and Run now. The cut
+// falls at the same place on every pane, so a command could put `argv[4]: x` at the start of a
 // `  + ` row and have it read as a new row. Text holding a label is Copy only.
 // Each is matched anywhere, since the cut can fall right before it: so
 // `stdout:` is Copy only too, while a bare `sys.argv` with no `[` still runs.
@@ -754,7 +786,8 @@ const MAX_RUN_LINES = 6
 const SPACE_RUN = /[^\S\n]{4,}/
 const RUN_ASCII = /^[\x20-\x7e\n]*$/
 const TRAILING_SPACE = / (\n|$)/
-const LABEL_LIKE = /argv\s*\[|(folder|out|error|bash|shell|blocked|why|from|command|do this|for you)\s*:|line\s*\d+\s*:/i
+const LABEL_LIKE =
+  /argv\s*\[|(folder|out|error|bash|shell|blocked|why|from|command|do this|for you|running|could not run|done)\s*:|line\s*\d+\s*:|ran,\s*exit|run now/i
 const RUN_COLUMNS = 12 + RUN_CHUNK
 
 type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing' | 'label'
@@ -816,7 +849,7 @@ function runBlock(entry: InboxEntry): string | undefined {
   const folderProblem = showProblem(entry.cwd, 1)
   if (folderProblem !== undefined) return FOLDER_PROBLEM[folderProblem]
   const filed = [entry.title, entry.why, entry.recommendedAction, entry.confidence, entry.reviewOutcome]
-  if (entry.kind === 'signal' && filed.some(one => one !== undefined && (LABEL_LIKE.test(one) || /run now/i.test(one)))) {
+  if (entry.kind === 'signal' && filed.some(one => one !== undefined && LABEL_LIKE.test(one))) {
     return 'Copy only: its filed text holds a label the confirm view draws, such as `argv[` or `Run now`.'
   }
   if (entry.kind === 'refused' && changesContext(entry.command, text, entry.shell)) {
@@ -873,8 +906,7 @@ async function shellArgv($: Engine, shell: InboxEntry['shell'], command: string)
     // Program Files only: the user can write under LOCALAPPDATA, so a path
     // there could be a planted binary that looks legitimate on the confirm view.
     const programFiles = await $.env.get('ProgramFiles')
-    const isWindows = programFiles !== undefined || (await folder($))?.sep === '\\'
-    if (!isWindows) return ['pwsh', '-NoProfile', '-Command', command]
+    if (!(await onWindows($))) return ['pwsh', '-NoProfile', '-Command', command]
     const places = [programFiles !== undefined ? `${programFiles}\\PowerShell\\7\\pwsh.exe` : undefined]
     for (const place of places) {
       if (place !== undefined && (await $.fs.exists(place).catch(() => false))) return [place, '-NoProfile', '-Command', command]
@@ -885,7 +917,7 @@ async function shellArgv($: Engine, shell: InboxEntry['shell'], command: string)
   // resolve to WSL's System32\bash.exe, not the Git Bash the Bash tool runs.
   // Where no known path exists, Run fails and says so; Copy still works.
   const programFiles = await $.env.get('ProgramFiles')
-  const isWindows = programFiles !== undefined || (await folder($))?.sep === '\\'
+  const isWindows = await onWindows($)
   const places = isWindows
     ? [GIT_BASH, programFiles !== undefined ? `${programFiles}\\Git\\bin\\bash.exe` : undefined]
     : ['/bin/bash', '/usr/bin/bash']
@@ -1363,7 +1395,10 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     if (e.tool === toolNames.action || e.tool === toolNames.done) {
       const input = e as unknown as Record<string, unknown>
-      const agentId = typeof input.agentId === 'string' ? input.agentId : undefined
+      // The tool's input and the engine's own fields share this record. Only
+      // an absent agentId is the main loop: any value the input could carry,
+      // null included, reads as a subagent, which is Copy only.
+      const agentId = input.agentId === undefined ? undefined : typeof input.agentId === 'string' ? input.agentId : 'unknown'
       if (e.tool === toolNames.action) {
         const filed = await fileSignal($, input, agentId)
         if (filed.entry === undefined) return { deny: filed.refusal ?? NEEDS_RULE }
@@ -1374,7 +1409,7 @@ export const register: Register = on => {
       const id = typeof input.id === 'string' ? input.id : ''
       const note = prose(input.note, 200)
       const mine = await read($, own)
-      const target = mine.find(one => one.id === id && one.kind === 'signal')
+      const target = mine.find(one => one.id === id && one.kind === 'signal' && one.agentId === agentId)
       if (target === undefined) return { deny: `No ${ACTION_TOOL} entry of this session has the id ${clean(id, 100)}.` }
       const now = await $.clock.now()
       await update($, own, list =>
@@ -1460,7 +1495,9 @@ export const register: Register = on => {
             copyOnly,
             refusal: looksSecret(line) ? REFUSAL_SECRET : line,
             detail: looksSecret(detail) ? REFUSAL_SECRET : detail,
-            ask: questionLooksSecret(ask) ? QUESTION_SECRET : ask,
+            // The ask is a sentence of the refusal, so the refusal's own secret
+            // check applies to it too, before it reaches the shared file.
+            ask: looksSecret(ask) || questionLooksSecret(ask) ? QUESTION_SECRET : ask,
             viaOutput: denied === undefined,
           })
         }

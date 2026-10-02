@@ -1734,3 +1734,133 @@ test('a refused entry an earlier version kept, with no ask, is deleted at load',
   expect(mine(w).entries.map(one => one.id)).not.toContain('legacy-1')
   await ui.unmount()
 })
+
+// ----------------------------------------- review round 1: what Run may skip
+
+const GUARDED = [
+  { name: 'printf -v setting a variable', shell: 'Bash', command: 'printf -v d /tmp/build; rm -rf $d/x', part: 'rm -rf $d/x' },
+  { name: 'read setting a variable', shell: 'Bash', command: 'read d; git push', part: 'git push' },
+  { name: 'Set-Variable', shell: 'PowerShell', command: 'Set-Variable d C:\\proj\\out; Remove-Item -Recurse -Force C:\\proj\\out', part: 'Remove-Item -Recurse -Force C:\\proj\\out' },
+  { name: '-OutVariable', shell: 'PowerShell', command: 'Get-ChildItem -OutVariable d; git push', part: 'git push' },
+  { name: 'a compound assignment', shell: 'PowerShell', command: '$x += 1; git push', part: 'git push' },
+  { name: 'a guard joined by ||', shell: 'Bash', command: 'git diff --quiet || git commit -am wip', part: 'git commit -am wip' },
+  { name: 'a test joined by &&', shell: 'Bash', command: 'test -f lock && rm -rf build', part: 'rm -rf build' },
+  { name: 'a bracket test joined by &&', shell: 'Bash', command: '[ -f lock ] && rm -rf build', part: 'rm -rf build' },
+  { name: 'Test-Path joined by &&', shell: 'PowerShell', command: 'Test-Path lock && Remove-Item build', part: 'Remove-Item build' },
+  { name: 'a variable read after an earlier part', shell: 'Bash', command: 'git fetch; rm -rf $d/x', part: 'rm -rf $d/x' },
+] as const
+
+for (const one of GUARDED) {
+  test(`a part after ${one.name} gets no Run`, async ($, on) => {
+    const w = world(on)
+    refuseAll(on, `BLOCKED: '${one.part}' needs the person. Do it from a PLAIN terminal.`)
+    await $.tool.call({ tool: one.shell, command: one.command })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${one.part}`)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await textOf(ui, /^Copy only: an earlier part of the line changes/)).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+test('a part after a plain && chain still gets Run', async ($, on) => {
+  const w = world(on)
+  refuseAll(on, SWITCH_REFUSAL)
+  await $.tool.call({ tool: 'PowerShell', command: `git fetch && ${SWITCH_PART}` })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ key: `run:${id}` })).toBeDefined()
+  await ui.unmount()
+})
+
+const NOT_FINE = [
+  { name: 'a later || that hides its failure', command: `${SWITCH_PART} || true` },
+  { name: 'a later ; that sets the exit status', command: `${SWITCH_PART}; echo done` },
+  { name: 'a pipe after it', command: `${SWITCH_PART} | Out-Null` },
+  { name: 'an earlier cd', command: `cd C:\\elsewhere && ${SWITCH_PART}` },
+  { name: 'an earlier ; part', command: `git fetch; ${SWITCH_PART}` },
+] as const
+
+for (const one of NOT_FINE) {
+  test(`a later success with ${one.name} resolves nothing`, async ($, on) => {
+    const w = world(on)
+    refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
+    await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+    await w.settle()
+    await $.tool.call({ tool: 'PowerShell', command: one.command })
+    await w.settle()
+    expect(mine(w).entries).toHaveLength(1)
+  })
+}
+
+test('a later success that ends an && chain with the part resolves it', async ($, on) => {
+  const w = world(on)
+  refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+  await w.settle()
+  await $.tool.call({ tool: 'PowerShell', command: `git fetch && ${SWITCH_PART}` })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(0)
+})
+
+// ------------------------------------------ review round 1: what is shared
+
+test('a secret in the handover sentence never reaches the shared file', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  refuseAll(on, `BLOCKED: this needs the person. Run curl -u admin:${pass} https://x.test from a PLAIN terminal.`)
+  await $.tool.call({ tool: 'Bash', command: 'git status' })
+  await w.settle()
+  const text = w.files.get(MY_FILE)?.text ?? ''
+  expect(text).toContain('"kind":"refused"')
+  expect(text).not.toContain(pass)
+})
+
+test('a secret-shaped ask read from another session is withheld, and the entry still shows', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  const ask = `Run curl -u admin:${pass} https://x.test from a PLAIN terminal.`
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [{ ...REMOTE_KEEP, detail: undefined, ask }] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('1 waiting on the owner')
+  expect(await ui.find({ type: 'Text', text: new RegExp(pass) })).toBeUndefined()
+  await ui.unmount()
+})
+
+// --------------------------------------- review round 1: the owner signal
+
+test('a signal whose input carries agentId null is Copy only, never the main loop', async ($, on) => {
+  const w = world(on)
+  await callTool($, signal({ command: 'git status', agentId: null }))
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /^Copy only: a subagent filed it/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a signal whose why draws a Run result header gets Copy only', async ($, on) => {
+  const w = world(on)
+  await callTool($, signal({ command: 'git status', why: 'ran, exit 0: all fine' }))
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('only the loop that filed a signal can resolve it', async ($, on) => {
+  const w = world(on)
+  const said = await callTool($, signal())
+  const id = /as ([0-9a-f-]{36})/.exec(said)?.[1] ?? ''
+  await w.settle()
+  expect(await callTool($, { tool: DONE, id, agentId: 'agent-1' })).toContain('No owner_action entry')
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+})
