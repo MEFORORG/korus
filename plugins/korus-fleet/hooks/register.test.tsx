@@ -41,8 +41,19 @@ const MOUNT = {
 function engineForStart(
   on: On,
   seat: string | null,
-): { status: () => string | undefined; settle: () => Promise<void> } {
-  let last: string | undefined
+  rateLimits: readonly { kind: string; percentUsed: number }[] = [
+    { kind: 'five_hour', percentUsed: 17.6 },
+    { kind: 'seven_day', percentUsed: 3.2 },
+  ],
+): {
+  status: () => string | undefined
+  statusCalls: () => readonly (string | undefined)[]
+  usageReads: () => number
+  settle: () => Promise<void>
+  advance: (ms: number) => Promise<void>
+} {
+  const calls: (string | undefined)[] = []
+  let reads = 0
   const clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('command.register', () => ({ value: undefined }))
@@ -50,32 +61,80 @@ function engineForStart(
     if (seat === null) throw new Error('ENOENT')
     return { value: seat }
   })
-  on('session.usage', () => ({
-    value: {
-      startedAt: 0,
-      context: { window: 200_000, tokens: 84_800, percent: 42.4 },
-      rateLimits: [{ kind: 'five_hour', percentUsed: 17.6 }],
-    },
-  }))
+  on('session.usage', () => {
+    reads += 1
+    return {
+      value: {
+        startedAt: 0,
+        context: { window: 200_000, tokens: 84_800, percent: 42.4 },
+        rateLimits: [...rateLimits],
+      },
+    }
+  })
+  on('turn.complete', ($, e) => ({ text: e.answer }))
+  on('ui.panes', () => ({ value: [] }))
   on('ui.status', ($, e) => {
-    last = e.text
+    calls.push(e.text)
     return { value: undefined }
   })
-  return { status: () => last, settle: clock.settle }
+  return {
+    status: () => calls[calls.length - 1],
+    statusCalls: () => calls,
+    usageReads: () => reads,
+    settle: clock.settle,
+    advance: clock.advance,
+  }
 }
 
-test('status line names the seat, context and rate limit', async ($, on) => {
+const ON = { options: { statusLine: true } } as const
+
+test('status line is off by default: it draws nothing and reads no usage', async ($, on) => {
   const engine = engineForStart(on, 'manager\n')
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat manager | ctx 42% | five_hour 18%')
+  await engine.advance(10 * 60_000)
+  await $.turn.complete({ answer: 'done', durationMs: 1000, isAborted: false, turnId: 'turn-main', reason: 'answer' })
+  await engine.settle()
+  // The one call clears a line an earlier load may have drawn.
+  expect(engine.statusCalls()).toEqual([undefined])
+  expect(engine.usageReads()).toBe(0)
 })
 
-test('status line reads no seat marker when the file is missing', async ($, on) => {
+test('status line, when on, redraws every minute and after each turn', ON, async ($, on) => {
+  const engine = engineForStart(on, 'manager\n')
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+  await engine.settle()
+  expect(engine.usageReads()).toBe(1)
+  await engine.advance(60_000)
+  expect(engine.usageReads()).toBe(2)
+  await $.turn.complete({ answer: 'done', durationMs: 1000, isAborted: false, turnId: 'turn-main', reason: 'answer' })
+  await engine.settle()
+  expect(engine.usageReads()).toBe(3)
+  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | 7d 3%')
+})
+
+test('status line names the seat, context and rate limit', ON, async ($, on) => {
+  const engine = engineForStart(on, 'manager\n')
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+  await engine.settle()
+  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | 7d 3%')
+})
+
+test('status line shows a rate-limit kind it has no short label for as given', ON, async ($, on) => {
+  const engine = engineForStart(on, 'manager\n', [
+    { kind: 'five_hour', percentUsed: 17.6 },
+    { kind: 'spend_limit', percentUsed: 40 },
+  ])
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+  await engine.settle()
+  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | spend_limit 40%')
+})
+
+test('status line reads no seat marker when the file is missing', ON, async ($, on) => {
   const engine = engineForStart(on, null)
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat no seat marker | ctx 42% | five_hour 18%')
+  expect(engine.status()).toBe('seat no seat marker | ctx 42% | 5h 18% | 7d 3%')
 })
 
 // The engine beneath the board: which paths exist, and what the script prints. Records every
