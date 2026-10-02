@@ -426,15 +426,18 @@ function binaryText(binary: string): string {
 // at the edge rather than wrapped.
 //
 // RUN_CHUNK: the view breaks a line into rows of at most 40 characters. With a
-// prefix of at most 9 (`argv[3]: `), a row needs at most 49 cells, so it fits
-// a docked pane and nothing is left to wrap.
+// prefix of at most 12 (`PowerShell: `), a row needs at most RUN_COLUMNS, 52
+// cells. A pane narrower than that would cut rows short, so it offers no Run.
 // MAX_RUN_CHARS: 400 characters is at most 10 such rows. With the line breaks
 // below the whole command fits in about 16 rows, on one screen with Run now.
 // MAX_RUN_LINES: 6 lines. A refused command is one or two lines; 6 still lets
 // a short script run, and more is a script the owner should read in an editor.
 // SPACE_RUN: 4 or more spaces in a row. Padding is how a wrapped line forges a
-// row start; an ordinary command rarely holds more than 2 together. It stays
-// even though no row wraps, in case a surface ignores the cut.
+// row start; an ordinary command rarely holds more than 2 together. No row
+// wraps now, so this guards the rows' columns, not their starts.
+// LABEL_LIKE: `argv` anywhere, or `folder:`. The cut falls at the same place on
+// every pane, so a command could put `argv[4]: x` at the start of a `  + ` row
+// and have it read as a new element. A command naming either is Copy only.
 // RUN_ASCII: printable ASCII and newlines only. Every such character is one
 // cell wide on every surface. A tab, a wide character, a combining mark or a
 // look-alike letter is not, so the rows above would not line up as counted.
@@ -446,8 +449,10 @@ const MAX_RUN_LINES = 6
 const SPACE_RUN = /[^\S\n]{4,}/
 const RUN_ASCII = /^[\x20-\x7e\n]*$/
 const TRAILING_SPACE = / (\n|$)/
+const LABEL_LIKE = /argv|folder\s*:/i
+const RUN_COLUMNS = 12 + RUN_CHUNK
 
-type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing'
+type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing' | 'label'
 
 // Why the view cannot show this text faithfully, or undefined when it can.
 function showProblem(text: string, maxLines: number): ShowProblem | undefined {
@@ -457,6 +462,7 @@ function showProblem(text: string, maxLines: number): ShowProblem | undefined {
   if (text.split('\n').length > maxLines) return 'lines'
   if (SPACE_RUN.test(text)) return 'spaces'
   if (TRAILING_SPACE.test(text)) return 'trailing'
+  if (LABEL_LIKE.test(text)) return 'label'
   return undefined
 }
 
@@ -467,6 +473,17 @@ const COMMAND_PROBLEM: Record<ShowProblem, string> = {
   lines: `Copy only: too many lines to show safely (over ${MAX_RUN_LINES}).`,
   spaces: 'Copy only: it holds a run of 4 or more spaces, which can line text up to look like something else.',
   trailing: 'Copy only: a line ends in a space, which the screen cannot show.',
+  label: 'Copy only: it holds `argv` or `folder:`, which could read as a row of the confirm view.',
+}
+
+const FOLDER_PROBLEM: Record<ShowProblem, string> = {
+  stripped: 'Copy only: its folder holds characters the screen cannot show.',
+  ascii: 'Copy only: its folder holds a tab or a character outside plain ASCII, which the screen cannot show at a known width.',
+  long: `Copy only: its folder is too long to show safely (over ${MAX_RUN_CHARS} characters).`,
+  lines: 'Copy only: its folder holds a line break.',
+  spaces: 'Copy only: its folder holds a run of 4 or more spaces, which can line text up to look like something else.',
+  trailing: 'Copy only: its folder ends in a space, which the screen cannot show.',
+  label: 'Copy only: its folder holds `argv` or `folder:`, which could read as a row of the confirm view.',
 }
 
 // Why Run is not offered for this entry, or undefined when it is. Render, the
@@ -477,7 +494,8 @@ function runBlock(entry: InboxEntry): string | undefined {
   if (!isAbsolutePath(entry.cwd)) return 'Copy only: the session folder is not known as a full path.'
   const problem = showProblem(entry.command, MAX_RUN_LINES)
   if (problem !== undefined) return COMMAND_PROBLEM[problem]
-  if (showProblem(entry.cwd, 1) !== undefined) return 'Copy only: its folder holds characters the screen cannot show.'
+  const folderProblem = showProblem(entry.cwd, 1)
+  if (folderProblem !== undefined) return FOLDER_PROBLEM[folderProblem]
   return undefined
 }
 
@@ -634,7 +652,7 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
     runBefore = entry.run?.startedAt
     try {
       const argv = await shellArgv($, entry.shell, entry.command)
-      if (argv.some(part => clean(part, MAX_COMMAND) !== part)) {
+      if (argv.some(part => showProblem(part, MAX_RUN_LINES) !== undefined)) {
         throw new Error('the shell path holds characters the screen cannot show; Copy the command instead')
       }
       armedArgv = argv
@@ -823,16 +841,23 @@ export const register: Register = on => {
       const isArmed = entry.armedAt !== undefined && now - entry.armedAt < ARM_MS
       // Run is offered only when runBlock finds nothing: the claim and the
       // arming press ask the same function.
-      const block = runBlock(entry)
+      // A pane too narrow for a whole row would cut it short, so it offers
+      // Copy only; the claim needs a drawn Run now, so it cannot run there.
+      const textBlock = runBlock(entry)
+      const block =
+        textBlock === undefined && e.props.bodyColumns < RUN_COLUMNS
+          ? `Copy only here: the pane is ${e.props.bodyColumns} columns wide, and the command needs ${RUN_COLUMNS} to show whole.`
+          : textBlock
       const canRun = block === undefined && run?.status !== 'running'
       // Rows the view draws itself, each cut at the edge and never wrapped, so
       // a row starts only where these rows say it does.
-      const rows = (prefix: string, lines: readonly string[]) =>
+      const drawRows = (prefix: string, lines: readonly string[]) =>
         lines.map((line, index) => (
           <Text key={`${prefix}:${index}`} wrap="truncate-end">
             {line}
           </Text>
         ))
+      const tailHead = run?.status === 'failed' ? 'error: ' : 'out: '
       const copyText = entry.kind === 'question' ? questionText(entry.questions ?? []) : command
       return (
         <Box key={`own:${entry.id}`} flexDirection="column" marginTop={1}>
@@ -840,7 +865,11 @@ export const register: Register = on => {
           {entry.kind === 'question' && <Text wrap="wrap">{questionText(entry.questions ?? [])}</Text>}
           {entry.kind === 'refused' && (
             <Box flexDirection="column">
-              <Text wrap="wrap">{`${entry.shell ?? 'shell'}: ${command ?? `(${entry.withheld ?? 'command not stored'})`}`}</Text>
+              {textBlock === undefined && command !== undefined ? (
+                <Box flexDirection="column">{drawRows('head', labelledRows(`${entry.shell ?? 'shell'}: `, command))}</Box>
+              ) : (
+                <Text wrap="wrap">{`${entry.shell ?? 'shell'}: ${command ?? `(${entry.withheld ?? 'command not stored'})`}`}</Text>
+              )}
               <Text dimColor wrap="wrap">{`cwd: ${where}`}</Text>
               <Text dimColor wrap="wrap">{`refusal: ${entry.refusal ?? ''}`}</Text>
             </Box>
@@ -856,13 +885,23 @@ export const register: Register = on => {
               </Text>
               {run.argv !== undefined ? (
                 <Box flexDirection="column">
-                  {rows('rfolder', labelledRows('folder: ', where))}
-                  {rows('rargv', argvRows(run.argv))}
+                  {drawRows('rfolder', labelledRows('folder: ', where))}
+                  {drawRows('rargv', argvRows(run.argv))}
                 </Box>
               ) : (
                 <Text dimColor>argv: none, nothing ran</Text>
               )}
-              {run.tail !== undefined && run.tail !== '' && <Text dimColor wrap="wrap">{run.tail}</Text>}
+              {/* The command writes its own output, so every line of it is
+                  marked and cut, and none can draw a row of the views. */}
+              {run.tail !== undefined && run.tail !== '' && (
+                <Box flexDirection="column">
+                  {run.tail.split('\n').map((line, index) => (
+                    <Text key={`tail:${index}`} dimColor wrap="truncate-end">
+                      {`${tailHead}${line}`}
+                    </Text>
+                  ))}
+                </Box>
+              )}
             </Box>
           )}
           {isArmed && canRun && (
@@ -874,8 +913,8 @@ export const register: Register = on => {
               </Text>
               {entry.armedArgv !== undefined && (
                 <Box flexDirection="column">
-                  {rows('folder', labelledRows('folder: ', where))}
-                  {rows('argv', argvRows(entry.armedArgv))}
+                  {drawRows('folder', labelledRows('folder: ', where))}
+                  {drawRows('argv', argvRows(entry.armedArgv))}
                 </Box>
               )}
               <Text dimColor wrap="wrap">

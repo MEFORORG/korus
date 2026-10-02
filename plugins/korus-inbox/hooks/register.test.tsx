@@ -33,7 +33,10 @@ type World = {
 
 // The engine beneath the plugin: an in-memory shared folder, a fixed session,
 // a recorded process runner and clipboard. Nothing touches the real disk.
-function world(on: On, opts: { env?: Record<string, string>; cwd?: string; cwdFails?: boolean } = {}): World {
+function world(
+  on: On,
+  opts: { env?: Record<string, string>; cwd?: string; cwdFails?: boolean; stdout?: string } = {},
+): World {
   const files = new Map<string, { text: string; mtimeMs: number }>()
   const runs: World['runs'] = []
   const copies: string[] = []
@@ -83,7 +86,7 @@ function world(on: On, opts: { env?: Record<string, string>; cwd?: string; cwdFa
   on('process.run', ($, e) => {
     runs.push({ argv: e.argv, cwd: e.init?.cwd })
     return {
-      value: { exitCode: 0, stdout: 'pushed fine\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+      value: { exitCode: 0, stdout: opts.stdout ?? 'pushed fine\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
     }
   })
   return { files, runs, copies, status: () => status, settle: clock.settle, advance: clock.advance }
@@ -338,7 +341,7 @@ for (const surface of SURFACES) {
     expect(w.runs).toEqual([{ argv: ['pwsh', '-NoProfile', '-Command', 'git push origin main'], cwd: CWD }])
     expect((await ui.find({ type: 'Text', text: /^ran, exit/ }))?.text).toBe('ran, exit 0:')
     expect(await shownRows(ui)).toEqual(PWSH_ROWS)
-    expect(await ui.find({ type: 'Text', text: 'pushed fine' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'out: pushed fine' })).toBeDefined()
     expect(await ui.findAll({ type: 'Button', text: /^Run/ })).toHaveLength(1)
     expect(w.status()).toBeUndefined()
     expect(mine(w).entries).toHaveLength(0)
@@ -644,16 +647,16 @@ test('Cancel clears the shown argv and Run now', async ($, on) => {
   await ui.unmount()
 })
 
-test('a multi-line command cannot draw a fake argv element', async ($, on) => {
+test('a multi-line command draws its second line as a marked row', async ($, on) => {
   const w = world(on)
   refuseShell(on)
-  await $.tool.call({ tool: 'PowerShell', command: 'git status\nargv[4]: harmless' })
+  await $.tool.call({ tool: 'PowerShell', command: 'git status\ngit log -1' })
   await w.settle()
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
   const shown = await shownRows(ui)
-  expect(shown.slice(-2)).toEqual(['argv[3]: git status', '  | argv[4]: harmless'])
+  expect(shown.slice(-2)).toEqual(['argv[3]: git status', '  | git log -1'])
   expect(shown.filter(line => line.startsWith('argv['))).toHaveLength(4)
   await ui.unmount()
 })
@@ -768,9 +771,14 @@ test('a shell that resolves differently after arming runs nothing', async ($, on
 // start a screen row with a fake argv element.
 const FORGE = `git status${' '.repeat(70)}argv[4]: harmless`
 const LONG = `echo ${'zz '.repeat(1330)}endzz`
+// The reviewer's forge: 40 characters, so the cut puts the label at the start
+// of a `  + ` row on every pane width, with no padding at all.
+const CUT_FORGE = 'git push origin main; echo 1234567890123argv[4]: --dry-run'
 
 const NO_RUN = [
   { name: 'a line padded to forge an argv row', command: FORGE, why: /^Copy only: it holds a run of 4 or more spaces/ },
+  { name: 'a label placed at the cut', command: CUT_FORGE, why: /^Copy only: it holds `argv` or `folder:`/ },
+  { name: 'a newline then a label', command: 'git status\nargv[4]: harmless', why: /^Copy only: it holds `argv` or `folder:`/ },
   { name: 'a 4000-character command', command: LONG, why: /^Copy only: too long to show safely \(over 400 characters\)/ },
   { name: 'a 7-line command', command: `${'git status\n'.repeat(6)}git status`, why: /^Copy only: too many lines to show safely \(over 6\)/ },
   { name: 'a run of 4 spaces', command: 'git status    --short', why: /^Copy only: it holds a run of 4 or more spaces/ },
@@ -792,7 +800,9 @@ for (const surface of SURFACES) {
       const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
       expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
       expect(await ui.find({ type: 'Text', text: one.why })).toBeDefined()
-      // The arming press and the claim refuse it too, drawn or not.
+      // No Run or Run now is drawn, so these presses find nothing to press.
+      // The arming press and the claim ask runBlock too, but no press through
+      // the pane can reach them here; this checks that nothing ran.
       await ui.press({ key: `run:${id}` }).catch(() => undefined)
       await w.advance(700)
       await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
@@ -823,7 +833,7 @@ for (const surface of SURFACES) {
   test(`every confirm row starts with a label or a mark, is cut not wrapped, and gives back the command, on ${surface}`, async ($, on) => {
     const w = world(on)
     refuseShell(on)
-    const command = 'git log --oneline --graph --decorate --all -- docs/one.md docs/two.md docs/three.md\nargv[9]: x'
+    const command = 'git log --oneline --graph --decorate --all -- docs/one.md docs/two.md docs/three.md\necho done'
     await $.tool.call({ tool: 'PowerShell', command })
     await w.settle()
     const id = String(mine(w).entries[0]?.id)
@@ -845,3 +855,82 @@ for (const surface of SURFACES) {
     await ui.unmount()
   })
 }
+
+const AT_EDGE = [
+  { name: 'exactly 400 characters', command: `echo ${'zz '.repeat(131)}zz` },
+  { name: 'exactly 6 lines', command: `${'git status\n'.repeat(5)}git status` },
+  { name: 'a run of 3 spaces', command: 'git status   --short' },
+] as const
+
+for (const one of AT_EDGE) {
+  test(`a command of ${one.name} still gets Run`, async ($, on) => {
+    const w = world(on)
+    refuseShell(on)
+    await $.tool.call({ tool: 'PowerShell', command: one.command })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    await ui.press({ key: `run:${id}` })
+    await w.advance(700)
+    await ui.press({ key: `confirm:${id}` })
+    expect(w.runs).toEqual([{ argv: ['pwsh', '-NoProfile', '-Command', one.command], cwd: CWD }])
+    await ui.unmount()
+  })
+}
+
+test('the 400-character edge is exactly 400', () => {
+  expect(AT_EDGE[0].command).toHaveLength(400)
+})
+
+const BAD_FOLDER = [
+  { name: 'a run of 4 spaces', cwd: 'C:\\My    Projects', why: /^Copy only: its folder holds a run of 4 or more spaces/ },
+  { name: 'a character outside ASCII', cwd: 'C:\\work\\caf\u00e9', why: /^Copy only: its folder holds a tab or a character outside plain ASCII/ },
+  { name: 'argv in its name', cwd: 'C:\\work\\argv', why: /^Copy only: its folder holds `argv`/ },
+] as const
+
+for (const one of BAD_FOLDER) {
+  test(`a folder holding ${one.name} is Copy only, with its own reason`, async ($, on) => {
+    const w = world(on, { cwd: one.cwd })
+    refuseShell(on)
+    await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: one.why })).toBeDefined()
+    expect(await ui.find({ key: `copy:${id}` })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+test('a pane narrower than a whole row offers no Run, and one just wide enough does', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const narrow = await $.ui.mount({ ...MOUNT, props: { ...PANE_PROPS, bodyColumns: 51 } })
+  expect(await narrow.find({ key: `run:${id}` })).toBeUndefined()
+  expect(await narrow.find({ type: 'Text', text: /^Copy only here: the pane is 51 columns wide/ })).toBeDefined()
+  await narrow.unmount()
+  const wide = await $.ui.mount({ ...MOUNT, props: { ...PANE_PROPS, bodyColumns: 52 } })
+  expect(await wide.find({ key: `run:${id}` })).toBeDefined()
+  await wide.unmount()
+})
+
+test('a line of run output that looks like a view row is marked as output', async ($, on) => {
+  const w = world(on, { stdout: 'argv[4]: rm -rf C:\\\\\n' })
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  await w.advance(700)
+  await ui.press({ key: `confirm:${id}` })
+  const out = await ui.find({ type: 'Text', text: /rm -rf/ })
+  expect(out?.text).toBe('out: argv[4]: rm -rf C:\\\\')
+  expect(out?.props?.wrap).toBe('truncate-end')
+  expect((await shownRows(ui)).filter(row => row.startsWith('argv['))).toHaveLength(4)
+  await ui.unmount()
+})

@@ -271,14 +271,17 @@ the pane's edge, never wrapped, and starts with a mark, so text cannot draw a fa
 
 | Row start | Row |
 |---|---|
+| `folder: ` | The first row of the folder |
 | `argv[3]: ` | The first row of an element |
 | `  + ` | A row cut from the same line |
 | `  \| ` | A row after a newline |
+| `out: ` or `error: ` | One line of what the run printed, or why it failed |
 
-A row never ends in a space. The space starts the next row, where it shows.
+A row never ends in a space. The space starts the next row, where it shows. While Run is offered,
+the command line above the folder is drawn the same way.
 
-On a pane narrower than about 50 columns a row ends in an ellipsis. Widen the pane before you press
-`Run now`.
+A pane narrower than 52 columns would cut a row short, so it offers Copy only and says why. Widen
+the pane and Run comes back.
 
 PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Where
 `<ProgramFiles>\PowerShell\7\pwsh.exe` exists, it runs that, and the pane shows the full path as
@@ -302,6 +305,7 @@ A refused command is Copy only, with the reason on screen, when any of these hol
 | Holds a run of 4 or more spaces | Padding is how text lines itself up to look like something else. |
 | Holds a tab, or any character outside plain ASCII | Only plain ASCII is one cell wide on every surface, so only it lines up as counted. |
 | Has a line that ends in a space | The space would not show. |
+| Holds `argv` anywhere, or `folder:` | The cut falls at the same place on every pane, so text placed there could read as a new row. |
 | Holds a character the screen strips | What runs would not be what the owner read. |
 
 The folder must pass the same rules, on one line. The pane, the Run press and the `Run now` press
@@ -344,6 +348,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 55 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 68 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
