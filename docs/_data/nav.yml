@@ -176,6 +176,9 @@
     - label: Every script
       title: "Every script, and what it does"
       path: /SCRIPTS.html
+    - label: Plugins
+      title: "Plugins: the korus-fleet status line and fleet board"
+      path: /PLUGINS.html
     - label: Token accounting
       title: "Token accounting: What a usage meter measures, and what a plan buys"
       path: /TOKEN-ACCOUNTING.html
