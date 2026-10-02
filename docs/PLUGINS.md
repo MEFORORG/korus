@@ -17,7 +17,7 @@ running a script by hand.
 
 | Where | What it shows |
 |---|---|
-| Status line | `seat <x> \| ctx N% \| <limit kind> N%`. The seat comes from `.claude/seat.local.txt`, which `scripts/coord/seat.ps1 -Declare` writes. Usage comes from the session. |
+| Status line | `seat <x> \| ctx N% \| <limit> N%`, with one `<limit>` part per rate limit the session reports, for example `seat manager \| ctx 26% \| 5h 6% \| 7d 0%`. The seat comes from `.claude/seat.local.txt`, which `scripts/coord/seat.ps1 -Declare` writes. Usage comes from the session. `5h` is its `five_hour` limit and `7d` its `seven_day` limit; any other limit shows under the name the session gives it. |
 | `/fleet` | Opens a pane that runs the fleet script with `-Json` and lists every record whose `State` is `RUNNING`, newest first. |
 
 The status line says `no seat marker` when the marker file is missing, and `undeclared` when it is

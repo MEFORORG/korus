@@ -41,6 +41,10 @@ const MOUNT = {
 function engineForStart(
   on: On,
   seat: string | null,
+  rateLimits: readonly { kind: string; percentUsed: number }[] = [
+    { kind: 'five_hour', percentUsed: 17.6 },
+    { kind: 'seven_day', percentUsed: 3.2 },
+  ],
 ): { status: () => string | undefined; settle: () => Promise<void> } {
   let last: string | undefined
   const clock = mock.clock(on)
@@ -54,7 +58,7 @@ function engineForStart(
     value: {
       startedAt: 0,
       context: { window: 200_000, tokens: 84_800, percent: 42.4 },
-      rateLimits: [{ kind: 'five_hour', percentUsed: 17.6 }],
+      rateLimits: [...rateLimits],
     },
   }))
   on('ui.status', ($, e) => {
@@ -68,14 +72,24 @@ test('status line names the seat, context and rate limit', async ($, on) => {
   const engine = engineForStart(on, 'manager\n')
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat manager | ctx 42% | five_hour 18%')
+  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | 7d 3%')
+})
+
+test('status line shows a rate-limit kind it has no short label for as given', async ($, on) => {
+  const engine = engineForStart(on, 'manager\n', [
+    { kind: 'five_hour', percentUsed: 17.6 },
+    { kind: 'spend_limit', percentUsed: 40 },
+  ])
+  await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+  await engine.settle()
+  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | spend_limit 40%')
 })
 
 test('status line reads no seat marker when the file is missing', async ($, on) => {
   const engine = engineForStart(on, null)
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat no seat marker | ctx 42% | five_hour 18%')
+  expect(engine.status()).toBe('seat no seat marker | ctx 42% | 5h 18% | 7d 3%')
 })
 
 // The engine beneath the board: which paths exist, and what the script prints. Records every
