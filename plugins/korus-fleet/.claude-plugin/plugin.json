@@ -1,0 +1,15 @@
+{
+  "name": "korus-fleet",
+  "version": "0.1.0",
+  "description": "Read-only: seat and usage on the status line, and a /fleet pane listing RUNNING seat records from the fleet script's -Json output",
+  "author": { "name": "MEFORORG" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "fleetScript": {
+      "type": "string",
+      "title": "Fleet script",
+      "description": "Path to the PowerShell script the /fleet pane runs with -Json, relative to the session's working directory or absolute",
+      "default": "scripts/coord/fleet.ps1"
+    }
+  }
+}

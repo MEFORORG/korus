@@ -1,0 +1,14 @@
+{
+  "name": "korus",
+  "owner": { "name": "MEFORORG" },
+  "metadata": {
+    "description": "Claude Code plugins that ship with the KORUS method"
+  },
+  "plugins": [
+    {
+      "name": "korus-fleet",
+      "source": "./plugins/korus-fleet",
+      "description": "Read-only: seat and usage on the status line, and a /fleet pane listing RUNNING seat records"
+    }
+  ]
+}
