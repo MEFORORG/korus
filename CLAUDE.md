@@ -254,7 +254,9 @@ Lander's, here as in the engine and the vault. [roles/LANDER.md](roles/LANDER.md
 
 **CHANGED 2026-10-02, by Owner ruling to the Lander: the merge was the Owner's here until then.**
 The Owner said *"the Lander may merge in korus"*, then *"you should be managing the korus repo the
-same as the other two"*. This heading and the line above read *"the merge is the Owner's"*.
+same as the other two"*. The heading read *"the merge is the Owner's"*, the line above read *"The
+MERGE is still the Owner's here."*, and the cross-reference near the top of this file followed the
+heading. [roles/LANDER.md](roles/LANDER.md) records the same ruling in its grant table.
 
 **NARROWED 2026-09-18, by Owner ruling: a Builder working to a Manager's brief does not open the
 PR.** It pushes, reports and exits, and the **Manager** opens the PR after checking the branch
