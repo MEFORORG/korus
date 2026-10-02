@@ -1,0 +1,23 @@
+{
+  "description": "Both rows run the repository's own scripts/hooks copy through one shim. The shim stands down where a settings file already wires the same script.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/run-project-hook.ps1\" -Script role-card-inject.ps1",
+            "timeout": 30,
+            "statusMessage": "Reading this worktree's role card"
+          },
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/run-project-hook.ps1\" -Script precompact-reprime.ps1",
+            "timeout": 30,
+            "statusMessage": "Checking for ledger state a compaction dropped"
+          }
+        ]
+      }
+    ]
+  }
+}
