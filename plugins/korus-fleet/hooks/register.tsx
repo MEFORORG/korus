@@ -37,6 +37,17 @@ async function readSeat($: Api): Promise<string> {
   }
 }
 
+// Short labels for the rate-limit kinds the session reports (owner instruction 2026-10-02).
+// Any other kind is shown as the session names it.
+const LIMIT_LABELS: ReadonlyMap<string, string> = new Map([
+  ['five_hour', '5h'],
+  ['seven_day', '7d'],
+])
+
+function limitLabel(kind: string): string {
+  return LIMIT_LABELS.get(kind) ?? kind
+}
+
 async function refreshStatus($: Api): Promise<void> {
   const parts = [`seat ${await readSeat($)}`]
   try {
@@ -45,7 +56,7 @@ async function refreshStatus($: Api): Promise<void> {
       parts.push(`ctx ${Math.round(usage.context.percent)}%`)
     }
     for (const limit of usage.rateLimits) {
-      parts.push(`${limit.kind} ${Math.round(limit.percentUsed)}%`)
+      parts.push(`${limitLabel(limit.kind)} ${Math.round(limit.percentUsed)}%`)
     }
   } catch (err) {
     parts.push(`usage unread: ${err instanceof Error ? err.name : 'error'}`)
