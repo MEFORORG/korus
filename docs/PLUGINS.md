@@ -209,20 +209,30 @@ Run these inside a Claude Code session, from any config root.
 /plugin install korus-inbox@korus
 ```
 
-### Every session writes one file and reads all the others
+### Every session writes one file and reads the 200 newest
 
 Each session writes `<session id>.json` into `.korus-inbox` in the home folder. The home folder is
-`USERPROFILE`, or `HOME` where that is unset. Every pane reads every file there each five seconds,
-so the inbox spans sessions and Claude accounts on one machine.
+`USERPROFILE`, or `HOME` where that is unset. So the inbox spans sessions and Claude accounts on one
+machine.
+
+Each five seconds, every pane reads at most the 200 most recently written files of 256 KB or less.
+It skips its own file, and any file not written for 24 hours. A larger file is never read, nor one
+older than the 200 newest. It reads at most 50 entries from each file.
 
 A file holds only what waits on the owner: the entries, and the keys of entries the owner
-dismissed. Run output is never written. A reader ignores a file not written for 24 hours.
+dismissed. Run output is never written.
 
 **This is the one plugin here that writes.** `WRITERS` in
 `tests/test_the_plugin_marketplace_resolves.py` names it, and the scan refuses a write anywhere else.
 
-**Dismiss is shared.** A Dismiss pressed in any pane hides that entry in every pane, the session
-that raised it included.
+**A Dismiss lives only in the file of the session that pressed it.** Other panes read it there and
+hide the entry too. When the dismissing session ends, its file holds no dismissals, so the Dismiss
+lapses and an entry that still waits shows again in every pane.
+
+A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
+
+One case outlasts the lapse. The session that raised the entry removes it from its own list when its
+pane sees the Dismiss, and it does not bring it back.
 
 ### Run is offered only for this session's own refusals
 
@@ -236,15 +246,29 @@ that raised it included.
 Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
 after 60 seconds, and two quick presses run the command once.
 
+**`Run now` ignores a press that comes less than 600 ms after the arming press.** So a double click
+or a repeated Enter cannot arm and run in one gesture. The arm stays, and the pane says so.
+
 The command comes from the session's own state at the moment of the press. It never comes from the
 screen or the disk. A command or folder holding a character the screen strips is Copy only, so what
 runs is what the owner read.
 
-PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. It uses
-`<ProgramFiles>\PowerShell\7\pwsh.exe` where that exists, and `pwsh` from the path otherwise.
+Run needs the folder the session was in, as a full path. Where the session could not report its
+folder, or reported an empty or relative one, the entry is Copy only. Otherwise the command would run
+in whatever folder the Claude Code process happens to be in.
 
-Bash runs through Git Bash by its path. It never runs as a bare `bash`, which on Windows can be WSL.
-Where no Git Bash is found, the Run fails and says so.
+The arming press works out the exact command line, and the pane shows every argv element before
+`Run now`. The result shows it again. `Run now` works it out once more and runs nothing if it
+changed, for example when `pwsh.exe` was removed in between.
+
+PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Where
+`<ProgramFiles>\PowerShell\7\pwsh.exe` exists, it runs that, and the pane shows the full path as
+`argv[0]`. Otherwise the process runner looks `pwsh` up on `PATH`, and the pane shows
+`argv[0]: pwsh (from PATH)`.
+
+Bash runs through Git Bash by its full path, and the pane shows that path as `argv[0]`. It never runs
+as a bare `bash`, which on Windows can be WSL. Where no Git Bash is found, the pane says `Run now`
+runs nothing, and pressing it records the failure.
 
 ### Everything read from disk is untrusted text
 
@@ -283,6 +307,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 23 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 31 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

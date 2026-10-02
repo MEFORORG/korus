@@ -33,7 +33,7 @@ type World = {
 
 // The engine beneath the plugin: an in-memory shared folder, a fixed session,
 // a recorded process runner and clipboard. Nothing touches the real disk.
-function world(on: On, opts: { env?: Record<string, string>; cwd?: string } = {}): World {
+function world(on: On, opts: { env?: Record<string, string>; cwd?: string; cwdFails?: boolean } = {}): World {
   const files = new Map<string, { text: string; mtimeMs: number }>()
   const runs: World['runs'] = []
   const copies: string[] = []
@@ -43,7 +43,10 @@ function world(on: On, opts: { env?: Record<string, string>; cwd?: string } = {}
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   on('session.id', () => ({ value: ME }))
-  on('session.cwd', () => ({ value: opts.cwd ?? CWD }))
+  on('session.cwd', () => {
+    if (opts.cwdFails === true) throw new Error('no cwd')
+    return { value: opts.cwd ?? CWD }
+  })
   on('session.root', () => ({ value: CWD }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -305,12 +308,13 @@ for (const surface of SURFACES) {
     await ui.press({ key: `run:${id}` })
     expect(w.runs).toHaveLength(0)
     expect(await ui.find({ type: 'Button', text: 'Run now' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^Run now runs the command above in/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Run now runs this in/ })).toBeDefined()
 
     await ui.press({ key: `cancel:${id}` })
     expect(w.runs).toHaveLength(0)
 
     await ui.press({ key: `run:${id}` })
+    await w.advance(700)
     await ui.press({ key: `confirm:${id}` })
     expect(w.runs).toEqual([{ argv: ['pwsh', '-NoProfile', '-Command', 'git push origin main'], cwd: CWD }])
     expect((await ui.find({ type: 'Text', text: /^ran in/ }))?.text).toBe(
@@ -339,6 +343,7 @@ test('with no Git Bash installed, a Bash Run fails and runs nothing, never a bar
   })
   const id = String(mine(w).entries[0]?.id)
   await ui.press({ key: `run:${id}` })
+  await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
   expect((await ui.find({ type: 'Text', text: /^could not run in/ }))?.text).toBe(`could not run in ${CWD}: ls -la`)
@@ -371,6 +376,7 @@ test('Bash runs through Git Bash where it is installed, not a bare bash that may
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
+  await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toEqual([{ argv: [GIT_BASH, '-c', 'ls'], cwd: CWD }])
   await ui.unmount()
@@ -384,6 +390,7 @@ test('two quick Run now presses run the command once', async ($, on) => {
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
+  await w.advance(700)
   await Promise.all([
     ui.press({ key: `confirm:${id}` }),
     ui.press({ key: `confirm:${id}` }).catch(() => undefined),
@@ -521,6 +528,7 @@ test('PowerShell runs through the installed pwsh by path where it exists', async
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
+  await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toEqual([{ argv: [installed, '-NoProfile', '-Command', 'git push origin main'], cwd: CWD }])
   await ui.unmount()
@@ -537,5 +545,124 @@ test('a refusal in a folder the screen would show altered is Copy only', async (
   expect(await ui.find({ key: `copy:${id}` })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^Copy only: its folder holds/ })).toBeDefined()
   expect(w.runs).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('a Run now pressed inside the 600 ms gap is ignored, and one at the gap runs', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  expect(await ui.find({ type: 'Text', text: /^Run now ignores a press within 600 ms of Run/ })).toBeDefined()
+  await ui.press({ key: `confirm:${id}` })
+  await w.advance(599)
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(0)
+  expect(await ui.find({ key: `confirm:${id}` })).toBeDefined()
+  await w.advance(1)
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(1)
+  await ui.unmount()
+})
+
+const NO_FULL_PATH = [
+  { name: 'session.cwd() fails', opts: { cwdFails: true } },
+  { name: 'the cwd is empty', opts: { cwd: '' } },
+  { name: 'the cwd is relative', opts: { cwd: 'work\\repo' } },
+] as const
+
+for (const one of NO_FULL_PATH) {
+  test(`Run is not offered and Copy still works when ${one.name}`, async ($, on) => {
+    const w = world(on, one.opts)
+    refuseShell(on)
+    await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: 'Copy only: the session folder is not known as a full path.' })).toBeDefined()
+    await ui.press({ key: `copy:${id}` })
+    expect(w.copies).toEqual(['git push origin main'])
+    expect(w.runs).toHaveLength(0)
+    await ui.unmount()
+  })
+}
+
+test('the confirm and result views name pwsh from PATH and every argv element', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  const lines =
+    'argv[0]: pwsh (from PATH)\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git push origin main'
+  expect(await ui.find({ type: 'Text', text: lines })).toBeUndefined()
+  await ui.press({ key: `run:${id}` })
+  expect(await ui.find({ type: 'Text', text: `Run now runs this in ${CWD}:` })).toBeDefined()
+  expect(await ui.findAll({ type: 'Text', text: lines })).toHaveLength(1)
+  await w.advance(700)
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(1)
+  expect(await ui.findAll({ type: 'Text', text: lines })).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('the confirm view names the installed pwsh and Git Bash by their full paths', async ($, on) => {
+  const installed = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'
+  const w = world(on, { env: { ProgramFiles: 'C:\\Program Files' } })
+  w.files.set(installed, { text: '', mtimeMs: 0 })
+  w.files.set(GIT_BASH, { text: '', mtimeMs: 0 })
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  await w.settle()
+  const [pwshId, bashId] = mine(w).entries.map(entry => String(entry.id))
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${pwshId}` })
+  await ui.press({ key: `run:${bashId}` })
+  expect(
+    await ui.find({ type: 'Text', text: `argv[0]: ${installed}\nargv[1]: -NoProfile\nargv[2]: -Command\nargv[3]: git status` }),
+  ).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: `argv[0]: ${GIT_BASH}\nargv[1]: -c\nargv[2]: ls` })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /\(from PATH\)/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('with no Git Bash, the confirm view says Run now runs nothing', async ($, on) => {
+  const w = world(on)
+  refuseShell(on)
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  expect(await ui.find({ type: 'Text', text: /^Run now runs nothing: Git Bash not found/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^argv\[0\]/ })).toBeUndefined()
+  await w.advance(700)
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(0)
+  expect(await ui.find({ type: 'Text', text: 'argv: none, no shell was found to run it' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a shell that resolves differently after arming runs nothing', async ($, on) => {
+  const installed = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'
+  const w = world(on, { env: { ProgramFiles: 'C:\\Program Files' } })
+  w.files.set(installed, { text: '', mtimeMs: 0 })
+  refuseShell(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  w.files.delete(installed)
+  await w.advance(700)
+  await ui.press({ key: `confirm:${id}` })
+  expect(w.runs).toHaveLength(0)
+  expect(await ui.find({ type: 'Text', text: /resolved differently since Run was pressed/ })).toBeDefined()
   await ui.unmount()
 })

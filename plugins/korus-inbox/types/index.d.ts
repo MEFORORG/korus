@@ -12,6 +12,8 @@ export type InboxRun = {
   startedAt: number
   finishedAt?: number
   exitCode?: number
+  /** The exact argv that ran, or would have; absent when no shell was found. */
+  argv?: string[]
   tail?: string
 }
 
@@ -33,8 +35,12 @@ export type InboxEntry = {
   refusal?: string
   /** True for a main-loop refusal; a subagent's folder is not known, so it is Copy only. */
   isRunnable?: boolean
-  /** When the owner pressed Run; Run now is offered for a minute after it. */
+  /** When the owner pressed Run; Run now is offered for a minute after it, and ignores a press in the first 600 ms. */
   armedAt?: number
+  /** The argv the arming press resolved, shown before Run now and checked again at it. */
+  armedArgv?: string[]
+  /** Why the arming press found no shell to run; Run now then records it and runs nothing. */
+  armedError?: string
   run?: InboxRun
 }
 
