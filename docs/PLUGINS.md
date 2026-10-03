@@ -211,6 +211,13 @@ so 40 come to about 27000. That leaves room for this session's own cards, which 
 A card can run much longer: a question up to 6000 characters, or more with Details open. So those
 cards also stop once they reach 50000 characters of text, even short of 40.
 
+Whether a card fits is measured with its Details closed, so opening Details never hides the card.
+Open Details draw only if they fit in what is left. If they do not, the card says so and keeps its
+`Hide details` button.
+
+**The 50000 covers cards from other sessions only.** This session's own cards are not counted
+against it, so many long own cards could still pass the engine's bound.
+
 When cards are left out, one line under the header says so, for example:
 `160 more waiting from other sessions are not shown. /inbox shows the newest 40.`
 
@@ -597,6 +604,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 268 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 269 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

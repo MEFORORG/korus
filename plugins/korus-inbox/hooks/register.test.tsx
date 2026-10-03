@@ -2396,6 +2396,12 @@ test('the band counts every waiting entry, drawn or not, and a Dismiss keeps the
   expect(await $.command.run({ command: 'inbox' })).toMatchObject({ text: 'Owner inbox opened: 201 waiting.' })
 
   await ui.press({ key: 'rdismiss:sess-bulk-0:m0-0' })
+  // At once, before any poll: the list and its total move in one write, so
+  // the counts drop by exactly one and still agree.
+  await w.settle()
+  expect(await bandCount()).toBe(200)
+  expect(await headCount()).toBe(200)
+  expect((await drawnCards(ui)) + (await moreCount())).toBe(200)
   await w.advance(5000)
   expect(await bandCount()).toBe(200)
   expect(await headCount()).toBe(200)
@@ -2449,5 +2455,49 @@ test('remote cards stop at the text budget, short of 40, when each is large', as
   expect(await textOf(ui, /more waiting/)).toBe(
     `${30 - drawn} more waiting from other sessions are not shown. /inbox shows the newest ${drawn}.`,
   )
+  await ui.unmount()
+})
+
+test('opening Details on the last remote card that fits keeps the card, and Hide details closes it', async ($, on) => {
+  const w = world(on)
+  // Signals at their longest fields: about 2600 characters each with Details
+  // closed, so the budget runs out short of 40. Each carries a long command
+  // that Details would add.
+  const long = (i: number) => ({
+    id: `s${i}`,
+    kind: 'signal',
+    createdAt: NOW - 60_000 - i * 1000,
+    title: 'a b '.repeat(50),
+    why: 'c d '.repeat(150),
+    recommendedAction: 'e f '.repeat(100),
+    needs: 'authority',
+    reviewOutcome: 'not applicable: only the owner signs',
+    confidence: 'g h '.repeat(30),
+    cwd: `C:\\work\\${'w'.repeat(480)}`,
+    command: `echo ${'word '.repeat(700)}`,
+  })
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: Array.from({ length: 40 }, (_, i) => long(i)) }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  const drawn = await drawnCards(ui)
+  expect(drawn).toBeGreaterThan(0)
+  expect(drawn).toBeLessThan(40)
+  const last = `sess-other-2:s${drawn - 1}`
+  await ui.press({ key: `rdetails:${last}` })
+  expect(await drawnCards(ui)).toBe(drawn)
+  expect(await ui.find({ key: `rdismiss:${last}` })).toBeDefined()
+  expect((await ui.find({ key: `rdetails:${last}` }))?.text).toBe('Hide details')
+  expect(await textOf(ui, /^Details do not fit/)).toBe(
+    'Details do not fit in the pane now. Hide the details of another card, or Copy this one.',
+  )
+  expect(await paneChars(ui)).toBeLessThan(100_000)
+  await ui.press({ key: `rdetails:${last}` })
+  expect((await ui.find({ key: `rdetails:${last}` }))?.text).toBe('Details')
+  expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
+  // The newest card has room left for its Details, and draws them.
+  await ui.press({ key: 'rdetails:sess-other-2:s0' })
+  expect(await ui.find({ type: 'Text', text: 'Full command:' })).toBeDefined()
+  expect(await paneChars(ui)).toBeLessThan(100_000)
   await ui.unmount()
 })

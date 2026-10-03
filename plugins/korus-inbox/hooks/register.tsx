@@ -64,8 +64,9 @@ const BASH_ON_WINDOWS =
   'Copy only: on Windows, Run is offered only for PowerShell. Git Bash can expand a Bash command differently from what the card shows.'
 
 const own = atom({ plugin: 'korus-inbox', key: 'own' } as const, [])
-const remote = atom({ plugin: 'korus-inbox', key: 'remote' } as const, [])
-const remoteTotal = atom({ plugin: 'korus-inbox', key: 'remoteTotal' } as const, 0)
+// The newest remote entries and the count of all of them, in one atom, so
+// one write moves both and no render pairs a new list with an old total.
+const remote = atom({ plugin: 'korus-inbox', key: 'remoteHeld' } as const, { entries: [], total: 0 })
 const dismissed = atom({ plugin: 'korus-inbox', key: 'dismissed' } as const, [])
 const folderNote = atom({ plugin: 'korus-inbox', key: 'folderNote' } as const, null)
 const expanded = atom({ plugin: 'korus-inbox', key: 'expanded' } as const, [])
@@ -404,20 +405,18 @@ function isWaiting(entry: InboxEntry): boolean {
 
 // THE ONE COUNT. The band, the pane header, the waiting list and /inbox all
 // take their numbers from this, so the three never disagree. The remote list
-// holds only the newest entries; theirTotal counts every one waiting, so an
+// holds only the newest entries; its total counts every one waiting, so an
 // entry not held or not drawn still counts.
 function waitingOf(
   mine: readonly InboxEntry[],
-  theirs: readonly InboxRemoteEntry[],
-  theirTotal: number,
+  theirs: { readonly entries: readonly InboxRemoteEntry[]; readonly total: number },
 ): { own: InboxEntry[]; remote: InboxRemoteEntry[]; remoteCount: number; count: number } {
   const waitingOwn = mine.filter(isWaiting)
-  const remoteCount = Math.max(theirTotal, theirs.length)
-  return { own: waitingOwn, remote: [...theirs], remoteCount, count: waitingOwn.length + remoteCount }
+  return { own: waitingOwn, remote: [...theirs.entries], remoteCount: theirs.total, count: waitingOwn.length + theirs.total }
 }
 
 async function waiting($: Engine): Promise<ReturnType<typeof waitingOf>> {
-  return waitingOf(await read($, own), await read($, remote), await read($, remoteTotal))
+  return waitingOf(await read($, own), await read($, remote))
 }
 
 let writeChain: Promise<void> = Promise.resolve()
@@ -669,10 +668,9 @@ async function poll($: Engine): Promise<void> {
     .sort((a, b) => b.createdAt - a.createdAt)
   // Only the newest are held, so the update stays far under its size limit;
   // the total keeps the rest in the count.
-  const held = visible.slice(0, MAX_REMOTE_SHOWN)
+  const held = { entries: visible.slice(0, MAX_REMOTE_SHOWN), total: visible.length }
   const current = await read($, remote)
   if (JSON.stringify(current) !== JSON.stringify(held)) await update($, remote, () => held)
-  if ((await read($, remoteTotal)) !== visible.length) await update($, remoteTotal, () => visible.length)
 
   // A Dismiss pressed in another pane clears one of this session's entries
   // here too. Any file can name one, so this only ever hides, never adds.
@@ -1105,14 +1103,13 @@ async function dismissRemote($: Engine, key: string): Promise<void> {
       -MAX_DISMISSED,
     ),
   )
-  let isRemoved = false
-  await update($, remote, list => {
-    const next = list.filter(one => one.key !== key)
-    isRemoved = next.length < list.length
-    return next
+  // The list and its total move in one write. A poll that already read this
+  // Dismiss has removed the key, so nothing here counts it off twice. The
+  // next poll refills the held list.
+  await update($, remote, held => {
+    const entries = held.entries.filter(one => one.key !== key)
+    return entries.length < held.entries.length ? { entries, total: Math.max(0, held.total - 1) } : held
   })
-  // The next poll refills the held list and sets the total again.
-  if (isRemoved) await update($, remoteTotal, total => Math.max(0, total - 1))
   void publish($)
 }
 
@@ -1372,21 +1369,28 @@ function whyLineOf(card: Card): string | undefined {
   return undefined
 }
 
-// The text one remote card draws, counted generously: every line it draws in
-// full, plus a fixed amount for its labels, notes and buttons. Details open
-// adds the command and the refusal it shows.
-function remoteCardChars(card: Card, from: string, where: string, folderText: string | undefined, isOpen: boolean): number {
+// The text one remote card draws with Details closed, counted generously:
+// every line it draws in full, plus a fixed amount for its labels, notes and
+// buttons, which come to about 360 at most.
+function remoteCardChars(card: Card, from: string, where: string, folderText: string | undefined): number {
+  const needs = needsOf(card)
   const lines = [
     headOf(card),
     doThisOf(card, where),
+    `${needs.needs}${needs.confidence}`,
     whyLineOf(card) ?? '',
     card.kind === 'refused' ? (card.ask ?? '') : '',
     card.kind === 'question' ? questionText(card.questions) : '',
     from,
     folderText ?? '',
   ]
-  const details = isOpen ? [card.command ?? '', card.detail ?? card.refusal ?? '', needsOf(card).review] : []
-  return 400 + [...lines, ...details].reduce((sum, line) => sum + line.length, 0)
+  return 600 + lines.reduce((sum, line) => sum + line.length, 0)
+}
+
+// What Details adds to a remote card when open: the command, the refusal and
+// the review line, with their labels.
+function remoteDetailsChars(card: Card): number {
+  return 100 + [card.command ?? '', card.detail ?? card.refusal ?? '', needsOf(card).review].reduce((sum, line) => sum + line.length, 0)
 }
 
 // What Copy puts on the clipboard: the text the card shows, cleaned like it.
@@ -1644,11 +1648,10 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const mine = await read($, own)
     const theirs = await read($, remote)
-    const theirTotal = await read($, remoteTotal)
     const note = await read($, folderNote)
     const opened = new Set(await read($, expanded))
     const myLabel = await label($)
-    const list = waitingOf(mine, theirs, theirTotal)
+    const list = waitingOf(mine, theirs)
     const done = mine.filter(isDone)
 
     // Rows the card draws itself, each cut at the edge and never wrapped, so
@@ -1845,11 +1848,16 @@ export const register: Register = on => {
       const folderText =
         entry.kind === 'question' ? undefined : entry.cwd !== undefined && entry.cwd !== '' ? entry.cwd : '(unknown)'
       const isOpen = opened.has(`rdetails:${entry.key}`)
-      return { entry, card, from, where, folderText, isOpen, chars: remoteCardChars(card, from, where, folderText, isOpen) }
+      return { entry, card, from, where, folderText, isOpen, chars: remoteCardChars(card, from, where, folderText) }
     }
 
     // A card read from disk: shown and copied, nothing else. No Run, ever.
-    const remoteCard = ({ entry, card, from, where, folderText, isOpen }: ReturnType<typeof remoteView>) => {
+    // Details the owner opened are drawn only when they fit the budget; the
+    // card itself always stays, so its Hide details stays within reach.
+    const remoteCard = (
+      { entry, card, from, where, folderText, isOpen }: ReturnType<typeof remoteView>,
+      isDetailsShown: boolean,
+    ) => {
       return (
         <Box key={`remote:${entry.key}`} flexDirection="column" marginTop={1}>
           <Text bold wrap="wrap">
@@ -1873,7 +1881,12 @@ export const register: Register = on => {
             )}
             <Button key={`rdismiss:${entry.key}`} label="Dismiss" onPress={() => dismissRemote($, entry.key)} />
           </Box>
-          {isOpen && entry.kind !== 'question' && detailsLines(card, `remote:${entry.key}`)}
+          {isOpen && entry.kind !== 'question' && isDetailsShown && detailsLines(card, `remote:${entry.key}`)}
+          {isOpen && entry.kind !== 'question' && !isDetailsShown && (
+            <Text dimColor wrap="wrap">
+              Details do not fit in the pane now. Hide the details of another card, or Copy this one.
+            </Text>
+          )}
         </Box>
       )
     }
@@ -1899,20 +1912,28 @@ export const register: Register = on => {
 
     // The newest remote cards, up to MAX_REMOTE_SHOWN and the text budget.
     // The first card over the budget stops the drawing, so what is drawn is
-    // always the newest run, and the rest are named in one line.
-    const shownRemote: ReturnType<typeof remoteView>[] = []
+    // always the newest run, and the rest are named in one line. Whether a
+    // card fits is measured with Details closed, so opening Details never
+    // hides the card it opened; open Details take what budget is left.
+    const shownRemote: { view: ReturnType<typeof remoteView>; isDetailsShown: boolean }[] = []
     let budget = REMOTE_TEXT_BUDGET
     for (const entry of list.remote.slice(0, MAX_REMOTE_SHOWN)) {
       const view = remoteView(entry)
       if (view.chars > budget) break
       budget -= view.chars
-      shownRemote.push(view)
+      const details = view.isOpen && entry.kind !== 'question' ? remoteDetailsChars(view.card) : 0
+      const isDetailsShown = details > 0 && details <= budget
+      if (isDetailsShown) budget -= details
+      shownRemote.push({ view, isDetailsShown })
     }
     const moreRemote = list.remoteCount - shownRemote.length
 
     const rows = [
       ...list.own.map(entry => ({ createdAt: entry.createdAt, draw: () => ownCard(entry) })),
-      ...shownRemote.map(view => ({ createdAt: view.entry.createdAt, draw: () => remoteCard(view) })),
+      ...shownRemote.map(({ view, isDetailsShown }) => ({
+        createdAt: view.entry.createdAt,
+        draw: () => remoteCard(view, isDetailsShown),
+      })),
     ].sort((a, b) => b.createdAt - a.createdAt)
     const isDoneOpen = opened.has('done')
 
