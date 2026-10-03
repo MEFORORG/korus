@@ -1,7 +1,7 @@
 {
   "name": "korus-inbox",
-  "version": "0.1.0",
-  "description": "Gathers what waits on the owner across sessions: open questions and hook-refused shell commands, in an /inbox pane and a status-line count",
+  "version": "0.2.0",
+  "description": "Gathers what only the owner can act on across sessions: open questions, refusals that hand the act to the person, and owner_action signals, each with its recommended action, in an /inbox pane and an inbox N band",
   "author": { "name": "MEFORORG" },
   "types": "./types/index.d.ts"
 }

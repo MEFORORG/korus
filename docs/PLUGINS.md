@@ -8,7 +8,7 @@
 |---|---|
 | `korus-fleet` | Opens a fleet board pane, and can show your seat and usage on the status line. Read-only. |
 | `korus-card` | Runs the repository's own role-card hook at session start, and its reprime after a compaction. |
-| `korus-inbox` | Gathers what waits on the owner from every session: open questions and refused commands. |
+| `korus-inbox` | Gathers what only the owner can act on from every session, each with the recommended action. |
 
 **Who it is for.** Anyone running KORUS seats who wants the seat, the fleet and the owner's queue
 in view without running a script by hand.
@@ -181,24 +181,167 @@ hook error, and the session goes on without a card.
 
 ## korus-inbox: what waits on the owner in every session
 
-`korus-inbox` collects two kinds of entry from every session on the machine, and shows them in one
-place.
+`korus-inbox` shows the owner only what the owner can act on, from every session on the machine.
+Each entry says what to do, in one step.
 
 | Entry | Where it comes from | It stops waiting when |
 |---|---|---|
-| A pending question | An open `AskUserQuestion` call | The question is answered, or Dismiss is pressed |
-| A refused command | A Bash or PowerShell call that a settings `PreToolUse` hook refused | A Run ends with an exit code of any value, or Dismiss is pressed |
-
-A Run that could not start leaves its entry waiting. A Run that ended leaves its row in the pane
-with the output's last lines, out of the count, until Dismiss is pressed.
-
-The plugin reads a refusal through `classic.PreToolUse`. A tool result that starts with
-`PreToolUse:Bash hook` or `PreToolUse:PowerShell hook` is the fallback.
+| A question | An open `AskUserQuestion` call | The question is answered, or Dismiss is pressed |
+| A refused command | A Bash or PowerShell call a settings `PreToolUse` hook refused, whose refusal hands the act to the person | A Run of it exits 0, the same part later runs fine, or Dismiss is pressed |
+| An owner signal | A session called the `owner_action` tool | A Run of its command exits 0, the session calls `owner_action_done`, or Dismiss is pressed |
 
 | Where | What it shows |
 |---|---|
-| Status line | `inbox N`, the count across every session. Nothing when there is nothing. |
-| `/inbox` | Opens a pane listing every entry, newest first, with its session, age and buttons. |
+| Above the prompt | A band with one Button, `inbox N`, hotkey `i`, that opens the pane. Nothing when nothing waits, or while a survey shows. Beside another plugin's band, the Button comes first. |
+| `/inbox` | Opens the same pane, and says how many wait. |
+| The pane | One card per waiting entry, newest first, then a collapsed Done section. |
+
+**One count feeds the band, the pane's header, its list of cards and `/inbox`.** So the four always
+agree. An entry counts while it waits, and a done one does not.
+
+The plugin never sets the status line. Version 0.1.0 showed `inbox N` there, so each session start
+clears the status line once.
+
+### Only what the driver rules leave for the owner reaches the inbox
+
+The rule is the one the `driver` skill gives a session. A session that has a strong recommendation
+acts on it. One that has none puts the choice through adversarial review and follows a clear answer.
+Only what review cannot decide goes to the owner.
+
+So each kind of entry reaches the inbox only on terms that rule allows.
+
+| Kind | What lets it in |
+|---|---|
+| A question | The session asked. A question is the last step of the ladder. |
+| A refused command | The refusal's own words hand the act to the person, by one of the phrases below. |
+| An owner signal | The session filed it, naming what only the owner has, and why review could not decide. |
+
+A refusal that matches none of the phrases is a guard the session routes around itself. Staging
+everything is one: the guard says to name the paths instead. **It is not recorded at all.**
+
+The match reads the whole refusal, cleaned. The entry keeps three things from it:
+
+| Field | What it holds |
+|---|---|
+| `detail` | The whole refusal, cut to 8000 characters here, and to 1500 in the shared file |
+| `ask` | The refusal's sentence that holds the matching phrase |
+| `viaOutput` | True when the refusal was read from the call's result text rather than from the hook's decision |
+
+A reader drops a refused entry from another session's file when its `ask` matches no phrase. So an
+entry no rule would keep never shows, whoever wrote it.
+
+**A refused entry kept by version 0.1.0 has no `ask`, and is deleted when the session starts.**
+Under these rules it would never have been recorded.
+
+### Each card leads with the one step to take
+
+A card draws its lines in this order:
+
+| Line | What it says |
+|---|---|
+| Headline | `Blocked: <the blocked part>` for a refusal whose part is first on its line, and `Blocked: <the command's first line>` for any other refusal. The title for a signal, `Question: <header>` for a question. |
+| `Do this:` | The recommended action, one step, never blank |
+| `Needs you for:` | `<category> \| confidence: <x>` |
+| `Why:` | The refusal's first sentence, or the signal's reason |
+| `For you:` | The refusal's sentence that hands the act over |
+| `From:` | This session, a subagent of it, or another session by name, with the age |
+| `Folder:` | The folder Run would use |
+
+A note, the Run views and the buttons follow. Details opens the whole command, the whole refusal and
+the review outcome, and closes again.
+
+`Do this:` comes from the phrase the refusal matched. The first matching row decides:
+
+| The refusal says | Do this |
+|---|---|
+| `I need you to confirm ...` | Confirm what it names, then run the part |
+| `from a PLAIN terminal`, or `governs agents, not you` | Run the part in a plain terminal |
+| `the user's call` | Decide, and if you agree, run it yourself |
+| `a human act` | Do it yourself, from a plain terminal |
+| `only the owner` | Only you can do this; if you agree, run it yourself |
+| `let the user decide`, `ask the user`, or `I need you to` | Do or answer what `For you:` asks |
+
+"The part" here is the blocked part, and only when it is first on its line. Otherwise the step names
+the whole command, and Copy gives the same.
+
+For example: `Run the whole command in a plain terminal: cd C:\other && git switch x`. The bare part
+never reaches the owner alone, because alone it could run in a different folder or context.
+
+The step shows a command only when it fits exactly: one line of 160 characters or fewer. Otherwise
+it names `the command Copy gives`, rather than show a joined or cut text the owner might retype.
+
+For a question, `Do this:` names the option whose label says `(Recommended)`, where there is one.
+Otherwise it says where the question waits. For a signal it is the filed `recommendedAction`.
+
+`Needs you for:` names one of four categories: `preference`, `authority`, `private-context` or
+`cost`.
+
+| Kind | Category | Confidence |
+|---|---|---|
+| A refusal from the hook's decision | `authority` | `high` |
+| A refusal read from the result text | `authority` | `medium (gate not verified)` |
+| A question | `preference`, unless its words name a cost, an approval or private context | `not stated` |
+| A signal | What the session filed | What the session filed |
+
+### The owner_action tool files a signal and returns at once
+
+Each session start registers two tools. The model calls them as `mcp__korus-inbox__owner_action` and
+`mcp__korus-inbox__owner_action_done`. The plugin matches the names the engine returns when it
+registers them.
+
+The `owner_action` description states the driver ladder, so the model reads the rule before it
+files. These are its fields:
+
+| Field | Required | What it holds |
+|---|---|---|
+| `title` | Yes | One line: what needs the owner. Cut to 200 characters. |
+| `why` | Yes | Why it needs the owner. Cut to 600. |
+| `recommendedAction` | Yes | What the owner should do, as one step. Cut to 400. |
+| `needsOwnerBecause` | Yes | One of `preference`, `authority`, `private-context` or `cost` |
+| `reviewOutcome` | Yes | Why review could not decide, or `not applicable: <reason>`. Cut to 300. |
+| `confidence` | Yes | How sure, and what reading would change the session's mind. Cut to 120. |
+| `command` | No | A PowerShell command for the owner to run. Only PowerShell. |
+| `cwd` | No | The full path the command runs in. The session's folder when absent. |
+
+The tool refuses a filing with no category or one outside the four, and one with an empty
+`reviewOutcome`. It also refuses one where a required field is empty. Nothing is filed then, and the
+refusal restates the rule.
+
+Each field is cleaned like text from disk, and held to one line, so filed text cannot draw a row of
+its own. A command that looks like a secret is withheld, as below. So is any of the five prose
+fields, one field at a time, and the tool's reply names the fields it withheld.
+
+The call returns an entry id straight away and does not wait for the owner. When the matter settles
+without the owner, `owner_action_done` takes that `id` and an optional one-line `note`. The entry
+moves to Done.
+
+Only the loop that filed it can resolve it: a subagent cannot resolve the main loop's entry.
+
+The tool's input and the engine's own fields arrive in one record. So any `agentId` the input
+carries, `null` included, reads as a subagent, and the entry is Copy only.
+
+### Done entries collapse into one section
+
+An entry is done once a Run of it exits 0, or it resolved without one. Done entries leave the count
+and sit under one Button, `Done (N)`, collapsed until it is pressed. Each one says how it ended, and
+Dismiss removes it.
+
+A refused entry resolves itself when a later call succeeds with the same part. Every one of these
+must hold:
+
+| Condition | What it rules out |
+|---|---|
+| The entry's blocked part was first on its line | An entry whose part ran after other commands, which a bare success says nothing about |
+| The entry came from the main loop | An entry a subagent raised, whose folder is not known |
+| The later call came from the main loop | A subagent's success |
+| The later call ran in the foreground and finished without error | A `run_in_background` launch, or a result that reads as a launch |
+| It ran in the same shell and the same folder | A Bash success settling a PowerShell refusal, or one in another folder |
+| Its command starts with the part, then has nothing or `&&` alone | A later `\|\| true`, `;` or pipe, which could hide the part's failure, and anything before the part |
+| The part itself is joined by nothing or `&&` alone | A part such as `git push \|\| true`, which exits 0 when the push fails |
+
+A copy of the part inside a quoted string or a comment resolves nothing.
+
+A Run that exits non-zero leaves the entry waiting, with the output's last lines.
 
 ### Install it
 
@@ -219,7 +362,10 @@ Each five seconds, every pane reads at most the 200 most recently written files 
 It skips its own file, and any file not written for 24 hours. A larger file is never read, nor one
 older than the 200 newest. It reads at most 50 entries from each file.
 
-A file holds only what waits on the owner: the entries, and the keys of entries the owner
+A session's own entries age out at 24 hours too, so every pane counts the same set. An entry with a
+Run still going is kept until the Run ends.
+
+A file holds only what waits on the owner: the waiting entries, and the keys of entries the owner
 dismissed. Run output is never written.
 
 **This is the one plugin here that writes.** `WRITERS` in
@@ -234,14 +380,55 @@ A Dismiss also lapses after 24 hours, and when its file drops out of the 200 tha
 One case outlasts the lapse. The session that raised the entry removes it from its own list when its
 pane sees the Dismiss, and it does not bring it back.
 
-### Run is offered only for this session's own refusals
+### Run is offered only for this session's own entries
 
 | Entry | Buttons |
 |---|---|
-| A refused command this session's main loop raised, in a folder known as a full path | Run, Copy, Dismiss |
-| A refused command a subagent raised | Copy and Dismiss. The subagent's folder is not known. |
-| Anything read from another session's file | Copy and Dismiss. Never Run. |
+| A PowerShell refusal, or a signal's command, this session's main loop raised, in a folder known as a full path | Run, Copy, Details, Dismiss |
+| A Bash refusal on Windows | Copy, Details and Dismiss. Git Bash can expand a command differently from what the card shows. |
+| One a subagent raised | Copy, Details and Dismiss. The subagent's folder is not known. |
+| Anything read from another session's file | Copy, Details and Dismiss. Never Run. |
 | A question | Copy and Dismiss |
+
+**For a refusal, Run is offered only when the blocked part is the first command on the line.** The
+blocked part is the first span the refusal quotes in single quotes. It must start the command, with
+nothing at all before it, not even a space.
+
+It must also end where the shell would end a command. That is the line's end, or just before `;`,
+`&&`, `||`, `|` or a line break. Then Run and Copy act on the part alone.
+
+Every other position is Copy only, with one reason:
+
+```
+Copy only: other commands come before this part, so it could run in a different context.
+```
+
+Copy and `Do this:` then give the whole command, and the headline shows its first line.
+
+**This is an allow-list.** Version 0.2.0 ran a part in any position unless an earlier part matched a
+list of words, such as `cd`, `export` or a test before `&&`. Each review found words it missed.
+
+Those included PowerShell's `D:`, `iex`, `Set-Alias` and `Import-Module`, Bash's `name+=`, and
+`grep -q` before `&&`. So the list is gone, and position alone decides.
+
+**That reverses one earlier rule. A part after a plain `&&` chain is now Copy only.** In `npm test &&
+npm publish`, Run of `npm publish` alone would skip the tests. In `git switch other && git push
+--force`, it would force-push whatever branch is checked out now.
+
+Run is not offered either when the part, though first, is not one the shell reads plainly:
+
+| The quoted span is not used when | For example |
+|---|---|
+| It is only the start of a longer word | `rm -rf /tmp` in `rm -rf /tmp/build` |
+| A redirect or a background operator follows it | `git switch x 2>&1` |
+| It holds a comment, a quoted string left open, a here-doc, a script block or an escape | `echo "x` |
+| It holds a character outside plain ASCII, or PowerShell's `--%` | Typographic quotes |
+
+With no part to use, the headline is the command's first line and Copy takes the whole line. Run is
+not offered, and the card says why.
+
+For a signal, Run acts on the filed command. Any label below, such as `argv[` or `Run now`,
+anywhere in the signal's filed fields makes it Copy only.
 
 Run takes two presses. The first arms it and shows `Run now`, and the second runs it. The arm lapses
 after 60 seconds, and two quick presses run the command once.
@@ -252,7 +439,14 @@ states the rule, and a toast says when a press was ignored.
 
 The arm stays through ignored presses, and still lapses 60 seconds after the Run press.
 
-The command comes from the session's own state at the moment of the press. It never comes from the
+A lapsed or cancelled arm is cleared from the entry, not only hidden. An entry counts as busy only
+while it runs, or while its arm is inside its minute.
+
+A busy entry is never the one dropped when the list of 50 is full. So a lapsed arm cannot keep its
+entry forever and push out a newer one. A session start clears every arm, since the timer that
+would clear it died with the old module.
+
+The text comes from the session's own state at the moment of the press. It never comes from the
 screen or the disk. Text the pane cannot show exactly is Copy only, so what runs is what the owner
 read; the rules are below.
 
@@ -274,42 +468,63 @@ the pane's edge, never wrapped, and starts with a mark, so text cannot draw a fa
 | `folder: ` | The first row of the folder |
 | `argv[3]: ` | The first row of an element |
 | `  + ` | A row cut from the same line |
-| `  line 2: ` | The first row of the command's second line, and so on. No mark uses `\|`, the shell pipe. |
+| `  line 2: ` | The first row of the text's second line, and so on. No mark uses `\|`, the shell pipe. |
 | `out: ` or `error: ` | One line of what the run printed, or why it failed |
 
 A row never ends in a space. The space starts the next row, where it shows. While Run is offered,
-the command line above the folder is drawn the same way.
+the headline and a signal's `Command:` line are drawn the same way.
 
 A pane narrower than 52 columns would cut a row short, so it offers Copy only and says why. Widen
 the pane and Run comes back.
 
-PowerShell runs as `pwsh -NoProfile -Command`, in the folder the session was in. Where
-`<ProgramFiles>\PowerShell\7\pwsh.exe` exists, it runs that, and the pane shows the full path as
-`argv[0]`. Otherwise it runs a bare `pwsh`, and the process runner finds it by name.
+Each shell runs by its full path, in the entry's folder:
 
-**A bare `pwsh` is not always the one on `PATH`.** On Windows the lookup can try the run folder
-first, so the pane shows `argv[0]: pwsh (by name: PATH, and on Windows the run folder first)`.
+| Shell | Where | What runs |
+|---|---|---|
+| PowerShell | Windows | `<ProgramFiles>\PowerShell\7\pwsh.exe -NoProfile -Command`. A lookup by name can try the run folder first, and a signal's folder is the model's choice. |
+| PowerShell | Elsewhere | `pwsh -NoProfile -Command` |
+| Bash | Windows | Nothing. The entry is Copy only. |
+| Bash | Elsewhere | `/bin/bash -c`, or `/usr/bin/bash -c` |
 
-Bash runs through Git Bash by its full path, and the pane shows that path as `argv[0]`. It never runs
-as a bare `bash`, which on Windows can be WSL. Where no Git Bash is found, the pane says `Run now`
-runs nothing, and pressing it records the failure.
+**On Windows, Run is offered only for PowerShell.** Git Bash's runtime can glob-expand or
+`@file`-expand an argument that the confirm view showed plainly, so what ran would not be what the
+owner read. A bare `bash` there can also be WSL's.
+
+A `pwsh.exe` under `LOCALAPPDATA` is not used. The user can write there, so a planted file would look
+legitimate on the confirm view. Where no shell is found, `Run now` runs nothing and records why.
+
+A reload of the plugin drops the wait on a Run in progress. So the session start marks such a Run
+failed, saying its result is not known. It also drops a question open across the reload, since the
+hook that would clear it is gone.
 
 ### Run is offered only for text the pane can show exactly
 
-A refused command is Copy only, with the reason on screen, when any of these holds:
+The text Run would execute is Copy only, with the reason on screen, when any of these holds:
 
-| The command | Why |
+| The text | Why |
 |---|---|
 | Is over 400 characters | It would not fit on one screen beside `Run now`. |
 | Is over 6 lines | The same. Read a longer script in an editor. |
 | Holds a run of 4 or more spaces | Padding is how text lines itself up to look like something else. |
 | Holds a tab, or any character outside plain ASCII | Only plain ASCII is one cell wide on every surface, so only it lines up as counted. |
 | Has a line that ends in a space | The space would not show. |
-| Holds a label the pane draws: `argv[`, `folder:`, `out:`, `error:`, `bash:`, `shell:` or `line 2:`, anywhere | The cut falls at the same place on every pane, so text placed there could read as a new row. So `stdout:` is Copy only too. |
+| Holds a label the pane or the card draws, anywhere | Text placed where a row is cut could read as a new row. So `stdout:` is Copy only too. |
 | Holds a character the screen strips | What runs would not be what the owner read. |
 
-The folder must pass the same rules, on one line. The pane, the Run press and the `Run now` press
-all ask one check, so they always agree. Copy still works for every one of these.
+| Labels | Which |
+|---|---|
+| The views' own | `argv[`, `argv:`, `folder:`, `out:`, `error:`, `bash:`, `shell:`, `line 2:` |
+| The card's | `blocked:`, `why:`, `from:`, `command:`, `do this:`, `for you:`, `copy only:`, `needs you for:`, `confidence:`, `review:`, `question:` |
+| A Run's headers | `running:`, `ran, exit`, `could not run:`, `done:`, `run now`, `resolved` |
+
+Case does not matter.
+
+The folder must pass the same rules, on one line. A refusal's `Do this:`, `Why:` and `For you:`
+lines, and a signal's filed fields, must hold none of the labels, since the card draws them above
+the confirm view.
+
+The pane, the Run press and the `Run now` press all ask one check, so they always agree. Copy still
+works for every one of these, and it puts the cleaned text on the clipboard.
 
 ### Everything read from disk is untrusted text
 
@@ -320,11 +535,27 @@ bidirectional marks are stripped, so a file cannot repaint the terminal or hide 
 ### A command that looks like a secret is never stored
 
 The check looks for a token, a password, a key, a URL credential or a long random string. A refused
-command that matches is stored as a placeholder: `command withheld: it looked like it carried a
-secret`. That entry offers no Run and no Copy. The check errs toward withholding.
+or filed command that matches is stored as a placeholder: `command withheld: it looked like it
+carried a secret`. That entry offers no Run and no Copy. The check errs toward withholding.
 
-Question text gets a narrower check, on value shapes such as `password=...` only. In prose, words
-like "token" and "key" are ordinary.
+A refusal's text gets the same check. So does each of a signal's five prose fields: `title`, `why`,
+`recommendedAction`, `reviewOutcome` and `confidence`. The check runs when the signal is filed and
+again when it is read from disk.
+
+A recommended action can carry `curl -u admin:pw` or `sshpass -p` as easily as a command can. A
+field that matches is stored as a placeholder, and only that field.
+
+Question text gets a narrower check, on value shapes such as `password=...` only. In a question,
+words like "token" and "key" are ordinary.
+
+A refusal's `ask` gets both checks, when it is recorded and when it is read from disk. It is a
+sentence of the refusal, so it can carry what the refusal carried.
+
+A withheld `ask` keeps its kind and the row that let it in. The placeholder names that row, such as
+`The gate handed it over as: from a PLAIN terminal`.
+
+A reader applies the handover rule to the `ask` as written, before it withholds anything. So a
+secret-looking `ask` gets no pass around the rule.
 
 ### Ended files pile up, and inbox-prune clears them
 
@@ -348,6 +579,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 75 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 264 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

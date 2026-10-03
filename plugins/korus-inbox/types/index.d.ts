@@ -6,6 +6,9 @@ export type InboxOption = { label: string; description: string }
 /** One question of a pending AskUserQuestion call. */
 export type InboxQuestion = { header: string; question: string; options: InboxOption[] }
 
+/** Why an entry needs the owner, on the driver ladder: only these four reach the owner. */
+export type InboxNeed = 'preference' | 'authority' | 'private-context' | 'cost'
+
 /** The result of a Run the owner pressed. Held in this session only, never written to disk. */
 export type InboxRun = {
   status: 'running' | 'done' | 'failed'
@@ -18,13 +21,15 @@ export type InboxRun = {
 }
 
 /**
- * One entry this session raised. `command` is the exact text the hook refused,
- * kept only in this session's $.state; it is absent when it looked like it
- * carried a secret, or was too long to keep, and `withheld` says why.
+ * One entry this session raised: an open question, a refused command whose
+ * refusal hands the act to the person, or an owner signal the model filed.
+ * `command` is the exact text, kept only in this session's $.state; it is
+ * absent when it looked like it carried a secret, or was too long to keep, and
+ * `withheld` says why.
  */
 export type InboxEntry = {
   id: string
-  kind: 'question' | 'refused'
+  kind: 'question' | 'refused' | 'signal'
   createdAt: number
   agentId?: string
   questions?: InboxQuestion[]
@@ -32,10 +37,24 @@ export type InboxEntry = {
   command?: string
   withheld?: string
   cwd?: string
+  /** The refusal's first line. */
   refusal?: string
-  /** True for a main-loop refusal in a folder known as a full path; anything else is Copy only. */
+  /** The whole refusal, cleaned and cut; the blocked part is read from it. */
+  detail?: string
+  /** The refusal's sentence that hands the act to the person. */
+  ask?: string
+  /** True when the refusal was read from the call's result text, not the PreToolUse decision: the gate is not verified. */
+  viaOutput?: boolean
+  /** An owner signal's own fields, as the model filed them, cleaned and cut. */
+  title?: string
+  why?: string
+  recommendedAction?: string
+  needs?: InboxNeed
+  reviewOutcome?: string
+  confidence?: string
+  /** True for a main-loop entry in a folder known as a full path; anything else is Copy only. */
   isRunnable?: boolean
-  /** Why a refusal is Copy only, worked out when it was recorded. */
+  /** Why an entry is Copy only, worked out when it was recorded. */
   copyOnly?: string
   /** When the owner pressed Run; Run now is offered for a minute after it, and ignores a press within 600 ms of the last one. */
   armedAt?: number
@@ -46,6 +65,9 @@ export type InboxEntry = {
   /** Why the arming press found no shell to run; Run now then records it and runs nothing. */
   armedError?: string
   run?: InboxRun
+  /** When the entry resolved without a Run: the same part later ran fine, or the filer said it is done. */
+  resolvedAt?: number
+  resolvedBy?: string
 }
 
 /**
@@ -55,7 +77,7 @@ export type InboxEntry = {
 export type InboxRemoteEntry = {
   key: string
   sessionLabel: string
-  kind: 'question' | 'refused'
+  kind: 'question' | 'refused' | 'signal'
   createdAt: number
   questions: InboxQuestion[]
   shell?: string
@@ -63,6 +85,15 @@ export type InboxRemoteEntry = {
   withheld?: string
   cwd?: string
   refusal?: string
+  detail?: string
+  ask?: string
+  viaOutput?: boolean
+  title?: string
+  why?: string
+  recommendedAction?: string
+  needs?: InboxNeed
+  reviewOutcome?: string
+  confidence?: string
 }
 
 /** A remote entry the owner dismissed: its key and when. */
@@ -75,6 +106,8 @@ declare module 'claude-code' {
       remote: InboxRemoteEntry[]
       dismissed: InboxDismissal[]
       folderNote: string | null
+      /** Which Details and the Done section the owner has opened, by key. */
+      expanded: string[]
     }
   }
 }
