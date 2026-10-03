@@ -2291,8 +2291,8 @@ test('a reader drops a refused entry whose ask looks secret but hands nothing ov
 
 // --------------------------------------- review round 2: render time, bounded
 
-// 120 entries: the most this card shape draws under the engine's bound of
-// 100000 characters of text in one Pane, which refuses the whole pane above it.
+// 120 entries: read and counted in full, with the newest 40 drawn, under the
+// engine's bound of 100000 characters of text in one Pane.
 const FILES = 3
 test('a render over 120 crafted remote entries stays under 10 seconds', async ($, on) => {
   const w = world(on)
@@ -2322,5 +2322,198 @@ test('a render over 120 crafted remote entries stays under 10 seconds', async ($
   // Generous on purpose: a loaded machine is slow, a backtracking regex is
   // seconds per entry. Measured at 137 ms on 2026-10-02.
   expect(elapsed).toBeLessThan(10_000)
+  await ui.unmount()
+})
+
+// ---------------------------------- many remote entries: drawn cap, held cap
+
+// Remote entries spread over `files` files of `per` entries each, newest
+// first by index: entry 0 of file 0 is the newest of all. Each carries a long
+// refusal and why line, about the size of a real card, so 200 of them drawn
+// whole would pass the engine's 100000-character bound on one Pane.
+function manyRemote(w: World, files: number, per: number): void {
+  const detail = `BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal. ${'word '.repeat(240)}`
+  for (let f = 0; f < files; f++) {
+    const entries = Array.from({ length: per }, (_, i) => ({
+      id: `m${f}-${i}`,
+      kind: 'refused',
+      createdAt: NOW - 60_000 - (f * per + i) * 1000,
+      shell: 'PowerShell',
+      command: `git push origin topic-${f}-${i}`,
+      cwd: 'C:\\elsewhere',
+      refusal: "BLOCKED: 'git push' needs the person.",
+      detail,
+      ask: 'Do it from a PLAIN terminal.',
+    }))
+    w.files.set(`${DIR}\\sess-bulk-${f}.json`, {
+      mtimeMs: NOW - 1000,
+      text: otherFile({ sessionId: `sess-bulk-${f}`, entries }),
+    })
+  }
+}
+
+async function paneChars(ui: Finder): Promise<number> {
+  return (await ui.findAll({ type: 'Text' })).reduce((sum, one) => sum + (one.text ?? '').length, 0)
+}
+
+test('200 remote entries draw the newest 40, under the pane bound, and say how many more wait', async ($, on) => {
+  const w = world(on)
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'engine', ref: 0 }))
+  manyRemote(w, 5, 40)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('200 waiting on the owner')
+  expect(await drawnCards(ui)).toBe(40)
+  expect(await paneChars(ui)).toBeLessThan(100_000)
+  // Newest first: the newest entry is drawn and the 41st newest is not.
+  expect(await ui.find({ key: 'rdismiss:sess-bulk-0:m0-0' })).toBeDefined()
+  expect(await ui.find({ key: 'rdismiss:sess-bulk-0:m0-39' })).toBeDefined()
+  expect(await ui.find({ key: 'rdismiss:sess-bulk-1:m1-0' })).toBeUndefined()
+  expect(await textOf(ui, /more waiting/)).toBe(
+    '160 more waiting from other sessions are not shown. /inbox shows the newest 40.',
+  )
+  await ui.unmount()
+})
+
+test('the band counts every waiting entry, drawn or not, and a Dismiss keeps the counts equal', async ($, on) => {
+  const w = world(on)
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'engine', ref: 0 }))
+  refuseAll(on, SWITCH_REFUSAL)
+  manyRemote(w, 5, 40)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+  await w.settle()
+  const band = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS })
+  const ui = await $.ui.mount(MOUNT)
+  const bandCount = async () =>
+    Number(/^inbox (\d+)$/.exec((await band.find({ type: 'Button', key: 'korus-inbox:open' }))?.text ?? '')?.[1])
+  const headCount = async () => Number(/^(\d+) waiting/.exec((await textOf(ui, /waiting on the owner$/)) ?? '')?.[1])
+  const moreCount = async () => Number(/^(\d+) more/.exec((await textOf(ui, /more waiting/)) ?? '')?.[1])
+  expect(await bandCount()).toBe(201)
+  expect(await headCount()).toBe(201)
+  expect((await drawnCards(ui)) + (await moreCount())).toBe(201)
+  expect(await $.command.run({ command: 'inbox' })).toMatchObject({ text: 'Owner inbox opened: 201 waiting.' })
+
+  await ui.press({ key: 'rdismiss:sess-bulk-0:m0-0' })
+  // At once, before any poll: the list and its total move in one write, so
+  // the counts drop by exactly one and still agree.
+  await w.settle()
+  expect(await bandCount()).toBe(200)
+  expect(await headCount()).toBe(200)
+  expect((await drawnCards(ui)) + (await moreCount())).toBe(200)
+  await w.advance(5000)
+  expect(await bandCount()).toBe(200)
+  expect(await headCount()).toBe(200)
+  // The next poll refills the drawn cards from what was not drawn.
+  expect(await drawnCards(ui)).toBe(41)
+  expect((await drawnCards(ui)) + (await moreCount())).toBe(200)
+  await band.unmount()
+  await ui.unmount()
+})
+
+test('800 remote entries keep the state small, and none of them vanishes from the count', async ($, on) => {
+  const w = world(on)
+  manyRemote(w, 20, 40)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  await w.advance(5000)
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('800 waiting on the owner')
+  expect(await drawnCards(ui)).toBe(40)
+  expect(await textOf(ui, /more waiting/)).toBe('760 more waiting from other sessions are not shown. /inbox shows the newest 40.')
+  await ui.unmount()
+})
+
+test('remote cards stop at the text budget, short of 40, when each is large', async ($, on) => {
+  const w = world(on)
+  const big = (i: number) => ({
+    id: `q${i}`,
+    kind: 'question',
+    createdAt: NOW - 60_000 - i * 1000,
+    questions: Array.from({ length: 4 }, () => ({
+      header: 'Pick',
+      question: 'q'.repeat(1000),
+      options: Array.from({ length: 6 }, () => ({ label: 'l'.repeat(100), description: 'd'.repeat(300) })),
+    })),
+  })
+  // Two files of 15: one file of these passes the 256 KB a reader takes.
+  for (let f = 0; f < 2; f++) {
+    w.files.set(`${DIR}\\sess-big-${f}.json`, {
+      mtimeMs: NOW - 1000,
+      text: otherFile({ sessionId: `sess-big-${f}`, entries: Array.from({ length: 15 }, (_, i) => big(f * 15 + i)) }),
+    })
+  }
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('30 waiting on the owner')
+  const drawn = await drawnCards(ui)
+  expect(drawn).toBeGreaterThan(0)
+  expect(drawn).toBeLessThan(30)
+  expect(await paneChars(ui)).toBeLessThan(100_000)
+  expect(await textOf(ui, /more waiting/)).toBe(
+    `${30 - drawn} more waiting from other sessions are not shown. /inbox shows the newest ${drawn}.`,
+  )
+  await ui.unmount()
+})
+
+test('opening Details on the last remote card that fits keeps the card, and Hide details closes it', async ($, on) => {
+  const w = world(on)
+  // Signals at their longest fields: about 2600 characters each with Details
+  // closed, so the budget runs out short of 40. Each carries a long command
+  // that Details would add.
+  const long = (i: number) => ({
+    id: `s${i}`,
+    kind: 'signal',
+    createdAt: NOW - 60_000 - i * 1000,
+    title: 'a b '.repeat(50),
+    why: 'c d '.repeat(150),
+    recommendedAction: 'e f '.repeat(100),
+    needs: 'authority',
+    reviewOutcome: 'not applicable: only the owner signs',
+    confidence: 'g h '.repeat(30),
+    cwd: `C:\\work\\${'w'.repeat(480)}`,
+    command: `echo ${'word '.repeat(700)}`,
+  })
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: Array.from({ length: 40 }, (_, i) => long(i)) }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  const drawn = await drawnCards(ui)
+  expect(drawn).toBeGreaterThan(0)
+  expect(drawn).toBeLessThan(40)
+  const last = `sess-other-2:s${drawn - 1}`
+  await ui.press({ key: `rdetails:${last}` })
+  expect(await drawnCards(ui)).toBe(drawn)
+  expect(await ui.find({ key: `rdismiss:${last}` })).toBeDefined()
+  expect((await ui.find({ key: `rdetails:${last}` }))?.text).toBe('Hide details')
+  expect(await textOf(ui, /^Details do not fit/)).toBe(
+    'Details do not fit in the pane now. Hide the details of another card, or Copy this one.',
+  )
+  expect(await paneChars(ui)).toBeLessThan(100_000)
+  await ui.press({ key: `rdetails:${last}` })
+  expect((await ui.find({ key: `rdetails:${last}` }))?.text).toBe('Details')
+  expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
+  // Details opened on the newest card push no older card off the pane: the
+  // cards fit first, and these Details find no room left.
+  await ui.press({ key: 'rdetails:sess-other-2:s0' })
+  expect(await drawnCards(ui)).toBe(drawn)
+  expect(await ui.find({ key: `rdismiss:${last}` })).toBeDefined()
+  expect(await textOf(ui, /^Details do not fit/)).toBeDefined()
+  expect(await paneChars(ui)).toBeLessThan(100_000)
+  await ui.unmount()
+})
+
+test('a remote card with room to spare draws its Details when opened', async ($, on) => {
+  const w = world(on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [REMOTE_SIGNAL] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: 'rdetails:sess-other-2:e3' })
+  expect(await ui.find({ type: 'Text', text: 'Full command:' })).toBeDefined()
+  expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
+  expect(await textOf(ui, /more waiting/)).toBeUndefined()
   await ui.unmount()
 })

@@ -194,10 +194,35 @@ Each entry says what to do, in one step.
 |---|---|
 | Above the prompt | A band with one Button, `inbox N`, hotkey `i`, that opens the pane. Nothing when nothing waits, or while a survey shows. Beside another plugin's band, the Button comes first. |
 | `/inbox` | Opens the same pane, and says how many wait. |
-| The pane | One card per waiting entry, newest first, then a collapsed Done section. |
+| The pane | One card per waiting entry, newest first, then a collapsed Done section. Cards from other sessions stop at the newest 40, and a line says how many more wait. |
 
 **One count feeds the band, the pane's header, its list of cards and `/inbox`.** So the four always
-agree. An entry counts while it waits, and a done one does not.
+agree. An entry counts while it waits, and a done one does not. An entry from another session counts
+even when its card is not drawn.
+
+### The pane draws at most 40 cards from other sessions
+
+The engine refuses a whole pane that holds over 100000 characters of text, and draws its own in its
+place. About 150 cards from other sessions passed that bound in version 0.2.0 and blanked the pane.
+
+So the pane draws only the 40 newest cards from other sessions. A card runs about 670 characters,
+so 40 come to about 27000. That leaves room for this session's own cards, which stop at 50.
+
+A card can run much longer: a question up to 6000 characters, or more with Details open. So those
+cards also stop once they reach 50000 characters of text, even short of 40.
+
+Whether a card fits is measured with its Details closed, so opening Details never hides the card.
+Open Details draw only if they fit in what is left. If they do not, the card says so and keeps its
+`Hide details` button.
+
+**The 50000 covers cards from other sessions only.** This session's own cards are not counted
+against it, so many long own cards could still pass the engine's bound.
+
+When cards are left out, one line under the header says so, for example:
+`160 more waiting from other sessions are not shown. /inbox shows the newest 40.`
+
+The plugin also keeps only those 40 entries in its saved state, plus a count of all of them. Saving
+about 800 entries, about 4 MB, failed in 0.2.0, and every card from other sessions vanished.
 
 The plugin never sets the status line. Version 0.1.0 showed `inbox N` there, so each session start
 clears the status line once.
@@ -579,6 +604,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 264 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 270 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

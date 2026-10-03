@@ -103,7 +103,11 @@ declare module 'claude-code' {
   interface PluginState {
     'korus-inbox': {
       own: InboxEntry[]
-      remote: InboxRemoteEntry[]
+      /**
+       * The newest remote entries waiting, at most the 40 the pane draws, and
+       * the count of every remote entry waiting, held or not.
+       */
+      remoteHeld: { entries: InboxRemoteEntry[]; total: number }
       dismissed: InboxDismissal[]
       folderNote: string | null
       /** Which Details and the Done section the owner has opened, by key. */
