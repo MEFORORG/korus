@@ -1,6 +1,6 @@
 {
   "name": "korus-inbox",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Gathers what only the owner can act on across sessions: open questions, refusals that hand the act to the person, and owner_action signals, each with its recommended action, in an /inbox pane and an inbox N band",
   "author": { "name": "MEFORORG" },
   "types": "./types/index.d.ts"
