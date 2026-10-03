@@ -717,7 +717,9 @@ function captureCommand(command: string): { command?: string; withheld?: string 
 async function resolveBySuccess($: Engine, command: string, shell: Shell, cwd: string): Promise<void> {
   const mine = await read($, own)
   const ranFine = (part: string): boolean => {
-    if (!command.startsWith(part)) return false
+    // A part with its own `;`, `||`, `|` or line break could fail inside and
+    // still exit 0, so only a part joined by `&&` alone, or by nothing, counts.
+    if (!command.startsWith(part) || !separatorsOf(part).every(one => one === '&&')) return false
     const rest = command.slice(part.length)
     if (rest.trim() === '') return true
     return /^[ \t]*&&/.test(rest) && isPlain(rest, shell) && separatorsOf(rest).every(one => one === '&&')
@@ -1317,11 +1319,19 @@ function doThisOf(card: Card, where: string): string {
   const part = card.part?.part
   const target: Target =
     part !== undefined
-      ? { part: cut(flat(part), 160) }
+      ? { part: inline(part) }
       : card.command !== undefined
-        ? { whole: cut(flat(clean(card.command, MAX_COMMAND)), 160) }
+        ? { whole: inline(card.command) }
         : { part: 'the blocked command' }
   return found.row.act(found.match, target)
+}
+
+// A command inside the Do this sentence, shown only where it fits exactly: one
+// line of 160 characters or fewer. Otherwise the step names Copy, which gives
+// it exactly, rather than show a joined or cut text the owner might retype.
+function inline(text: string): string {
+  const shown = clean(text, MAX_COMMAND)
+  return shown.includes('\n') || shown.length > 160 ? 'the command Copy gives (Details shows it whole)' : shown
 }
 
 // What Copy puts on the clipboard: the text the card shows, cleaned like it.

@@ -506,7 +506,10 @@ test('with no verbatim match the headline is the first line, Copy takes the whol
   expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
   expect(await textOf(ui, /^Copy only: the refusal does not quote/)).toBeDefined()
   expect(await textOf(ui, /only the blocked part/)).toBeUndefined()
-  expect(await textOf(ui, /^Do this: /)).toBe(`Do this: Run the whole command in a plain terminal: ${command.replace('\n', ' ')}`)
+  // Two lines joined would read as one different command, so the step names Copy.
+  expect(await textOf(ui, /^Do this: /)).toBe(
+    'Do this: Run the whole command in a plain terminal: the command Copy gives (Details shows it whole)',
+  )
   await ui.press({ key: `copy:${id}` })
   expect(w.copies).toEqual([command])
   expect(w.runs).toHaveLength(0)
@@ -1891,6 +1894,56 @@ test('a later success that starts with the part, then && alone, resolves it', as
   await $.tool.call({ tool: 'PowerShell', command: `${SWITCH_PART} && git fetch` })
   await w.settle()
   expect(mine(w).entries).toHaveLength(0)
+})
+
+const OWN_SEPARATOR = ['git push origin main || true', 'git push origin main | Out-Null', 'git push origin main; echo done'] as const
+
+for (const part of OWN_SEPARATOR) {
+  test(`a part with its own separator, ${part}, is never resolved by a later success of it`, async ($, on) => {
+    const w = world(on)
+    let isFirst = true
+    refuse(on, command => {
+      if (command !== part || !isFirst) return undefined
+      isFirst = false
+      return `BLOCKED: '${part}' needs the person. Do it from a PLAIN terminal.`
+    })
+    await $.tool.call({ tool: 'PowerShell', command: part })
+    await w.settle()
+    expect(mine(w).entries).toHaveLength(1)
+    await $.tool.call({ tool: 'PowerShell', command: part })
+    await w.settle()
+    expect(mine(w).entries).toHaveLength(1)
+  })
+}
+
+test('a part joined inside by && alone is resolved by a later success of it', async ($, on) => {
+  const w = world(on)
+  const part = 'git fetch && git push origin main'
+  let isFirst = true
+  refuse(on, command => {
+    if (command !== part || !isFirst) return undefined
+    isFirst = false
+    return `BLOCKED: '${part}' needs the person. Do it from a PLAIN terminal.`
+  })
+  await $.tool.call({ tool: 'PowerShell', command: part })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+  await $.tool.call({ tool: 'PowerShell', command: part })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(0)
+})
+
+test('Do this names a long command by Copy rather than cut it, and keeps a short one inline', async ($, on) => {
+  const w = world(on)
+  refuseAll(on, "BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal.")
+  const long = `git fetch origin && git push ${'x'.repeat(170)}`
+  await $.tool.call({ tool: 'PowerShell', command: long })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /^Do this: /)).toBe(
+    'Do this: Run the whole command in a plain terminal: the command Copy gives (Details shows it whole)',
+  )
+  await ui.unmount()
 })
 
 test('a part that was not first on its line is never resolved by a later success', async ($, on) => {

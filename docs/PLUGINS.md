@@ -267,6 +267,9 @@ the whole command, and Copy gives the same.
 For example: `Run the whole command in a plain terminal: cd C:\other && git switch x`. The bare part
 never reaches the owner alone, because alone it could run in a different folder or context.
 
+The step shows a command only when it fits exactly: one line of 160 characters or fewer. Otherwise
+it names `the command Copy gives`, rather than show a joined or cut text the owner might retype.
+
 For a question, `Do this:` names the option whose label says `(Recommended)`, where there is one.
 Otherwise it says where the question waits. For a signal it is the filed `recommendedAction`.
 
@@ -334,6 +337,7 @@ must hold:
 | The later call ran in the foreground and finished without error | A `run_in_background` launch, or a result that reads as a launch |
 | It ran in the same shell and the same folder | A Bash success settling a PowerShell refusal, or one in another folder |
 | Its command starts with the part, then has nothing or `&&` alone | A later `\|\| true`, `;` or pipe, which could hide the part's failure, and anything before the part |
+| The part itself is joined by nothing or `&&` alone | A part such as `git push \|\| true`, which exits 0 when the push fails |
 
 A copy of the part inside a quoted string or a comment resolves nothing.
 
@@ -574,6 +578,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 256 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 261 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
