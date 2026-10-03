@@ -2495,9 +2495,25 @@ test('opening Details on the last remote card that fits keeps the card, and Hide
   await ui.press({ key: `rdetails:${last}` })
   expect((await ui.find({ key: `rdetails:${last}` }))?.text).toBe('Details')
   expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
-  // The newest card has room left for its Details, and draws them.
+  // Details opened on the newest card push no older card off the pane: the
+  // cards fit first, and these Details find no room left.
   await ui.press({ key: 'rdetails:sess-other-2:s0' })
-  expect(await ui.find({ type: 'Text', text: 'Full command:' })).toBeDefined()
+  expect(await drawnCards(ui)).toBe(drawn)
+  expect(await ui.find({ key: `rdismiss:${last}` })).toBeDefined()
+  expect(await textOf(ui, /^Details do not fit/)).toBeDefined()
   expect(await paneChars(ui)).toBeLessThan(100_000)
+  await ui.unmount()
+})
+
+test('a remote card with room to spare draws its Details when opened', async ($, on) => {
+  const w = world(on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [REMOTE_SIGNAL] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: 'rdetails:sess-other-2:e3' })
+  expect(await ui.find({ type: 'Text', text: 'Full command:' })).toBeDefined()
+  expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
+  expect(await textOf(ui, /more waiting/)).toBeUndefined()
   await ui.unmount()
 })

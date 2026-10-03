@@ -1913,19 +1913,23 @@ export const register: Register = on => {
     // The newest remote cards, up to MAX_REMOTE_SHOWN and the text budget.
     // The first card over the budget stops the drawing, so what is drawn is
     // always the newest run, and the rest are named in one line. Whether a
-    // card fits is measured with Details closed, so opening Details never
-    // hides the card it opened; open Details take what budget is left.
-    const shownRemote: { view: ReturnType<typeof remoteView>; isDetailsShown: boolean }[] = []
+    // card fits is measured with Details closed, in a first pass over every
+    // card, so opening Details never hides a card. Open Details then take
+    // what budget the drawn cards left, newest first.
+    const fitting: ReturnType<typeof remoteView>[] = []
     let budget = REMOTE_TEXT_BUDGET
     for (const entry of list.remote.slice(0, MAX_REMOTE_SHOWN)) {
       const view = remoteView(entry)
       if (view.chars > budget) break
       budget -= view.chars
-      const details = view.isOpen && entry.kind !== 'question' ? remoteDetailsChars(view.card) : 0
+      fitting.push(view)
+    }
+    const shownRemote = fitting.map(view => {
+      const details = view.isOpen && view.entry.kind !== 'question' ? remoteDetailsChars(view.card) : 0
       const isDetailsShown = details > 0 && details <= budget
       if (isDetailsShown) budget -= details
-      shownRemote.push({ view, isDetailsShown })
-    }
+      return { view, isDetailsShown }
+    })
     const moreRemote = list.remoteCount - shownRemote.length
 
     const rows = [
