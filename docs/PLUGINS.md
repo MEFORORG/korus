@@ -239,7 +239,7 @@ A card draws its lines in this order:
 
 | Line | What it says |
 |---|---|
-| Headline | `Blocked: <the blocked part>` for a refusal, the title for a signal, `Question: <header>` for a question |
+| Headline | `Blocked: <the blocked part>` for a refusal whose part is first on its line, and `Blocked: <the command's first line>` for any other refusal. The title for a signal, `Question: <header>` for a question. |
 | `Do this:` | The recommended action, one step, never blank |
 | `Needs you for:` | `<category> \| confidence: <x>` |
 | `Why:` | The refusal's first sentence, or the signal's reason |
@@ -260,6 +260,12 @@ the review outcome, and closes again.
 | `a human act` | Do it yourself, from a plain terminal |
 | `only the owner` | Only you can do this; if you agree, run it yourself |
 | `let the user decide`, `ask the user`, or `I need you to` | Do or answer what `For you:` asks |
+
+"The part" here is the blocked part, and only when it is first on its line. Otherwise the step names
+the whole command, and Copy gives the same.
+
+For example: `Run the whole command in a plain terminal: cd C:\other && git switch x`. The bare part
+never reaches the owner alone, because alone it could run in a different folder or context.
 
 For a question, `Do this:` names the option whose label says `(Recommended)`, where there is one.
 Otherwise it says where the question waits. For a signal it is the filed `recommendedAction`.
@@ -299,7 +305,8 @@ The tool refuses a filing with no category or one outside the four, and one with
 refusal restates the rule.
 
 Each field is cleaned like text from disk, and held to one line, so filed text cannot draw a row of
-its own. A command that looks like a secret is withheld, as below.
+its own. A command that looks like a secret is withheld, as below. So is any of the five prose
+fields, one field at a time, and the tool's reply names the fields it withheld.
 
 The call returns an entry id straight away and does not wait for the owner. When the matter settles
 without the owner, `owner_action_done` takes that `id` and an optional one-line `note`. The entry
@@ -316,12 +323,19 @@ An entry is done once a Run of it exits 0, or it resolved without one. Done entr
 and sit under one Button, `Done (N)`, collapsed until it is pressed. Each one says how it ended, and
 Dismiss removes it.
 
-A refused entry resolves itself when a later call succeeds with the same part. The call must come
-from this session's main loop, in the same folder, and the part must run as a whole, plain subcommand.
-A copy of the part inside a quoted string or a comment resolves nothing.
+A refused entry resolves itself when a later call succeeds with the same part. Every one of these
+must hold:
 
-The call's success must be the part's own. So the part must end the call, after nothing but `&&`.
-A later `|| true`, `;` or pipe could hide its failure, and an earlier `cd` could move it.
+| Condition | What it rules out |
+|---|---|
+| The entry's blocked part was first on its line | An entry whose part ran after other commands, which a bare success says nothing about |
+| The entry came from the main loop | An entry a subagent raised, whose folder is not known |
+| The later call came from the main loop | A subagent's success |
+| The later call ran in the foreground and finished without error | A `run_in_background` launch, or a result that reads as a launch |
+| It ran in the same shell and the same folder | A Bash success settling a PowerShell refusal, or one in another folder |
+| Its command starts with the part, then has nothing or `&&` alone | A later `\|\| true`, `;` or pipe, which could hide the part's failure, and anything before the part |
+
+A copy of the part inside a quoted string or a comment resolves nothing.
 
 A Run that exits non-zero leaves the entry waiting, with the output's last lines.
 
@@ -366,38 +380,48 @@ pane sees the Dismiss, and it does not bring it back.
 
 | Entry | Buttons |
 |---|---|
-| A refused command or a signal's command this session's main loop raised, in a folder known as a full path | Run, Copy, Details, Dismiss |
+| A PowerShell refusal, or a signal's command, this session's main loop raised, in a folder known as a full path | Run, Copy, Details, Dismiss |
+| A Bash refusal on Windows | Copy, Details and Dismiss. Git Bash can expand a command differently from what the card shows. |
 | One a subagent raised | Copy, Details and Dismiss. The subagent's folder is not known. |
 | Anything read from another session's file | Copy, Details and Dismiss. Never Run. |
 | A question | Copy and Dismiss |
 
-**For a refusal, Run and Copy act on the blocked part alone, not the whole line.** The blocked part is
-the first span the refusal quotes in single quotes. It counts only when it appears in the command
-verbatim, as a whole subcommand the shell reads plainly.
+**For a refusal, Run is offered only when the blocked part is the first command on the line.** The
+blocked part is the first span the refusal quotes in single quotes. It must start the command, with
+nothing at all before it, not even a space.
 
-| The quoted span is not the blocked part when | For example |
+It must also end where the shell would end a command. That is the line's end, or just before `;`,
+`&&`, `||`, `|` or a line break. Then Run and Copy act on the part alone.
+
+Every other position is Copy only, with one reason:
+
+```
+Copy only: other commands come before this part, so it could run in a different context.
+```
+
+Copy and `Do this:` then give the whole command, and the headline shows its first line.
+
+**This is an allow-list.** Version 0.2.0 ran a part in any position unless an earlier part matched a
+list of words, such as `cd`, `export` or a test before `&&`. Each review found words it missed.
+
+Those included PowerShell's `D:`, `iex`, `Set-Alias` and `Import-Module`, Bash's `name+=`, and
+`grep -q` before `&&`. So the list is gone, and position alone decides.
+
+**That reverses one earlier rule. A part after a plain `&&` chain is now Copy only.** In `npm test &&
+npm publish`, Run of `npm publish` alone would skip the tests. In `git switch other && git push
+--force`, it would force-push whatever branch is checked out now.
+
+Run is not offered either when the part, though first, is not one the shell reads plainly:
+
+| The quoted span is not used when | For example |
 |---|---|
 | It is only the start of a longer word | `rm -rf /tmp` in `rm -rf /tmp/build` |
-| A pipe feeds it, or a redirect follows it | `echo y \| git switch x` |
-| It sits in a comment, a quoted string, a here-doc or a script block | `echo "x; git push"` |
-| A background operator, a line continuation or an escape comes before it | `sleep 1 & git push` |
-| It holds a character outside plain ASCII, or follows PowerShell's `--%` | Typographic quotes |
+| A redirect or a background operator follows it | `git switch x 2>&1` |
+| It holds a comment, a quoted string left open, a here-doc, a script block or an escape | `echo "x` |
+| It holds a character outside plain ASCII, or PowerShell's `--%` | Typographic quotes |
 
-With no blocked part, the headline is the command's first line and Copy takes the whole line. Run is
+With no part to use, the headline is the command's first line and Copy takes the whole line. Run is
 not offered, and the card says why.
-
-An earlier part of the line can change what the part does alone. Then the card is Copy only and
-says why:
-
-| The earlier part | For example |
-|---|---|
-| Changes the folder or the environment | `cd`, `Set-Location`, `export`, `$env:`, `source` |
-| Sets a variable | An assignment, `$x += 1`, `Set-Variable`, `-OutVariable`, `read`, `printf -v` |
-| Guards it | Any `\|\|`, a test before `&&` such as `test`, `[` or `Test-Path`, or `if` |
-| Ends the run | `exit`, `return`, `throw` |
-
-A part that reads a variable, with `$`, is Copy only after any earlier part. A part after a plain
-`&&` chain keeps Run. The earlier parts do not run, and the card says Run uses only the part.
 
 For a signal, Run acts on the filed command. Any label below, such as `argv[` or `Run now`,
 anywhere in the signal's filed fields makes it Copy only.
@@ -410,6 +434,13 @@ after 60 seconds, and two quick presses run the command once.
 states the rule, and a toast says when a press was ignored.
 
 The arm stays through ignored presses, and still lapses 60 seconds after the Run press.
+
+A lapsed or cancelled arm is cleared from the entry, not only hidden. An entry counts as busy only
+while it runs, or while its arm is inside its minute.
+
+A busy entry is never the one dropped when the list of 50 is full. So a lapsed arm cannot keep its
+entry forever and push out a newer one. A session start clears every arm, since the timer that
+would clear it died with the old module.
 
 The text comes from the session's own state at the moment of the press. It never comes from the
 screen or the disk. Text the pane cannot show exactly is Copy only, so what runs is what the owner
@@ -442,14 +473,20 @@ the headline and a signal's `Command:` line are drawn the same way.
 A pane narrower than 52 columns would cut a row short, so it offers Copy only and says why. Widen
 the pane and Run comes back.
 
-On Windows each shell runs only from Program Files, by its full path, in the entry's folder:
+Each shell runs by its full path, in the entry's folder:
 
-| Shell | What runs | Why never by name |
+| Shell | Where | What runs |
 |---|---|---|
-| PowerShell | `<ProgramFiles>\PowerShell\7\pwsh.exe -NoProfile -Command` | A lookup by name can try the run folder first, and a signal's folder is the model's choice. |
-| Bash | Git Bash under Program Files, with `-c` | A bare `bash` on Windows can be WSL. |
+| PowerShell | Windows | `<ProgramFiles>\PowerShell\7\pwsh.exe -NoProfile -Command`. A lookup by name can try the run folder first, and a signal's folder is the model's choice. |
+| PowerShell | Elsewhere | `pwsh -NoProfile -Command` |
+| Bash | Windows | Nothing. The entry is Copy only. |
+| Bash | Elsewhere | `/bin/bash -c`, or `/usr/bin/bash -c` |
 
-A Git Bash under `LOCALAPPDATA` is not used. The user can write there, so a planted file would look
+**On Windows, Run is offered only for PowerShell.** Git Bash's runtime can glob-expand or
+`@file`-expand an argument that the confirm view showed plainly, so what ran would not be what the
+owner read. A bare `bash` there can also be WSL's.
+
+A `pwsh.exe` under `LOCALAPPDATA` is not used. The user can write there, so a planted file would look
 legitimate on the confirm view. Where no shell is found, `Run now` runs nothing and records why.
 
 A reload of the plugin drops the wait on a Run in progress. So the session start marks such a Run
@@ -470,13 +507,19 @@ The text Run would execute is Copy only, with the reason on screen, when any of 
 | Holds a label the pane or the card draws, anywhere | Text placed where a row is cut could read as a new row. So `stdout:` is Copy only too. |
 | Holds a character the screen strips | What runs would not be what the owner read. |
 
-The labels are `argv[`, `folder:`, `out:`, `error:`, `bash:`, `shell:` and `line 2:`, and the card's
-`blocked:`, `why:`, `from:`, `command:`, `do this:` and `for you:`. A Run's own headers count too:
-`running:`, `ran, exit`, `could not run:`, `done:` and `run now`. Case does not matter.
+| Labels | Which |
+|---|---|
+| The views' own | `argv[`, `argv:`, `folder:`, `out:`, `error:`, `bash:`, `shell:`, `line 2:` |
+| The card's | `blocked:`, `why:`, `from:`, `command:`, `do this:`, `for you:`, `copy only:`, `needs you for:`, `confidence:`, `review:`, `question:` |
+| A Run's headers | `running:`, `ran, exit`, `could not run:`, `done:`, `run now`, `resolved` |
 
-The folder must pass the same rules, on one line. The pane, the Run press and the `Run now` press
-all ask one check, so they always agree. Copy still works for every one of these, and it puts the
-cleaned text on the clipboard.
+Case does not matter.
+
+The folder must pass the same rules, on one line. So must a refusal's `Why:` and `For you:` lines,
+and a signal's filed fields, since the card draws them above the confirm view.
+
+The pane, the Run press and the `Run now` press all ask one check, so they always agree. Copy still
+works for every one of these, and it puts the cleaned text on the clipboard.
 
 ### Everything read from disk is untrusted text
 
@@ -490,11 +533,24 @@ The check looks for a token, a password, a key, a URL credential or a long rando
 or filed command that matches is stored as a placeholder: `command withheld: it looked like it
 carried a secret`. That entry offers no Run and no Copy. The check errs toward withholding.
 
-A refusal's text gets the same check. Question text and a signal's fields get a narrower check, on
-value shapes such as `password=...` only. In prose, words like "token" and "key" are ordinary.
+A refusal's text gets the same check. So does each of a signal's five prose fields: `title`, `why`,
+`recommendedAction`, `reviewOutcome` and `confidence`. The check runs when the signal is filed and
+again when it is read from disk.
+
+A recommended action can carry `curl -u admin:pw` or `sshpass -p` as easily as a command can. A
+field that matches is stored as a placeholder, and only that field.
+
+Question text gets a narrower check, on value shapes such as `password=...` only. In a question,
+words like "token" and "key" are ordinary.
 
 A refusal's `ask` gets both checks, when it is recorded and when it is read from disk. It is a
 sentence of the refusal, so it can carry what the refusal carried.
+
+A withheld `ask` keeps its kind and the row that let it in. The placeholder names that row, such as
+`The gate handed it over as: from a PLAIN terminal`.
+
+A reader applies the handover rule to the `ask` as written, before it withholds anything. So a
+secret-looking `ask` gets no pass around the rule.
 
 ### Ended files pile up, and inbox-prune clears them
 
@@ -518,6 +574,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 177 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 256 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
