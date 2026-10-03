@@ -519,8 +519,9 @@ The text Run would execute is Copy only, with the reason on screen, when any of 
 
 Case does not matter.
 
-The folder must pass the same rules, on one line. So must a refusal's `Why:` and `For you:` lines,
-and a signal's filed fields, since the card draws them above the confirm view.
+The folder must pass the same rules, on one line. A refusal's `Do this:`, `Why:` and `For you:`
+lines, and a signal's filed fields, must hold none of the labels, since the card draws them above
+the confirm view.
 
 The pane, the Run press and the `Run now` press all ask one check, so they always agree. Copy still
 works for every one of these, and it puts the cleaned text on the clipboard.
@@ -578,6 +579,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 261 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 264 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

@@ -869,11 +869,15 @@ function runBlock(entry: InboxEntry, part: Part | undefined = entryPart(entry)):
   if (entry.kind === 'signal' && filed.some(one => one !== undefined && LABEL_LIKE.test(one))) {
     return 'Copy only: its filed text holds a label the confirm view draws, such as `argv[` or `Run now`.'
   }
-  // The card draws Why and For you above the confirm view, so they are held
-  // to the same rule as the text: no drawn label in either.
-  const drawn = [whyOf(entry.detail ?? entry.refusal), entry.ask ?? '']
-  if (entry.kind === 'refused' && drawn.some(one => LABEL_LIKE.test(one))) {
-    return 'Copy only: its Why or For you line holds a label the confirm view draws, such as `argv[` or `Run now`.'
+  // The card draws Do this, Why and For you above the confirm view, so they
+  // are held to the same rule as the text: no drawn label in any of them. Do
+  // this can carry the refusal's own words, as the confirm row's capture does.
+  if (entry.kind === 'refused') {
+    const doThis = doThisOf({ ...entry, questions: [], part }, 'this session')
+    const drawn = [doThis, whyOf(entry.detail ?? entry.refusal), entry.ask ?? '']
+    if (drawn.some(one => LABEL_LIKE.test(one))) {
+      return 'Copy only: its Do this, Why or For you line holds a label the confirm view draws, such as `argv[` or `Run now`.'
+    }
   }
   return undefined
 }

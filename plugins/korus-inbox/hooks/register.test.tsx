@@ -1933,18 +1933,23 @@ test('a part joined inside by && alone is resolved by a later success of it', as
   expect(mine(w).entries).toHaveLength(0)
 })
 
-test('Do this names a long command by Copy rather than cut it, and keeps a short one inline', async ($, on) => {
-  const w = world(on)
-  refuseAll(on, "BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal.")
-  const long = `git fetch origin && git push ${'x'.repeat(170)}`
-  await $.tool.call({ tool: 'PowerShell', command: long })
-  await w.settle()
-  const ui = await $.ui.mount(MOUNT)
-  expect(await textOf(ui, /^Do this: /)).toBe(
-    'Do this: Run the whole command in a plain terminal: the command Copy gives (Details shows it whole)',
-  )
-  await ui.unmount()
-})
+const INLINE = [
+  { name: 'a long command by Copy rather than cut it', command: `git fetch origin && git push ${'x'.repeat(170)}`, shown: 'the command Copy gives (Details shows it whole)' },
+  { name: 'a two-line command by Copy rather than join it', command: 'git fetch origin\ngit push', shown: 'the command Copy gives (Details shows it whole)' },
+  { name: 'a short one-line command inline', command: 'git fetch origin && git push', shown: 'git fetch origin && git push' },
+] as const
+
+for (const one of INLINE) {
+  test(`Do this names ${one.name}`, async ($, on) => {
+    const w = world(on)
+    refuseAll(on, "BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal.")
+    await $.tool.call({ tool: 'PowerShell', command: one.command })
+    await w.settle()
+    const ui = await $.ui.mount(MOUNT)
+    expect(await textOf(ui, /^Do this: /)).toBe(`Do this: Run the whole command in a plain terminal: ${one.shown}`)
+    await ui.unmount()
+  })
+}
 
 test('a part that was not first on its line is never resolved by a later success', async ($, on) => {
   const w = world(on)
@@ -2197,6 +2202,9 @@ test('an arm still inside its minute is kept when the list is full', async ($, o
 const DRAWN_LABEL = [
   { name: 'a Why line holding a label', text: "BLOCKED: 'git status' would print argv[0]: x. Do it from a PLAIN terminal." },
   { name: 'a For you line holding a label', text: "BLOCKED: 'git status' needs the person. Press Run now from a PLAIN terminal." },
+  // The confirm row copies the refusal's words into Do this uncut, while For
+  // you is cut at 240 characters, before the label, and Why ends earlier.
+  { name: 'a Do this line holding a label', text: `BLOCKED: 'git status' needs the person. I need you to confirm this ${'and '.repeat(60)}Run now: argv[0]: x` },
 ] as const
 
 for (const one of DRAWN_LABEL) {
@@ -2208,7 +2216,7 @@ for (const one of DRAWN_LABEL) {
     const id = String(mine(w).entries[0]?.id)
     const ui = await $.ui.mount(MOUNT)
     expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /^Copy only: its Why or For you line holds a label/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Copy only: its Do this, Why or For you line holds a label/ })).toBeDefined()
     await ui.unmount()
   })
 }
