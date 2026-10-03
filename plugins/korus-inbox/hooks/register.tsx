@@ -49,7 +49,8 @@ const MAX_PENDING_REFUSALS = 200
 const RUN_TIMEOUT_MS = 5 * 60 * 1000
 const TAIL_LINES = 15
 const HEAD_CUT = 80
-const GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe'
+const BASH_ON_WINDOWS =
+  'Copy only: on Windows, Run is offered only for PowerShell. Git Bash can expand a Bash command differently from what the card shows.'
 
 const own = atom({ plugin: 'korus-inbox', key: 'own' } as const, [])
 const remote = atom({ plugin: 'korus-inbox', key: 'remote' } as const, [])
@@ -187,39 +188,51 @@ function errorText(error: unknown): string {
 type ActionRow = {
   name: string
   phrase: RegExp
-  act: (match: RegExpExecArray, part: string) => string
+  act: (match: RegExpExecArray, target: Target) => string
+}
+
+// What the step names: the blocked part, when it is first on its line, or else
+// the whole command. A part that is not first is never offered alone, because
+// alone it could run in a different context from the line it came from.
+type Target = { part: string } | { whole: string }
+
+const WHOLE = 'run the whole command in a plain terminal: '
+
+function step(target: Target, partLead: string, wholeLead: string): string {
+  return 'part' in target ? `${partLead}${target.part}` : `${wholeLead}${target.whole}`
 }
 
 const ACTION_ROWS: readonly ActionRow[] = [
   {
     name: 'I need you to confirm',
     phrase: /\bI\s+need\s+you\s+to\s+confirm\b([^."\n]*)/i,
-    act: (match, part) => `Confirm${match[1] !== undefined && match[1].trim() !== '' ? ` ${flat(match[1])}` : ' it is safe'}, then run: ${part}`,
+    act: (match, target) =>
+      `Confirm${match[1] !== undefined && match[1].trim() !== '' ? ` ${flat(match[1])}` : ' it is safe'}, then ${step(target, 'run: ', WHOLE)}`,
   },
   {
     name: 'from a PLAIN terminal',
     phrase: /\bplain\s+terminal\b/i,
-    act: (match, part) => `Run this in a plain terminal: ${part}`,
+    act: (match, target) => step(target, 'Run this in a plain terminal: ', 'Run the whole command in a plain terminal: '),
   },
   {
     name: 'governs agents, not you',
     phrase: /\bgoverns\s+agents,?\s+not\s+you\b/i,
-    act: (match, part) => `Run this in a plain terminal: ${part}`,
+    act: (match, target) => step(target, 'Run this in a plain terminal: ', 'Run the whole command in a plain terminal: '),
   },
   {
     name: "the user's call",
     phrase: /\buser['\u2019]?s\s+call\b/i,
-    act: (match, part) => `Decide; if you agree, run it yourself: ${part}`,
+    act: (match, target) => `Decide; if you agree, ${step(target, 'run it yourself: ', WHOLE)}`,
   },
   {
     name: 'a human act',
     phrase: /\bhuman\s+act\b/i,
-    act: (match, part) => `Do it yourself, from a plain terminal: ${part}`,
+    act: (match, target) => step(target, 'Do it yourself, from a plain terminal: ', `Do it yourself: ${WHOLE}`),
   },
   {
     name: 'only the owner',
     phrase: /\bonly\s+the\s+owner\b/i,
-    act: (match, part) => `Only you can do this; if you agree, run it yourself: ${part}`,
+    act: (match, target) => `Only you can do this; if you agree, ${step(target, 'run it yourself: ', WHOLE)}`,
   },
   {
     name: 'let the user decide',
@@ -249,6 +262,20 @@ function handover(text: string | undefined): Handover | undefined {
   return undefined
 }
 
+// A withheld ask keeps the row that let it in: the placeholder names the row,
+// and handover() reads the same row back from it. So withholding never changes
+// which step the card gives, and a reader keeps the entry by the same rule as
+// any other, rather than by an exception for the placeholder.
+function askWithheld(row: ActionRow): string {
+  return `ask withheld: it looked like it carried a secret. The gate handed it over as: ${row.name}`
+}
+
+// The ask as stored: withheld when it looks like a secret by either check.
+// The row is the one that let the entry in, so it is never lost to a cut.
+function guardAsk(ask: string, row: ActionRow): string {
+  return looksSecret(ask) || questionLooksSecret(ask) ? askWithheld(row) : ask
+}
+
 // The refusal's sentence around the phrase that hands the act over.
 function sentenceAround(text: string, at: number, length: number): string {
   let start = 0
@@ -265,10 +292,8 @@ function sentenceAround(text: string, at: number, length: number): string {
 // opens nothing, so a contraction cannot start a span.
 const QUOTED = /(?:^|[^A-Za-z0-9])'([^']+)'(?![A-Za-z0-9])/
 
-// The part must sit in the command as a whole subcommand: from the line's
-// start or after a separator, to the line's end or before one. A pipe before
-// it is refused, since alone the part would read no input.
-const BEFORE_OK = /(^|;|&&|\|\||\n)[ \t]*$/
+// What may follow the part: the line's end or a separator. A pipe after it is
+// fine, since the part alone still runs as it would have.
 const AFTER_OK = /^[ \t]*($|;|&&|\|\||\|(?!\|)|\r?\n)/
 
 type Shell = string | undefined
@@ -308,55 +333,29 @@ function isPlain(text: string, shell: Shell): boolean {
   return quote === ''
 }
 
-// How many places in the command one search tries. Each try reads the text
-// before it, so an unbounded search over a crafted line from another
-// session's file could stall the pane. A real line repeats its part rarely.
-const MAX_TRIES = 16
-
-// Where the part sits in the command as a plain, whole subcommand, or -1.
-function locatePart(command: string, part: string, shell: Shell): number {
-  if (!isPlain(part, shell)) return -1
-  let from = 0
-  for (let tries = 0; tries < MAX_TRIES; tries++) {
-    const at = command.indexOf(part, from)
-    if (at < 0) return -1
-    const before = command.slice(0, at)
-    const isPiped = /(^|[^|])\|\s*$/.test(before)
-    if (!isPiped && BEFORE_OK.test(before) && AFTER_OK.test(command.slice(at + part.length)) && isPlain(before, shell)) return at
-    from = at + 1
-  }
-  return -1
-}
-
 // The separators a plain text uses outside its quotes. Only for text isPlain
 // accepted, where every quote closes and nothing escapes one.
 function separatorsOf(text: string): string[] {
   return text.replace(/'[^']*'|"[^"]*"/g, '').match(/&&|\|\||[;|\n]/g) ?? []
 }
 
-// The exact subcommand the refusal quotes, or undefined when the first quoted
-// span is not a plain, whole subcommand of the recorded command, verbatim.
-function blockedPart(command: string | undefined, refusal: string | undefined, shell: Shell): string | undefined {
-  if (command === undefined || refusal === undefined) return undefined
-  const match = QUOTED.exec(refusal)
-  const part = match?.[1]
-  if (part === undefined || part.trim() === '' || part !== part.trim()) return undefined
-  return locatePart(command, part, shell) >= 0 ? part : undefined
-}
+const NO_PART =
+  'Copy only: the refusal does not quote one whole part of this line, so Copy takes the whole line and Run is not offered.'
+const NOT_FIRST = 'Copy only: other commands come before this part, so it could run in a different context.'
 
-// Words in the earlier parts of the line that can change the folder, the
-// environment, a variable or the control flow the part ran under, so the part
-// alone could act somewhere else than it would have. Matched anywhere, quotes
-// included: a false match costs a Run, a missed one runs in the wrong place.
-// A test before `&&`, and any `||`, is a guard: alone, the part runs unguarded.
-const CONTEXT_CHANGE =
-  /(^|[^\w$-])(cd|chdir|pushd|popd|set-location|push-location|pop-location|sl|export|source|set|setx|unset|env|builtin|command|exec|eval|alias|function|if|then|else|elif|do|while|until|for|foreach|case|trap|exit|return|break|continue|throw|set-variable|sv|new-variable|nv|set-item|si|new-item|ni|read|mapfile|readarray|declare|typeset|local|let|test|test-path)(?![\w-])|-(out|error|pipeline|warning|information)variable\b|-(ov|ev|pv|wv|iv)(?![\w-])|\bprintf\s+-v\b|(^|[\s;&|])\[\[?\s|\|\||\$env:|\$[^\s;|&=]*\s*[-+*/%.?]*=(?!=)|(^|[;&|\n])\s*\.(?=\s)|(^|[;&|\n\s])[A-Za-z_]\w*=/i
+// The blocked part, or why there is none to use. An allow-list, not a list of
+// what to refuse: the part counts only when it is the FIRST command on the
+// line, with nothing at all before it. Anything before it, even a plain `&&`
+// chain, could change the folder, the environment, a variable or whether the
+// part ran at all, and no list of such words has ever been complete.
+type Part = { part?: string; whyNot?: string }
 
-// Alone, the part could also read a variable an earlier part set in a way no
-// word above names, so a part that reads one runs only at the line's start.
-function changesContext(command: string, part: string, shell: Shell): boolean {
-  const at = locatePart(command, part, shell)
-  return at > 0 && (CONTEXT_CHANGE.test(command.slice(0, at)) || part.includes('$'))
+function partOf(command: string | undefined, refusal: string | undefined, shell: Shell): Part {
+  if (command === undefined || refusal === undefined) return { whyNot: NO_PART }
+  const span = QUOTED.exec(refusal)?.[1]
+  if (span === undefined || span.trim() === '' || span !== span.trim()) return { whyNot: NO_PART }
+  if (command.startsWith(span) && isPlain(span, shell) && AFTER_OK.test(command.slice(span.length))) return { part: span }
+  return { whyNot: command.indexOf(span) > 0 ? NOT_FIRST : NO_PART }
 }
 
 // ---------------------------------------------------------- the shared folder
@@ -516,6 +515,13 @@ function prose(value: unknown, max: number): string | undefined {
   return text === '' ? undefined : guardProse(text)
 }
 
+// A signal's prose gets the full secret check, the one a command gets: a
+// recommended action can carry `-p<password>` or `curl -u user:pass` as
+// easily as a command can. A hit stores the placeholder for that field alone.
+function signalProse(text: string | undefined): string | undefined {
+  return text !== undefined && looksSecret(text) ? QUESTION_SECRET : text
+}
+
 type ParsedFile = { entries: InboxRemoteEntry[]; dismissed: string[] }
 
 const NOTHING: ParsedFile = { entries: [], dismissed: [] }
@@ -557,9 +563,13 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
     if (refusal !== undefined && looksSecret(refusal)) refusal = REFUSAL_SECRET
     let detail = typeof e.detail === 'string' ? clean(e.detail, MAX_DETAIL_SHARED) : undefined
     if (detail !== undefined && looksSecret(detail)) detail = REFUSAL_SECRET
-    const askText = prose(e.ask, 300)
-    const ask = askText !== undefined && looksSecret(askText) ? QUESTION_SECRET : askText
-    if (e.kind === 'refused' && (ask === undefined || (ask !== QUESTION_SECRET && handover(ask) === undefined))) return []
+    // The handover rule reads the ask as written, before any withholding, so
+    // a secret-looking ask is held to the same rule as any other. Withheld,
+    // it keeps the row that let it in.
+    const askText = typeof e.ask === 'string' ? clean(e.ask, 300) || undefined : undefined
+    const found = askText === undefined ? undefined : handover(askText)
+    if (e.kind === 'refused' && found === undefined) return []
+    const ask = askText === undefined || found === undefined ? undefined : guardAsk(askText, found.row)
     return [
       {
         key: `${stem}:${e.id}`,
@@ -575,12 +585,12 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
         detail,
         ask,
         viaOutput: e.viaOutput === true,
-        title: prose(e.title, 200),
-        why: prose(e.why, 600),
-        recommendedAction: prose(e.recommendedAction, 400),
+        title: signalProse(prose(e.title, 200)),
+        why: signalProse(prose(e.why, 600)),
+        recommendedAction: signalProse(prose(e.recommendedAction, 400)),
         needs: asNeed(e.needs),
-        reviewOutcome: prose(e.reviewOutcome, 300),
-        confidence: prose(e.confidence, 120),
+        reviewOutcome: signalProse(prose(e.reviewOutcome, 300)),
+        confidence: signalProse(prose(e.confidence, 120)),
       },
     ]
   })
@@ -659,13 +669,21 @@ async function poll($: Engine): Promise<void> {
 
 // ----------------------------------------------------------------- recording
 
+// Armed now: the Run press was less than a minute ago. A lapsed or cancelled
+// arm clears armedAt, and this also reads the clock, so an arm whose clear was
+// lost (a reload drops the timer) still counts as lapsed.
+function isArmedAt(entry: InboxEntry, now: number): boolean {
+  return entry.armedAt !== undefined && now - entry.armedAt < ARM_MS
+}
+
 async function addOwn($: Engine, entry: InboxEntry): Promise<void> {
+  const now = await $.clock.now()
   // Done entries go first when the list is full, so a waiting one is kept.
   await update($, own, list => {
     const next = [...list.filter(one => one.id !== entry.id), entry]
-    // A running or armed entry is never the one dropped, so a Run's result
-    // always has its entry to land on.
-    const isBusy = (one: InboxEntry): boolean => one.run?.status === 'running' || one.armedAt !== undefined
+    // An entry running, or armed and not yet lapsed, is never the one dropped,
+    // so a Run's result always has its entry to land on.
+    const isBusy = (one: InboxEntry): boolean => one.run?.status === 'running' || isArmedAt(one, now)
     while (next.length > MAX_ENTRIES) {
       const doneAt = next.findIndex(one => isDone(one) && !isBusy(one))
       const at = doneAt >= 0 ? doneAt : next.findIndex(one => !isBusy(one))
@@ -691,32 +709,24 @@ function captureCommand(command: string): { command?: string; withheld?: string 
 }
 
 // A refused command that the same session later ran fine is no longer the
-// owner's: the blocked part (or, with none, the whole line) ran as a whole
-// subcommand of a later main-loop call that did not error, in the same
-// folder, read by the same plain-text rule the blocked part uses.
+// owner's. Only when all of these hold: the entry's blocked part was first on
+// its line; the entry and the later call both came from the main loop; the
+// later call ran in the foreground and finished without error; it ran in the
+// same shell and the same folder; and it STARTS with the part, followed by
+// nothing or by `&&` alone, so its success is the part's own.
 async function resolveBySuccess($: Engine, command: string, shell: Shell, cwd: string): Promise<void> {
   const mine = await read($, own)
-  const target = (one: InboxEntry): string | undefined =>
-    one.kind === 'refused' ? (blockedPart(one.command, one.detail, one.shell) ?? one.command) : undefined
-  // The call's success is the part's only when nothing after the part sets
-  // the exit status, and nothing before it could change where it ran or skip
-  // it: the part ends the line, after `&&` alone.
-  const ranFine = (text: string): boolean => {
-    if (command === text) return true
-    const at = locatePart(command, text, shell)
-    if (at < 0 || command.slice(at + text.length).trim() !== '') return false
-    const before = command.slice(0, at)
-    return separatorsOf(before).every(one => one === '&&') && !CONTEXT_CHANGE.test(before)
+  const ranFine = (part: string): boolean => {
+    if (!command.startsWith(part)) return false
+    const rest = command.slice(part.length)
+    if (rest.trim() === '') return true
+    return /^[ \t]*&&/.test(rest) && isPlain(rest, shell) && separatorsOf(rest).every(one => one === '&&')
   }
   const matches = (one: InboxEntry): boolean => {
-    const text = target(one)
-    return (
-      isWaiting(one) &&
-      one.run?.status !== 'running' &&
-      one.cwd === clean(cwd, 500) &&
-      text !== undefined &&
-      ranFine(text)
-    )
+    if (one.kind !== 'refused' || one.agentId !== undefined || !isWaiting(one) || one.run?.status === 'running') return false
+    if (one.shell !== shell || one.cwd !== clean(cwd, 500)) return false
+    const part = partOf(one.command, one.detail, one.shell).part
+    return part !== undefined && ranFine(part)
   }
   if (!mine.some(matches)) return
   const now = await $.clock.now()
@@ -770,7 +780,9 @@ function binaryText(binary: string): string {
 // LABEL_LIKE: any label the views and the card draw: `argv[`, `folder:`,
 // `line 2:`, `out:`, `error:`, a shell name and colon, and the card's own
 // Blocked, Why, From, Command, Do this and For you, and a Run's own result
-// headers: running, ran, exit N, could not run, Done and Run now. The cut
+// headers: running, ran, exit N, could not run, Done and Run now. The rest
+// of what the card draws counts too: argv:, Copy only:, Needs you for:,
+// confidence:, Review:, Question: and Resolved. The cut
 // falls at the same place on every pane, so a command could put `argv[4]: x` at the start of a
 // `  + ` row and have it read as a new row. Text holding a label is Copy only.
 // Each is matched anywhere, since the cut can fall right before it: so
@@ -787,7 +799,7 @@ const SPACE_RUN = /[^\S\n]{4,}/
 const RUN_ASCII = /^[\x20-\x7e\n]*$/
 const TRAILING_SPACE = / (\n|$)/
 const LABEL_LIKE =
-  /argv\s*\[|(folder|out|error|bash|shell|blocked|why|from|command|do this|for you|running|could not run|done)\s*:|line\s*\d+\s*:|ran,\s*exit|run now/i
+  /argv\s*[[:]|(folder|out|error|bash|shell|blocked|why|from|command|do this|for you|running|could not run|done|copy only|needs you for|confidence|review|question)\s*:|line\s*\d+\s*:|ran,\s*exit|run now|resolved/i
 const RUN_COLUMNS = 12 + RUN_CHUNK
 
 type ShowProblem = 'stripped' | 'ascii' | 'long' | 'lines' | 'spaces' | 'trailing' | 'label'
@@ -824,24 +836,27 @@ const FOLDER_PROBLEM: Record<ShowProblem, string> = {
   label: 'Copy only: its folder holds a label the card draws, such as `argv[` or `out:`.',
 }
 
-const NO_PART =
-  'Copy only: the refusal does not quote one whole part of this line, so Copy takes the whole line and Run is not offered.'
+// The blocked part of a refused entry, worked out once for each use.
+function entryPart(entry: InboxEntry): Part | undefined {
+  return entry.kind === 'refused' ? partOf(entry.command, entry.detail, entry.shell) : undefined
+}
 
 // The text Run would execute: a refusal's blocked part alone, a signal's
 // command. Undefined when there is none.
-function runText(entry: InboxEntry): string | undefined {
-  if (entry.kind === 'refused') return blockedPart(entry.command, entry.detail, entry.shell)
+function runText(entry: InboxEntry, part: Part | undefined = entryPart(entry)): string | undefined {
+  if (entry.kind === 'refused') return part?.part
   if (entry.kind === 'signal') return entry.command
   return undefined
 }
 
 // Why Run is not offered for this entry, or undefined when it is. Render, the
 // arming press and the claim all ask this one function, so they always agree,
-// and it judges the text Run would actually execute.
-function runBlock(entry: InboxEntry): string | undefined {
+// and it judges the text Run would actually execute. A caller that already
+// worked out the part passes it, so a render reads each refusal once.
+function runBlock(entry: InboxEntry, part: Part | undefined = entryPart(entry)): string | undefined {
   if (entry.kind === 'question' || entry.command === undefined) return 'Copy only: no command is stored.'
-  const text = runText(entry)
-  if (text === undefined) return NO_PART
+  const text = runText(entry, part)
+  if (text === undefined) return part?.whyNot ?? NO_PART
   if (entry.isRunnable !== true) return entry.copyOnly ?? 'Copy only: its folder is not known.'
   if (!isAbsolutePath(entry.cwd)) return 'Copy only: the session folder is not known as a full path.'
   const problem = showProblem(text, MAX_RUN_LINES)
@@ -852,8 +867,11 @@ function runBlock(entry: InboxEntry): string | undefined {
   if (entry.kind === 'signal' && filed.some(one => one !== undefined && LABEL_LIKE.test(one))) {
     return 'Copy only: its filed text holds a label the confirm view draws, such as `argv[` or `Run now`.'
   }
-  if (entry.kind === 'refused' && changesContext(entry.command, text, entry.shell)) {
-    return 'Copy only: an earlier part of the line changes the folder or the environment, so this part alone could act somewhere else.'
+  // The card draws Why and For you above the confirm view, so they are held
+  // to the same rule as the text: no drawn label in either.
+  const drawn = [whyOf(entry.detail ?? entry.refusal), entry.ask ?? '']
+  if (entry.kind === 'refused' && drawn.some(one => LABEL_LIKE.test(one))) {
+    return 'Copy only: its Why or For you line holds a label the confirm view draws, such as `argv[` or `Run now`.'
   }
   return undefined
 }
@@ -913,18 +931,15 @@ async function shellArgv($: Engine, shell: InboxEntry['shell'], command: string)
     }
     throw new Error('PowerShell 7 (pwsh.exe) not found by path; Copy the command instead')
   }
-  // Bash runs by path, never as a bare `bash`: on Windows that name can
-  // resolve to WSL's System32\bash.exe, not the Git Bash the Bash tool runs.
-  // Where no known path exists, Run fails and says so; Copy still works.
-  const programFiles = await $.env.get('ProgramFiles')
-  const isWindows = await onWindows($)
-  const places = isWindows
-    ? [GIT_BASH, programFiles !== undefined ? `${programFiles}\\Git\\bin\\bash.exe` : undefined]
-    : ['/bin/bash', '/usr/bin/bash']
-  for (const place of places) {
-    if (place !== undefined && (await $.fs.exists(place).catch(() => false))) return [place, '-c', command]
+  // Bash runs only off Windows, and by path. On Windows the entry is Copy
+  // only from the moment it is recorded; this refuses again in case one
+  // slipped through. Git Bash there can glob- or @file-expand an argv the
+  // confirm view showed plainly, and a bare `bash` can be WSL's.
+  if (await onWindows($)) throw new Error(BASH_ON_WINDOWS)
+  for (const place of ['/bin/bash', '/usr/bin/bash']) {
+    if (await $.fs.exists(place).catch(() => false)) return [place, '-c', command]
   }
-  throw new Error(isWindows ? 'Git Bash not found; Copy the command instead' : 'bash not found; Copy the command instead')
+  throw new Error('bash not found; Copy the command instead')
 }
 
 async function runOwn($: Engine, id: string): Promise<void> {
@@ -1037,8 +1052,24 @@ async function arm($: Engine, id: string, isArmed: boolean): Promise<void> {
       return { ...one, armedAt: isArmed ? now : undefined, quietFrom: undefined, armedArgv, armedError }
     }),
   )
-  // Redraw once the arming lapses, so a stale Run now is not left on screen.
-  if (isArmed) $.clock.after(ARM_MS + 50, () => $.ui.invalidate('ui.render'))
+  // Once the arm lapses, clear it and redraw, so a stale Run now is not left
+  // on screen and the entry no longer counts as busy when the list is full.
+  // Only this arm is cleared: a later press, or a run, has moved armSeq or
+  // armedAt on.
+  if (isArmed) {
+    $.clock.after(ARM_MS + 50, () => {
+      void update($, own, list =>
+        list.map(one => (one.id === id && armSeq.get(id) === seq && one.armedAt === now ? disarmed(one) : one)),
+      )
+        .catch(() => undefined)
+        .finally(() => $.ui.invalidate('ui.render'))
+    })
+  }
+}
+
+// An entry with no arm left on it.
+function disarmed(entry: InboxEntry): InboxEntry {
+  return { ...entry, armedAt: undefined, quietFrom: undefined, armedArgv: undefined, armedError: undefined }
 }
 
 async function dismissRemote($: Engine, key: string): Promise<void> {
@@ -1106,7 +1137,7 @@ const DONE_SCHEMA = {
 const NEEDS_RULE =
   'Not filed: needsOwnerBecause must be one of preference, authority, private-context or cost. The inbox takes only what only the owner has. If you have a strong recommendation, act on it; if not, put it through adversarial review and follow a clear answer from it.'
 
-type Filed = { entry?: InboxEntry; refusal?: string }
+type Filed = { entry?: InboxEntry; refusal?: string; withheld?: string[] }
 
 // Every field is untrusted text, held to the same strip and length limits as
 // a disk entry.
@@ -1114,7 +1145,7 @@ async function fileSignal($: Engine, input: Record<string, unknown>, agentId: st
   const needs = asNeed(input.needsOwnerBecause)
   if (needs === undefined) return { refusal: NEEDS_RULE }
   const reviewText = prose(input.reviewOutcome, 300)
-  const reviewOutcome = reviewText === undefined ? undefined : flat(reviewText)
+  const reviewOutcome = reviewText === undefined ? undefined : signalProse(flat(reviewText))
   if (reviewOutcome === undefined || reviewOutcome === '') {
     return {
       refusal:
@@ -1124,7 +1155,7 @@ async function fileSignal($: Engine, input: Record<string, unknown>, agentId: st
   // One line each, so filed prose cannot draw rows of its own on the card.
   const line = (value: unknown, max: number): string | undefined => {
     const text = prose(value, max)
-    return text === undefined ? undefined : flat(text) || undefined
+    return text === undefined ? undefined : signalProse(flat(text) || undefined)
   }
   const title = line(input.title, 200)
   const why = line(input.why, 600)
@@ -1167,7 +1198,8 @@ async function fileSignal($: Engine, input: Record<string, unknown>, agentId: st
     copyOnly,
   }
   await addOwn($, entry)
-  return { entry }
+  const fields = { title, why, recommendedAction, reviewOutcome, confidence }
+  return { entry, withheld: Object.entries(fields).flatMap(([name, value]) => (value === QUESTION_SECRET ? [name] : [])) }
 }
 
 // ------------------------------------------------------------- what to show
@@ -1219,6 +1251,14 @@ type Card = {
   reviewOutcome?: string
   confidence?: string
   viaOutput?: boolean
+  /** A refusal's blocked part, worked out once when the card is built. */
+  part?: Part
+}
+
+// A card with its blocked part worked out once, for the whole render.
+function cardOf(entry: InboxEntry | InboxRemoteEntry): Card {
+  const card: Card = { ...entry, questions: entry.questions ?? [] }
+  return card.kind === 'refused' ? { ...card, part: partOf(card.command, card.detail, card.shell) } : card
 }
 
 function needsOf(card: Card): Needs {
@@ -1252,7 +1292,7 @@ function headOf(card: Card): string {
     const q = card.questions[0]
     return `Question: ${cut(flat(q?.header !== undefined && q.header !== '' ? q.header : (q?.question ?? '')), HEAD_CUT)}`
   }
-  const part = blockedPart(card.command, card.detail, card.shell)
+  const part = card.part?.part
   if (part !== undefined) return `Blocked: ${cut(flat(part), 120)}`
   if (card.command === undefined) return `Blocked: (${card.withheld ?? 'command not stored'})`
   return `Blocked: ${cut(clean(card.command, MAX_COMMAND).split(/\r?\n/).find(line => line.trim() !== '')?.trim() ?? '', HEAD_CUT)}`
@@ -1272,16 +1312,30 @@ function doThisOf(card: Card, where: string): string {
   }
   const found = handover(card.detail) ?? handover(card.ask)
   if (found === undefined) return NO_ACTION
-  const part = blockedPart(card.command, card.detail, card.shell)
-  const target = part ?? (card.command !== undefined ? 'the blocked command (open Details)' : 'the blocked command')
-  return found.row.act(found.match, cut(flat(target), 160))
+  // The part alone only when it is first on its line; otherwise the whole
+  // command, as Copy gives it, since alone the part could act elsewhere.
+  const part = card.part?.part
+  const target: Target =
+    part !== undefined
+      ? { part: cut(flat(part), 160) }
+      : card.command !== undefined
+        ? { whole: cut(flat(clean(card.command, MAX_COMMAND)), 160) }
+        : { part: 'the blocked command' }
+  return found.row.act(found.match, target)
 }
 
 // What Copy puts on the clipboard: the text the card shows, cleaned like it.
 function copyTextOf(card: Card): string | undefined {
   if (card.kind === 'question') return questionText(card.questions)
-  const text = card.kind === 'refused' ? (blockedPart(card.command, card.detail, card.shell) ?? card.command) : card.command
+  const text = card.kind === 'refused' ? (card.part?.part ?? card.command) : card.command
   return text === undefined ? undefined : clean(text, MAX_COMMAND)
+}
+
+// A call launched to run in the background has not finished, so its success
+// says nothing about the part. So does a result that reads as a launch.
+function isBackground(input: unknown, text: string | undefined): boolean {
+  const flag = (input as { run_in_background?: unknown }).run_in_background
+  return flag === true || /\bbackground\b|\blaunched\b/i.test(text ?? '')
 }
 
 // ------------------------------------------------------------------- the mod
@@ -1303,8 +1357,10 @@ export const register: Register = on => {
     // A reload drops the wait on any Run the old module started, so its
     // result can never arrive. Record that rather than leave it running.
     const reloadedAt = await $.clock.now()
+    // An arm's lapse timer died with the old module too, so every arm goes:
+    // the owner presses Run again.
     await update($, own, list =>
-      list.map(one =>
+      list.map(one => (one.armedAt !== undefined ? disarmed(one) : one)).map(one =>
         one.run?.status === 'running'
           ? {
               ...one,
@@ -1402,8 +1458,12 @@ export const register: Register = on => {
       if (e.tool === toolNames.action) {
         const filed = await fileSignal($, input, agentId)
         if (filed.entry === undefined) return { deny: filed.refusal ?? NEEDS_RULE }
+        const withheld =
+          filed.withheld !== undefined && filed.withheld.length > 0
+            ? ` These fields looked like they carried a secret and were stored as a placeholder: ${filed.withheld.join(', ')}.`
+            : ''
         return {
-          result: `Filed in the owner inbox as ${filed.entry.id}. This does not wait for the owner. If it resolves without them, call ${DONE_TOOL} with this id.`,
+          result: `Filed in the owner inbox as ${filed.entry.id}. This does not wait for the owner. If it resolves without them, call ${DONE_TOOL} with this id.${withheld}`,
         }
       }
       const id = typeof input.id === 'string' ? input.id : ''
@@ -1475,10 +1535,13 @@ export const register: Register = on => {
           const ask = sentenceAround(detail, found.match.index, found.match[0].length)
           // So is a folder not known as a full path; unsure of the platform,
           // the Windows rule, the stricter one, applies.
-          const isFullPath = isAbsolutePath(cwd, await onWindows($).catch(() => true))
+          const isWindows = await onWindows($).catch(() => true)
+          const isFullPath = isAbsolutePath(cwd, isWindows)
           const copyOnly = !isMainLoop
             ? 'Copy only: a subagent raised it, and its folder is not known.'
-            : !isFullPath
+            : shell === 'Bash' && isWindows
+              ? BASH_ON_WINDOWS
+              : !isFullPath
               ? 'Copy only: the session folder is not known as a full path.'
               : !isCwdShown
                 ? 'Copy only: its folder holds characters the screen cannot show.'
@@ -1497,11 +1560,12 @@ export const register: Register = on => {
             detail: looksSecret(detail) ? REFUSAL_SECRET : detail,
             // The ask is a sentence of the refusal, so the refusal's own secret
             // check applies to it too, before it reaches the shared file.
-            ask: looksSecret(ask) || questionLooksSecret(ask) ? QUESTION_SECRET : ask,
+            // Withheld, it keeps the row that let it in.
+            ask: guardAsk(ask, found.row),
             viaOutput: denied === undefined,
           })
         }
-      } else if (ran.isError !== true && isMainLoop) {
+      } else if (ran.isError !== true && isMainLoop && !isBackground(e, ran.text)) {
         await resolveBySuccess($, command, shell, cwd)
       }
     } catch {
@@ -1571,9 +1635,12 @@ export const register: Register = on => {
     )
 
     const partNote = (card: Card, canRun: boolean) => {
-      if (card.kind !== 'refused') return null
-      const part = blockedPart(card.command, card.detail, card.shell)
-      if (part === undefined || part === card.command) return null
+      if (card.kind !== 'refused' || card.command === undefined) return null
+      const part = card.part?.part
+      if (part === undefined) {
+        return <Text dimColor wrap="wrap">Copy takes the whole command, not the blocked part alone.</Text>
+      }
+      if (part === card.command) return null
       return (
         <Text dimColor wrap="wrap">
           {canRun
@@ -1587,13 +1654,13 @@ export const register: Register = on => {
     // between the draw and the press cannot carry a press to another entry.
     // Own keys are minted UUIDs; remote keys are checked to a safe alphabet.
     const ownCard = (entry: InboxEntry) => {
-      const card: Card = { ...entry, questions: entry.questions ?? [] }
+      const card = cardOf(entry)
       const where = entry.cwd !== undefined && entry.cwd !== '' ? entry.cwd : '(unknown)'
       const from = `${entry.agentId !== undefined ? 'a subagent of this session' : 'this session'}, ${age(now - entry.createdAt)} ago`
       const run = entry.run
       const isArmed = entry.armedAt !== undefined && now - entry.armedAt < ARM_MS
-      const text = runText(entry)
-      const textBlock = entry.kind === 'question' ? undefined : runBlock(entry)
+      const text = runText(entry, card.part)
+      const textBlock = entry.kind === 'question' ? undefined : runBlock(entry, card.part)
       // A pane too narrow for a whole row would cut it short, so it offers
       // Copy only; the claim needs a drawn Run now, so it cannot run there.
       const block =
@@ -1705,7 +1772,7 @@ export const register: Register = on => {
 
     // A card read from disk: shown and copied, nothing else. No Run, ever.
     const remoteCard = (entry: InboxRemoteEntry) => {
-      const card: Card = entry
+      const card = cardOf(entry)
       const from = `another session (${entry.sessionLabel}), ${age(now - entry.createdAt)} ago`
       const isOpen = opened.has(`rdetails:${entry.key}`)
       return (
@@ -1743,7 +1810,7 @@ export const register: Register = on => {
     }
 
     const doneCard = (entry: InboxEntry) => {
-      const card: Card = { ...entry, questions: entry.questions ?? [] }
+      const card = cardOf(entry)
       const how =
         entry.resolvedAt !== undefined
           ? `Resolved ${age(now - entry.resolvedAt)} ago: ${entry.resolvedBy ?? 'resolved'}.`

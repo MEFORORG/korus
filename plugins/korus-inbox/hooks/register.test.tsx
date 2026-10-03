@@ -47,7 +47,20 @@ type World = {
   advance: (ms: number) => Promise<void>
 }
 
-type WorldOptions = { env?: Record<string, string>; cwd?: string | (() => string); cwdFails?: boolean; stdout?: string; exitCode?: number; hang?: boolean }
+type WorldOptions = {
+  env?: Record<string, string>
+  cwd?: string | (() => string)
+  cwdFails?: boolean
+  stdout?: string
+  exitCode?: number
+  hang?: boolean
+  /** A machine that is not Windows: HOME only, no ProgramFiles, `/` paths. */
+  unix?: boolean
+}
+
+const UNIX_HOME = '/opt/tester'
+const UNIX_FILE = `${UNIX_HOME}/.korus-inbox/${ME}.json`
+const UNIX_CWD = '/work/repo'
 
 // The engine beneath the plugin: an in-memory shared folder, a fixed session,
 // a recorded process runner and clipboard. Nothing touches the real disk.
@@ -59,14 +72,18 @@ function world(on: On, opts: WorldOptions = {}): World {
   const tools: string[] = []
   const statusCalls: (string | undefined)[] = []
   const clock = mock.clock(on, { now: NOW })
-  mock.env(on, { USERPROFILE: HOME, ProgramFiles: 'C:\\Program Files', ...opts.env })
-  files.set(PWSH, { text: '', mtimeMs: 0 })
+  if (opts.unix === true) {
+    mock.env(on, { HOME: UNIX_HOME, ...opts.env })
+  } else {
+    mock.env(on, { USERPROFILE: HOME, ProgramFiles: 'C:\\Program Files', ...opts.env })
+    files.set(PWSH, { text: '', mtimeMs: 0 })
+  }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   on('session.id', () => ({ value: ME }))
   on('session.cwd', () => {
     if (opts.cwdFails === true) throw new Error('no cwd')
-    return { value: typeof opts.cwd === 'function' ? opts.cwd() : (opts.cwd ?? CWD) }
+    return { value: typeof opts.cwd === 'function' ? opts.cwd() : (opts.cwd ?? (opts.unix === true ? UNIX_CWD : CWD)) }
   })
   on('session.root', () => ({ value: CWD }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
@@ -91,7 +108,9 @@ function world(on: On, opts: WorldOptions = {}): World {
     files.set(e.path, { text: e.text, mtimeMs: clock.now() })
     return { value: undefined }
   })
-  on('fs.exists', ($, e) => ({ value: files.has(e.path) }))
+  // A `/` path reaches the hook in the host's spelling, so compare without the drive.
+  const bare = (path: string): string => path.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '')
+  on('fs.exists', ($, e) => ({ value: files.has(e.path) || [...files.keys()].some(key => bare(key) === bare(e.path)) }))
   on('fs.read', ($, e) => {
     const file = files.get(e.path)
     if (file === undefined) throw new Error('ENOENT')
@@ -99,7 +118,7 @@ function world(on: On, opts: WorldOptions = {}): World {
   })
   on('fs.list', ($, e) => ({
     value: [...files.entries()]
-      .filter(([path]) => path.startsWith(`${e.path}\\`))
+      .filter(([path]) => path.startsWith(`${e.path}\\`) || path.startsWith(`${e.path}/`))
       .map(([path, file]) => ({
         name: path.slice(e.path.length + 1),
         kind: 'file' as const,
@@ -127,7 +146,8 @@ function world(on: On, opts: WorldOptions = {}): World {
 // ------------------------------------------------------------- refusal texts
 
 const SWITCH_PART = 'git switch feature-x'
-const SWITCH_LINE = `git add notes.txt && git commit -m wip && ${SWITCH_PART} && git push origin feature-x`
+// The part is first on its line: the only place Run is offered for it.
+const SWITCH_LINE = `${SWITCH_PART} && git push origin feature-x`
 
 // worktree_gate.ps1 rule 3b, as it prints it. Kept: it hands the act over.
 const SWITCH_REFUSAL = [
@@ -206,14 +226,16 @@ function refuseQuoting(on: On): void {
   refuse(on, command => handing(command))
 }
 
-function mine(w: World): { entries: Record<string, unknown>[]; dismissed: string[] } {
-  const file = w.files.get(MY_FILE)
+// The kit hands a hook the host's spelling of a path, so a `/` path written
+// on a Windows host arrives with a drive and backslashes; this finds it either way.
+function mine(w: World, path = MY_FILE): { entries: Record<string, unknown>[]; dismissed: string[] } {
+  const file =
+    w.files.get(path) ?? [...w.files.entries()].find(([key]) => key.replace(/\\/g, '/').endsWith(path.replace(/\\/g, '/')))?.[1]
   if (file === undefined) return { entries: [], dismissed: [] }
   return JSON.parse(file.text) as { entries: Record<string, unknown>[]; dismissed: string[] }
 }
 
 const MOUNT = { plugin: PLUGIN, surface: 'terminal', component: 'Pane', requestId: PLUGIN, props: PANE_PROPS } as const
-const GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe'
 
 // The rows the confirm and result views draw: a label, or a continuation mark.
 const ROW = /^(argv\[\d+\]: |folder: |  \+ |  line \d+: )/
@@ -309,7 +331,7 @@ for (const surface of SURFACES) {
     await $.session.start({ cwd: CWD, surface, isInteractive: true })
     // Waiting: the switch refusal. Done: the remove refusal, which later ran fine.
     await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
-    await $.tool.call({ tool: 'PowerShell', command: `git status && ${REMOVE_PART}` })
+    await $.tool.call({ tool: 'PowerShell', command: `${REMOVE_PART} && git status` })
     await $.tool.call({ tool: 'PowerShell', command: REMOVE_PART.replace('git worktree', 'git  worktree') })
     // Not recorded at all: a refusal the agent routes around.
     await $.tool.call({ tool: 'Bash', command: 'git add -A' })
@@ -484,7 +506,7 @@ test('with no verbatim match the headline is the first line, Copy takes the whol
   expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
   expect(await textOf(ui, /^Copy only: the refusal does not quote/)).toBeDefined()
   expect(await textOf(ui, /only the blocked part/)).toBeUndefined()
-  expect(await textOf(ui, /^Do this: /)).toBe('Do this: Run this in a plain terminal: the blocked command (open Details)')
+  expect(await textOf(ui, /^Do this: /)).toBe(`Do this: Run the whole command in a plain terminal: ${command.replace('\n', ' ')}`)
   await ui.press({ key: `copy:${id}` })
   expect(w.copies).toEqual([command])
   expect(w.runs).toHaveLength(0)
@@ -539,8 +561,22 @@ for (const one of NOT_WHOLE) {
   })
 }
 
-const CONTEXT = [
-  { name: 'a cd before a later copy of the part', shell: 'Bash', command: 'git push --dry-run; cd ../prod && git push', part: 'git push' },
+// Run is offered for a refusal only when its blocked part is the FIRST command
+// on the line, with nothing at all before it. Every other position is Copy
+// only, with one reason, and Copy and Do this give the whole command. These
+// are the old deny-list's cases and the ones it missed; none needs a word
+// list now, so none can be missed by one.
+const NOT_FIRST_REASON = 'Copy only: other commands come before this part, so it could run in a different context.'
+const NO_PART_REASON = 'Copy only: the refusal does not quote one whole part of this line, so Copy takes the whole line and Run is not offered.'
+
+const NOT_FIRST: readonly { name: string; shell: 'Bash' | 'PowerShell'; command: string; part: string; reason?: string }[] = [
+  { name: 'a PowerShell drive change', shell: 'PowerShell', command: 'D:; Remove-Item -Recurse -Force build', part: 'Remove-Item -Recurse -Force build' },
+  { name: 'a grep guard joined by &&', shell: 'Bash', command: 'grep -q x f && rm -rf build', part: 'rm -rf build' },
+  { name: 'a git-state change joined by &&', shell: 'PowerShell', command: 'git add a && git switch b', part: 'git switch b' },
+  { name: 'a test run joined by &&', shell: 'PowerShell', command: 'npm test && npm publish', part: 'npm publish' },
+  { name: 'a branch switch joined by &&', shell: 'PowerShell', command: 'git switch other && git push --force', part: 'git push --force' },
+  { name: 'a plain && chain', shell: 'PowerShell', command: `git fetch && ${SWITCH_PART}`, part: SWITCH_PART },
+  { name: 'a cd joined by &&', shell: 'PowerShell', command: `cd C:\\other && ${SWITCH_PART}`, part: SWITCH_PART },
   { name: 'a cd behind if', shell: 'Bash', command: 'if cd ../prod; then :; fi; git push', part: 'git push' },
   { name: 'a cd in a brace group', shell: 'Bash', command: '{ cd ../prod; }; git push', part: 'git push' },
   { name: 'builtin cd', shell: 'Bash', command: 'builtin cd ../prod; git push', part: 'git push' },
@@ -550,41 +586,109 @@ const CONTEXT = [
   { name: 'an indexed assignment', shell: 'PowerShell', command: "$PSDefaultParameterValues['*:WhatIf']=$true; Remove-Item -Recurse C:\\data", part: 'Remove-Item -Recurse C:\\data' },
   { name: 'a member assignment', shell: 'PowerShell', command: '$o.Mode = 1; git push', part: 'git push' },
   { name: 'an exit', shell: 'Bash', command: 'exit 0; git push --force', part: 'git push --force' },
-] as const
+  { name: 'printf -v setting a variable', shell: 'Bash', command: 'printf -v d /tmp/build; rm -rf $d/x', part: 'rm -rf $d/x' },
+  { name: 'read setting a variable', shell: 'Bash', command: 'read d; git push', part: 'git push' },
+  { name: 'Set-Variable', shell: 'PowerShell', command: 'Set-Variable d C:\\proj\\out; Remove-Item -Recurse -Force C:\\proj\\out', part: 'Remove-Item -Recurse -Force C:\\proj\\out' },
+  { name: '-OutVariable', shell: 'PowerShell', command: 'Get-ChildItem -OutVariable d; git push', part: 'git push' },
+  { name: 'a shortened -OutVar', shell: 'PowerShell', command: 'Get-ChildItem -OutVar d; git push', part: 'git push' },
+  { name: 'a compound assignment', shell: 'PowerShell', command: '$x += 1; git push', part: 'git push' },
+  { name: 'a Bash append assignment', shell: 'Bash', command: 'd+=x; rm -rf $d', part: 'rm -rf $d' },
+  { name: 'a guard joined by ||', shell: 'Bash', command: 'git diff --quiet || git commit -am wip', part: 'git commit -am wip' },
+  { name: 'git diff --quiet joined by &&', shell: 'Bash', command: 'git diff --quiet && git commit -am wip', part: 'git commit -am wip' },
+  { name: 'a test joined by &&', shell: 'Bash', command: 'test -f lock && rm -rf build', part: 'rm -rf build' },
+  { name: 'Get-Item joined by &&', shell: 'PowerShell', command: 'Get-Item lock && Remove-Item build', part: 'Remove-Item build' },
+  { name: 'iex', shell: 'PowerShell', command: 'iex "Set-Location ..\\prod"; git push', part: 'git push' },
+  { name: 'Set-Alias', shell: 'PowerShell', command: 'Set-Alias git hub; git push', part: 'git push' },
+  { name: 'Import-Module', shell: 'PowerShell', command: 'Import-Module .\\tools.psm1; git push', part: 'git push' },
+  { name: 'a line ender', shell: 'Bash', command: 'kill $$; git push', part: 'git push' },
+  { name: 'Stop-Process', shell: 'PowerShell', command: 'Stop-Process -Id $PID; git push', part: 'git push' },
+  { name: 'a pipe feeding it', shell: 'PowerShell', command: 'echo y | git switch feature-x', part: 'git switch feature-x' },
+  { name: 'a later copy after the part opens the line as a longer word', shell: 'Bash', command: 'git push --dry-run; cd ../prod && git push', part: 'git push', reason: NO_PART_REASON },
+]
 
-for (const one of CONTEXT) {
-  test(`a part after ${one.name} gets no Run`, async ($, on) => {
+for (const surface of SURFACES) {
+  for (const one of NOT_FIRST) {
+    test(`a part after ${one.name} is Copy only, and Copy and Do this give the whole line, on ${surface}`, async ($, on) => {
+      const w = world(on)
+      refuseAll(on, `BLOCKED: '${one.part}' needs the person. Do it from a PLAIN terminal.`)
+      await $.tool.call({ tool: one.shell, command: one.command })
+      await w.settle()
+      const id = String(mine(w).entries[0]?.id)
+      const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+      expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+      expect(await ui.find({ type: 'Text', text: one.reason ?? NOT_FIRST_REASON })).toBeDefined()
+      expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${one.command}`)
+      expect(await textOf(ui, /^Do this: /)).toBe(`Do this: Run the whole command in a plain terminal: ${one.command}`)
+      await ui.press({ key: `run:${id}` }).catch(() => undefined)
+      await w.advance(700)
+      await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
+      expect(w.runs).toHaveLength(0)
+      await ui.press({ key: `copy:${id}` })
+      expect(w.copies).toEqual([one.command])
+      await ui.unmount()
+    })
+  }
+
+  test(`a part after a cd gives the whole line to Copy and Do this, never the bare part, on ${surface}`, async ($, on) => {
     const w = world(on)
-    refuseAll(on, `BLOCKED: '${one.part}' needs the person. Do it from a PLAIN terminal.`)
-    await $.tool.call({ tool: one.shell, command: one.command })
+    refuseAll(on, SWITCH_REFUSAL)
+    const command = `cd C:\\other && ${SWITCH_PART}`
+    await $.tool.call({ tool: 'PowerShell', command })
     await w.settle()
     const id = String(mine(w).entries[0]?.id)
-    const ui = await $.ui.mount(MOUNT)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${command}`)
     expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
-    expect(await ui.find({ key: `copy:${id}` })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: NOT_FIRST_REASON })).toBeDefined()
+    expect(await textOf(ui, /^Do this: /)).toBe(`Do this: Run the whole command in a plain terminal: ${command}`)
+    expect(await textOf(ui, /^Copy takes the whole command/)).toBe('Copy takes the whole command, not the blocked part alone.')
+    await ui.press({ key: `copy:${id}` })
+    expect(w.copies).toEqual([command])
+    await ui.unmount()
+  })
+
+  test(`a first-position git switch b keeps Run, and Run gets exactly the part, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    refuseAll(on, "BLOCKED: 'git switch b' needs the person. Do it from a PLAIN terminal.")
+    await $.tool.call({ tool: 'PowerShell', command: 'git switch b' })
+    await $.tool.call({ tool: 'PowerShell', command: 'git switch b && git push origin b' })
+    await w.settle()
+    const ids = mine(w).entries.map(entry => String(entry.id))
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    for (const id of ids) {
+      await ui.press({ key: `run:${id}` })
+      await w.advance(700)
+      await ui.press({ key: `confirm:${id}` })
+    }
+    expect(w.runs).toEqual([
+      { argv: [PWSH, '-NoProfile', '-Command', 'git switch b'], cwd: CWD },
+      { argv: [PWSH, '-NoProfile', '-Command', 'git switch b'], cwd: CWD },
+    ])
+    await ui.unmount()
+  })
+
+  test(`the 3952-character crafted line from the review renders fast, and is Copy only, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    // The line that took the removed deny-list 5772 ms in node 22.
+    const crafted = `${'$'.repeat(1976)}${'-'.repeat(1976)}`
+    expect(crafted).toHaveLength(3952)
+    const command = `${crafted}; git push`
+    refuseAll(on, "BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal.")
+    await $.tool.call({ tool: 'PowerShell', command })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    expect(mine(w).entries[0]?.command).toBe(command)
+    const started = performance.now()
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
     await ui.press({ key: `run:${id}` }).catch(() => undefined)
-    await w.advance(700)
-    await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
-    expect(w.runs).toHaveLength(0)
+    await ui.redraw()
+    // Generous: the removed regex alone took over 5 seconds on this line.
+    expect(performance.now() - started).toBeLessThan(1000)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: NOT_FIRST_REASON })).toBeDefined()
     await ui.unmount()
   })
 }
-
-test('a part after a cd is Copy only: alone it could act in another folder', async ($, on) => {
-  const w = world(on)
-  refuseAll(on, SWITCH_REFUSAL)
-  await $.tool.call({ tool: 'PowerShell', command: `cd C:\\other && ${SWITCH_PART}` })
-  await w.settle()
-  const id = String(mine(w).entries[0]?.id)
-  const ui = await $.ui.mount(MOUNT)
-  expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${SWITCH_PART}`)
-  expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
-  expect(await textOf(ui, /^Copy only: an earlier part of the line changes the folder/)).toBeDefined()
-  expect(await textOf(ui, /only the blocked part/)).toBe('Copy takes only the blocked part above, not the whole line.')
-  await ui.press({ key: `copy:${id}` })
-  expect(w.copies).toEqual([SWITCH_PART])
-  await ui.unmount()
-})
 
 // -------------------------------------------------------- recommended action
 
@@ -879,19 +983,40 @@ test('a Run that exits non-zero stays waiting and shows its output', async ($, o
   await ui.unmount()
 })
 
-test('with no Git Bash installed, a Bash Run fails, runs nothing, and stays waiting', async ($, on) => {
-  const w = world(on)
+for (const surface of SURFACES) {
+  test(`on Windows a Bash refusal is Copy only, even with Git Bash installed, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    w.files.set('C:\\Program Files\\Git\\bin\\bash.exe', { text: '', mtimeMs: 0 })
+    refuseQuoting(on)
+    await $.tool.call({ tool: 'Bash', command: 'ls -la' })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^Copy only: on Windows, Run is offered only for PowerShell/ })).toBeDefined()
+    await ui.press({ key: `run:${id}` }).catch(() => undefined)
+    await w.advance(700)
+    await ui.press({ key: `confirm:${id}` }).catch(() => undefined)
+    expect(w.runs).toHaveLength(0)
+    await ui.press({ key: `copy:${id}` })
+    expect(w.copies).toEqual(['ls -la'])
+    await ui.unmount()
+  })
+}
+
+test('off Windows, with no bash at a known path, a Bash Run fails, runs nothing, and stays waiting', async ($, on) => {
+  const w = world(on, { unix: true })
   refuseQuoting(on)
   await $.tool.call({ tool: 'Bash', command: 'ls -la' })
   await w.settle()
-  const id = String(mine(w).entries[0]?.id)
+  const id = String(mine(w, UNIX_FILE).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
   expect(await textOf(ui, /^could not run/)).toBe('could not run:')
-  expect(await ui.find({ type: 'Text', text: /Git Bash not found/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /bash not found/ })).toBeDefined()
   expect(await textOf(ui, /waiting on the owner$/)).toBe('1 waiting on the owner')
   await ui.unmount()
 })
@@ -1123,18 +1248,17 @@ test('an arming press lapses after a minute and Run now goes away', async ($, on
 })
 
 test('a shell that resolves differently after arming runs nothing', async ($, on) => {
-  const other = 'D:\\PF\\Git\\bin\\bash.exe'
-  const w = world(on, { env: { ProgramFiles: 'D:\\PF' } })
-  w.files.set(GIT_BASH, { text: '', mtimeMs: 0 })
-  w.files.set(other, { text: '', mtimeMs: 0 })
+  const w = world(on, { unix: true })
+  w.files.set('/bin/bash', { text: '', mtimeMs: 0 })
+  w.files.set('/usr/bin/bash', { text: '', mtimeMs: 0 })
   refuseQuoting(on)
   await $.tool.call({ tool: 'Bash', command: 'ls' })
   await w.settle()
-  const id = String(mine(w).entries[0]?.id)
+  const id = String(mine(w, UNIX_FILE).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
-  expect((await shownRows(ui)).find(row => row.startsWith('argv[0]'))).toBe(`argv[0]: ${GIT_BASH}`)
-  w.files.delete(GIT_BASH)
+  expect((await shownRows(ui)).find(row => row.startsWith('argv[0]'))).toBe('argv[0]: /bin/bash')
+  w.files.delete('/bin/bash')
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
   expect(w.runs).toHaveLength(0)
@@ -1159,18 +1283,18 @@ test('with no pwsh at a known path, a PowerShell Run fails and never runs a bare
   await ui.unmount()
 })
 
-test('Bash runs through Git Bash where it is installed', async ($, on) => {
-  const w = world(on)
-  w.files.set(GIT_BASH, { text: '', mtimeMs: 0 })
+test('off Windows, Bash keeps Run, through /bin/bash by path', async ($, on) => {
+  const w = world(on, { unix: true })
+  w.files.set('/bin/bash', { text: '', mtimeMs: 0 })
   refuseQuoting(on)
   await $.tool.call({ tool: 'Bash', command: 'ls' })
   await w.settle()
-  const id = String(mine(w).entries[0]?.id)
+  const id = String(mine(w, UNIX_FILE).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
-  expect(w.runs).toEqual([{ argv: [GIT_BASH, '-c', 'ls'], cwd: CWD }])
+  expect(w.runs).toEqual([{ argv: ['/bin/bash', '-c', 'ls'], cwd: UNIX_CWD }])
   await ui.unmount()
 })
 
@@ -1346,14 +1470,18 @@ for (const surface of SURFACES) {
     await w.settle()
     const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
     expect(await textOf(ui, /waiting on the owner$/)).toBe('2 waiting on the owner')
-    expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${REMOVE_PART}`)
+    // Its part is not first on its line, so the card names the whole line.
+    expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${REMOTE_KEEP.command}`)
+    expect(await textOf(ui, /^Do this: Confirm/)).toBe(
+      `Do this: Confirm it is not in use, then run the whole command in a plain terminal: ${REMOTE_KEEP.command}`,
+    )
     expect(await textOf(ui, /^Approve the release/)).toBe('Approve the release tag')
     expect(await textOf(ui, /^Do this: Approve/)).toBe('Do this: Approve the tag v1.2.0.')
     expect(await textOf(ui, /^From: another session/)).toContain('another session (other-worktree sess-oth)')
     expect(await ui.find({ type: 'Text', text: /git add -A/ })).toBeUndefined()
     expect(await ui.findAll({ type: 'Button', text: /^Run/ })).toHaveLength(0)
     await ui.press({ key: 'rcopy:sess-other-2:e1' })
-    expect(w.copies).toEqual([REMOVE_PART])
+    expect(w.copies).toEqual([REMOTE_KEEP.command])
     await ui.press({ key: 'rdismiss:sess-other-2:e1' })
     expect(await textOf(ui, /waiting on the owner$/)).toBe('1 waiting on the owner')
     expect(mine(w).dismissed).toEqual(['sess-other-2:e1'])
@@ -1531,36 +1659,33 @@ test('a multi-line part draws its second line as a marked row', async ($, on) =>
   await ui.unmount()
 })
 
-test('the confirm view names pwsh and Git Bash by their full paths, never by name', async ($, on) => {
+test('the confirm view names pwsh by its full path, never by name', async ($, on) => {
   const w = world(on)
-  w.files.set(GIT_BASH, { text: '', mtimeMs: 0 })
   refuseQuoting(on)
   await $.tool.call({ tool: 'PowerShell', command: 'git status' })
-  await $.tool.call({ tool: 'Bash', command: 'ls' })
-  await w.settle()
-  const [pwshId, bashId] = mine(w).entries.map(entry => String(entry.id))
-  const ui = await $.ui.mount(MOUNT)
-  await ui.press({ key: `run:${pwshId}` })
-  await ui.press({ key: `run:${bashId}` })
-  const shown = await shownRows(ui)
-  expect(shown).toContain(`argv[0]: ${PWSH}`)
-  expect(shown).toContain(`argv[0]: ${GIT_BASH}`)
-  expect(shown.filter(row => row === `folder: ${CWD}`)).toHaveLength(2)
-  expect(await ui.find({ type: 'Text', text: /\(by name/ })).toBeUndefined()
-  await ui.unmount()
-})
-
-test('with Git Bash only under LOCALAPPDATA, a Bash Run finds no shell', async ($, on) => {
-  const local = 'C:\\Users\\tester\\AppData\\Local'
-  const w = world(on, { env: { LOCALAPPDATA: local } })
-  w.files.set(`${local}\\Programs\\Git\\bin\\bash.exe`, { text: '', mtimeMs: 0 })
-  refuseQuoting(on)
-  await $.tool.call({ tool: 'Bash', command: 'ls' })
   await w.settle()
   const id = String(mine(w).entries[0]?.id)
   const ui = await $.ui.mount(MOUNT)
   await ui.press({ key: `run:${id}` })
-  expect(await ui.find({ type: 'Text', text: /^Run now runs nothing: Git Bash not found/ })).toBeDefined()
+  const shown = await shownRows(ui)
+  expect(shown).toContain(`argv[0]: ${PWSH}`)
+  expect(shown.filter(row => row === `folder: ${CWD}`)).toHaveLength(1)
+  expect(await ui.find({ type: 'Text', text: /\(by name/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('with pwsh only under LOCALAPPDATA, a PowerShell Run finds no shell', async ($, on) => {
+  const local = 'C:\\Users\\tester\\AppData\\Local'
+  const w = world(on, { env: { LOCALAPPDATA: local } })
+  w.files.delete(PWSH)
+  w.files.set(`${local}\\Microsoft\\PowerShell\\7\\pwsh.exe`, { text: '', mtimeMs: 0 })
+  refuseQuoting(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  expect(await ui.find({ type: 'Text', text: /^Run now runs nothing: PowerShell 7 \(pwsh.exe\) not found by path/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^argv\[0\]/ })).toBeUndefined()
   await w.advance(700)
   await ui.press({ key: `confirm:${id}` })
@@ -1735,46 +1860,7 @@ test('a refused entry an earlier version kept, with no ask, is deleted at load',
   await ui.unmount()
 })
 
-// ----------------------------------------- review round 1: what Run may skip
-
-const GUARDED = [
-  { name: 'printf -v setting a variable', shell: 'Bash', command: 'printf -v d /tmp/build; rm -rf $d/x', part: 'rm -rf $d/x' },
-  { name: 'read setting a variable', shell: 'Bash', command: 'read d; git push', part: 'git push' },
-  { name: 'Set-Variable', shell: 'PowerShell', command: 'Set-Variable d C:\\proj\\out; Remove-Item -Recurse -Force C:\\proj\\out', part: 'Remove-Item -Recurse -Force C:\\proj\\out' },
-  { name: '-OutVariable', shell: 'PowerShell', command: 'Get-ChildItem -OutVariable d; git push', part: 'git push' },
-  { name: 'a compound assignment', shell: 'PowerShell', command: '$x += 1; git push', part: 'git push' },
-  { name: 'a guard joined by ||', shell: 'Bash', command: 'git diff --quiet || git commit -am wip', part: 'git commit -am wip' },
-  { name: 'a test joined by &&', shell: 'Bash', command: 'test -f lock && rm -rf build', part: 'rm -rf build' },
-  { name: 'a bracket test joined by &&', shell: 'Bash', command: '[ -f lock ] && rm -rf build', part: 'rm -rf build' },
-  { name: 'Test-Path joined by &&', shell: 'PowerShell', command: 'Test-Path lock && Remove-Item build', part: 'Remove-Item build' },
-  { name: 'a variable read after an earlier part', shell: 'Bash', command: 'git fetch; rm -rf $d/x', part: 'rm -rf $d/x' },
-] as const
-
-for (const one of GUARDED) {
-  test(`a part after ${one.name} gets no Run`, async ($, on) => {
-    const w = world(on)
-    refuseAll(on, `BLOCKED: '${one.part}' needs the person. Do it from a PLAIN terminal.`)
-    await $.tool.call({ tool: one.shell, command: one.command })
-    await w.settle()
-    const id = String(mine(w).entries[0]?.id)
-    const ui = await $.ui.mount(MOUNT)
-    expect(await textOf(ui, /^Blocked: /)).toBe(`Blocked: ${one.part}`)
-    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
-    expect(await textOf(ui, /^Copy only: an earlier part of the line changes/)).toBeDefined()
-    await ui.unmount()
-  })
-}
-
-test('a part after a plain && chain still gets Run', async ($, on) => {
-  const w = world(on)
-  refuseAll(on, SWITCH_REFUSAL)
-  await $.tool.call({ tool: 'PowerShell', command: `git fetch && ${SWITCH_PART}` })
-  await w.settle()
-  const id = String(mine(w).entries[0]?.id)
-  const ui = await $.ui.mount(MOUNT)
-  expect(await ui.find({ key: `run:${id}` })).toBeDefined()
-  await ui.unmount()
-})
+// ------------------------------------------ what resolves an entry by itself
 
 const NOT_FINE = [
   { name: 'a later || that hides its failure', command: `${SWITCH_PART} || true` },
@@ -1782,6 +1868,7 @@ const NOT_FINE = [
   { name: 'a pipe after it', command: `${SWITCH_PART} | Out-Null` },
   { name: 'an earlier cd', command: `cd C:\\elsewhere && ${SWITCH_PART}` },
   { name: 'an earlier ; part', command: `git fetch; ${SWITCH_PART}` },
+  { name: 'an earlier && chain', command: `git fetch && ${SWITCH_PART}` },
 ] as const
 
 for (const one of NOT_FINE) {
@@ -1796,14 +1883,71 @@ for (const one of NOT_FINE) {
   })
 }
 
-test('a later success that ends an && chain with the part resolves it', async ($, on) => {
+test('a later success that starts with the part, then && alone, resolves it', async ($, on) => {
   const w = world(on)
   refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
   await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
   await w.settle()
-  await $.tool.call({ tool: 'PowerShell', command: `git fetch && ${SWITCH_PART}` })
+  await $.tool.call({ tool: 'PowerShell', command: `${SWITCH_PART} && git fetch` })
   await w.settle()
   expect(mine(w).entries).toHaveLength(0)
+})
+
+test('a part that was not first on its line is never resolved by a later success', async ($, on) => {
+  const w = world(on)
+  const line = `git fetch && ${SWITCH_PART}`
+  refuse(on, command => (command === line ? SWITCH_REFUSAL : undefined))
+  await $.tool.call({ tool: 'PowerShell', command: line })
+  await w.settle()
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+})
+
+test('a later success launched in the background resolves nothing', async ($, on) => {
+  const w = world(on)
+  refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+  await w.settle()
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART, run_in_background: true } as never)
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+})
+
+test('a later success whose result reads as a launch resolves nothing', async ($, on) => {
+  const w = world(on)
+  on('classic.PreToolUse', ($, e) => (inputCommand(e) === SWITCH_LINE ? { deny: SWITCH_REFUSAL } : {}))
+  on('tool.call', { tool: 'PowerShell' }, ($, e) =>
+    e.command === SWITCH_LINE
+      ? { isError: true, result: 'blocked', text: `PreToolUse:PowerShell hook error: ${SWITCH_REFUSAL}` }
+      : { result: 'ok', text: 'Command running in background with ID: b1' },
+  )
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+  await w.settle()
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+})
+
+test('a later success in the other shell resolves nothing', async ($, on) => {
+  const w = world(on)
+  refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE })
+  await w.settle()
+  await $.tool.call({ tool: 'Bash', command: SWITCH_PART })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+})
+
+test('an entry a subagent raised is never resolved by a later main-loop success', async ($, on) => {
+  const w = world(on)
+  refuse(on, command => (command === SWITCH_LINE ? SWITCH_REFUSAL : undefined))
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_LINE, agentId: 'agent-1' } as never)
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  expect(mine(w).entries).toHaveLength(1)
 })
 
 // ------------------------------------------ review round 1: what is shared
@@ -1863,4 +2007,259 @@ test('only the loop that filed a signal can resolve it', async ($, on) => {
   expect(await callTool($, { tool: DONE, id, agentId: 'agent-1' })).toContain('No owner_action entry')
   await w.settle()
   expect(mine(w).entries).toHaveLength(1)
+})
+
+// ------------------------------------------- review round 2: signal prose
+
+test('a signal whose prose carries a secret stores a placeholder for that field alone, and says so', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  const said = await callTool(
+    $,
+    signal({
+      recommendedAction: `Run curl -u admin:${pass} https://x.test to check.`,
+      why: `Log in with sshpass -p ${pass} first.`,
+      confidence: `medium; mysql -p${pass} would settle it`,
+    }),
+  )
+  expect(said).toContain('Filed in the owner inbox as ')
+  expect(said).toContain('stored as a placeholder: why, recommendedAction, confidence')
+  await w.settle()
+  const text = w.files.get(MY_FILE)?.text ?? ''
+  expect(text).not.toContain(pass)
+  const entry = mine(w).entries[0]
+  expect(entry?.title).toBe('Choose the license for the new package')
+  expect(entry?.recommendedAction).toBe('(text withheld: it looked like it carried a secret)')
+  expect(entry?.why).toBe('(text withheld: it looked like it carried a secret)')
+  expect(entry?.reviewOutcome).toBe('review split evenly between the two licenses')
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ type: 'Text', text: new RegExp(pass) })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a signal read from another session whose prose carries a secret shows a placeholder', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  const crafted = { ...REMOTE_SIGNAL, title: `Approve with -u admin:${pass}`, reviewOutcome: `sshpass -p ${pass} did not help`, confidence: 'high' }
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [crafted] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('1 waiting on the owner')
+  expect(await ui.find({ type: 'Text', text: new RegExp(pass) })).toBeUndefined()
+  expect(await textOf(ui, /^\(text withheld/)).toBe('(text withheld: it looked like it carried a secret)')
+  await ui.unmount()
+})
+
+// ------------------------------------------- review round 2: the arm lapse
+
+// What $.state holds for this session's own entries, as the plugin last read it.
+function ownState(on: On): () => Record<string, unknown>[] {
+  let latest: Record<string, unknown>[] = []
+  on('state.get', async ($, e, next) => {
+    const got = await next(e)
+    const name = e as unknown as { plugin?: string; key?: string }
+    const value = (got.value as { value?: unknown } | undefined)?.value
+    if (name.plugin === PLUGIN && name.key === 'own' && Array.isArray(value)) latest = value as Record<string, unknown>[]
+    return got
+  })
+  return () => latest
+}
+
+test('a lapsed arm is cleared from the entry, not only hidden', async ($, on) => {
+  const w = world(on)
+  const state = ownState(on)
+  refuseQuoting(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  await ui.redraw()
+  expect(state().find(one => one.id === id)?.armedAt).toBeDefined()
+  await w.advance(61_000)
+  await ui.redraw()
+  const after = state().find(one => one.id === id)
+  expect(after?.armedAt).toBeUndefined()
+  expect(after?.armedArgv).toBeUndefined()
+  expect(await ui.find({ key: `run:${id}` })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a Cancel clears the arm from the entry', async ($, on) => {
+  const w = world(on)
+  const state = ownState(on)
+  refuseQuoting(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const id = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${id}` })
+  await ui.press({ key: `cancel:${id}` })
+  await ui.redraw()
+  expect(state().find(one => one.id === id)?.armedAt).toBeUndefined()
+  await ui.unmount()
+})
+
+test('after an arm lapses, a full list evicts that entry rather than a newer one', async ($, on) => {
+  const w = world(on)
+  refuseQuoting(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const armed = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${armed}` })
+  await w.advance(61_000)
+  await ui.unmount()
+  const filed: string[] = []
+  for (let i = 0; i < 50; i++) {
+    const said = await callTool($, signal({ title: `Signal number ${i}` }))
+    filed.push(/as ([0-9a-f-]{36})/.exec(said)?.[1] ?? '')
+  }
+  await w.settle()
+  const ids = mine(w).entries.map(one => String(one.id))
+  expect(ids).not.toContain(armed)
+  expect(ids).toHaveLength(50)
+  expect(ids).toEqual(filed)
+})
+
+test('an arm still inside its minute is kept when the list is full', async ($, on) => {
+  const w = world(on)
+  refuseQuoting(on)
+  await $.tool.call({ tool: 'PowerShell', command: 'git push origin main' })
+  await w.settle()
+  const armed = String(mine(w).entries[0]?.id)
+  const ui = await $.ui.mount(MOUNT)
+  await ui.press({ key: `run:${armed}` })
+  await ui.unmount()
+  for (let i = 0; i < 50; i++) await callTool($, signal({ title: `Signal number ${i}` }))
+  await w.settle()
+  const ids = mine(w).entries.map(one => String(one.id))
+  expect(ids).toContain(armed)
+  expect(ids).toHaveLength(50)
+})
+
+// ------------------------------------- review round 2: the refusal's own lines
+
+const DRAWN_LABEL = [
+  { name: 'a Why line holding a label', text: "BLOCKED: 'git status' would print argv[0]: x. Do it from a PLAIN terminal." },
+  { name: 'a For you line holding a label', text: "BLOCKED: 'git status' needs the person. Press Run now from a PLAIN terminal." },
+] as const
+
+for (const one of DRAWN_LABEL) {
+  test(`a refusal with ${one.name} gets Copy only`, async ($, on) => {
+    const w = world(on)
+    refuseAll(on, one.text)
+    await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^Copy only: its Why or For you line holds a label/ })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+const NEW_LABELS = ['argv: x', 'Copy only: x', 'Needs you for: x', 'confidence: x', 'Review: x', 'Question: x', 'Resolved']
+
+for (const label of NEW_LABELS) {
+  test(`a command holding the drawn label "${label}" gets Copy only`, async ($, on) => {
+    const w = world(on)
+    refuseQuoting(on)
+    await $.tool.call({ tool: 'PowerShell', command: `echo ${label}` })
+    await w.settle()
+    const id = String(mine(w).entries[0]?.id)
+    const ui = await $.ui.mount(MOUNT)
+    expect(await ui.find({ key: `run:${id}` })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^Copy only: it holds a label the card draws/ })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+// ------------------------------------------- review round 2: the withheld ask
+
+test('a withheld ask keeps its kind and its row, here and in a reader', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  refuseAll(on, `BLOCKED: 'git status' needs the person. Run curl -u admin:${pass} https://x.test from a PLAIN terminal.`)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await w.settle()
+  const written = w.files.get(MY_FILE)?.text ?? ''
+  expect(written).not.toContain(pass)
+  const entry = mine(w).entries[0]
+  expect(entry?.kind).toBe('refused')
+  expect(String(entry?.ask)).toBe('ask withheld: it looked like it carried a secret. The gate handed it over as: from a PLAIN terminal')
+  const ui = await $.ui.mount(MOUNT)
+  // The refusal was withheld with it, so the part cannot be read back: the whole command.
+  expect(await textOf(ui, /^Do this: /)).toBe('Do this: Run the whole command in a plain terminal: git status')
+  await ui.unmount()
+  // Another session reads the same file and keeps the entry by the same rule.
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: written.replace(`"sessionId":"${ME}"`, '"sessionId":"sess-other-2"') })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const reader = await $.ui.mount(MOUNT)
+  const remoteKey = `rcopy:sess-other-2:${String(entry?.id)}`
+  expect(await reader.find({ key: remoteKey })).toBeDefined()
+  expect((await reader.findAll({ type: 'Text', text: /^Do this: Run the whole command in a plain terminal: git status$/ })).length).toBe(2)
+  await reader.unmount()
+})
+
+test('a withheld confirm ask keeps its row without the words it withheld', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  refuseAll(on, `BLOCKED: 'git status' needs the person. "I need you to confirm curl -u admin:${pass} is safe."`)
+  await $.tool.call({ tool: 'PowerShell', command: 'git status' })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /^Do this: /)).toBe('Do this: Confirm it is safe, then run the whole command in a plain terminal: git status')
+  expect(await ui.find({ type: 'Text', text: new RegExp(pass) })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a reader drops a refused entry whose ask looks secret but hands nothing over', async ($, on) => {
+  const w = world(on)
+  const pass = ['hun', 'ter2'].join('')
+  const crafted = { ...REMOTE_KEEP, detail: undefined, ask: `Use curl -u admin:${pass} https://x.test to finish.` }
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [crafted] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /waiting on the owner$/)).toBe('0 waiting on the owner')
+  await ui.unmount()
+})
+
+// --------------------------------------- review round 2: render time, bounded
+
+// 120 entries: the most this card shape draws under the engine's bound of
+// 100000 characters of text in one Pane, which refuses the whole pane above it.
+const FILES = 3
+test('a render over 120 crafted remote entries stays under 10 seconds', async ($, on) => {
+  const w = world(on)
+  const crafted = `${'$'.repeat(1976)}${'-'.repeat(1976)}; git push`
+  const detail = `BLOCKED: 'git push' needs the person. Do it from a PLAIN terminal. ${"'a' ".repeat(400)}`
+  for (let f = 0; f < FILES; f++) {
+    const entries = Array.from({ length: 40 }, (_, i) => ({
+      id: `e${i}`,
+      kind: 'refused',
+      createdAt: NOW - 60_000,
+      shell: 'PowerShell',
+      command: crafted,
+      cwd: 'C:\\elsewhere',
+      refusal: "BLOCKED: 'git push' needs the person.",
+      detail,
+      ask: 'Do it from a PLAIN terminal.',
+    }))
+    w.files.set(`${DIR}\\sess-many-${f}.json`, { mtimeMs: NOW - 1000, text: otherFile({ sessionId: `sess-many-${f}`, entries }) })
+  }
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const started = performance.now()
+  const ui = await $.ui.mount(MOUNT)
+  await ui.redraw()
+  const elapsed = performance.now() - started
+  expect(await textOf(ui, /waiting on the owner$/)).toBe(`${FILES * 40} waiting on the owner`)
+  // Generous on purpose: a loaded machine is slow, a backtracking regex is
+  // seconds per entry. Measured at 137 ms on 2026-10-02.
+  expect(elapsed).toBeLessThan(10_000)
+  await ui.unmount()
 })
