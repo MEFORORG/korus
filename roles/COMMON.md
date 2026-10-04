@@ -422,6 +422,14 @@ Expiry is silent at both ends. Before a longer dark, commit what you need read.
 
 So long content goes in a file, and you mail the path.
 
+**The engine repository's sender does enforce them, and a long line queues nothing.** Its
+`mail.ps1 -Send` throws on a body line over 240 characters and writes no message. Behind a
+redirect or an output filter, the refusal prints nothing.
+
+Wrap body lines under 240 characters, or mail a file path. Confirm by the `Queued` line or the
+exit code. Wiki key `coord/mail/line-cap`, events `20260927T011745812Z-6ju7lz`,
+`20260928T204609668Z-qgszhy`, `20261001T175125944Z-3q4h79`.
+
 **Nothing sensitive goes in a body.** Delivery copies it into the recipient's transcript, and every
 `from` field is an unverified self-assertion.
 
