@@ -442,29 +442,46 @@ async function shownName($: Engine): Promise<string> {
   return (await read($, title)) ?? (await label($))
 }
 
-// A title as one plain line, or '' when there is none to show. Cleaned before
-// it is trimmed, so stripped marks cannot leave a blank name; flattened, so a
-// title cannot start a row of the card; and dropped when it looks like a
-// secret, since every session's cards show it. The writer and every reader
-// apply it, whoever wrote the file.
+const TITLE_MAX = 60
+
+// A title as one plain line, or '' when there is none to show. Flattened, so a
+// title cannot start a row of the card; checked for a secret before it is cut,
+// so a key cannot slip under the check by being cut short; and cut once. A
+// cut title is left as it is, so a reader's pass does not cut it again. Only a
+// value shape counts as a secret: words such as "token" are ordinary in a
+// title. The writer and every reader apply it, whoever wrote the file.
 function titleOf(raw: unknown): string {
-  const text = flat(clean(raw, 60))
-  return text === '' || looksSecret(text) ? '' : text
+  const text = flat(clean(raw, 1000))
+  if (text === '' || questionLooksSecret(text)) return ''
+  return text.length > TITLE_MAX + ' [cut]'.length ? cut(text, TITLE_MAX) : text
 }
 
 // Keeps the newest title the engine handed over, and republishes when it
-// changed, so other sessions' cards name this one as the app now does.
+// changed, so other sessions' cards name this one as the app now does. A title
+// that cannot be shown clears the one held: the app no longer shows that one.
+// No title at all (undefined) leaves the one held.
 async function noteTitle($: Engine, raw: unknown): Promise<void> {
-  const next = titleOf(raw)
-  if (next === '' || next === (await read($, title))) return
+  if (raw === undefined) return
+  const shown = titleOf(raw)
+  const next = shown === '' ? null : shown
+  if (next === (await read($, title))) return
   await update($, title, () => next)
   void publish($)
 }
 
 // The title a classic event carries, or the one a hook beneath set in its
-// result, which wins. A subagent's event never names the session.
-async function titleFromEvent($: Engine, e: { agent_id?: string; session_title?: string }, set: string | undefined): Promise<void> {
-  if (e.agent_id === undefined) await noteTitle($, set ?? e.session_title).catch(() => undefined)
+// result, which wins as it does in the app. The app drops a hook's title when
+// the event is blocked, and ignores an empty one. A subagent's event never
+// names the session.
+async function titleFromEvent(
+  $: Engine,
+  e: { agent_id?: string; session_title?: string },
+  result: { block?: string; preventContinuation?: true; sessionTitle?: string },
+): Promise<void> {
+  if (e.agent_id !== undefined) return
+  const isBlocked = result.block !== undefined || result.preventContinuation === true
+  const set = !isBlocked && typeof result.sessionTitle === 'string' && result.sessionTitle !== '' ? result.sessionTitle : e.session_title
+  await noteTitle($, set).catch(() => undefined)
 }
 
 // Writes this session's file, queued so two writes never interleave. $.fs has
@@ -599,7 +616,7 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
   // The title the owner sees in the app's session list. A file with none, or
   // from a version before titles, falls back to the folder and id prefix.
   const shown = titleOf(file.title)
-  const sessionLabel = shown !== '' ? shown : `${clean(file.label, 60) || 'session'} ${stem.slice(0, 8)}`
+  const sessionLabel = shown !== '' ? shown : `${flat(clean(file.label, 60)) || 'session'} ${stem.slice(0, 8)}`
   const list = Array.isArray(file.entries) ? file.entries.slice(0, MAX_ENTRIES) : []
   const entries = list.flatMap((one: unknown): InboxRemoteEntry[] => {
     if (typeof one !== 'object' || one === null) return []
@@ -1504,9 +1521,11 @@ export const register: Register = on => {
 
   on('session.end', async ($, e, next) => {
     if (SAFE_STEM.test(e.sessionId)) await publish($, { ended: e.sessionId })
+    // Whatever comes next (a clear, a resume) is another conversation, whose
+    // title the engine hands over afresh; this one's must not carry into it.
+    await update($, title, () => null)
     if (e.reason === 'clear') {
       await update($, own, () => [])
-      await update($, title, () => null)
       lastWritten = ''
     }
     return next(e)
@@ -1564,12 +1583,12 @@ export const register: Register = on => {
   // hook beneath may set a new title in its result; that one wins.
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
-    await titleFromEvent($, e, result.sessionTitle)
+    await titleFromEvent($, e, result)
     return result
   })
   on('classic.UserPromptSubmit', async ($, e, next) => {
     const result = await next(e)
-    await titleFromEvent($, e, result.sessionTitle)
+    await titleFromEvent($, e, result)
     return result
   })
 
