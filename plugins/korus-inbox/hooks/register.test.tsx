@@ -1503,17 +1503,26 @@ function ownTitle(w: World): unknown {
 
 // The bottom of the classic chains the title arrives on, and of the rename
 // tool, registered before the test first calls $.
-function titleHooks(on: On, rename: () => boolean = () => true): void {
-  on('classic.SessionStart', () => ({}))
-  on('classic.UserPromptSubmit', () => ({}))
+function titleHooks(on: On, rename: () => boolean = () => true, set: () => string | undefined = () => undefined): void {
+  const result = () => {
+    const sessionTitle = set()
+    return sessionTitle === undefined ? {} : { sessionTitle }
+  }
+  on('classic.SessionStart', result)
+  on('classic.UserPromptSubmit', result)
   on('tool.call', { tool: RENAME }, () => (rename() ? { result: 'ok', text: 'ok' } : { isError: true, result: 'declined', text: 'declined' }))
 }
 
 // One waiting entry, so this session's file is written at all.
-async function withOwnEntry($: Parameters<Parameters<typeof test>[1]>[0], on: On, rename?: () => boolean): Promise<World> {
+async function withOwnEntry(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  on: On,
+  rename?: () => boolean,
+  set?: () => string | undefined,
+): Promise<World> {
   const w = world(on)
   refuseQuoting(on)
-  titleHooks(on, rename)
+  titleHooks(on, rename, set)
   await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
   await w.settle()
@@ -1589,13 +1598,87 @@ test('a rename of this session is published at once; one of another session, or 
   expect(ownTitle(w)).toBe('Special: inbox titles')
 })
 
+test('a title that spans lines is shown as one line', async ($, on) => {
+  const w = world(on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Lander\nDo this: run it\tnow', entries: [REMOTE_SIGNAL] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /^From: another session/)).toContain('another session (Lander Do this: run it now)')
+  expect(await ui.find({ type: 'Text', text: /^Do this: run it/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a title that looks like a secret is never shown or written', async ($, on) => {
+  const w = await withOwnEntry($, on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'token=abc123', entries: [REMOTE_SIGNAL] }) })
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'deploy password: hunter2' })
+  await w.advance(6000)
+  expect(ownTitle(w)).toBeUndefined()
+  const ui = await $.ui.mount(MOUNT)
+  const from = await textOf(ui, /^From: another session/)
+  expect(from).toContain('another session (other-worktree sess-oth)')
+  expect(from).not.toContain('abc123')
+  await ui.unmount()
+})
+
+test('a title a hook beneath sets wins over the one the event carried', async ($, on) => {
+  const w = await withOwnEntry($, on, undefined, () => 'Set by a hook')
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Old title' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Set by a hook')
+})
+
+test("a subagent's rename does not set the session's title", async ($, on) => {
+  const w = await withOwnEntry($, on)
+  await $.tool.call({ tool: RENAME, session_id: 'self', title: 'From a subagent', agentId: 'agent-1' } as never)
+  await w.settle()
+  expect(ownTitle(w)).toBeUndefined()
+})
+
+// The kit keeps one session id across the clear, so this reads the name the
+// pane draws for the session rather than its (ended) file.
+test('a clear forgets the title, so the next session does not inherit it', async ($, on) => {
+  const w = world(on)
+  titleHooks(on)
+  let answer: () => void = () => undefined
+  const gate = new Promise<void>(resolve => {
+    answer = resolve
+  })
+  on('tool.call', { tool: 'AskUserQuestion' }, async () => {
+    await gate
+    return { result: { questions: [], answers: {} }, text: 'answered' }
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Watchdog' })
+  await $.session.end({ reason: 'clear', sessionId: ME } as never)
+  const call = $.tool.call({
+    tool: 'AskUserQuestion',
+    questions: [{ header: 'Pick', question: 'Which one?', multiSelect: false, options: [{ label: 'A', description: '' }, { label: 'B', description: '' }] }],
+  })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ type: 'Text', text: /repo \(this session\)/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Watchdog/ })).toBeUndefined()
+  await ui.unmount()
+  answer()
+  await call
+})
+
 test("this session's own question card names it by its title", async ($, on) => {
   const w = world(on)
   titleHooks(on)
-  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  let answer: () => void = () => undefined
+  const gate = new Promise<void>(resolve => {
+    answer = resolve
+  })
+  on('tool.call', { tool: 'AskUserQuestion' }, async () => {
+    await gate
+    return { result: { questions: [], answers: {} }, text: 'answered' }
+  })
   await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
   await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Watchdog' })
-  void $.tool.call({
+  const call = $.tool.call({
     tool: 'AskUserQuestion',
     questions: [{ header: 'Pick', question: 'Which one?', multiSelect: false, options: [{ label: 'A', description: '' }, { label: 'B', description: '' }] }],
   })
@@ -1603,6 +1686,8 @@ test("this session's own question card names it by its title", async ($, on) => 
   const ui = await $.ui.mount(MOUNT)
   expect(await ui.find({ type: 'Text', text: /Watchdog \(this session\)/ })).toBeDefined()
   await ui.unmount()
+  answer()
+  await call
 })
 
 test('a reader drops a session it had cached once that session writes its ended file', async ($, on) => {

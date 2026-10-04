@@ -442,13 +442,29 @@ async function shownName($: Engine): Promise<string> {
   return (await read($, title)) ?? (await label($))
 }
 
+// A title as one plain line, or '' when there is none to show. Cleaned before
+// it is trimmed, so stripped marks cannot leave a blank name; flattened, so a
+// title cannot start a row of the card; and dropped when it looks like a
+// secret, since every session's cards show it. The writer and every reader
+// apply it, whoever wrote the file.
+function titleOf(raw: unknown): string {
+  const text = flat(clean(raw, 60))
+  return text === '' || looksSecret(text) ? '' : text
+}
+
 // Keeps the newest title the engine handed over, and republishes when it
 // changed, so other sessions' cards name this one as the app now does.
 async function noteTitle($: Engine, raw: unknown): Promise<void> {
-  const next = clean(typeof raw === 'string' ? raw.trim() : raw, 60)
+  const next = titleOf(raw)
   if (next === '' || next === (await read($, title))) return
   await update($, title, () => next)
   void publish($)
+}
+
+// The title a classic event carries, or the one a hook beneath set in its
+// result, which wins. A subagent's event never names the session.
+async function titleFromEvent($: Engine, e: { agent_id?: string; session_title?: string }, set: string | undefined): Promise<void> {
+  if (e.agent_id === undefined) await noteTitle($, set ?? e.session_title).catch(() => undefined)
 }
 
 // Writes this session's file, queued so two writes never interleave. $.fs has
@@ -582,7 +598,7 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
   if (typeof file.updatedAt !== 'number' || now - file.updatedAt > DAY_MS) return NOTHING
   // The title the owner sees in the app's session list. A file with none, or
   // from a version before titles, falls back to the folder and id prefix.
-  const shown = clean(typeof file.title === 'string' ? file.title.trim() : '', 60)
+  const shown = titleOf(file.title)
   const sessionLabel = shown !== '' ? shown : `${clean(file.label, 60) || 'session'} ${stem.slice(0, 8)}`
   const list = Array.isArray(file.entries) ? file.entries.slice(0, MAX_ENTRIES) : []
   const entries = list.flatMap((one: unknown): InboxRemoteEntry[] => {
@@ -1490,6 +1506,7 @@ export const register: Register = on => {
     if (SAFE_STEM.test(e.sessionId)) await publish($, { ended: e.sessionId })
     if (e.reason === 'clear') {
       await update($, own, () => [])
+      await update($, title, () => null)
       lastWritten = ''
     }
     return next(e)
@@ -1543,16 +1560,16 @@ export const register: Register = on => {
 
   // The engine hands a hook the session's title only on these two events, so
   // a rename shows on other sessions' cards from the next prompt on, unless
-  // the session renamed itself (the tool.call hook below catches that).
+  // the session renamed itself (the tool.call hook below catches that). A
+  // hook beneath may set a new title in its result; that one wins.
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
-    if (e.agent_id === undefined) await noteTitle($, e.session_title).catch(() => undefined)
+    await titleFromEvent($, e, result.sessionTitle)
     return result
   })
-
   on('classic.UserPromptSubmit', async ($, e, next) => {
     const result = await next(e)
-    if (e.agent_id === undefined) await noteTitle($, e.session_title).catch(() => undefined)
+    await titleFromEvent($, e, result.sessionTitle)
     return result
   })
 
