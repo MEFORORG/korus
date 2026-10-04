@@ -32,6 +32,8 @@ const DONE_TOOL = 'owner_action_done'
 // `mcp__<plugin>__<name>`; session.start replaces these with the names
 // $.tool.register returns, so the match follows the engine and not this guess.
 const toolNames = { action: `mcp__${PLUGIN}__${ACTION_TOOL}`, done: `mcp__${PLUGIN}__${DONE_TOOL}` }
+// The desktop app's tool that renames a session; `session_id: 'self'` is this one.
+const RENAME_TOOL = 'mcp__ccd_session_mgmt__set_session_title'
 const DAY_MS = 24 * 60 * 60 * 1000
 const POLL_MS = 5000
 const HEARTBEAT_MS = 10 * 60 * 1000
@@ -70,6 +72,7 @@ const remote = atom({ plugin: 'korus-inbox', key: 'remoteHeld' } as const, { ent
 const dismissed = atom({ plugin: 'korus-inbox', key: 'dismissed' } as const, [])
 const folderNote = atom({ plugin: 'korus-inbox', key: 'folderNote' } as const, null)
 const expanded = atom({ plugin: 'korus-inbox', key: 'expanded' } as const, [])
+const title = atom({ plugin: 'korus-inbox', key: 'title' } as const, null)
 
 type Engine = EngineInterface
 
@@ -425,10 +428,60 @@ let lastWritten = ''
 // a heartbeat) must not bring them back with ended:false.
 const endedIds = new Set<string>()
 
+// The folder name: what a reader shows when the session has no title yet.
 async function label($: Engine): Promise<string> {
   const root = await $.session.root().catch(() => '')
   const base = root.split(/[\\/]/).filter(part => part !== '').pop() ?? 'session'
   return clean(base, 60)
+}
+
+// The name the owner sees for this session in the app's session list. The
+// folder name and the session id are the background names, which the owner
+// cannot match to a session there, so the title wins whenever there is one.
+async function shownName($: Engine): Promise<string> {
+  return (await read($, title)) ?? (await label($))
+}
+
+const TITLE_MAX = 60
+
+// A title as one plain line, or '' when there is none to show. Flattened, so a
+// title cannot start a row of the card; checked for a secret before it is cut,
+// so a key cannot slip under the check by being cut short; and cut once. A
+// cut title is left as it is, so a reader's pass does not cut it again. Only a
+// value shape counts as a secret: words such as "token" are ordinary in a
+// title. The writer and every reader apply it, whoever wrote the file.
+function titleOf(raw: unknown): string {
+  const text = flat(clean(raw, 1000))
+  if (text === '' || questionLooksSecret(text)) return ''
+  return text.length > TITLE_MAX + ' [cut]'.length ? cut(text, TITLE_MAX) : text
+}
+
+// Keeps the newest title the engine handed over, and republishes when it
+// changed, so other sessions' cards name this one as the app now does. A title
+// that cannot be shown clears the one held: the app no longer shows that one.
+// No title at all (undefined) leaves the one held.
+async function noteTitle($: Engine, raw: unknown): Promise<void> {
+  if (raw === undefined) return
+  const shown = titleOf(raw)
+  const next = shown === '' ? null : shown
+  if (next === (await read($, title))) return
+  await update($, title, () => next)
+  void publish($)
+}
+
+// The title a classic event carries, or the one a hook beneath set in its
+// result, which wins as it does in the app. The app drops a hook's title when
+// the event is blocked, and ignores an empty one. A subagent's event never
+// names the session.
+async function titleFromEvent(
+  $: Engine,
+  e: { agent_id?: string; session_title?: string },
+  result: { block?: string; preventContinuation?: true; sessionTitle?: string },
+): Promise<void> {
+  if (e.agent_id !== undefined) return
+  const isBlocked = result.block !== undefined || result.preventContinuation === true
+  const set = !isBlocked && typeof result.sessionTitle === 'string' && result.sessionTitle !== '' ? result.sessionTitle : e.session_title
+  await noteTitle($, set).catch(() => undefined)
 }
 
 // Writes this session's file, queued so two writes never interleave. $.fs has
@@ -451,6 +504,7 @@ function publish($: Engine, options: { ended?: string; heartbeat?: boolean } = {
         format: FORMAT,
         sessionId,
         label: await label($),
+        title: (await read($, title)) ?? undefined,
         updatedAt: now,
         ended: options.ended !== undefined,
         // Run output is never written: only what the owner must act on.
@@ -559,7 +613,10 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
   const file = raw as Record<string, unknown>
   if (file.format !== FORMAT || file.ended === true) return NOTHING
   if (typeof file.updatedAt !== 'number' || now - file.updatedAt > DAY_MS) return NOTHING
-  const sessionLabel = `${clean(file.label, 60) || 'session'} ${stem.slice(0, 8)}`
+  // The title the owner sees in the app's session list. A file with none, or
+  // from a version before titles, falls back to the folder and id prefix.
+  const shown = titleOf(file.title)
+  const sessionLabel = shown !== '' ? shown : `${flat(clean(file.label, 60)) || 'session'} ${stem.slice(0, 8)}`
   const list = Array.isArray(file.entries) ? file.entries.slice(0, MAX_ENTRIES) : []
   const entries = list.flatMap((one: unknown): InboxRemoteEntry[] => {
     if (typeof one !== 'object' || one === null) return []
@@ -1464,6 +1521,9 @@ export const register: Register = on => {
 
   on('session.end', async ($, e, next) => {
     if (SAFE_STEM.test(e.sessionId)) await publish($, { ended: e.sessionId })
+    // Whatever comes next (a clear, a resume) is another conversation, whose
+    // title the engine hands over afresh; this one's must not carry into it.
+    await update($, title, () => null)
     if (e.reason === 'clear') {
       await update($, own, () => [])
       lastWritten = ''
@@ -1517,7 +1577,31 @@ export const register: Register = on => {
     return decision
   })
 
+  // The engine hands a hook the session's title only on these two events, so
+  // a rename shows on other sessions' cards from the next prompt on, unless
+  // the session renamed itself (the tool.call hook below catches that). A
+  // hook beneath may set a new title in its result; that one wins.
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    await titleFromEvent($, e, result)
+    return result
+  })
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    const result = await next(e)
+    await titleFromEvent($, e, result)
+    return result
+  })
+
   on('tool.call', async ($, e, next) => {
+    if (e.tool === RENAME_TOOL) {
+      const ran = await next(e)
+      const input = e as unknown as Record<string, unknown>
+      // Only a rename of this session, from the main loop, that went through.
+      if (ran.isError !== true && e.agentId === undefined && input.session_id === 'self') {
+        await noteTitle($, input.title).catch(() => undefined)
+      }
+      return ran
+    }
     if (e.tool === toolNames.action || e.tool === toolNames.done) {
       const input = e as unknown as Record<string, unknown>
       // The tool's input and the engine's own fields share this record. Only
@@ -1650,7 +1734,7 @@ export const register: Register = on => {
     const theirs = await read($, remote)
     const note = await read($, folderNote)
     const opened = new Set(await read($, expanded))
-    const myLabel = await label($)
+    const myLabel = await shownName($)
     const list = waitingOf(mine, theirs)
     const done = mine.filter(isDone)
 

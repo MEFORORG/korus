@@ -112,6 +112,11 @@ declare module 'claude-code' {
       folderNote: string | null
       /** Which Details and the Done section the owner has opened, by key. */
       expanded: string[]
+      /**
+       * This session's title as the app's session list shows it, or null until
+       * the engine has handed one over. Held here so a reload keeps it.
+       */
+      title: string | null
     }
   }
 }
