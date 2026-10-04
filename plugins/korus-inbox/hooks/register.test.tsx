@@ -1492,6 +1492,119 @@ for (const surface of SURFACES) {
   })
 }
 
+// ------------------------------------------------------ the session's title
+
+const RENAME = 'mcp__ccd_session_mgmt__set_session_title'
+
+function ownTitle(w: World): unknown {
+  const file = w.files.get(MY_FILE)
+  return file === undefined ? undefined : (JSON.parse(file.text) as { title?: unknown }).title
+}
+
+// The bottom of the classic chains the title arrives on, and of the rename
+// tool, registered before the test first calls $.
+function titleHooks(on: On, rename: () => boolean = () => true): void {
+  on('classic.SessionStart', () => ({}))
+  on('classic.UserPromptSubmit', () => ({}))
+  on('tool.call', { tool: RENAME }, () => (rename() ? { result: 'ok', text: 'ok' } : { isError: true, result: 'declined', text: 'declined' }))
+}
+
+// One waiting entry, so this session's file is written at all.
+async function withOwnEntry($: Parameters<Parameters<typeof test>[1]>[0], on: On, rename?: () => boolean): Promise<World> {
+  const w = world(on)
+  refuseQuoting(on)
+  titleHooks(on, rename)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  return w
+}
+
+for (const surface of SURFACES) {
+  test(`another session's card names it by its title, not its folder and id, on ${surface}`, async ($, on) => {
+    const w = world(on)
+    w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Manager: #2861 separators', entries: [REMOTE_SIGNAL] }) })
+    await $.session.start({ cwd: CWD, surface, isInteractive: true })
+    await w.settle()
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
+    const from = await textOf(ui, /^From: another session/)
+    expect(from).toContain('another session (Manager: #2861 separators)')
+    expect(from).not.toContain('other-worktree')
+    expect(from).not.toContain('sess-oth')
+    await ui.unmount()
+  })
+}
+
+test('a blank title falls back to the folder and id', async ($, on) => {
+  const w = world(on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: '   ', entries: [REMOTE_SIGNAL] }) })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await textOf(ui, /^From: another session/)).toContain('another session (other-worktree sess-oth)')
+  await ui.unmount()
+})
+
+test('the title a prompt hands over is published, and a later one replaces it', async ($, on) => {
+  const w = await withOwnEntry($, on)
+  expect(ownTitle(w)).toBeUndefined()
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Watchdog' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Watchdog')
+  await $.classic.UserPromptSubmit({ prompt: 'go on', session_title: 'Manager: #2861 separators' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Manager: #2861 separators')
+  // A prompt with no title keeps the one held.
+  await $.classic.UserPromptSubmit({ prompt: 'again' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Manager: #2861 separators')
+})
+
+test('the title session start hands over is published', async ($, on) => {
+  const w = await withOwnEntry($, on)
+  await $.classic.SessionStart({ source: 'resume', session_title: 'Lander' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Lander')
+})
+
+test("a subagent's prompt does not set the session's title", async ($, on) => {
+  const w = await withOwnEntry($, on)
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Sub', agent_id: 'agent-1' })
+  await w.settle()
+  expect(ownTitle(w)).toBeUndefined()
+})
+
+test('a rename of this session is published at once; one of another session, or one that failed, is not', async ($, on) => {
+  let fails = false
+  const w = await withOwnEntry($, on, () => !fails)
+  await $.tool.call({ tool: RENAME, session_id: 'local_other', title: 'Not me' })
+  await w.settle()
+  expect(ownTitle(w)).toBeUndefined()
+  await $.tool.call({ tool: RENAME, session_id: 'self', title: 'Special: inbox titles' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Special: inbox titles')
+  fails = true
+  await $.tool.call({ tool: RENAME, session_id: 'self', title: 'Declined' })
+  await w.settle()
+  expect(ownTitle(w)).toBe('Special: inbox titles')
+})
+
+test("this session's own question card names it by its title", async ($, on) => {
+  const w = world(on)
+  titleHooks(on)
+  on('tool.call', { tool: 'AskUserQuestion' }, () => new Promise(() => undefined))
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Watchdog' })
+  void $.tool.call({
+    tool: 'AskUserQuestion',
+    questions: [{ header: 'Pick', question: 'Which one?', multiSelect: false, options: [{ label: 'A', description: '' }, { label: 'B', description: '' }] }],
+  })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  expect(await ui.find({ type: 'Text', text: /Watchdog \(this session\)/ })).toBeDefined()
+  await ui.unmount()
+})
+
 test('a reader drops a session it had cached once that session writes its ended file', async ($, on) => {
   const w = world(on)
   w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ entries: [REMOTE_SIGNAL] }) })

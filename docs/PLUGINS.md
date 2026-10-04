@@ -393,6 +393,18 @@ Run still going is kept until the Run ends.
 A file holds only what waits on the owner: the waiting entries, and the keys of entries the owner
 dismissed. Run output is never written.
 
+### A card names its session by the title the app shows
+
+A card's `From:` line names the session by its title in the app's session list, such as
+`Manager: #2861 separators`. The owner cannot match a folder name or a session id to a session
+there. A session with no title yet falls back to its folder name and the first 8 characters of its
+id.
+
+The engine hands a plugin the title on two events only: session start and each prompt. So the inbox
+also catches a session renaming itself with `set_session_title` and `session_id: "self"`. A rename
+made any other way, such as by the owner in the sidebar, shows on other cards from that session's
+next prompt.
+
 **This is the one plugin here that writes.** `WRITERS` in
 `tests/test_the_plugin_marketplace_resolves.py` names it, and the scan refuses a write anywhere else.
 
@@ -604,6 +616,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 270 tests, all passing under Claude Code 2.1.286 on 2026-10-02. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 278 tests under Claude Code 2.1.286 on 2026-10-04: 274 pass. Four fail on `main` too, before 0.2.2: two "a gate-handed refusal reads as one plain card" and two "Details opens the full command and refusal". |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
