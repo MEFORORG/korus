@@ -203,8 +203,8 @@ command, what the token means and what you owe the Owner.
 inside your own CCD instance. In another instance only mail does, and mail waits for the seat's
 next turn.
 
-The sitting Watchdog measured that channel fact on korus PR 202, 2026-10-05 (UTC). It is carried
-here, not re-measured.
+The sitting Watchdog measured the other-instance half on one seat, 2026-10-05 (UTC), and posted it
+on korus PR 202. Both halves are carried here, not re-measured.
 
 The transcript is also a third liveness surface. A last entry that has not moved across your own
 ticks is evidence the seat is gone, not merely quiet.

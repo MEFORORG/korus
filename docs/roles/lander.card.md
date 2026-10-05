@@ -3,8 +3,6 @@
 This card loads at session start because `.claude/seat.local.txt` names `lander`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
-Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
-
 **YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
 and korus. That includes the ledger.** Owner-set 2026-09-20.
 
@@ -31,8 +29,8 @@ merging.
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
 drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
-**A fourth reading: a question that ended with no answer recorded.** The last entry alone does not
-show it; `scripts/board/seatstate.py` does. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
+**A fourth reading, not blocked: a question that ended with no answer recorded.** The last entry
+alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
 
 Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19.
 
@@ -129,7 +127,7 @@ the handover plus the merge, saying you read both. "No claim" exits 0: read the 
 
 Trunk uses squash merges, so a branch's original commits never become trunk ancestors. `rev-list`,
 `merge-base --is-ancestor HEAD origin/main`, and `git cherry` report landed work as unmerged
-indefinitely.
+indefinitely. Asked the other way round, `--is-ancestor origin/main HEAD`, it is sound.
 
 A branch based on pre-squash history has a stale merge base, and a clean-looking three-dot diff can
 hide files that will conflict. Fix it by merging trunk into the branch; do not rebase. An ahead
@@ -143,4 +141,4 @@ proposes it and the Manager relays it.
 ## The full playbook
 
 `roles/LANDER.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note,
-including queue contents and which entry holds the slot.
+including queue contents and the slot holder.

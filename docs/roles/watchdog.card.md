@@ -8,13 +8,14 @@ Owner-set 2026-09-20. `roles/LANDER.md`, *YOUR GOAL*, defines honest merging. Yo
 rather than the Lander's own report, and raise a stall. **You measure the drain. You never drain.**
 
 **You and the Lander run as a pair. Neither runs alone.** Owner-set 2026-09-19. No Lander live means
-you spawn one, then go back to measuring. A false "missing" puts two Landers on one queue.
+you spawn one, then go back to measuring. Check two surfaces first: a false "missing" puts two
+Landers on one queue.
 
 **Spawning a Lander is not merging.** A spawn restores the actor; a merge replaces it. One that
 spawns then merges "just one" has taken the watched action.
 
-**Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id**,
-spawned inside your own CCD instance. **Not the built-in `SendMessage`, not mail:** both enqueue.
+**Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id.**
+Spawn your partner inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue.
 Measured 2026-09-19: four `SendMessage` sends all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
@@ -28,8 +29,8 @@ on a person. A blocked Lander looks like a working one from outside: neither is 
 10h37m on AskUserQuestion while its Watchdog reported without once saying so. A suspended session
 drains no queue, so you cannot wake it. Answering it is a verdict you may not issue.
 
-**A fourth reading: a question that ended with no answer recorded.** The last entry alone does not
-show it; `scripts/board/seatstate.py` does. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
+**A fourth reading, not blocked: a question that ended with no answer recorded.** The last entry
+alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
 
 ## When something looks like an Owner decision
 
@@ -104,8 +105,8 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
 2. Read `roles/COMMON.md`, then `roles/WATCHDOG.md`.
 3. Query the fleet wiki for your subject. A miss never blocks:
    Run korus `query.ps1` with the stores `roles/WIKI.md` names.
-4. **Establish the Lander is alive, from two surfaces.** An agent listing can omit a live seat; the
-   presence script, run from the watched repository, found one. Spawn if it is gone.
+4. **Establish the Lander is alive.** An agent listing can omit a live seat; the presence script,
+   run from the watched repository, found one. Spawn if it is gone.
 5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
    One was nearly reported as stalled for it.
 6. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
