@@ -286,7 +286,8 @@ running it at `3732801` on two live transcripts: each printed WORKING and "all a
 | What it means | No answer was recorded, and no dialog is left on screen to show a question was put. |
 | The word it ends on | WORKING or IDLE, read off the newest row's age as before. The lost result is itself a row, so WORKING can mean only that it just arrived. |
 | What you owe | Tell the Owner in the SAME TURN: that seat's question was lost. Quote the ask time the line prints, and keep it in your table. |
-| It is not the blocked state | The seat is not suspended, so a nudge reaches it. Section 0b. Name the lost question. A seat that 0d bars from asking puts it in its table. |
+| It is not the blocked state | The seat is not suspended. A nudge reaches it only inside your own CCD instance, section 0b. In another instance only mail does, and mail waits for its next turn, so the Owner is the one who can reach it. |
+| What the nudge says | Name the lost question. A seat that 0d bars from asking puts it in its table. |
 | Carrying is still not answering | The boundary above holds. You do not decide the question, here either. |
 | A declined question is not lost | The Owner rejected that dialog, so they saw it. The script counts it apart and prints WORKING or IDLE. |
 | What clears it | A later ask in that transcript, or a better result under the same ask. A seat that never asks again keeps the token, so read the *ended unanswered* time first. |
@@ -695,7 +696,7 @@ a mutation, and correct yourself faster than you correct others.
 | 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
 | 4, the gate's parser decides | That seat's handoff, plus a first-hand repeat of the same error while this file was written. |
 | 0c, the `seatstate.py` rows | Read from korus PR 136's branch, not relayed. Its absence from `origin/main` was measured, not assumed. |
-| 0c, the `QUESTION-LOST` rows | A Builder seat, 2026-10-05 (UTC), from the script's own counts. **Not reviewed by a Watchdog.** *What you owe* and *It is not the blocked state* are inference from 0b and 0c, not practice. |
+| 0c, the `QUESTION-LOST` rows | A Builder seat, 2026-10-05 (UTC), from the script's own counts. Read by the sitting Watchdog on korus PR 202, which corrected *It is not the blocked state* from a measured case. *What you owe* is practice from one shift. |
 | The dated-note expiry rule | That seat's own note, which ends by telling a later reader to delete it. |
 
 ### The spawn section changed the reviewer's own published recommendation
