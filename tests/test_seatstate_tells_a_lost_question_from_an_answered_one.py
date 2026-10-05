@@ -2,13 +2,13 @@
 
 WHAT THIS EXISTS FOR. The script paired an AskUserQuestion `tool_use` against ANY `tool_result`
 carrying its id, so an ask counted as answered the moment a result row existed. Two kinds of result
-are not answers, and both were measured on this machine on 2026-10-05:
+are not answers, and both were measured on this machine on 2026-10-05 (UTC):
 
   * the session restarted while suspended on the dialog, and the harness wrote a result in the
     ask's place: `is_error` true, content opening `[Tool call interrupted: the session ended`;
   * the dialog was dismissed or timed out: `is_error` true, `Tool permission request aborted`.
 
-In both the script printed `WORKING | ... | asks seen N, all answered`. The Owner never answered,
+In both the script printed `WORKING | ... | asks seen N, all answered`. No answer was recorded,
 and no dialog was left on screen to show there had been a question.
 
 THE RULE IS READ OFF THE ROW, NOT OFF ITS WORDING. Over 907 asks in 345 transcripts under 21 days
@@ -23,19 +23,21 @@ it lost would make the new token wrong two times in three, so it has its own cou
 the token. Anything the script cannot place reads as lost, which is the direction that costs less.
 
 EVERY FIXTURE IS SYNTHETIC. The measured transcripts hold real questions and are not copied here.
-Each row carries only the fields the script reads, with timestamps set relative to now so the
-WORKING and IDLE arms are both reachable. The script is run as a subprocess, its real entry point.
+Each row is shaped like the harness's own and holds no real question, with timestamps set relative
+to now so the WORKING and IDLE arms are both reachable. The script is run as a subprocess, its real entry point.
 
-WHAT main DID WITH THESE, at origin/main `3732801`: 16 of the 19 fail. The three that pass there
-are the two open-ask cases and the idle case, which pin behaviour this change must not move. The
-two not-an-ask cases fail there only on the wording of the count, which proves nothing about what
-they are for. So those five were each run against a planted fault instead: a scan that matches the
-tool's name anywhere in a line, a scan that counts every failed result as a lost ask, a main with
-the blocked branch removed, and a main that always says WORKING. Each fault reddens its cases.
+WHAT main DID WITH THESE, at origin/main `3732801`: 17 of the 21 fail. The four that pass there
+are the two open-ask cases and the two cases either side of the idle threshold, which pin
+behaviour this change must not move. The two not-an-ask cases fail there only on the wording of
+the count, which proves nothing about what they are for. So those six were each run against a
+planted fault instead: a scan that matches the tool's name anywhere in a line, a scan that counts
+every failed result as a lost ask, a main with the blocked branch removed, a main that always says
+WORKING, and the threshold moved to 4 and to 24. Each fault reddens its cases.
 
-Four more faults came from this change's own QA pass, each of which passed every case before its
-case was added: the last result row wins, the ask time printed as the end time, any string opening
-`User` read as a decline, and the idle word dropped.
+Six more faults came from this change's own two QA passes, each of which passed every case
+before its case was added: the last result row wins, the ask time printed as the end time, any
+string opening `User` read as a decline, an object with no answers read as an answer, an error
+with no marker read as a decline, and a loss ranked above a decline.
 """
 import datetime as dt
 import json
@@ -132,8 +134,12 @@ class AnAnswerIsCounted(SeatState):
         self.assertIn("1 answered, 0 declined, 0 lost", line)
 
     def test_a_seat_quiet_for_twenty_minutes_reads_idle(self):
-        line = self.read(ask("toolu_a", 90), answered("toolu_a", 80), turn(25))
-        self.assertEqual(line.split(" | ")[:2], ["IDLE", "0h 25m since its own last turn"])
+        line = self.read(ask("toolu_a", 90), answered("toolu_a", 80), turn(20))
+        self.assertEqual(line.split(" | ")[:2], ["IDLE", "0h 20m since its own last turn"])
+
+    def test_a_seat_quiet_for_under_twenty_minutes_reads_working(self):
+        line = self.read(ask("toolu_a", 90), answered("toolu_a", 80), turn(19))
+        self.assertEqual(line.split(" | ")[:2], ["WORKING", "0h 19m since its own last turn"])
 
     def test_no_line_claims_every_ask_was_answered(self):
         # The retired detail. It was printed over an interrupted ask, which is the defect.
@@ -193,10 +199,17 @@ class ALostAskIsNamed(SeatState):
         self.assertEqual(self.state(line), "QUESTION-LOST")
 
     def test_a_result_the_script_cannot_place_reads_lost(self):
-        # No toolUseResult at all, and no error flag. Unknown reads as lost, never as answered.
-        entry = row("user", 30, [{"type": "tool_result", "tool_use_id": "toolu_a", "content": "?"}])
-        line = self.read(ask("toolu_a", 150), entry, turn(2))
-        self.assertEqual(self.state(line), "QUESTION-LOST")
+        # Unknown reads as lost, never as answered and never as declined. Three shapes nobody
+        # measured: no toolUseResult at all, an error with none, and an object with no answers.
+        bare = row("user", 30, [{"type": "tool_result", "tool_use_id": "toolu_a", "content": "?"}])
+        failed = row("user", 30, [{"type": "tool_result", "tool_use_id": "toolu_a",
+                                   "content": "?", "is_error": True}])
+        empty = result("toolu_a", 30, "?", {"questions": [{"question": "Which one?"}]})
+        for name, entry in (("bare", bare), ("failed", failed), ("no answers", empty)):
+            with self.subTest(shape=name):
+                line = self.read(ask("toolu_a", 150), entry, turn(2))
+                self.assertEqual(self.state(line), "QUESTION-LOST")
+                self.assertIn("asks seen 1: 0 answered, 0 declined, 1 lost", line)
 
 
 class ALaterAskSupersedesALostOne(SeatState):
@@ -222,6 +235,15 @@ class ADeclinedAskIsNotLost(SeatState):
         line = self.read(ask("toolu_a", 150), declined("toolu_a", 30), turn(2))
         self.assertEqual(self.state(line), "WORKING")
         self.assertIn("asks seen 1: 0 answered, 1 declined, 0 lost", line)
+
+    def test_a_decline_wins_over_a_loss_where_one_ask_carries_both(self):
+        orders = {"lost first": (interrupted("toolu_a", 30), declined("toolu_a", 20)),
+                  "declined first": (declined("toolu_a", 30), interrupted("toolu_a", 20))}
+        for name, pair in orders.items():
+            with self.subTest(order=name):
+                line = self.read(ask("toolu_a", 150), pair[0], pair[1], turn(1))
+                self.assertEqual(self.state(line), "WORKING")
+                self.assertIn("asks seen 1: 0 answered, 1 declined, 0 lost", line)
 
     def test_only_the_exact_rejection_marker_is_a_decline(self):
         # A near miss is a shape nobody measured, and an unmeasured shape reads lost.

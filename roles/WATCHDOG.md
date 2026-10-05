@@ -257,7 +257,7 @@ The transcript is also a third liveness surface. Section 3 asks for two. A last 
 moved across your own ticks is evidence the seat is gone, not merely quiet.
 
 **There is a script for this check.** `scripts/board/seatstate.py`, written by the first Watchdog
-from this section, prints one of the three states with an age, or the fourth token below:
+from this section, prints one line: one of the three states with an age, or a token named below.
 
     python scripts/board/seatstate.py <transcript.jsonl>
 
@@ -271,21 +271,25 @@ from this section, prints one of the three states with an age, or the fourth tok
 next Watchdog inherits the check rather than the instruction to invent one.
 
 **Since 2026-10-05 (UTC) it prints a fourth token, `QUESTION-LOST`.** The seat's newest question
-ended with no answer recorded: its session restarted on the dialog, or the dialog was dismissed or
-timed out. A fifth, `UNKNOWN`, has always meant the transcript held no turns to read.
+ended with no answer recorded. A fifth, `UNKNOWN`, has always meant the transcript held no turns.
 
-**That sentence read "prints one of the three states" until then, and the script called a lost
-question answered.** It counted any `tool_result` under the ask as the answer. Measured that day on
-two live transcripts: each printed WORKING and "all answered" over a question nobody had answered.
+**The script does not read why.** Two causes were measured: a session that restarted while
+suspended on the dialog, and a dialog that was dismissed or timed out. Any result it cannot place
+reads the same way, so do not tell the Owner a cause the line did not print.
+
+**The sentence introducing the command read "prints one of the three states with an age:" until
+then.** The script counted any `tool_result` under the ask as the answer. Measured that day by
+running it at `3732801` on two live transcripts: each printed WORKING and "all answered".
 
 | On `QUESTION-LOST` | Reading |
 | --- | --- |
-| What it means | No answer was recorded, and no dialog is left on screen to show a question was put. The line ends WORKING or IDLE, which still holds. |
+| What it means | No answer was recorded, and no dialog is left on screen to show a question was put. |
+| The word it ends on | WORKING or IDLE, read off the newest row's age as before. The lost result is itself a row, so WORKING can mean only that it just arrived. |
 | What you owe | Tell the Owner in the SAME TURN: that seat's question was lost. Quote the ask time the line prints, and keep it in your table. |
 | It is not the blocked state | The seat is not suspended, so a nudge reaches it. Section 0b. Name the lost question. A seat that 0d bars from asking puts it in its table. |
 | Carrying is still not answering | The boundary above holds. You do not decide the question, here either. |
 | A declined question is not lost | The Owner rejected that dialog, so they saw it. The script counts it apart and prints WORKING or IDLE. |
-| What clears it | ONLY a later ask in that transcript. A seat that never asks again keeps the token, so read the *ended unanswered* time before you call an old one news. |
+| What clears it | A later ask in that transcript, or a better result under the same ask. A seat that never asks again keeps the token, so read the *ended unanswered* time first. |
 | What it cannot see | An Owner who answers in plain chat. The line stays `QUESTION-LOST`, so read the transcript before you raise it twice. |
 | What outranks it | An older ask with no result at all. The script prints BLOCKED for that one and says nothing of the lost one. |
 

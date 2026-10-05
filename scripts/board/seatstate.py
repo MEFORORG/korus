@@ -32,11 +32,14 @@ So the line says what was read, that no answer was RECORDED, and not why.
 
 QUESTION-LOST is printed when the NEWEST ask is lost. The seat is not suspended,
 so unlike a blocked one it can be reached. The detail still ends WORKING or
-IDLE, because the token replaces that word and the reader needs both.
+IDLE, because the token replaces that word and the reader needs both. That word
+is read off the newest row's age as it always was, and the lost result is
+itself a row: a seat that has done nothing since still reads WORKING for 20
+minutes after it.
 
-ONLY A LATER ASK CLEARS IT, and nothing else does. NOT VARIED: an Owner who
-answers in plain chat leaves the line unchanged, because a chat turn and a
-peer's message are the same row here. A seat that never asks again, as the
+A LATER ASK CLEARS IT, and so does a better result under the same ask. Nothing
+else does. NOT VARIED: an Owner who answers in plain chat leaves the line
+unchanged, because a chat turn and a peer's message are the same row here. A seat that never asks again, as the
 Lander and Watchdog are told not to, keeps the token for the rest of its
 transcript. Read the "ended unanswered" time before treating an old one as news.
 
@@ -58,7 +61,9 @@ The answered CONTENT opened two different ways, on 650 and 241 rows, so a rule
 keyed on either wording loses the other. Those 891 rows are ten more than the
 881 asks: nine asks carried a repeated answer, one of them twice. No ask mixed
 two outcomes, so RANK is a guard no transcript has yet exercised. Of the 7
-lost, 4 were interrupted and 3 aborted.
+lost, 4 were interrupted and 3 aborted. Nine asks also carried a repeated
+tool_use row, each with the timestamp of the first, so which copy sets the ask
+time has not mattered yet.
 
 Usage:  python seatstate.py <transcript.jsonl>
 Prints one line: STATE | age | detail
