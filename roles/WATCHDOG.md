@@ -270,8 +270,9 @@ from this section, prints one of the three states with an age, or the fourth tok
 **A rule with no instrument gets re-derived by every seat that reads it.** This row exists so the
 next Watchdog inherits the check rather than the instruction to invent one.
 
-**Since 2026-10-05 it prints a fourth token, `QUESTION-LOST`.** The seat's newest question ended
-with no answer: its session restarted on the dialog, or the dialog was dismissed or timed out.
+**Since 2026-10-05 (UTC) it prints a fourth token, `QUESTION-LOST`.** The seat's newest question
+ended with no answer recorded: its session restarted on the dialog, or the dialog was dismissed or
+timed out. A fifth, `UNKNOWN`, has always meant the transcript held no turns to read.
 
 **That sentence read "prints one of the three states" until then, and the script called a lost
 question answered.** It counted any `tool_result` under the ask as the answer. Measured that day on
@@ -279,13 +280,14 @@ two live transcripts: each printed WORKING and "all answered" over a question no
 
 | On `QUESTION-LOST` | Reading |
 | --- | --- |
-| What it means | The Owner never answered, and no dialog is left on screen to show a question was put. |
+| What it means | No answer was recorded, and no dialog is left on screen to show a question was put. The line ends WORKING or IDLE, which still holds. |
 | What you owe | Tell the Owner in the SAME TURN: that seat's question was lost. Quote the ask time the line prints, and keep it in your table. |
-| It is not the blocked state | The seat is not suspended, so a nudge reaches it. Section 0b. Name the lost question, so the seat can put it again. |
+| It is not the blocked state | The seat is not suspended, so a nudge reaches it. Section 0b. Name the lost question. A seat that 0d bars from asking puts it in its table. |
 | Carrying is still not answering | The boundary above holds. You do not decide the question, here either. |
 | A declined question is not lost | The Owner rejected that dialog, so they saw it. The script counts it apart and prints WORKING or IDLE. |
-| What clears it | A later ask in that transcript, whatever became of that one. |
+| What clears it | ONLY a later ask in that transcript. A seat that never asks again keeps the token, so read the *ended unanswered* time before you call an old one news. |
 | What it cannot see | An Owner who answers in plain chat. The line stays `QUESTION-LOST`, so read the transcript before you raise it twice. |
+| What outranks it | An older ask with no result at all. The script prints BLOCKED for that one and says nothing of the lost one. |
 
 **The three-row table at the top of this section is unchanged.** A lost question has a tool result
 under it, so it is not *a question with nothing under it*, and reading the last entry alone misses it.
@@ -689,7 +691,7 @@ a mutation, and correct yourself faster than you correct others.
 | 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
 | 4, the gate's parser decides | That seat's handoff, plus a first-hand repeat of the same error while this file was written. |
 | 0c, the `seatstate.py` rows | Read from korus PR 136's branch, not relayed. Its absence from `origin/main` was measured, not assumed. |
-| 0c, the `QUESTION-LOST` rows | A Builder seat, 2026-10-05, from the script's own counts. **Not reviewed by a Watchdog.** *What you owe* and *It is not the blocked state* are inference from 0b and 0c, not practice. |
+| 0c, the `QUESTION-LOST` rows | A Builder seat, 2026-10-05 (UTC), from the script's own counts. **Not reviewed by a Watchdog.** *What you owe* and *It is not the blocked state* are inference from 0b and 0c, not practice. |
 | The dated-note expiry rule | That seat's own note, which ends by telling a later reader to delete it. |
 
 ### The spawn section changed the reviewer's own published recommendation

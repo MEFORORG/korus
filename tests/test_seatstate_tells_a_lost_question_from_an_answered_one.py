@@ -26,11 +26,16 @@ EVERY FIXTURE IS SYNTHETIC. The measured transcripts hold real questions and are
 Each row carries only the fields the script reads, with timestamps set relative to now so the
 WORKING and IDLE arms are both reachable. The script is run as a subprocess, its real entry point.
 
-WHAT main DID WITH THESE, at origin/main `3732801`: 12 of the 16 fail. The four that pass there
-are the two open-ask cases and the two not-an-ask cases, which pin behaviour this change must not
-move. A pass on main proves nothing about those four, so each was run against a planted fault
-instead: a scan that matches the tool's name anywhere in a line, a scan that counts every failed
-result as a lost ask, and a main with the blocked branch removed. Each fault reddens its cases.
+WHAT main DID WITH THESE, at origin/main `3732801`: 16 of the 19 fail. The three that pass there
+are the two open-ask cases and the idle case, which pin behaviour this change must not move. The
+two not-an-ask cases fail there only on the wording of the count, which proves nothing about what
+they are for. So those five were each run against a planted fault instead: a scan that matches the
+tool's name anywhere in a line, a scan that counts every failed result as a lost ask, a main with
+the blocked branch removed, and a main that always says WORKING. Each fault reddens its cases.
+
+Four more faults came from this change's own QA pass, each of which passed every case before its
+case was added: the last result row wins, the ask time printed as the end time, any string opening
+`User` read as a decline, and the idle word dropped.
 """
 import datetime as dt
 import json
@@ -126,6 +131,10 @@ class AnAnswerIsCounted(SeatState):
         self.assertEqual(self.state(line), "WORKING")
         self.assertIn("1 answered, 0 declined, 0 lost", line)
 
+    def test_a_seat_quiet_for_twenty_minutes_reads_idle(self):
+        line = self.read(ask("toolu_a", 90), answered("toolu_a", 80), turn(25))
+        self.assertEqual(line.split(" | ")[:2], ["IDLE", "0h 25m since its own last turn"])
+
     def test_no_line_claims_every_ask_was_answered(self):
         # The retired detail. It was printed over an interrupted ask, which is the defect.
         line = self.read(ask("toolu_a", 9), answered("toolu_a", 8), turn(1))
@@ -152,7 +161,8 @@ class ALostAskIsNamed(SeatState):
         entries = [turn(200), ask("toolu_a", 150), interrupted("toolu_a", 30), turn(2)]
         line = self.read(*entries)
         self.assertEqual(self.state(line), "QUESTION-LOST")
-        self.assertIn("asked " + entries[1]["timestamp"], line)
+        self.assertIn("asked %s, ended unanswered %s " % (entries[1]["timestamp"],
+                                                          entries[2]["timestamp"]), line)
         self.assertIn("asks seen 1: 0 answered, 0 declined, 1 lost", line)
 
     def test_an_aborted_ask_that_is_the_newest_reads_lost(self):
@@ -163,8 +173,14 @@ class ALostAskIsNamed(SeatState):
 
     def test_a_lost_ask_is_named_however_long_the_seat_has_been_quiet(self):
         # IDLE would send the reader to nudge the seat, and a nudge cannot answer the question.
+        # The word is kept at the end of the line, because the token took its place.
         line = self.read(ask("toolu_a", 600), interrupted("toolu_a", 500))
         self.assertEqual(self.state(line), "QUESTION-LOST")
+        self.assertTrue(line.endswith("; otherwise IDLE"), line)
+
+    def test_the_lost_line_says_working_where_the_seat_is_still_taking_turns(self):
+        line = self.read(ask("toolu_a", 150), interrupted("toolu_a", 30), turn(2))
+        self.assertTrue(line.endswith("; otherwise WORKING"), line)
 
     def test_the_lost_line_keeps_the_age_of_the_seats_last_turn(self):
         line = self.read(ask("toolu_a", 150), interrupted("toolu_a", 30), turn(3))
@@ -191,10 +207,14 @@ class ALaterAskSupersedesALostOne(SeatState):
         self.assertIn("asks seen 2: 1 answered, 0 declined, 1 lost", line)
 
     def test_an_answer_wins_where_one_ask_carries_two_results(self):
-        line = self.read(ask("toolu_a", 150), interrupted("toolu_a", 30),
-                         answered("toolu_a", 20), turn(1))
-        self.assertEqual(self.state(line), "WORKING")
-        self.assertIn("asks seen 1: 1 answered, 0 declined, 0 lost", line)
+        # Both orders, because "the last row wins" passes one of them and is wrong on the other.
+        orders = {"lost first": (interrupted("toolu_a", 30), answered("toolu_a", 20)),
+                  "answered first": (answered("toolu_a", 30), interrupted("toolu_a", 20))}
+        for name, pair in orders.items():
+            with self.subTest(order=name):
+                line = self.read(ask("toolu_a", 150), pair[0], pair[1], turn(1))
+                self.assertEqual(self.state(line), "WORKING")
+                self.assertIn("asks seen 1: 1 answered, 0 declined, 0 lost", line)
 
 
 class ADeclinedAskIsNotLost(SeatState):
@@ -203,14 +223,20 @@ class ADeclinedAskIsNotLost(SeatState):
         self.assertEqual(self.state(line), "WORKING")
         self.assertIn("asks seen 1: 0 answered, 1 declined, 0 lost", line)
 
+    def test_only_the_exact_rejection_marker_is_a_decline(self):
+        # A near miss is a shape nobody measured, and an unmeasured shape reads lost.
+        entry = declined("toolu_a", 30)
+        entry["toolUseResult"] = "User rejected something else"
+        line = self.read(ask("toolu_a", 150), entry, turn(2))
+        self.assertEqual(self.state(line), "QUESTION-LOST")
+
 
 class AMentionIsNotAnAsk(SeatState):
     def test_a_transcript_that_only_names_the_tool_in_text_counts_no_ask(self):
         said = "I will not call AskUserQuestion here; a tool_use of AskUserQuestion would stall."
         line = self.read(turn(9, said), row("user", 5, said), turn(1, said))
         self.assertEqual(self.state(line), "WORKING")
-        self.assertIn("asks seen 0", line)
-        self.assertNotIn("lost", line.split("asks seen 0")[0])
+        self.assertTrue(line.endswith("| asks seen 0: 0 answered, 0 declined, 0 lost"), line)
 
     def test_another_tools_failed_result_is_not_a_lost_question(self):
         failed = result("toolu_x", 4, "exit 1", "Error: exit 1", is_error=True)
@@ -218,7 +244,7 @@ class AMentionIsNotAnAsk(SeatState):
                                      "input": {"command": "false"}}])
         line = self.read(used, failed, turn(1))
         self.assertEqual(self.state(line), "WORKING")
-        self.assertIn("asks seen 0", line)
+        self.assertTrue(line.endswith("| asks seen 0: 0 answered, 0 declined, 0 lost"), line)
 
 
 if __name__ == "__main__":
