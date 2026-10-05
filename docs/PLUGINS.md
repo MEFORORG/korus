@@ -417,6 +417,25 @@ The inbox also catches a session renaming itself with `set_session_title` and `s
 A rename made any other way, such as by the owner in the sidebar, shows from that session's next
 prompt.
 
+### Go to session brings the asking session forward in its own app window
+
+Each instance of the desktop app runs with its own data folder, such as `.claude-desktop-2`. A
+desktop session writes that folder and its app session id (`local_...`) to its inbox file.
+
+A remote card then offers **Go to session**. It starts the app with that data folder and a
+`claude://claude.ai/epitaxy/local_...` link. The running instance takes the link and brings the
+session forward; the launch itself exits in about two seconds.
+
+The button shows only while the asking session's file is under 12 minutes old, so its instance is
+running. A launch into a closed instance would start the app, and the 20-second timeout would kill it.
+
+The place comes from another session's file, so it is checked twice. The folder must be a plain
+drive path and the id an app id, or no button shows. When pressed, the folder must be under the
+user's home and hold `claude-code-sessions`, or nothing runs.
+
+The launch passes each value as one argument, with no shell. It works in the desktop app on Windows
+only: elsewhere no session writes a place, and pressing the button runs nothing.
+
 A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
 
 One case outlasts the lapse. The session that raised the entry removes it from its own list when its
@@ -621,6 +640,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 290 tests, all passing under Claude Code 2.1.286 on 2026-10-04. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests fail that pass under 2.1.286. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 303 tests, all passing under Claude Code 2.1.286 on 2026-10-05. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests fail that pass under 2.1.286. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

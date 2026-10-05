@@ -2766,3 +2766,116 @@ test('a remote card with room to spare draws its Details when opened', async ($,
   expect(await textOf(ui, /more waiting/)).toBeUndefined()
   await ui.unmount()
 })
+
+// ------------------------------------------------------ go to the session
+
+const LOCAL = `${HOME}\\AppData\\Local`
+const VERSION = '2.19675.0'
+const APP = `${LOCAL}\\AnthropicClaude\\app-${VERSION}\\claude.exe`
+const INSTANCE = `${HOME}\\.claude-desktop-3`
+const APP_SID = 'local_6de6650c-ad1e-4f13-99b3-b9024f036619'
+const DESKTOP_ENV = { LOCALAPPDATA: LOCAL, CLAUDE_CODE_DESKTOP_APP_VERSION: VERSION }
+const GO = 'rgo:sess-other-2:e3'
+
+// A desktop machine with that instance and the app installed, and another
+// session's file naming its place.
+function desktop(on: On, place: unknown, fields: Record<string, unknown> = {}): World {
+  const w = world(on, { env: DESKTOP_ENV })
+  w.files.set(`${INSTANCE}\\claude-code-sessions`, { text: '', mtimeMs: 0 })
+  w.files.set(APP, { text: '', mtimeMs: 0 })
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...fields }) })
+  return w
+}
+
+async function goButton($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Kit['ui']['mount']>>; found: Found | undefined }> {
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  return { ui, found: await ui.find({ type: 'Button', key: GO }) }
+}
+
+test('a desktop session publishes where the app shows it', async ($, on) => {
+  const w = world(on, {
+    env: {
+      CLAUDE_CODE_HOST_SESSION_ID: 'local_8d7ac9c5-19c4-4aaf-a8aa-0ff107c7bb7e',
+      CLAUDE_CODE_EXECPATH: `${HOME}\\.claude-desktop-2\\claude-code\\2.1.286\\635c1867224a\\claude.exe`,
+    },
+  })
+  refuseQuoting(on)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  const file = JSON.parse(w.files.get(MY_FILE)?.text ?? '{}') as { place?: unknown }
+  expect(file.place).toEqual({ instance: `${HOME}\\.claude-desktop-2`, id: 'local_8d7ac9c5-19c4-4aaf-a8aa-0ff107c7bb7e' })
+})
+
+test('a session outside the desktop app publishes no place', async ($, on) => {
+  const w = await withOwnEntry($, on)
+  const file = JSON.parse(w.files.get(MY_FILE)?.text ?? '{}') as { place?: unknown }
+  expect(file.place).toBeUndefined()
+})
+
+test('Go to session hands the link to that instance of the app, one argument each', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  const { ui, found } = await goButton($, w)
+  expect(found?.text).toBe('Go to session')
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs.map(run => run.argv)).toEqual([[APP, `--user-data-dir=${INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+  await ui.unmount()
+})
+
+test('a session whose file has gone quiet offers no Go to session, since its instance may be closed', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { updatedAt: NOW - 13 * 60 * 1000 })
+  const { ui, found } = await goButton($, w)
+  expect(found).toBeUndefined()
+  await ui.unmount()
+})
+
+const BAD_PLACES: { name: string; place: unknown }[] = [
+  { name: 'a quote in the folder', place: { instance: `${HOME}\\x" --inspect`, id: APP_SID } },
+  { name: 'a parent segment', place: { instance: `${HOME}\\..\\..\\Windows`, id: APP_SID } },
+  { name: 'a relative folder', place: { instance: '.claude-desktop-3', id: APP_SID } },
+  { name: 'an id that is not an app id', place: { instance: INSTANCE, id: 'local_x?y=1' } },
+  { name: 'an id with something after it', place: { instance: INSTANCE, id: `${APP_SID} --flag` } },
+  { name: 'a place that is not an object', place: `${INSTANCE}|${APP_SID}` },
+]
+for (const { name, place } of BAD_PLACES) {
+  test(`a place with ${name} offers no Go to session`, async ($, on) => {
+    const w = desktop(on, place)
+    const { ui, found } = await goButton($, w)
+    expect(found).toBeUndefined()
+    await ui.unmount()
+  })
+}
+
+test('a place outside the home folder is refused when pressed, and nothing runs', async ($, on) => {
+  const elsewhere = 'D:\\profiles\\claude-desktop-3'
+  const w = desktop(on, { instance: elsewhere, id: APP_SID })
+  w.files.set(`${elsewhere}\\claude-code-sessions`, { text: '', mtimeMs: 0 })
+  const { ui } = await goButton($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})
+
+test('a place whose folder holds no app sessions is refused when pressed, and nothing runs', async ($, on) => {
+  const w = desktop(on, { instance: `${HOME}\\Documents`, id: APP_SID })
+  const { ui } = await goButton($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})
+
+test('outside the desktop app, pressing Go to session runs nothing', async ($, on) => {
+  const w = world(on)
+  w.files.set(`${INSTANCE}\\claude-code-sessions`, { text: '', mtimeMs: 0 })
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ place: { instance: INSTANCE, id: APP_SID }, entries: [REMOTE_SIGNAL] }) })
+  const { ui } = await goButton($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})

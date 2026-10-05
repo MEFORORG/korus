@@ -94,7 +94,16 @@ export type InboxRemoteEntry = {
   needs?: InboxNeed
   reviewOutcome?: string
   confidence?: string
+  /**
+   * Where the app shows the asking session: its desktop instance's data
+   * folder and its app session id. Present only when the asking session's
+   * file is fresh, so its instance is running.
+   */
+  place?: InboxPlace
 }
+
+/** A desktop app instance's data folder and one of its session ids. */
+export type InboxPlace = { instance: string; id: string }
 
 /** A remote entry the owner dismissed: its key and when. */
 export type InboxDismissal = { key: string; at: number }
