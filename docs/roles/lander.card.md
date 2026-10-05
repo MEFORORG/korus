@@ -31,8 +31,10 @@ merging.
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
 drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
-Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19. Nothing here
-tells you a PR is waiting, so your own poll is the trigger.
+**A fourth reading: a question that ended with no answer recorded.** The last entry alone does not
+show it; `scripts/board/seatstate.py` does. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
+
+Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19.
 
 ## When something looks like an Owner decision
 
@@ -127,7 +129,7 @@ the handover plus the merge, saying you read both. "No claim" exits 0: read the 
 
 Trunk uses squash merges, so a branch's original commits never become trunk ancestors. `rev-list`,
 `merge-base --is-ancestor HEAD origin/main`, and `git cherry` report landed work as unmerged
-indefinitely. Asked the other way round, `--is-ancestor origin/main HEAD`, it is sound.
+indefinitely.
 
 A branch based on pre-squash history has a stale merge base, and a clean-looking three-dot diff can
 hide files that will conflict. Fix it by merging trunk into the branch; do not rebase. An ahead
@@ -140,5 +142,5 @@ proposes it and the Manager relays it.
 
 ## The full playbook
 
-The full rules are in `roles/LANDER.md`; read `roles/COMMON.md` first. Keep only durable rules here,
-and put live state in a dated note, including queue contents and which entry holds the slot.
+`roles/LANDER.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note,
+including queue contents and which entry holds the slot.

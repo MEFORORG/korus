@@ -191,6 +191,21 @@ and nothing but the Owner reaches the suspended seat.
 **A Watchdog reported on a blocked Lander for ten hours without once saying it was blocked.** Its
 own account, 2026-09-19. One sentence would have ended the stall.
 
+**There is a fourth reading, and the last entry alone does not show it: a question that ended with
+no answer recorded.** A tool result sits under that question, so it is not *a question with nothing
+under it*. The table of three states is unchanged.
+
+**The instrument is `scripts/board/seatstate.py`, which prints the token `QUESTION-LOST`.**
+[WATCHDOG.md](WATCHDOG.md), *0c. Read the Lander's TRANSCRIPT, not only its output*, holds the
+command, what the token means and what you owe the Owner.
+
+**A lost question is not the blocked state.** That seat is not suspended. A nudge reaches it only
+inside your own CCD instance. In another instance only mail does, and mail waits for the seat's
+next turn.
+
+The sitting Watchdog measured that channel fact on korus PR 202, 2026-10-05 (UTC). It is carried
+here, not re-measured.
+
 The transcript is also a third liveness surface. A last entry that has not moved across your own
 ticks is evidence the seat is gone, not merely quiet.
 
