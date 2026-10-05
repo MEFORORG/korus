@@ -436,7 +436,8 @@ pane redraws when one goes stale, and a file dated in the future offers none.
 
 The place comes from another session's file, so it is never launched as written. The reader rebuilds
 the folder from its own environment and launches only if the two match. It also checks that the
-instance is running, by its `lockfile`, so it never starts a closed instance.
+instance is running, by its `lockfile`, so it does not start a closed one. A lockfile left behind by
+a power loss is the exception.
 
 It runs the app's own launcher, `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which outlives app
 updates and exits in under a second. Each value is one argument, with no shell. It works in the

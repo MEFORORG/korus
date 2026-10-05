@@ -2928,3 +2928,31 @@ test('outside the desktop app, pressing Go to session runs nothing', async ($, o
   w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ place: { instance: INSTANCE, id: APP_SID }, entries: [REMOTE_SIGNAL] }) })
   expect(await pressGo($, w)).toEqual([])
 })
+
+test("a session whose app record is written after it starts publishes its place at the next publish", async ($, on) => {
+  const w = await publishWith($, on, MY_ENV)
+  expect(placeWritten(w)).toBeUndefined()
+  w.files.set(MY_RECORD, { text: JSON.stringify({ sessionId: MY_SID, cliSessionId: ME }), mtimeMs: 0 })
+  await $.tool.call({ tool: 'PowerShell', command: `${SWITCH_PART} --quiet` })
+  await w.settle()
+  expect(placeWritten(w)).toEqual({ instance: MY_INSTANCE, id: MY_SID })
+})
+
+test('an ended file names no place', async ($, on) => {
+  const w = await publishWith($, on, MY_ENV, JSON.stringify({ sessionId: MY_SID, cliSessionId: ME }))
+  expect(placeWritten(w)).toEqual({ instance: MY_INSTANCE, id: MY_SID })
+  await $.session.end({ reason: 'clear', sessionId: ME } as never)
+  await w.settle()
+  expect(placeWritten(w)).toBeUndefined()
+})
+
+test('pressing Go to session on a file dated in the future runs nothing', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  const { ui } = await paneWithGo($, w)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW + 1, text: otherFile({ title: 'Watchdog', place: { instance: INSTANCE, id: APP_SID }, updatedAt: NOW + 10 * 60 * 1000, entries: [REMOTE_SIGNAL] }) })
+  await w.advance(6000)
+  if ((await ui.find({ type: 'Button', key: GO })) !== undefined) await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})

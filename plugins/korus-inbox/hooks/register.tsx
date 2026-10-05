@@ -519,7 +519,10 @@ function isPlaceFresh(at: number | undefined, now: number): boolean {
   return at !== undefined && now - at <= FRESH_MS && at - now <= AHEAD_MS
 }
 
-let placeCache: { sessionId: string; place: InboxPlace | undefined } | undefined
+// Only a found place is kept. A new session starts before the app has
+// written its id into the record, so a miss is looked up again at each
+// publish rather than kept for the session's life.
+let placeCache: { sessionId: string; place: InboxPlace } | undefined
 
 // This session's place in the app, from what the app put in its environment,
 // and only when the app's own record of that session names this session. A
@@ -533,8 +536,9 @@ async function myPlace($: Engine): Promise<InboxPlace | undefined> {
   const exec = await $.env.get('CLAUDE_CODE_EXECPATH')
   const account = await $.env.get('CLAUDE_CODE_ACCOUNT_UUID')
   const org = await $.env.get('CLAUDE_CODE_ORGANIZATION_UUID')
-  const at = exec?.toLowerCase().lastIndexOf('\\claude-code\\') ?? -1
-  const candidate = exec !== undefined && at > 0 ? placeOf({ instance: exec.slice(0, at), id }) : undefined
+  // Matched on the path as written, so the folder keeps its own spelling.
+  const instance = exec === undefined ? undefined : /^(.+)\\claude-code\\/i.exec(exec)?.[1]
+  const candidate = instance === undefined ? undefined : placeOf({ instance, id })
   if (candidate !== undefined && account !== undefined && org !== undefined && UUID.test(account) && UUID.test(org)) {
     const record = `${candidate.instance}\\claude-code-sessions\\${account}\\${org}\\${candidate.id}.json`
     const text = await $.fs.read(record).catch(() => '')
@@ -542,10 +546,10 @@ async function myPlace($: Engine): Promise<InboxPlace | undefined> {
       const parsed = JSON.parse(text) as { cliSessionId?: unknown }
       if (parsed.cliSessionId === sessionId) place = candidate
     } catch {
-      place = undefined
+      // Not written yet, or mid-write: looked up again at the next publish.
     }
   }
-  placeCache = { sessionId, place }
+  if (place !== undefined) placeCache = { sessionId, place }
   return place
 }
 
@@ -573,8 +577,9 @@ const launching = new Set<string>()
 let lastFresh = ''
 
 // Brings another session forward in its own, running instance of the app.
-// It never starts an instance: a launch into a closed one would start the
-// app, and the timeout would then kill it. No shell: each value is one
+// It never starts an instance: a launch into a closed one would start the app
+// as if the owner had opened it, which is not what Go to session asks. A
+// lockfile left by a power loss can still let that happen. No shell: each value is one
 // argument, and the app is the install's own launcher, which outlives app
 // updates and exits as soon as it has handed the link over.
 async function goTo($: Engine, key: string, raw: InboxPlace | undefined, at: number | undefined): Promise<void> {
@@ -633,7 +638,8 @@ function publish($: Engine, options: { ended?: string; heartbeat?: boolean } = {
         sessionId,
         label: await label($),
         title: (await read($, title)) ?? undefined,
-        place: await myPlace($).catch(() => undefined),
+        // An ended file names no place: the id it was for is gone.
+        place: options.ended !== undefined ? undefined : await myPlace($).catch(() => undefined),
         updatedAt: now,
         ended: options.ended !== undefined,
         // Run output is never written: only what the owner must act on.
@@ -2109,7 +2115,7 @@ export const register: Register = on => {
                 key={`rgo:${entry.key}`}
                 label="Go to session"
                 onPress={() => {
-                  void goTo($, entry.key, entry.place, entry.placeAt).catch(() => $.ui.toast('Go to session did not open it.'))
+                  void goTo($, entry.key, entry.place, entry.placeAt)
                 }}
               />
             )}
