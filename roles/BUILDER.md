@@ -1052,6 +1052,31 @@ What is worth keeping is the habit: **a probe that prints nothing has not told y
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
 
+### 5k. A new sample feed trips exact-set tests; a new test file usually trips nothing
+
+**Adding a feed to `samples/config` reds tests that compare the whole set of names.** Three places
+hold a list you must extend in the same commit:
+
+1. `tests/test_cli.py` asserts the exact set of router names and of handler names.
+2. `tests/test_wiring_serve.py` asserts the same two sets on the loaded registry.
+3. Every `environments/*.toml` must carry each new `env()` key. `tests/test_environments.py` checks
+   that every file has the key; only the values differ.
+
+Run those three files before you push. A new feed that passes its own tests still fails these.
+
+**A new test file needs a partition entry only when it imports none of `messagefoundry`, `harness`
+or `tee`.** An engine test needs no line. Listing one in `tests/tooling_manifest.txt` moves it off
+the engine legs. `tests/test_tooling_partition.py` is the source of record.
+
+| Wiki evidence | |
+| --- | --- |
+| The first form | A new feed trips exact-set asserts, and every new test file must be listed in the manifest. Event `20260926T094814871Z-3rhy7h`. The second half was wrong. |
+| The first correction | A test that imports the engine needs no manifest line, and listing it would stop it running on the engine legs. Event `20260929T223223695Z-awupaa`. |
+| The rule above | Names the two test files, adds the `env()` key rule, and states the import test for a partition entry. Event `20261002T125118861Z-3e7n2p`, which replaces both. |
+
+This stands until those asserts stop comparing whole sets. Check by reading the three test files on
+the engine's `origin/main`.
+
 ---
 
 ## 6. COMMON owns the handoff format; five things are builder-only
