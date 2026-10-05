@@ -96,10 +96,11 @@ export type InboxRemoteEntry = {
   confidence?: string
   /**
    * Where the app shows the asking session: its desktop instance's data
-   * folder and its app session id. Present only when the asking session's
-   * file is fresh, so its instance is running.
+   * folder and its app session id, as that session wrote them.
    */
   place?: InboxPlace
+  /** When the asking session last wrote its file; Go to session shows while it is recent. */
+  placeAt?: number
 }
 
 /** A desktop app instance's data folder and one of its session ids. */

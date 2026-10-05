@@ -18,7 +18,9 @@ import type {
 // tool. Each session writes its own entries to one JSON file in a shared
 // folder under the home folder, and every pane reads the 200 newest files of
 // 256 KB or less. Entries read from disk are untrusted text: they are shown
-// and copied, never run. Run exists only for this session's own entries, read
+// and copied, never run. The one thing a remote card can start is Go to
+// session, which hands a link to a running instance of the app, built from
+// this machine's own folders. Run exists only for this session's own entries, read
 // from $.state at the moment the owner presses it. Only the newest remote
 // entries are held and drawn; the count still takes in every one.
 
@@ -487,74 +489,126 @@ async function titleFromEvent(
 
 // ------------------------------------------------- where the app shows it
 
-// A desktop session's app id, its data folder, and the app's version: the
-// three things a link to it needs. Each instance of the app runs with its own
-// data folder, and a launch naming that folder hands the link to that
-// instance, which brings the session forward.
+// Each instance of the desktop app runs with its own data folder: the default
+// one at %APPDATA%\Claude, the others at %USERPROFILE%\.claude-desktop-N. A
+// launch naming a running instance's folder hands a claude:// link to that
+// instance, which brings the session forward, and exits.
 const APP_ID = /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-const APP_VERSION = /^\d{1,6}(\.\d{1,6}){1,3}$/
-// A drive path of plain segments: no quotes, no shell or URL characters.
-// Matched whole, so nothing can ride after it. A segment may start with a dot
-// (`.claude-desktop-2`); placeOf refuses one made of dots alone.
-const APP_FOLDER = /^[A-Za-z]:(\\[A-Za-z0-9 ._-]+)+$/
-// A file whose session wrote within this long is alive, and so is its
-// instance: a launch then only hands over a link and exits.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+// The last segment of an instance folder, matched exactly: no trailing dot or
+// space, which Windows would resolve to the same folder under another name.
+const INSTANCE_NAME = /\\(\.claude-desktop-\d{1,3}|Claude)$/i
+// A file whose session wrote within this long is alive. A file dated further
+// ahead than this is not believed.
 const FRESH_MS = HEARTBEAT_MS + 2 * 60 * 1000
+const AHEAD_MS = 5 * 60 * 1000
 const LAUNCH_TIMEOUT_MS = 20_000
 
+// The shape a place must have to be offered at all. The folder is matched
+// against this machine's own folders only when the owner presses.
 function placeOf(raw: unknown): InboxPlace | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
   const { instance, id } = raw as Record<string, unknown>
   if (typeof instance !== 'string' || typeof id !== 'string') return undefined
-  if (!APP_ID.test(id) || !APP_FOLDER.test(instance) || instance.split('\\').some(part => /^\.+$/.test(part.trim()))) return undefined
+  if (!APP_ID.test(id) || instance.length > 260 || /["\x00-\x1f]/.test(instance) || !INSTANCE_NAME.test(instance)) return undefined
   return { instance, id }
 }
 
-// This session's place in the app, from what the app put in its environment;
-// undefined outside the desktop app.
-async function myPlace($: Engine): Promise<InboxPlace | undefined> {
-  const id = await $.env.get('CLAUDE_CODE_HOST_SESSION_ID')
-  const exec = await $.env.get('CLAUDE_CODE_EXECPATH')
-  if (id === undefined || exec === undefined) return undefined
-  const at = exec.toLowerCase().lastIndexOf('\\claude-code\\')
-  return at <= 0 ? undefined : placeOf({ instance: exec.slice(0, at), id })
+// A place another session wrote is offered while that session is alive.
+function isPlaceFresh(at: number | undefined, now: number): boolean {
+  return at !== undefined && now - at <= FRESH_MS && at - now <= AHEAD_MS
 }
 
-// Brings another session forward in its own instance of the app. The place
-// came from another session's file, so it is checked again here: its folder
-// must be an app data folder under this user's home, which keeps a crafted
-// file from making the app start a profile anywhere else. No shell: each
-// value is one argument.
-async function goTo($: Engine, raw: InboxPlace): Promise<void> {
-  const place = placeOf(raw)
-  const home = await $.env.get('USERPROFILE')
-  const appData = await $.env.get('LOCALAPPDATA')
-  const version = await $.env.get('CLAUDE_CODE_DESKTOP_APP_VERSION')
-  if (place === undefined || home === undefined || appData === undefined || version === undefined || !APP_VERSION.test(version)) {
-    $.ui.toast('Go to session works only in the desktop app on Windows.')
-    return
+let placeCache: { sessionId: string; place: InboxPlace | undefined } | undefined
+
+// This session's place in the app, from what the app put in its environment,
+// and only when the app's own record of that session names this session. A
+// process a session starts inherits that environment, and the record keeps it
+// from claiming its parent's place. Undefined outside the desktop app.
+async function myPlace($: Engine): Promise<InboxPlace | undefined> {
+  const sessionId = await $.session.id()
+  if (placeCache?.sessionId === sessionId) return placeCache.place
+  let place: InboxPlace | undefined
+  const id = await $.env.get('CLAUDE_CODE_HOST_SESSION_ID')
+  const exec = await $.env.get('CLAUDE_CODE_EXECPATH')
+  const account = await $.env.get('CLAUDE_CODE_ACCOUNT_UUID')
+  const org = await $.env.get('CLAUDE_CODE_ORGANIZATION_UUID')
+  const at = exec?.toLowerCase().lastIndexOf('\\claude-code\\') ?? -1
+  const candidate = exec !== undefined && at > 0 ? placeOf({ instance: exec.slice(0, at), id }) : undefined
+  if (candidate !== undefined && account !== undefined && org !== undefined && UUID.test(account) && UUID.test(org)) {
+    const record = `${candidate.instance}\\claude-code-sessions\\${account}\\${org}\\${candidate.id}.json`
+    const text = await $.fs.read(record).catch(() => '')
+    try {
+      const parsed = JSON.parse(text) as { cliSessionId?: unknown }
+      if (parsed.cliSessionId === sessionId) place = candidate
+    } catch {
+      place = undefined
+    }
   }
-  const under = `${home.replace(/\\+$/, '')}\\`.toLowerCase()
-  if (!place.instance.toLowerCase().startsWith(under)) {
-    $.ui.toast('Go to session: that session names an app folder outside your home folder, so it was not opened.')
-    return
+  placeCache = { sessionId, place }
+  return place
+}
+
+// The folder a place names, rebuilt from this machine's own environment, or
+// undefined when it names no instance folder here. The file's spelling is
+// never launched: only one of the folders built here is.
+async function instanceFolder($: Engine, instance: string): Promise<string | undefined> {
+  const home = (await $.env.get('USERPROFILE'))?.replace(/\\+$/, '')
+  const roaming = (await $.env.get('APPDATA'))?.replace(/\\+$/, '')
+  const wanted = instance.toLowerCase()
+  const numbered = /\\\.claude-desktop-(\d{1,3})$/i.exec(instance)
+  if (home !== undefined && home !== '' && numbered !== null) {
+    const built = `${home}\\.claude-desktop-${numbered[1]}`
+    if (built.toLowerCase() === wanted) return built
   }
-  if (!(await $.fs.exists(`${place.instance}\\claude-code-sessions`).catch(() => false))) {
-    $.ui.toast('Go to session: that app instance is not on this machine any more.')
-    return
+  if (roaming !== undefined && roaming !== '') {
+    const built = `${roaming}\\Claude`
+    if (built.toLowerCase() === wanted) return built
   }
-  const app = `${appData.replace(/\\+$/, '')}\\AnthropicClaude\\app-${version}\\claude.exe`
-  if (!(await $.fs.exists(app).catch(() => false))) {
-    $.ui.toast(clean(`Go to session: the app was not found at ${app}.`, 200))
-    return
-  }
+  return undefined
+}
+
+const launching = new Set<string>()
+// The keys whose Go to session was fresh at the last poll.
+let lastFresh = ''
+
+// Brings another session forward in its own, running instance of the app.
+// It never starts an instance: a launch into a closed one would start the
+// app, and the timeout would then kill it. No shell: each value is one
+// argument, and the app is the install's own launcher, which outlives app
+// updates and exits as soon as it has handed the link over.
+async function goTo($: Engine, key: string, raw: InboxPlace | undefined, at: number | undefined): Promise<void> {
+  if (launching.has(key)) return
+  launching.add(key)
   try {
-    const ran = await $.process.run([app, `--user-data-dir=${place.instance}`, `claude://claude.ai/epitaxy/${place.id}`], {
+    const place = placeOf(raw)
+    if (place === undefined || !isPlaceFresh(at, await $.clock.now())) {
+      $.ui.toast('Go to session: that session has gone quiet, so its app window may be closed.')
+      return
+    }
+    const dataDir = await instanceFolder($, place.instance)
+    const appData = (await $.env.get('LOCALAPPDATA'))?.replace(/\\+$/, '')
+    if (dataDir === undefined || appData === undefined || appData === '') {
+      $.ui.toast('Go to session: that session names no app instance on this machine.')
+      return
+    }
+    if (!(await $.fs.exists(`${dataDir}\\lockfile`).catch(() => false))) {
+      $.ui.toast('Go to session: that app instance is not running.')
+      return
+    }
+    const app = `${appData}\\AnthropicClaude\\claude.exe`
+    if (!(await $.fs.exists(app).catch(() => false))) {
+      $.ui.toast(clean(`Go to session: the app was not found at ${app}.`, 200))
+      return
+    }
+    const ran = await $.process.run([app, `--user-data-dir=${dataDir}`, `claude://claude.ai/epitaxy/${place.id}`], {
       timeoutMs: LAUNCH_TIMEOUT_MS,
     })
     if (ran.exitCode !== 0) $.ui.toast(`Go to session: the app exited ${ran.exitCode}.`)
   } catch (error: unknown) {
     $.ui.toast(clean(`Go to session did not open it: ${errorText(error)}`, 200))
+  } finally {
+    launching.delete(key)
   }
 }
 
@@ -692,7 +746,8 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
   // from a version before titles, falls back to the folder and id prefix.
   const shown = titleOf(file.title)
   // Offered only while the asking session is alive, so its instance runs.
-  const place = now - file.updatedAt <= FRESH_MS ? placeOf(file.place) : undefined
+  const place = placeOf(file.place)
+  const placeAt = place === undefined ? undefined : file.updatedAt
   const sessionLabel = shown !== '' ? shown : `${flat(clean(file.label, 60)) || 'session'} ${stem.slice(0, 8)}`
   const list = Array.isArray(file.entries) ? file.entries.slice(0, MAX_ENTRIES) : []
   const entries = list.flatMap((one: unknown): InboxRemoteEntry[] => {
@@ -724,6 +779,7 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
         key: `${stem}:${e.id}`,
         sessionLabel,
         place,
+        placeAt,
         kind: e.kind,
         createdAt: e.createdAt,
         questions: e.kind === 'question' ? parseQuestions(e.questions) : [],
@@ -806,6 +862,13 @@ async function poll($: Engine): Promise<void> {
   const held = { entries: visible.slice(0, MAX_REMOTE_SHOWN), total: visible.length }
   const current = await read($, remote)
   if (JSON.stringify(current) !== JSON.stringify(held)) await update($, remote, () => held)
+  // A Go to session button goes stale with time alone, which no state write
+  // marks, so the pane is redrawn when the set of fresh ones changes.
+  const fresh = held.entries.filter(entry => entry.place !== undefined && isPlaceFresh(entry.placeAt, now)).map(entry => entry.key).join(' ')
+  if (fresh !== lastFresh) {
+    lastFresh = fresh
+    $.ui.invalidate('ui.render')
+  }
 
   // A Dismiss pressed in another pane clears one of this session's entries
   // here too. Any file can name one, so this only ever hides, never adds.
@@ -2041,13 +2104,12 @@ export const register: Register = on => {
                 onPress={() => toggle($, `rdetails:${entry.key}`)}
               />
             )}
-            {entry.place !== undefined && (
+            {entry.place !== undefined && isPlaceFresh(entry.placeAt, now) && (
               <Button
                 key={`rgo:${entry.key}`}
                 label="Go to session"
                 onPress={() => {
-                  const where = entry.place
-                  if (where !== undefined) void goTo($, where).catch(() => $.ui.toast('Go to session did not open it.'))
+                  void goTo($, entry.key, entry.place, entry.placeAt).catch(() => $.ui.toast('Go to session did not open it.'))
                 }}
               />
             )}

@@ -400,6 +400,11 @@ dismissed. Run output is never written.
 hide the entry too. When the dismissing session ends, its file holds no dismissals, so the Dismiss
 lapses and an entry that still waits shows again in every pane.
 
+A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
+
+One case outlasts the lapse. The session that raised the entry removes it from its own list when its
+pane sees the Dismiss, and it does not bring it back.
+
 ### A card names its session by the title the app shows
 
 A card's `From:` line names the session by its title in the app's session list, such as
@@ -419,27 +424,23 @@ prompt.
 
 ### Go to session brings the asking session forward in its own app window
 
-Each instance of the desktop app runs with its own data folder, such as `.claude-desktop-2`. A
-desktop session writes that folder and its app session id (`local_...`) to its inbox file.
+Each instance of the desktop app runs with its own data folder: `%APPDATA%\Claude` for the default
+one, `%USERPROFILE%\.claude-desktop-N` for the others. A launch naming a running instance's folder
+hands a `claude://claude.ai/epitaxy/local_...` link to it, which brings that session forward.
 
-A remote card then offers **Go to session**. It starts the app with that data folder and a
-`claude://claude.ai/epitaxy/local_...` link. The running instance takes the link and brings the
-session forward; the launch itself exits in about two seconds.
+A desktop session writes its folder and its app session id (`local_...`) to its inbox file. It does
+so only when the app's own record of that session names it, so a process it starts cannot claim it.
 
-The button shows only while the asking session's file is under 12 minutes old, so its instance is
-running. A launch into a closed instance would start the app, and the 20-second timeout would kill it.
+A remote card offers **Go to session** while the asking session's file is under 12 minutes old. The
+pane redraws when one goes stale, and a file dated in the future offers none.
 
-The place comes from another session's file, so it is checked twice. The folder must be a plain
-drive path and the id an app id, or no button shows. When pressed, the folder must be under the
-user's home and hold `claude-code-sessions`, or nothing runs.
+The place comes from another session's file, so it is never launched as written. The reader rebuilds
+the folder from its own environment and launches only if the two match. It also checks that the
+instance is running, by its `lockfile`, so it never starts a closed instance.
 
-The launch passes each value as one argument, with no shell. It works in the desktop app on Windows
-only: elsewhere no session writes a place, and pressing the button runs nothing.
-
-A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
-
-One case outlasts the lapse. The session that raised the entry removes it from its own list when its
-pane sees the Dismiss, and it does not bring it back.
+It runs the app's own launcher, `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which outlives app
+updates and exits in under a second. Each value is one argument, with no shell. It works in the
+desktop app on Windows only.
 
 ### Run is offered only for this session's own entries
 
@@ -448,7 +449,7 @@ pane sees the Dismiss, and it does not bring it back.
 | A PowerShell refusal, or a signal's command, this session's main loop raised, in a folder known as a full path | Run, Copy, Details, Dismiss |
 | A Bash refusal on Windows | Copy, Details and Dismiss. Git Bash can expand a command differently from what the card shows. |
 | One a subagent raised | Copy, Details and Dismiss. The subagent's folder is not known. |
-| Anything read from another session's file | Copy, Details and Dismiss. Never Run. |
+| Anything read from another session's file | Copy, Details and Dismiss, plus Go to session while that session is alive. Never Run. |
 | A question | Copy and Dismiss |
 
 **For a refusal, Run is offered only when the blocked part is the first command on the line.** The
@@ -640,6 +641,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 303 tests, all passing under Claude Code 2.1.286 on 2026-10-05. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests fail that pass under 2.1.286. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 312 tests, all passing under Claude Code 2.1.286 on 2026-10-05. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests fail that pass under 2.1.286. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |
