@@ -257,7 +257,7 @@ The transcript is also a third liveness surface. Section 3 asks for two. A last 
 moved across your own ticks is evidence the seat is gone, not merely quiet.
 
 **There is a script for this check.** `scripts/board/seatstate.py`, written by the first Watchdog
-from this section, prints one of the three states with an age:
+from this section, prints one of the three states with an age, or the fourth token below:
 
     python scripts/board/seatstate.py <transcript.jsonl>
 
@@ -269,6 +269,26 @@ from this section, prints one of the three states with an age:
 
 **A rule with no instrument gets re-derived by every seat that reads it.** This row exists so the
 next Watchdog inherits the check rather than the instruction to invent one.
+
+**Since 2026-10-05 it prints a fourth token, `QUESTION-LOST`.** The seat's newest question ended
+with no answer: its session restarted on the dialog, or the dialog was dismissed or timed out.
+
+**That sentence read "prints one of the three states" until then, and the script called a lost
+question answered.** It counted any `tool_result` under the ask as the answer. Measured that day on
+two live transcripts: each printed WORKING and "all answered" over a question nobody had answered.
+
+| On `QUESTION-LOST` | Reading |
+| --- | --- |
+| What it means | The Owner never answered, and no dialog is left on screen to show a question was put. |
+| What you owe | Tell the Owner in the SAME TURN: that seat's question was lost. Quote the ask time the line prints, and keep it in your table. |
+| It is not the blocked state | The seat is not suspended, so a nudge reaches it. Section 0b. Name the lost question, so the seat can put it again. |
+| Carrying is still not answering | The boundary above holds. You do not decide the question, here either. |
+| A declined question is not lost | The Owner rejected that dialog, so they saw it. The script counts it apart and prints WORKING or IDLE. |
+| What clears it | A later ask in that transcript, whatever became of that one. |
+| What it cannot see | An Owner who answers in plain chat. The line stays `QUESTION-LOST`, so read the transcript before you raise it twice. |
+
+**The three-row table at the top of this section is unchanged.** A lost question has a tool result
+under it, so it is not *a question with nothing under it*, and reading the last entry alone misses it.
 
 ### 0d. Never use AskUserQuestion. Put the decision in a table and nag
 
@@ -669,6 +689,7 @@ a mutation, and correct yourself faster than you correct others.
 | 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
 | 4, the gate's parser decides | That seat's handoff, plus a first-hand repeat of the same error while this file was written. |
 | 0c, the `seatstate.py` rows | Read from korus PR 136's branch, not relayed. Its absence from `origin/main` was measured, not assumed. |
+| 0c, the `QUESTION-LOST` rows | A Builder seat, 2026-10-05, from the script's own counts. **Not reviewed by a Watchdog.** *What you owe* and *It is not the blocked state* are inference from 0b and 0c, not practice. |
 | The dated-note expiry rule | That seat's own note, which ends by telling a later reader to delete it. |
 
 ### The spawn section changed the reviewer's own published recommendation
