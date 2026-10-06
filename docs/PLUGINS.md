@@ -439,11 +439,18 @@ dated no more than five minutes ahead. The pane redraws when a button goes stale
 The place is another session's data, so it is never launched as written. The reader rebuilds the
 folder from its own environment and launches only if the two match.
 
-It launches only when the process list shows a main app process holding that folder, so the launch
-hands the link over. A file in the folder, such as a planted `lockfile`, does not count.
+Each press first runs a fixed Windows PowerShell query of the user's own process list, even when
+nothing is running. No card value reaches that query.
 
-Two gaps remain. An instance that exits between the check and the launch would start again. And a
-crafted file can name another running instance's real session, so its card brings that one forward.
+It launches only if a line shows a `claude.exe` under the install folder, with no `--type=`, whose
+`--user-data-dir=` names that folder. A file in the folder, such as a planted `lockfile`, does not count.
+
+The check trusts the process list as text. A program already running as the user could fake a
+matching line, but such a program could start the app directly anyway.
+
+At least two other gaps remain. An instance that exits between the check and the launch would start
+again. And a crafted file can name another running instance's real session, so its card brings that
+one forward.
 
 It runs the app's own launcher, `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which outlives app
 updates and exits in under a second. Each value is one argument, with no shell. It works in the

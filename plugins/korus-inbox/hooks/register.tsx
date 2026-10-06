@@ -18,9 +18,11 @@ import type {
 // tool. Each session writes its own entries to one JSON file in a shared
 // folder under the home folder, and every pane reads the 200 newest files of
 // 256 KB or less. Entries read from disk are untrusted text: they are shown
-// and copied, never run. The one thing a remote card can launch is Go to
-// session, which hands a link to an instance of the app the process list
-// shows running, at a folder rebuilt from this machine's own environment. Run exists only for this session's own entries, read
+// and copied, never run. A remote card's Go to session press runs two
+// things: a fixed Windows PowerShell query of the process list (no card value
+// reaches it), and, when that shows the instance running, the app's launcher
+// with a link, at a folder rebuilt from this machine's own environment. Run
+// exists only for this session's own entries, read
 // from $.state at the moment the owner presses it. Only the newest remote
 // entries are held and drawn; the count still takes in every one.
 
