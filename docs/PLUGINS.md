@@ -439,12 +439,15 @@ dated no more than five minutes ahead. The pane redraws when a button goes stale
 The place is another session's data, so it is never launched as written. The reader rebuilds the
 folder from its own environment and launches only if the two match.
 
-Each press first runs a fixed Windows PowerShell query of the user's own process list, even when
-nothing is running. No card value reaches that query.
+Each press first runs a fixed Windows PowerShell query of the machine's `claude.exe` processes, even
+when nothing is running. Unless it runs elevated, it sees only the user's own command lines. No card
+value reaches that query.
 
 The query prints each field as base64 of its UTF-16 bytes. Plain text would not survive the pipe:
 Windows PowerShell writes it in the console code page and swaps in a near match where it can. A Kelvin
-sign would arrive as `K`, and an en dash as `-`. A line in any other shape does not count.
+sign would arrive as `K`, and an en dash as `-`. A line in any other shape does not count, nor does a
+field holding U+FFFD, nor a list cut short at the output cap. Under PowerShell's Constrained Language
+Mode the query prints no lines, so the button never launches there.
 
 It launches only if a line shows a `claude.exe` under the install folder, with no `type` switch, whose
 `--user-data-dir=` names that folder. A file in the folder, such as a planted `lockfile`, does not count.
@@ -673,6 +676,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 381 tests, all passing under Claude Code 2.1.288 on 2026-10-06. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests failed on 2026-10-06 that passed under 2.1.286. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 386 tests, all passing under Claude Code 2.1.288 on 2026-10-06. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests failed on 2026-10-06 that passed under 2.1.286. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

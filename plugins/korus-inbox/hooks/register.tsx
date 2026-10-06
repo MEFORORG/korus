@@ -521,13 +521,18 @@ const PROCESS_QUERY =
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
 // A field the process query printed, decoded from the base64 of its UTF-16LE
-// bytes, or undefined when the field has any other shape.
+// bytes, or undefined when the field has any other shape. The pattern lets
+// `=` stand only as padding, where indexOf gives -1, so a -1 means no byte.
+// A U+FFFD is refused: the query's encoder writes a lone surrogate as one, so
+// the reader cannot tell what the app holds there.
 function fromUtf16Base64(field: string): string | undefined {
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(field)) return undefined
   const bytes: number[] = []
   for (let i = 0; i < field.length; i += 4) {
-    const [a, b, c, d] = [0, 1, 2, 3].map(k => BASE64.indexOf(field.charAt(i + k)))
-    if (a === undefined || b === undefined || c === undefined || d === undefined) return undefined
+    const a = BASE64.indexOf(field.charAt(i))
+    const b = BASE64.indexOf(field.charAt(i + 1))
+    const c = BASE64.indexOf(field.charAt(i + 2))
+    const d = BASE64.indexOf(field.charAt(i + 3))
     bytes.push((a << 2) | (b >> 4))
     if (c >= 0) bytes.push(((b & 15) << 4) | (c >> 2))
     if (d >= 0) bytes.push(((c & 3) << 6) | d)
@@ -535,7 +540,7 @@ function fromUtf16Base64(field: string): string | undefined {
   if (bytes.length % 2 !== 0) return undefined
   let text = ''
   for (let i = 0; i < bytes.length; i += 2) text += String.fromCharCode((bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8))
-  return text
+  return text.includes('\ufffd') ? undefined : text
 }
 
 // The shape a place must have to be offered at all. The folder is matched
@@ -733,7 +738,9 @@ async function isInstanceRunning($: Engine, dataDir: string, install: string): P
   const listed = await $.process.run([shell, '-NoProfile', '-NonInteractive', '-Command', PROCESS_QUERY], {
     timeoutMs: QUERY_TIMEOUT_MS,
   })
-  if (listed.exitCode !== 0) return false
+  // A list cut at the cap can end in a line cut at a base64 group, which
+  // decodes to the front of the real line and could name a shorter folder.
+  if (listed.exitCode !== 0 || listed.isStdoutTruncated) return false
   const prefix = asciiLower(`${install}\\`)
   return listed.stdout.split(/\r?\n/).some(line => {
     const fields = line.split('\t')

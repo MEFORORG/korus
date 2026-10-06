@@ -59,6 +59,8 @@ type WorldOptions = {
   hang?: boolean
   /** Output for one command by its argv; undefined falls back to `stdout`. */
   stdoutFor?: (argv: readonly string[]) => string | undefined
+  /** Whether one command's output was cut at the cap, by its argv. */
+  isTruncatedFor?: (argv: readonly string[]) => boolean
   /** Awaited after a run is recorded, before it returns: holds a run in flight. */
   gate?: (argv: readonly string[]) => Promise<void> | undefined
   /** A machine that is not Windows: HOME only, no ProgramFiles, `/` paths. */
@@ -145,7 +147,7 @@ function world(on: On, opts: WorldOptions = {}): World {
         exitCode: opts.exitCodeFor?.(e.argv) ?? opts.exitCode ?? 0,
         stdout: opts.stdoutFor?.(e.argv) ?? opts.stdout ?? 'switched fine\n',
         stderr: '',
-        isStdoutTruncated: false,
+        isStdoutTruncated: opts.isTruncatedFor?.(e.argv) ?? false,
         isStderrTruncated: false,
       },
     }
@@ -2823,6 +2825,8 @@ type DesktopOptions = {
   isSystemRootUnset?: boolean
   /** A query that prints each process line as plain text, not base64. */
   isPlainList?: boolean
+  /** A query whose output was cut at the cap. */
+  isListTruncated?: boolean
 }
 
 // The query prints each field as the base64 of its UTF-16LE bytes.
@@ -2851,6 +2855,7 @@ function desktop(on: On, place: unknown, options: DesktopOptions = {}): World {
     stdoutFor: argv =>
       argv[0] === PS ? `${processes.map(line => (options.isPlainList === true ? line : encodedLine(line))).join('\r\n')}\r\n` : undefined,
     exitCodeFor: argv => (argv[0] === PS ? options.queryExitCode : undefined),
+    isTruncatedFor: argv => argv[0] === PS && options.isListTruncated === true,
     gate: options.gate,
   })
   w.files.set(`${local}\\AnthropicClaude\\claude.exe`, { text: '', mtimeMs: 0 })
@@ -3298,6 +3303,14 @@ const BAD_FIELDS: { name: string; line: string }[] = [
   { name: 'an odd number of bytes', line: `${utf16Base64(APP_EXE)}\t${btoa(`${utf16Bytes(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)} `)}` },
   { name: 'a character outside base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)}!` },
   { name: 'a third field', line: `${encodedLine(mainProcess(INSTANCE))}\t` },
+  { name: 'an = inside a field', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^(.{4})/, '$1A=A=')}` },
+  // A decoder that took URL-safe base64 would read this as two other
+  // characters in front of a program name, then the switch.
+  { name: 'URL-safe base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^.{4}/, '-_-_')}` },
+  { name: 'padding left off', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/=+$/, '')}` },
+  // Encoding.Unicode.GetBytes writes a lone surrogate as U+FFFD, so the
+  // reader cannot tell what the app holds there.
+  { name: 'a replacement character', line: encodedLine(processLine(APP_EXE, `"${APP_EXE}" --user-data-dir=${INSTANCE}\ufffd`)) },
 ]
 for (const { name, line } of BAD_FIELDS) {
   test(`a process line with ${name} does not count`, async ($, on) => {
@@ -3305,6 +3318,13 @@ for (const { name, line } of BAD_FIELDS) {
     expect(await pressGo($, w)).toEqual([])
   })
 }
+
+// A list cut at the cap can end in a line cut at a base64 group, which
+// decodes to the front of the real line.
+test('a process list cut at the output cap does not count', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isListTruncated: true })
+  expect(await pressGo($, w)).toEqual([])
+})
 
 test('a place spelled with a Kelvin sign names no instance folder here', async ($, on) => {
   const w = desktop(on, { instance: `${K_SIGN_HOME}\\.claude-desktop-3`, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
