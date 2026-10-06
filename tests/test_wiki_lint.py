@@ -182,7 +182,8 @@ class OneOfEachClass(_LintCase):
             self.assertIn(f"`{f['id']}`", out)
         for c in CLASSES:
             self.assertIn(f"| {c} | 1 |", out)
-        self.assertIn("DRAFT that only the Owner decides", out)
+        self.assertIn("DRAFT, and the Lander lands it once code review has run on it", out)
+        self.assertNotIn("only the Owner decides", out)
 
 
 class LintChangesNothing(_LintCase):
