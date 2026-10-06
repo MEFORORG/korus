@@ -104,14 +104,16 @@ adds nothing. A note that has changed adds a new event on its key, which replace
 | --- | --- | --- |
 | Any seat | Queries before acting; writes decisions, lessons, gotchas and corrections | Edits the log, the pages or the index |
 | Scheduled cycle (`cycle.ps1`, no model) | Compiles and lints daily, imports weekly, opens vault pull requests | Merges anything |
-| Lander | Merges the job's vault pull requests and the korus promotion drafts, like any other | Picks a winner when two notes conflict |
+| Lander | Merges the job's vault pull requests like any other, and lands the korus promotion drafts | Picks a winner when two notes conflict |
 | Owner | Lists which memory folders the import reads | Hand-edits the log |
 
 Lint reports four things: notes that conflict, notes whose evidence is gone, pages nothing links
 to, and lessons written by two or more seats. The last kind becomes a drafted korus pull request,
-so a lesson learned twice can become a playbook rule. The Lander lands it once code review has run.
+so a lesson learned twice can become a playbook rule. The Lander lands it under the review rule in
+`roles/LANDER.md` *4a-quinquies*.
 
-Both Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec.
+Two Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec. The
+third, of 2026-10-06, is in the last amendment below.
 
 Amended 2026-09-26 by Owner ruling: the second row read "Scheduled Claude Code job". The operating
 system's scheduler now runs the cycle, so no app has to be open. Drafting the playbook pull request

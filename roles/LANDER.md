@@ -225,7 +225,7 @@ The old slugs still redirect.
 | --- | --- |
 | Open, non-draft, mergeable | **Yes.** This is the number the goal is about. |
 | Open and red | **Yes.** Triage it or route it. A red nobody has read is not drained. |
-| Wiki-promotion draft (korus, title starts `wiki promotion:`) | **Yes. It is yours to land.** Mark it ready once *4a-quinquies* is met, then merge. Owner ruling 2026-10-06, quoted in [WIKI.md](WIKI.md). |
+| Wiki-promotion draft (title starts `wiki promotion:`, branch in `MEFORORG/korus`, not a fork) | **Yes. It is yours to land.** Mark it ready once *4a-quinquies* is met, then merge. A *4d-ter* hold still stands. Owner ruling 2026-10-06, quoted in [WIKI.md](WIKI.md). |
 | Any other draft | No. Name it, do not chase it. |
 | Blocked on an Owner ruling | No. Name it in the blockers table, section 18. |
 

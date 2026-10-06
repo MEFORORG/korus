@@ -271,9 +271,10 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
 - **FR-021**: Lint MUST find: live conflicts, dead evidence, orphan pages, and lessons written by
   two or more seats.
 - **FR-022**: A playbook change drafted from a lint promotion candidate MUST arrive as a pull
-  request, and MUST NOT merge until code review has run on it. The Lander lands it. Amended
-  2026-10-06 by Owner ruling, quoted in `roles/WIKI.md`. It read "A playbook change drafted by
-  lint MUST arrive as a pull request, and MUST NOT merge without the Owner."
+  request, and MUST NOT merge without proof that code review ran on it, per `roles/LANDER.md`
+  *4a-quinquies*. The Lander lands it. Amended 2026-10-06 by Owner ruling, quoted in
+  `roles/WIKI.md`. It read "A playbook change drafted by lint MUST arrive as a pull request, and
+  MUST NOT merge without the Owner."
 - **FR-028**: Compile MUST hold back each pending event that the record repository's own leak
   scanner flags, or that carries an email address. Added 2026-09-24.
 
