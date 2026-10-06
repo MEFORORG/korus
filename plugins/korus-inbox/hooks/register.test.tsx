@@ -3213,6 +3213,9 @@ const SWITCH_READINGS: { name: string; commandLine: string; isRunning: boolean }
   { name: 'a second folder switch with a slash', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} /User-Data-Dir=${OTHER}`, isRunning: false },
   { name: 'the folder switch after a bare --', commandLine: `"${APP_EXE}" -- --user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'the folder switch after --single-argument', commandLine: `"${APP_EXE}" --single-argument --user-data-dir=${INSTANCE}`, isRunning: false },
+  // Quotes split the raw text, and the app reads the switch name after it
+  // removes them.
+  { name: 'the folder switch after --single-argument split by quotes', commandLine: `"${APP_EXE}" --single-argume""nt --user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'a quoted type switch', commandLine: `"${APP_EXE}" "--type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'a type switch with one dash', commandLine: `"${APP_EXE}" -type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
   // The app trims each argument of Chromium's whitespace before it looks for
@@ -3297,6 +3300,13 @@ test('a process line encoded by hand counts', async ($, on) => {
   expect(await pressGo($, w)).toHaveLength(1)
 })
 
+// The padding row strips a trailing `=`, so the field must end in one, or the
+// row would test an ordinary line.
+const PADDED_FIELD = utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)
+test('the field the padding row strips ends in =', () => {
+  expect(PADDED_FIELD.endsWith('=')).toBe(true)
+})
+
 const BAD_FIELDS: { name: string; line: string }[] = [
   // One byte more than whole characters: a reader that kept it as a space
   // would trim it off and count the line.
@@ -3307,7 +3317,7 @@ const BAD_FIELDS: { name: string; line: string }[] = [
   // A decoder that took URL-safe base64 would read this as two other
   // characters in front of a program name, then the switch.
   { name: 'URL-safe base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^.{4}/, '-_-_')}` },
-  { name: 'padding left off', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/=+$/, '')}` },
+  { name: 'padding left off', line: `${utf16Base64(APP_EXE)}\t${PADDED_FIELD.replace(/=+$/, '')}` },
   // Encoding.Unicode.GetBytes writes a lone surrogate as U+FFFD, so the
   // reader cannot tell what the app holds there. It sits in an argument of its
   // own here, so only that refusal stops the line counting.

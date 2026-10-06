@@ -714,15 +714,18 @@ function switchOf(arg: string): { name: string; value: string } | undefined {
 // ends, but hands CommandLineToArgvW a pointer that still runs to the end of
 // the line, so only the front trim takes effect. The app reads its line as a
 // C string, so it stops at the first NUL. Every data-folder switch must name
-// the folder, though the app takes the last. A line that would stop the app
-// reading switches part way, with `--` or --single-argument, does not count.
+// the folder, though the app takes the last. A line that could stop the app
+// reading switches part way does not count: one with a bare `--`, one whose
+// raw text holds `single-argument` anywhere, in any case, or one with a
+// switch of that name. Quotes can split the raw text, as in
+// --single-argume""nt, so the parsed names are checked as well.
 function holdsFolder(commandLine: string, dataDir: string): boolean {
   if (commandLine.toLowerCase().includes('single-argument')) return false
   const line = (commandLine.split('\0', 1)[0] ?? '').replace(LEADING_SPACE, '')
   const args = argsOf(line).slice(1).map(trimmed)
   if (args.includes('--')) return false
   const switches = args.map(switchOf).filter(one => one !== undefined)
-  if (switches.some(one => one.name === 'type')) return false
+  if (switches.some(one => one.name === 'type' || one.name === 'single-argument')) return false
   const folders = switches.filter(one => one.name === 'user-data-dir')
   return folders.length > 0 && folders.every(one => asciiLower(one.value) === asciiLower(dataDir))
 }
