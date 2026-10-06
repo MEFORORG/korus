@@ -18,9 +18,9 @@ import type {
 // tool. Each session writes its own entries to one JSON file in a shared
 // folder under the home folder, and every pane reads the 200 newest files of
 // 256 KB or less. Entries read from disk are untrusted text: they are shown
-// and copied, never run. The one thing a remote card can start is Go to
-// session, which hands a link to a running instance of the app, built from
-// this machine's own folders. Run exists only for this session's own entries, read
+// and copied, never run. The one thing a remote card can launch is Go to
+// session, which hands a link to an instance of the app the process list
+// shows running, at a folder rebuilt from this machine's own environment. Run exists only for this session's own entries, read
 // from $.state at the moment the owner presses it. Only the newest remote
 // entries are held and drawn; the count still takes in every one.
 
@@ -489,20 +489,29 @@ async function titleFromEvent(
 
 // ------------------------------------------------- where the app shows it
 
-// Each instance of the desktop app runs with its own data folder: the default
-// one at %APPDATA%\Claude, the others at %USERPROFILE%\.claude-desktop-N. A
-// launch naming a running instance's folder hands a claude:// link to that
-// instance, which brings the session forward, and exits.
+// Each extra instance of the desktop app runs with its own data folder,
+// %USERPROFILE%\.claude-desktop-N. A launch naming a running instance's
+// folder hands a claude:// link to that instance, which brings the session
+// forward, and exits. The default instance (%APPDATA%\Claude) is not offered:
+// a hand-off to it has not been measured.
 const APP_ID = /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // The last segment of an instance folder, matched exactly: no trailing dot or
 // space, which Windows would resolve to the same folder under another name.
-const INSTANCE_NAME = /\\(\.claude-desktop-\d{1,3}|Claude)$/i
+const INSTANCE_NAME = /\\\.claude-desktop-\d{1,3}$/i
 // A file whose session wrote within this long is alive. A file dated further
 // ahead than this is not believed.
 const FRESH_MS = HEARTBEAT_MS + 2 * 60 * 1000
 const AHEAD_MS = 5 * 60 * 1000
 const LAUNCH_TIMEOUT_MS = 20_000
+const QUERY_TIMEOUT_MS = 15_000
+// A new session's record can lag its start, so its place is looked up again
+// at each poll for this many polls (about two minutes), then only at publish.
+const PLACE_TRIES = 24
+// The app's processes, one line each: its executable, a tab, its command line.
+// A fixed script: nothing from any file reaches it.
+const PROCESS_QUERY =
+  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [string]$_.ExecutablePath + \"`t\" + [string]$_.CommandLine }"
 
 // The shape a place must have to be offered at all. The folder is matched
 // against this machine's own folders only when the owner presses.
@@ -520,9 +529,9 @@ function isPlaceFresh(at: number | undefined, now: number): boolean {
 }
 
 // Only a found place is kept. A new session starts before the app has
-// written its id into the record, so a miss is looked up again at each
-// publish rather than kept for the session's life.
+// written its id into the record, so a miss is looked up again.
 let placeCache: { sessionId: string; place: InboxPlace } | undefined
+let placeTries = 0
 
 // This session's place in the app, from what the app put in its environment,
 // and only when the app's own record of that session names this session. A
@@ -546,30 +555,58 @@ async function myPlace($: Engine): Promise<InboxPlace | undefined> {
       const parsed = JSON.parse(text) as { cliSessionId?: unknown }
       if (parsed.cliSessionId === sessionId) place = candidate
     } catch {
-      // Not written yet, or mid-write: looked up again at the next publish.
+      // Not written yet, or mid-write: looked up again later.
     }
   }
   if (place !== undefined) placeCache = { sessionId, place }
   return place
 }
 
+// Looks this session's place up again while it is still missing, for a
+// while after start, and publishes it the moment it is found.
+async function retryPlace($: Engine): Promise<void> {
+  if (placeCache !== undefined || placeTries >= PLACE_TRIES) return
+  placeTries += 1
+  if ((await myPlace($)) !== undefined) void publish($)
+}
+
 // The folder a place names, rebuilt from this machine's own environment, or
 // undefined when it names no instance folder here. The file's spelling is
-// never launched: only one of the folders built here is.
+// never launched: only the folder built here is.
 async function instanceFolder($: Engine, instance: string): Promise<string | undefined> {
   const home = (await $.env.get('USERPROFILE'))?.replace(/\\+$/, '')
-  const roaming = (await $.env.get('APPDATA'))?.replace(/\\+$/, '')
-  const wanted = instance.toLowerCase()
   const numbered = /\\\.claude-desktop-(\d{1,3})$/i.exec(instance)
-  if (home !== undefined && home !== '' && numbered !== null) {
-    const built = `${home}\\.claude-desktop-${numbered[1]}`
-    if (built.toLowerCase() === wanted) return built
-  }
-  if (roaming !== undefined && roaming !== '') {
-    const built = `${roaming}\\Claude`
-    if (built.toLowerCase() === wanted) return built
-  }
-  return undefined
+  if (home === undefined || home === '' || numbered === null) return undefined
+  const built = `${home}\\.claude-desktop-${numbered[1]}`
+  return built.toLowerCase() === instance.toLowerCase() ? built : undefined
+}
+
+// The data folder named on a command line, quoted or bare, or undefined.
+function dataDirOf(commandLine: string): string | undefined {
+  const found = /--user-data-dir=(?:"([^"]*)"|(\S+))/.exec(commandLine)
+  return found === null ? undefined : (found[1] ?? found[2])
+}
+
+// Whether an instance of the app runs with this data folder, read from the
+// process list. A file in the folder would not do: whoever can write an inbox
+// file can plant one, and a launch into a folder no instance holds starts the
+// app on it. Only a main process counts (no --type), from the app's install.
+async function isInstanceRunning($: Engine, dataDir: string, install: string): Promise<boolean> {
+  const systemRoot = (await $.env.get('SystemRoot'))?.replace(/\\+$/, '')
+  if (systemRoot === undefined || systemRoot === '') return false
+  const shell = `${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+  const listed = await $.process.run([shell, '-NoProfile', '-NonInteractive', '-Command', PROCESS_QUERY], {
+    timeoutMs: QUERY_TIMEOUT_MS,
+  })
+  if (listed.exitCode !== 0) return false
+  const prefix = `${install}\\`.toLowerCase()
+  return listed.stdout.split(/\r?\n/).some(line => {
+    const tab = line.indexOf('\t')
+    if (tab < 0) return false
+    const exe = line.slice(0, tab).toLowerCase()
+    const commandLine = line.slice(tab + 1)
+    return exe.startsWith(prefix) && !commandLine.includes(' --type=') && dataDirOf(commandLine)?.toLowerCase() === dataDir.toLowerCase()
+  })
 }
 
 const launching = new Set<string>()
@@ -577,11 +614,12 @@ const launching = new Set<string>()
 let lastFresh = ''
 
 // Brings another session forward in its own, running instance of the app.
-// It never starts an instance: a launch into a closed one would start the app
-// as if the owner had opened it, which is not what Go to session asks. A
-// lockfile left by a power loss can still let that happen. No shell: each value is one
-// argument, and the app is the install's own launcher, which outlives app
-// updates and exits as soon as it has handed the link over.
+// It does not start an instance: one is launched only when the process list
+// shows it running, so the launch hands the link over. An instance that exits
+// between the check and the launch is the gap. No shell: each value is one
+// argument. The app is the install's own launcher, which outlives app updates
+// and exits as soon as it has handed the link over. It lives under
+// LOCALAPPDATA, where the user can write, because the app installs there.
 async function goTo($: Engine, key: string, raw: InboxPlace | undefined, at: number | undefined): Promise<void> {
   if (launching.has(key)) return
   launching.add(key)
@@ -597,13 +635,14 @@ async function goTo($: Engine, key: string, raw: InboxPlace | undefined, at: num
       $.ui.toast('Go to session: that session names no app instance on this machine.')
       return
     }
-    if (!(await $.fs.exists(`${dataDir}\\lockfile`).catch(() => false))) {
-      $.ui.toast('Go to session: that app instance is not running.')
-      return
-    }
-    const app = `${appData}\\AnthropicClaude\\claude.exe`
+    const install = `${appData}\\AnthropicClaude`
+    const app = `${install}\\claude.exe`
     if (!(await $.fs.exists(app).catch(() => false))) {
       $.ui.toast(clean(`Go to session: the app was not found at ${app}.`, 200))
+      return
+    }
+    if (!(await isInstanceRunning($, dataDir, install))) {
+      $.ui.toast('Go to session: that app instance is not running.')
       return
     }
     const ran = await $.process.run([app, `--user-data-dir=${dataDir}`, `claude://claude.ai/epitaxy/${place.id}`], {
@@ -875,6 +914,7 @@ async function poll($: Engine): Promise<void> {
     lastFresh = fresh
     $.ui.invalidate('ui.render')
   }
+  await retryPlace($).catch(() => undefined)
 
   // A Dismiss pressed in another pane clears one of this session's entries
   // here too. Any file can name one, so this only ever hides, never adds.
@@ -2082,7 +2122,8 @@ export const register: Register = on => {
       return { entry, card, from, where, folderText, isOpen, chars: remoteCardChars(card, from, where, folderText) }
     }
 
-    // A card read from disk: shown and copied, nothing else. No Run, ever.
+    // A card read from disk: shown and copied. No Run, ever. Its one launch is
+    // Go to session, which hands a link to an instance already running.
     // Details the owner opened are drawn only when they fit the budget; the
     // card itself always stays, so its Hide details stays within reach.
     const remoteCard = (

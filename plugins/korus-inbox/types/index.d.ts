@@ -72,7 +72,9 @@ export type InboxEntry = {
 
 /**
  * One entry read from another session's file in the shared folder. Every
- * field is untrusted text: it is shown and copied, never run.
+ * field is untrusted text: it is shown and copied, never run. Its place is
+ * launched only as Go to session, at a folder rebuilt from this machine's own
+ * environment and only while the process list shows that instance running.
  */
 export type InboxRemoteEntry = {
   key: string
