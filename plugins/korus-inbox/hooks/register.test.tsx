@@ -46,6 +46,8 @@ type World = {
   statusCalls: (string | undefined)[]
   settle: () => Promise<void>
   advance: (ms: number) => Promise<void>
+  /** Moves the clock to a time without running the timers due by then. */
+  set: (ms: number) => unknown
 }
 
 type WorldOptions = {
@@ -54,6 +56,8 @@ type WorldOptions = {
   cwdFails?: boolean
   stdout?: string
   exitCode?: number
+  /** Exit code for one command by its argv; undefined falls back to `exitCode`. */
+  exitCodeFor?: (argv: readonly string[]) => number | undefined
   hang?: boolean
   /** Output for one command by its argv; undefined falls back to `stdout`. */
   stdoutFor?: (argv: readonly string[]) => string | undefined
@@ -140,7 +144,7 @@ function world(on: On, opts: WorldOptions = {}): World {
     await opts.gate?.(e.argv)
     return {
       value: {
-        exitCode: opts.exitCode ?? 0,
+        exitCode: opts.exitCodeFor?.(e.argv) ?? opts.exitCode ?? 0,
         stdout: opts.stdoutFor?.(e.argv) ?? opts.stdout ?? 'switched fine\n',
         stderr: '',
         isStdoutTruncated: false,
@@ -148,7 +152,7 @@ function world(on: On, opts: WorldOptions = {}): World {
       },
     }
   })
-  return { files, runs, timeouts, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance }
+  return { files, runs, timeouts, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance, set: clock.set }
 }
 
 // ------------------------------------------------------------- refusal texts
@@ -2809,25 +2813,43 @@ function mainProcess(folder: string): string {
   return processLine(APP_EXE, `"${APP_EXE}" --user-data-dir="${folder}" `)
 }
 
-type DesktopOptions = { fields?: Record<string, unknown>; processes?: readonly string[]; gate?: WorldOptions['gate'] }
+type DesktopOptions = {
+  fields?: Record<string, unknown>
+  processes?: readonly string[]
+  gate?: WorldOptions['gate']
+  /** The user's home folder; the app's install and the inbox folder follow it. */
+  home?: string
+  /** A query that exits with this code, still printing the process list. */
+  queryExitCode?: number
+  /** A machine whose environment has no SystemRoot. */
+  isSystemRootUnset?: boolean
+}
 
 // A desktop machine with the app's launcher installed, a process list holding
 // `processes` (by default a running instance 3), and another session's file
 // naming `place`.
 function desktop(on: On, place: unknown, options: DesktopOptions = {}): World {
+  const home = options.home ?? HOME
+  const local = `${home}\\AppData\\Local`
   const processes = options.processes ?? [mainProcess(INSTANCE)]
+  const env: Record<string, string> = { USERPROFILE: home, LOCALAPPDATA: local, APPDATA: `${home}\\AppData\\Roaming` }
+  if (options.isSystemRootUnset !== true) env.SystemRoot = SYSTEM_ROOT
   const w = world(on, {
-    env: { LOCALAPPDATA: LOCAL, APPDATA: ROAMING, SystemRoot: SYSTEM_ROOT },
+    env,
     stdoutFor: argv => (argv[0] === PS ? `${processes.join('\r\n')}\r\n` : undefined),
+    exitCodeFor: argv => (argv[0] === PS ? options.queryExitCode : undefined),
     gate: options.gate,
   })
-  w.files.set(STUB, { text: '', mtimeMs: 0 })
-  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...options.fields }) })
+  w.files.set(`${local}\\AnthropicClaude\\claude.exe`, { text: '', mtimeMs: 0 })
+  w.files.set(`${home}\\.korus-inbox\\sess-other-2.json`, {
+    mtimeMs: NOW - 1000,
+    text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...options.fields }),
+  })
   return w
 }
 
-function launches(w: World): (readonly string[])[] {
-  return w.runs.filter(run => run.argv[0] === STUB).map(run => run.argv)
+function launches(w: World, stub = STUB): (readonly string[])[] {
+  return w.runs.filter(run => run.argv[0] === stub).map(run => run.argv)
 }
 
 async function paneWithGo($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Kit['ui']['mount']>>; found: Found | undefined }> {
@@ -2838,7 +2860,8 @@ async function paneWithGo($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Ki
 }
 
 async function pressGo($: Kit, w: World): Promise<(readonly string[])[]> {
-  const { ui } = await paneWithGo($, w)
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeDefined()
   await ui.press({ key: GO })
   await w.settle()
   await ui.unmount()
@@ -2967,10 +2990,24 @@ for (const { name, place } of BAD_PLACES) {
   })
 }
 
-const REFUSED_ON_PRESS: { name: string; instance: string; processes?: readonly string[] }[] = [
+// Each names instance 3 in a folder that is not this home. The process list
+// holds both that folder and this home's instance 3, so only the check that
+// the file's folder is this machine's own folder stands between the press and
+// a launch; it refuses before the process list is even read.
+const FOREIGN_FOLDERS: { name: string; instance: string }[] = [
   { name: "another user's home", instance: 'C:\\Users\\tester2\\.claude-desktop-3' },
   { name: 'another drive', instance: 'D:\\profiles\\.claude-desktop-3' },
   { name: 'a folder nested below the home', instance: `${HOME}\\Code\\p\\.claude-desktop-3` },
+]
+for (const { name, instance } of FOREIGN_FOLDERS) {
+  test(`a place naming ${name} is refused when pressed, even with this home's instance running`, async ($, on) => {
+    const w = desktop(on, { instance, id: APP_SID }, { processes: [mainProcess(instance), mainProcess(INSTANCE)] })
+    await pressGo($, w)
+    expect(w.runs).toEqual([])
+  })
+}
+
+const REFUSED_ON_PRESS: { name: string; instance: string; processes?: readonly string[] }[] = [
   { name: 'an instance no process holds', instance: INSTANCE, processes: [] },
   { name: 'an instance only a renderer names', instance: INSTANCE, processes: [processLine(APP_EXE, `"${APP_EXE}" --type=renderer --user-data-dir="${INSTANCE}"`)] },
   { name: 'an instance held by a program outside the install', instance: INSTANCE, processes: [mainProcess(INSTANCE).replace(APP_EXE, `${HOME}\\Downloads\\claude.exe`)] },
@@ -3023,4 +3060,76 @@ test('outside the desktop app, pressing Go to session runs nothing', async ($, o
   await w.settle()
   expect(w.runs).toEqual([])
   await ui.unmount()
+})
+
+// ---- the guards at the press
+
+test('a process list query that fails does not count as the instance running, whatever it printed', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { queryExitCode: 1 })
+  expect(await pressGo($, w)).toEqual([])
+  expect(w.runs.map(run => run.argv[0])).toEqual([PS])
+})
+
+// Each line holds a main process of the app whose folder only resembles
+// instance 3's: the folder must equal it, not start with it, end it or hold it.
+const NEAR_FOLDERS: { name: string; folder: string }[] = [
+  { name: 'a longer number', folder: `${INSTANCE}4` },
+  { name: 'a folder inside it', folder: `${INSTANCE}\\x` },
+  { name: 'the home it sits in', folder: HOME },
+  { name: 'a longer path that ends with it', folder: `D:\\copy\\${INSTANCE}` },
+]
+for (const { name, folder } of NEAR_FOLDERS) {
+  test(`a running instance whose folder is ${name} does not count as instance 3 running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [mainProcess(folder)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+// The app counts only from its install folder, %LOCALAPPDATA%\AnthropicClaude:
+// a folder beside it whose name starts the same is somewhere else.
+const OUTSIDE_INSTALL: { name: string; exe: string }[] = [
+  { name: 'a sibling folder sharing its name as a prefix', exe: `${LOCAL}\\AnthropicClaudeBeta\\app-9.9.9\\claude.exe` },
+  { name: 'the folder that holds the install', exe: `${LOCAL}\\claude.exe` },
+]
+for (const { name, exe } of OUTSIDE_INSTALL) {
+  test(`a claude.exe in ${name} does not count as the app running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [mainProcess(INSTANCE).replace(APP_EXE, exe)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+test('with SystemRoot unset, a press runs nothing at all, not even a powershell found by PATH', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isSystemRootUnset: true })
+  await pressGo($, w)
+  expect(w.runs).toEqual([])
+})
+
+test('a button drawn while its session was alive launches nothing when pressed after it went quiet', async ($, on) => {
+  // The file's session goes quiet two seconds after the pane is drawn, and
+  // the next poll, which would redraw the pane, is five seconds away. So the
+  // button is still drawn when it is pressed three seconds later.
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { fields: { updatedAt: NOW - 12 * 60 * 1000 + 2000 } })
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeDefined()
+  await w.advance(3000)
+  expect(await ui.find({ type: 'Button', key: GO })).toBeDefined()
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})
+
+test('a held place whose id lost its shape after the file was read is refused at the press, and nothing runs', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  // The reader checks the shape when it reads the file. This held value
+  // changes after that read, which only the check at the press can catch.
+  on('state.get', async ($$: unknown, e: { key?: unknown }, next: (e: unknown) => unknown) => {
+    const got = await next(e)
+    if (e.key !== 'remoteHeld') return got
+    const copy = JSON.parse(JSON.stringify(got)) as { value?: { value?: { entries?: { place?: { id: string } }[] } } }
+    for (const entry of copy.value?.value?.entries ?? []) if (entry.place !== undefined) entry.place.id = `${APP_SID} --inspect`
+    return copy
+  })
+  expect(await pressGo($, w)).toEqual([])
+  expect(w.runs).toEqual([])
 })
