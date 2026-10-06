@@ -583,10 +583,58 @@ async function instanceFolder($: Engine, instance: string): Promise<string | und
   return built.toLowerCase() === instance.toLowerCase() ? built : undefined
 }
 
-// The data folder named on a command line, quoted or bare, or undefined.
+// A command line split into its arguments by the Windows C runtime's rules:
+// spaces and tabs outside quotes split, quotes are removed, `""` inside quotes
+// is one quote, and backslashes are literal unless a quote follows them.
+// Windows quotes an argument that holds a space, either the whole argument or
+// a part of it, so a home folder with a space shows up quoted either way.
+function argsOf(commandLine: string): string[] {
+  const args: string[] = []
+  let arg = ''
+  let isArg = false
+  let isQuoted = false
+  let slashes = 0
+  for (let i = 0; i < commandLine.length; i += 1) {
+    const ch = commandLine[i]
+    if (ch === '\\') {
+      slashes += 1
+      isArg = true
+      continue
+    }
+    if (ch === '"') {
+      arg += '\\'.repeat(slashes >> 1)
+      if (slashes % 2 === 1) arg += '"'
+      else if (isQuoted && commandLine[i + 1] === '"') {
+        arg += '"'
+        i += 1
+      } else isQuoted = !isQuoted
+      slashes = 0
+      isArg = true
+      continue
+    }
+    arg += '\\'.repeat(slashes)
+    slashes = 0
+    if (!isQuoted && (ch === ' ' || ch === '\t')) {
+      if (isArg) args.push(arg)
+      arg = ''
+      isArg = false
+    } else {
+      arg += ch
+      isArg = true
+    }
+  }
+  arg += '\\'.repeat(slashes)
+  if (isArg) args.push(arg)
+  return args
+}
+
+// The data folder the first --user-data-dir= argument names, or undefined.
+// The switch counts only as a whole argument, never inside another one.
 function dataDirOf(commandLine: string): string | undefined {
-  const found = /--user-data-dir=(?:"([^"]*)"|(\S+))/.exec(commandLine)
-  return found === null ? undefined : (found[1] ?? found[2])
+  const switchText = '--user-data-dir='
+  return argsOf(commandLine)
+    .find(arg => arg.startsWith(switchText))
+    ?.slice(switchText.length)
 }
 
 // Whether an instance of the app runs with this data folder, read from the

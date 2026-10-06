@@ -3133,3 +3133,41 @@ test('a held place whose id lost its shape after the file was read is refused at
   expect(await pressGo($, w)).toEqual([])
   expect(w.runs).toEqual([])
 })
+
+// ---- a home folder with a space in it
+
+// Windows quotes an argument that holds a space, either the whole argument or
+// only the folder, and the process list shows the quotes.
+const SPACE_HOME = 'C:\\Users\\Ann Lee'
+const SPACE_INSTANCE = `${SPACE_HOME}\\.claude-desktop-3`
+const SPACE_STUB = `${SPACE_HOME}\\AppData\\Local\\AnthropicClaude\\claude.exe`
+const SPACE_APP_EXE = `${SPACE_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const SPACE_QUOTINGS: { name: string; commandLine: string }[] = [
+  { name: 'the whole argument quoted', commandLine: `"${SPACE_APP_EXE}" "--user-data-dir=${SPACE_INSTANCE}" --flag` },
+  { name: 'only the folder quoted', commandLine: `"${SPACE_APP_EXE}" --user-data-dir="${SPACE_INSTANCE}" --flag` },
+]
+for (const { name, commandLine } of SPACE_QUOTINGS) {
+  test(`a home folder with a space gets a working Go to session, with ${name}`, async ($, on) => {
+    const w = desktop(on, { instance: SPACE_INSTANCE, id: APP_SID }, { home: SPACE_HOME, processes: [processLine(SPACE_APP_EXE, commandLine)] })
+    await pressGo($, w)
+    expect(launches(w, SPACE_STUB)).toEqual([[SPACE_STUB, `--user-data-dir=${SPACE_INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+  })
+}
+
+// The switch counts only as a whole argument of its own, after the quotes
+// are taken off: never as the tail of another switch or inside another argument.
+const SWITCH_NOT_WHOLE: { name: string; commandLine: string }[] = [
+  { name: 'the tail of a longer switch', commandLine: `"${APP_EXE}" --x--user-data-dir=${INSTANCE}` },
+  { name: 'inside another quoted argument', commandLine: `"${APP_EXE}" "--note=see --user-data-dir=${INSTANCE} here"` },
+  { name: 'the folder and more in one quoted value', commandLine: `"${APP_EXE}" --user-data-dir="${INSTANCE} x"` },
+  // A backslash before a quote makes it a plain quote, so the quoting goes on.
+  { name: 'inside an argument with an escaped quote', commandLine: `"${APP_EXE}" "--note=a\\" --user-data-dir=${INSTANCE} b"` },
+  // Two quotes inside quotes are one quote, which stays in the argument.
+  { name: 'a folder followed by a doubled quote', commandLine: `"${APP_EXE}" "--user-data-dir=${INSTANCE}"""` },
+]
+for (const { name, commandLine } of SWITCH_NOT_WHOLE) {
+  test(`a --user-data-dir= found as ${name} does not count`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, commandLine)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
