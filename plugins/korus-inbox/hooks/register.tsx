@@ -511,9 +511,32 @@ const QUERY_TIMEOUT_MS = 15_000
 // at each poll for this many polls (about two minutes), then only at publish.
 const PLACE_TRIES = 24
 // The app's processes, one line each: its executable, a tab, its command line.
-// A fixed script: nothing from any file reaches it.
+// A fixed script: nothing from any file reaches it. Each field is printed as
+// the base64 of its UTF-16LE bytes, because Windows PowerShell writes plain
+// text to a pipe in the console code page with a best-fit fallback: a Kelvin
+// sign arrives as `K`, an en dash as `-` and a curly quote as `"`, so a line
+// the app reads one way would reach the reader as another.
 const PROCESS_QUERY =
-  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [string]$_.ExecutablePath + \"`t\" + [string]$_.CommandLine }"
+  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.ExecutablePath)) + \"`t\" + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.CommandLine)) }"
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+// A field the process query printed, decoded from the base64 of its UTF-16LE
+// bytes, or undefined when the field has any other shape.
+function fromUtf16Base64(field: string): string | undefined {
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(field)) return undefined
+  const bytes: number[] = []
+  for (let i = 0; i < field.length; i += 4) {
+    const [a, b, c, d] = [0, 1, 2, 3].map(k => BASE64.indexOf(field.charAt(i + k)))
+    if (a === undefined || b === undefined || c === undefined || d === undefined) return undefined
+    bytes.push((a << 2) | (b >> 4))
+    if (c >= 0) bytes.push(((b & 15) << 4) | (c >> 2))
+    if (d >= 0) bytes.push(((c & 3) << 6) | d)
+  }
+  if (bytes.length % 2 !== 0) return undefined
+  let text = ''
+  for (let i = 0; i < bytes.length; i += 2) text += String.fromCharCode((bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8))
+  return text
+}
 
 // The shape a place must have to be offered at all. The folder is matched
 // against this machine's own folders only when the owner presses.
@@ -592,8 +615,9 @@ const asciiLower = (text: string): string => text.replace(/[A-Z]+/g, upper => up
 // Strips the whitespace Chromium's TrimWhitespace strips on Windows, the set
 // kWhitespaceWide in base/strings/whitespace_constants.h. It is not what
 // String.prototype.trim strips: that keeps U+0085 and strips U+FEFF.
-const EDGE_SPACE =
-  /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g
+const SPACE = /[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/.source
+const EDGE_SPACE = new RegExp(`^${SPACE}+|${SPACE}+$`, 'g')
+const LEADING_SPACE = new RegExp(`^${SPACE}+`)
 const trimmed = (text: string): string => text.replace(EDGE_SPACE, '')
 
 const isBlank = (ch: string | undefined): boolean => ch === ' ' || ch === '\t'
@@ -678,16 +702,19 @@ function switchOf(arg: string): { name: string; value: string } | undefined {
 }
 
 // Whether a command line is a main process of the app (no type switch) whose
-// data folder is this one. The app trims its whole command line before it
-// splits it, then trims each argument before it looks for `--` or a switch,
-// so this does too (Chromium base/command_line.cc: ParseFromString and
-// AppendSwitchesAndArguments). The app reads its line as a C string, so it
-// stops at the first NUL. Every data-folder switch must name the folder,
-// though the app takes the last. A line that would stop the app reading
-// switches part way, with `--` or --single-argument, does not count.
+// data folder is this one. The app trims whitespace off the front of its
+// command line before it splits it, then trims each argument before it looks
+// for `--` or a switch, so this does too (Chromium base/command_line.cc:
+// ParseFromString and AppendSwitchesAndArguments). ParseFromString trims both
+// ends, but hands CommandLineToArgvW a pointer that still runs to the end of
+// the line, so only the front trim takes effect. The app reads its line as a
+// C string, so it stops at the first NUL. Every data-folder switch must name
+// the folder, though the app takes the last. A line that would stop the app
+// reading switches part way, with `--` or --single-argument, does not count.
 function holdsFolder(commandLine: string, dataDir: string): boolean {
   if (commandLine.toLowerCase().includes('single-argument')) return false
-  const args = argsOf(trimmed(commandLine.split('\0', 1)[0] ?? '')).slice(1).map(trimmed)
+  const line = (commandLine.split('\0', 1)[0] ?? '').replace(LEADING_SPACE, '')
+  const args = argsOf(line).slice(1).map(trimmed)
   if (args.includes('--')) return false
   const switches = args.map(switchOf).filter(one => one !== undefined)
   if (switches.some(one => one.name === 'type')) return false
@@ -709,11 +736,12 @@ async function isInstanceRunning($: Engine, dataDir: string, install: string): P
   if (listed.exitCode !== 0) return false
   const prefix = asciiLower(`${install}\\`)
   return listed.stdout.split(/\r?\n/).some(line => {
-    const tab = line.indexOf('\t')
-    if (tab < 0) return false
-    const exe = asciiLower(line.slice(0, tab))
-    const commandLine = line.slice(tab + 1)
-    return exe.startsWith(prefix) && holdsFolder(commandLine, dataDir)
+    const fields = line.split('\t')
+    if (fields.length !== 2) return false
+    const exe = fromUtf16Base64(fields[0] ?? '')
+    const commandLine = fromUtf16Base64(fields[1] ?? '')
+    if (exe === undefined || commandLine === undefined) return false
+    return asciiLower(exe).startsWith(prefix) && holdsFolder(commandLine, dataDir)
   })
 }
 

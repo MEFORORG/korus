@@ -2821,6 +2821,20 @@ type DesktopOptions = {
   queryExitCode?: number
   /** A machine whose environment has no SystemRoot. */
   isSystemRootUnset?: boolean
+  /** A query that prints each process line as plain text, not base64. */
+  isPlainList?: boolean
+}
+
+// The query prints each field as the base64 of its UTF-16LE bytes.
+function utf16Bytes(text: string): string {
+  let bytes = ''
+  for (let i = 0; i < text.length; i += 1) bytes += String.fromCharCode(text.charCodeAt(i) & 255, text.charCodeAt(i) >> 8)
+  return bytes
+}
+const utf16Base64 = (text: string): string => btoa(utf16Bytes(text))
+function encodedLine(line: string): string {
+  const tab = line.indexOf('\t')
+  return tab < 0 ? line : `${utf16Base64(line.slice(0, tab))}\t${utf16Base64(line.slice(tab + 1))}`
 }
 
 // A desktop machine with the app's launcher installed, a process list holding
@@ -2834,7 +2848,8 @@ function desktop(on: On, place: unknown, options: DesktopOptions = {}): World {
   if (options.isSystemRootUnset !== true) env.SystemRoot = SYSTEM_ROOT
   const w = world(on, {
     env,
-    stdoutFor: argv => (argv[0] === PS ? `${processes.join('\r\n')}\r\n` : undefined),
+    stdoutFor: argv =>
+      argv[0] === PS ? `${processes.map(line => (options.isPlainList === true ? line : encodedLine(line))).join('\r\n')}\r\n` : undefined,
     exitCodeFor: argv => (argv[0] === PS ? options.queryExitCode : undefined),
     gate: options.gate,
   })
@@ -3213,7 +3228,12 @@ const SWITCH_READINGS: { name: string; commandLine: string; isRunning: boolean }
   // the program name ends at the backslash-quote, so the quoted argument after
   // it is one argument.
   { name: 'a space before the program name', commandLine: ` "${APP_EXE}\\" "y --user-data-dir=${INSTANCE} y"`, isRunning: false },
-  { name: 'a vertical tab before the program name', commandLine: `\u000b"x --user-data-dir=${INSTANCE} "`, isRunning: false },
+  { name: 'a vertical tab before the program name', commandLine: `\u000b"${APP_EXE}\\" "y --user-data-dir=${INSTANCE} y"`, isRunning: false },
+  // Chromium trims its own set, not the one String.prototype.trim uses.
+  { name: 'the folder switch after a byte order mark', commandLine: `"${APP_EXE}" \ufeff--user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch after a next-line character', commandLine: `"${APP_EXE}" \u0085--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  // An en dash is not a switch prefix, so the app runs on its default folder.
+  { name: 'the folder switch after an en dash', commandLine: `"${APP_EXE}" \u2013user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'spaces before an ordinary line', commandLine: `  "${APP_EXE}" --user-data-dir=${INSTANCE}`, isRunning: true },
   // An unquoted program name ends at any character up to U+0020, not only a blank.
   { name: 'a type switch after a vertical tab ending the program name', commandLine: `${APP_EXE}\u000b--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
@@ -3258,6 +3278,33 @@ test('an instance running from a folder spelled with a Kelvin sign is not from t
   await pressGo($, w)
   expect(launches(w, K_STUB)).toEqual([])
 })
+
+// Windows PowerShell writes plain text to a pipe with a best-fit fallback, so
+// a Kelvin sign would arrive as `K` and an en dash as `-`. The query prints
+// base64 instead, and a line in any other shape does not count.
+test('a process list printed as plain text does not count', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true })
+  expect(await pressGo($, w)).toEqual([])
+})
+
+test('a process line encoded by hand counts', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true, processes: [encodedLine(mainProcess(INSTANCE))] })
+  expect(await pressGo($, w)).toHaveLength(1)
+})
+
+const BAD_FIELDS: { name: string; line: string }[] = [
+  // One byte more than whole characters: a reader that kept it as a space
+  // would trim it off and count the line.
+  { name: 'an odd number of bytes', line: `${utf16Base64(APP_EXE)}\t${btoa(`${utf16Bytes(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)} `)}` },
+  { name: 'a character outside base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)}!` },
+  { name: 'a third field', line: `${encodedLine(mainProcess(INSTANCE))}\t` },
+]
+for (const { name, line } of BAD_FIELDS) {
+  test(`a process line with ${name} does not count`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true, processes: [line] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
 
 test('a place spelled with a Kelvin sign names no instance folder here', async ($, on) => {
   const w = desktop(on, { instance: `${K_SIGN_HOME}\\.claude-desktop-3`, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
