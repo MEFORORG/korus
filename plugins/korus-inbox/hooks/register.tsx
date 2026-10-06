@@ -583,58 +583,95 @@ async function instanceFolder($: Engine, instance: string): Promise<string | und
   return built.toLowerCase() === instance.toLowerCase() ? built : undefined
 }
 
-// A command line split into its arguments by the Windows C runtime's rules:
-// spaces and tabs outside quotes split, quotes are removed, `""` inside quotes
-// is one quote, and backslashes are literal unless a quote follows them.
-// Windows quotes an argument that holds a space, either the whole argument or
-// a part of it, so a home folder with a space shows up quoted either way.
+const isBlank = (ch: string | undefined): boolean => ch === ' ' || ch === '\t'
+
+// A command line split into its arguments the way CommandLineToArgvW splits
+// it, which is how the app reads its own. The program name runs to the next
+// quote or blank, with no escapes. After it, blanks outside quotes split;
+// backslashes are literal unless a quote follows them; and a run of quotes
+// inside quotes gives one literal quote for every three. Windows quotes an
+// argument that holds a space, the whole argument or a part of it, so a home
+// folder with a space shows up quoted either way.
 function argsOf(commandLine: string): string[] {
-  const args: string[] = []
-  let arg = ''
-  let isArg = false
-  let isQuoted = false
-  let slashes = 0
-  for (let i = 0; i < commandLine.length; i += 1) {
-    const ch = commandLine[i]
-    if (ch === '\\') {
-      slashes += 1
-      isArg = true
-      continue
-    }
-    if (ch === '"') {
-      arg += '\\'.repeat(slashes >> 1)
-      if (slashes % 2 === 1) arg += '"'
-      else if (isQuoted && commandLine[i + 1] === '"') {
-        arg += '"'
-        i += 1
-      } else isQuoted = !isQuoted
-      slashes = 0
-      isArg = true
-      continue
-    }
-    arg += '\\'.repeat(slashes)
-    slashes = 0
-    if (!isQuoted && (ch === ' ' || ch === '\t')) {
-      if (isArg) args.push(arg)
-      arg = ''
-      isArg = false
-    } else {
-      arg += ch
-      isArg = true
-    }
+  const n = commandLine.length
+  let i = 0
+  let program = ''
+  if (commandLine[0] === '"') {
+    for (i = 1; i < n && commandLine[i] !== '"'; i += 1) program += commandLine[i]
+    i += 1
+  } else {
+    for (; i < n && !isBlank(commandLine[i]); i += 1) program += commandLine[i]
   }
-  arg += '\\'.repeat(slashes)
+  const args = [program]
+  while (isBlank(commandLine[i])) i += 1
+  let arg = ''
+  let isArg = i < n
+  let quotes = 0
+  let slashes = 0
+  while (i < n) {
+    const ch = commandLine[i]
+    if (isBlank(ch) && quotes === 0) {
+      args.push(arg)
+      arg = ''
+      slashes = 0
+      while (isBlank(commandLine[i])) i += 1
+      isArg = i < n
+      continue
+    }
+    i += 1
+    if (ch === '\\') {
+      arg += ch
+      slashes += 1
+      continue
+    }
+    if (ch !== '"') {
+      arg += ch
+      slashes = 0
+      continue
+    }
+    if (slashes % 2 === 0) {
+      arg = arg.slice(0, arg.length - slashes / 2)
+      quotes += 1
+    } else {
+      arg = `${arg.slice(0, arg.length - (slashes + 1) / 2)}"`
+    }
+    slashes = 0
+    for (; commandLine[i] === '"'; i += 1) {
+      quotes += 1
+      if (quotes === 3) {
+        arg += '"'
+        quotes = 0
+      }
+    }
+    if (quotes === 2) quotes = 0
+  }
   if (isArg) args.push(arg)
   return args
 }
 
-// The data folder the first --user-data-dir= argument names, or undefined.
-// The switch counts only as a whole argument, never inside another one.
-function dataDirOf(commandLine: string): string | undefined {
-  const switchText = '--user-data-dir='
-  return argsOf(commandLine)
-    .find(arg => arg.startsWith(switchText))
-    ?.slice(switchText.length)
+// A switch as the app reads one on Windows: `--`, `-` or `/` before its name,
+// the name in any case, and its value after the first `=`.
+function switchOf(arg: string): { name: string; value: string } | undefined {
+  const prefix = /^(--|-|\/)/.exec(arg)?.[0]
+  if (prefix === undefined || prefix.length === arg.length) return undefined
+  const equals = arg.indexOf('=')
+  return equals < 0
+    ? { name: arg.slice(prefix.length).toLowerCase(), value: '' }
+    : { name: arg.slice(prefix.length, equals).toLowerCase(), value: arg.slice(equals + 1) }
+}
+
+// Whether a command line is a main process of the app (no type switch) whose
+// data folder is this one. Every data-folder switch must name it, since the
+// app could take either of two. A line that would stop the app reading
+// switches part way, with `--` or --single-argument, does not count.
+function holdsFolder(commandLine: string, dataDir: string): boolean {
+  if (commandLine.toLowerCase().includes('single-argument')) return false
+  const args = argsOf(commandLine).slice(1)
+  if (args.includes('--')) return false
+  const switches = args.map(switchOf).filter(one => one !== undefined)
+  if (switches.some(one => one.name === 'type')) return false
+  const folders = switches.filter(one => one.name === 'user-data-dir')
+  return folders.length > 0 && folders.every(one => one.value.toLowerCase() === dataDir.toLowerCase())
 }
 
 // Whether an instance of the app runs with this data folder, read from the
@@ -655,7 +692,7 @@ async function isInstanceRunning($: Engine, dataDir: string, install: string): P
     if (tab < 0) return false
     const exe = line.slice(0, tab).toLowerCase()
     const commandLine = line.slice(tab + 1)
-    return exe.startsWith(prefix) && !commandLine.includes(' --type=') && dataDirOf(commandLine)?.toLowerCase() === dataDir.toLowerCase()
+    return exe.startsWith(prefix) && holdsFolder(commandLine, dataDir)
   })
 }
 

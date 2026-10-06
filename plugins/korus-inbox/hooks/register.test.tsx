@@ -46,8 +46,6 @@ type World = {
   statusCalls: (string | undefined)[]
   settle: () => Promise<void>
   advance: (ms: number) => Promise<void>
-  /** Moves the clock to a time without running the timers due by then. */
-  set: (ms: number) => unknown
 }
 
 type WorldOptions = {
@@ -152,7 +150,7 @@ function world(on: On, opts: WorldOptions = {}): World {
       },
     }
   })
-  return { files, runs, timeouts, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance, set: clock.set }
+  return { files, runs, timeouts, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance }
 }
 
 // ------------------------------------------------------------- refusal texts
@@ -3106,8 +3104,9 @@ test('with SystemRoot unset, a press runs nothing at all, not even a powershell 
 
 test('a button drawn while its session was alive launches nothing when pressed after it went quiet', async ($, on) => {
   // The file's session goes quiet two seconds after the pane is drawn, and
-  // the next poll, which would redraw the pane, is five seconds away. So the
-  // button is still drawn when it is pressed three seconds later.
+  // the next poll, which would redraw the pane, is five seconds away (POLL_MS).
+  // So the button is still drawn when it is pressed three seconds later; the
+  // find below fails loudly if a shorter poll ever redraws it first.
   const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { fields: { updatedAt: NOW - 12 * 60 * 1000 + 2000 } })
   const { ui, found } = await paneWithGo($, w)
   expect(found).toBeDefined()
@@ -3121,8 +3120,9 @@ test('a button drawn while its session was alive launches nothing when pressed a
 
 test('a held place whose id lost its shape after the file was read is refused at the press, and nothing runs', async ($, on) => {
   const w = desktop(on, { instance: INSTANCE, id: APP_SID })
-  // The reader checks the shape when it reads the file. This held value
-  // changes after that read, which only the check at the press can catch.
+  // The reader checks the shape when it reads the file. Here every read of
+  // the held entries returns a bad id instead. The pane draws the button
+  // without checking the id, so only the check at the press can refuse it.
   on('state.get', async ($$: unknown, e: { key?: unknown }, next: (e: unknown) => unknown) => {
     const got = await next(e)
     if (e.key !== 'remoteHeld') return got
@@ -3154,20 +3154,51 @@ for (const { name, commandLine } of SPACE_QUOTINGS) {
   })
 }
 
-// The switch counts only as a whole argument of its own, after the quotes
-// are taken off: never as the tail of another switch or inside another argument.
+// The switch counts only as a whole argument of its own, split the way
+// CommandLineToArgvW splits it. Each expected split below was read from that
+// function on Windows 11 on 2026-10-06, so a reader splitting any other way
+// would count a switch the app never sees.
 const SWITCH_NOT_WHOLE: { name: string; commandLine: string }[] = [
   { name: 'the tail of a longer switch', commandLine: `"${APP_EXE}" --x--user-data-dir=${INSTANCE}` },
   { name: 'inside another quoted argument', commandLine: `"${APP_EXE}" "--note=see --user-data-dir=${INSTANCE} here"` },
   { name: 'the folder and more in one quoted value', commandLine: `"${APP_EXE}" --user-data-dir="${INSTANCE} x"` },
   // A backslash before a quote makes it a plain quote, so the quoting goes on.
   { name: 'inside an argument with an escaped quote', commandLine: `"${APP_EXE}" "--note=a\\" --user-data-dir=${INSTANCE} b"` },
-  // Two quotes inside quotes are one quote, which stays in the argument.
+  // Three quotes inside quotes give one quote, which stays in the argument.
   { name: 'a folder followed by a doubled quote', commandLine: `"${APP_EXE}" "--user-data-dir=${INSTANCE}"""` },
+  // Windows splits this as `x"` then `y --user-data-dir=...`: two quotes inside
+  // quotes give one quote and end the quoting.
+  { name: 'the tail of an argument after a doubled quote', commandLine: `"${APP_EXE}" "x"" y" --user-data-dir=${INSTANCE}` },
+  // The program name ends at the next quote, with no escapes, so the quoted
+  // argument after it is one argument.
+  { name: 'inside the argument after a program name ending in a backslash', commandLine: `"${APP_EXE}\\" "x --user-data-dir=${INSTANCE} x"` },
 ]
 for (const { name, commandLine } of SWITCH_NOT_WHOLE) {
   test(`a --user-data-dir= found as ${name} does not count`, async ($, on) => {
     const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, commandLine)] })
     expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+// The app reads a switch with `--`, `-` or `/` before it, in any case, and
+// could take either of two data folders. So every data-folder switch must
+// name the folder, and a line that stops the app reading switches part way
+// does not count.
+const OTHER = `${HOME}\\.claude-desktop-4`
+const SWITCH_READINGS: { name: string; commandLine: string; isRunning: boolean }[] = [
+  { name: 'the folder switch in capitals', commandLine: `"${APP_EXE}" --USER-DATA-DIR=${INSTANCE}`, isRunning: true },
+  { name: 'a second folder switch after it', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} --user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch before it', commandLine: `"${APP_EXE}" --user-data-dir=${OTHER} --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a second folder switch with one dash', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} -user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch with a slash', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} /User-Data-Dir=${OTHER}`, isRunning: false },
+  { name: 'the folder switch after a bare --', commandLine: `"${APP_EXE}" -- --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch after --single-argument', commandLine: `"${APP_EXE}" --single-argument --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a quoted type switch', commandLine: `"${APP_EXE}" "--type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch with one dash', commandLine: `"${APP_EXE}" -type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+]
+for (const { name, commandLine, isRunning } of SWITCH_READINGS) {
+  test(`a command line with ${name} ${isRunning ? 'counts' : 'does not count'} as instance 3 running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, commandLine)] })
+    expect(await pressGo($, w)).toHaveLength(isRunning ? 1 : 0)
   })
 }
