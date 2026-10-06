@@ -445,12 +445,19 @@ nothing is running. No card value reaches that query.
 It launches only if a line shows a `claude.exe` under the install folder, with no `type` switch, whose
 `--user-data-dir=` names that folder. A file in the folder, such as a planted `lockfile`, does not count.
 
-The reader splits each command line as Windows does, by the rules of `CommandLineToArgvW`. A home
-folder with a space works, quoted either way.
+The reader splits each command line as Windows does, by the rules of `CommandLineToArgvW`. So an
+unquoted program name ends at any control character, not only at a space or tab. A home folder with a
+space works, quoted either way.
 
-It reads a switch as the app does: after `--`, `-` or `/`, in any case. Every `user-data-dir` switch
-must name exactly that folder. A longer folder, a parent, or the switch inside another argument does
-not count, nor does a line with a bare `--` argument or the text `single-argument`.
+It reads switches the way the app's Chromium code does. It reads the line only up to its first NUL,
+then trims the whole line, then each argument, of the same space characters Chromium trims. A switch
+starts with `--`, `-` or `/`, and its name matches in any case of the letters A to Z.
+
+Where the app settles on one reading, the reader is stricter. Every `user-data-dir` switch must name
+exactly that folder, though the app takes the last one. The folder matches in any case of A to Z only,
+so a name that differs in any other letter does not count. A longer folder, a parent, or the switch
+inside another argument does not count. Nor does a line with a bare `--` argument anywhere, or with the
+text `single-argument`.
 
 The check trusts the process list as text. A program already running as the user could fake a
 matching line, but such a program could start the app directly anyway.
@@ -662,6 +669,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 349 tests, all passing under Claude Code 2.1.288 on 2026-10-06. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests failed on 2026-10-06 that passed under 2.1.286. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 373 tests, all passing under Claude Code 2.1.288 on 2026-10-06. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests failed on 2026-10-06 that passed under 2.1.286. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

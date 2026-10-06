@@ -3195,6 +3195,39 @@ const SWITCH_READINGS: { name: string; commandLine: string; isRunning: boolean }
   { name: 'the folder switch after --single-argument', commandLine: `"${APP_EXE}" --single-argument --user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'a quoted type switch', commandLine: `"${APP_EXE}" "--type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
   { name: 'a type switch with one dash', commandLine: `"${APP_EXE}" -type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  // The app trims each argument of Chromium's whitespace before it looks for
+  // `--` or a switch, so padding inside the quotes hides nothing.
+  { name: 'a second folder switch quoted after a space', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} " --user-data-dir=${OTHER}"`, isRunning: false },
+  // CommandLineToArgvW splits at a space or a tab only, so the vertical tab
+  // stays in the argument, and the app trims it off.
+  { name: 'a second folder switch after a vertical tab', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} \u000b--user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch quoted after a no-break space', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} "\u00a0--user-data-dir=${OTHER}"`, isRunning: false },
+  { name: 'a -- quoted after a space', commandLine: `"${APP_EXE}" " --" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- quoted before a space', commandLine: `"${APP_EXE}" "-- " --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- quoted before an ideographic space', commandLine: `"${APP_EXE}" "--\u3000" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch quoted after a space, after the folder', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} " --type=renderer"`, isRunning: false },
+  { name: 'a type switch quoted after a space, before the folder', commandLine: `"${APP_EXE}" " --type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch after an ideographic space', commandLine: `"${APP_EXE}" \u3000--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch quoted with a space after it', commandLine: `"${APP_EXE}" "--user-data-dir=${INSTANCE} "`, isRunning: true },
+  // The app trims the whole line before it splits it. With a space in front,
+  // the program name ends at the backslash-quote, so the quoted argument after
+  // it is one argument.
+  { name: 'a space before the program name', commandLine: ` "${APP_EXE}\\" "y --user-data-dir=${INSTANCE} y"`, isRunning: false },
+  { name: 'a vertical tab before the program name', commandLine: `\u000b"x --user-data-dir=${INSTANCE} "`, isRunning: false },
+  { name: 'spaces before an ordinary line', commandLine: `  "${APP_EXE}" --user-data-dir=${INSTANCE}`, isRunning: true },
+  // An unquoted program name ends at any character up to U+0020, not only a blank.
+  { name: 'a type switch after a vertical tab ending the program name', commandLine: `${APP_EXE}\u000b--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- after a control character ending the program name', commandLine: `${APP_EXE}\u0001-- --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch after a control character ending the program name', commandLine: `${APP_EXE}\u0001--user-data-dir=${INSTANCE}`, isRunning: true },
+  // The app reads its line as a C string and never sees what follows a NUL.
+  { name: 'the folder switch after a NUL', commandLine: `"${APP_EXE}" --flag\u0000 --user-data-dir=${INSTANCE}`, isRunning: false },
+  // A tab splits arguments, so the type switch here is an argument of its own.
+  { name: 'a type switch after a tab', commandLine: `"${APP_EXE}" a\t--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder in capitals', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE.toUpperCase()}`, isRunning: true },
+  // A Kelvin sign lowercases to `k` in full Unicode, but it names another folder.
+  { name: 'the folder spelled with a Kelvin sign', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE.replace('desktop', 'des\u212atop')}`, isRunning: false },
+  // Two backslashes before a quote give one, and the quote opens quoting.
+  { name: 'the folder split by a quote after two backslashes', commandLine: `"${APP_EXE}" --user-data-dir=${HOME.replace('\\', '\\\\"')}\\.claude-desktop-3"`, isRunning: true },
 ]
 for (const { name, commandLine, isRunning } of SWITCH_READINGS) {
   test(`a command line with ${name} ${isRunning ? 'counts' : 'does not count'} as instance 3 running`, async ($, on) => {
@@ -3202,3 +3235,32 @@ for (const { name, commandLine, isRunning } of SWITCH_READINGS) {
     expect(await pressGo($, w)).toHaveLength(isRunning ? 1 : 0)
   })
 }
+
+// Windows compares folder names in any case, but a Kelvin sign is not a `k`
+// there, though full Unicode lowercasing makes it one.
+const K_HOME = 'C:\\Users\\kim'
+const K_INSTANCE = `${K_HOME}\\.claude-desktop-3`
+const K_SIGN_HOME = 'C:\\Users\\\u212aim'
+const K_EXE = `${K_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const K_SIGN_EXE = `${K_SIGN_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const K_STUB = `${K_HOME}\\AppData\\Local\\AnthropicClaude\\claude.exe`
+const kProcess = (exe: string): string => processLine(exe, `"${exe}" --user-data-dir=${K_INSTANCE}`)
+
+// pressGo counts launches of the default home's stub, so these read K_STUB.
+test('an instance running from the install folder counts, for a home folder with a k', async ($, on) => {
+  const w = desktop(on, { instance: K_INSTANCE, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([[K_STUB, `--user-data-dir=${K_INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+})
+
+test('an instance running from a folder spelled with a Kelvin sign is not from the install', async ($, on) => {
+  const w = desktop(on, { instance: K_INSTANCE, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_SIGN_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([])
+})
+
+test('a place spelled with a Kelvin sign names no instance folder here', async ($, on) => {
+  const w = desktop(on, { instance: `${K_SIGN_HOME}\\.claude-desktop-3`, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([])
+})

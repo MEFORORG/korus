@@ -580,16 +580,32 @@ async function instanceFolder($: Engine, instance: string): Promise<string | und
   const numbered = /\\\.claude-desktop-(\d{1,3})$/i.exec(instance)
   if (home === undefined || home === '' || numbered === null) return undefined
   const built = `${home}\\.claude-desktop-${numbered[1]}`
-  return built.toLowerCase() === instance.toLowerCase() ? built : undefined
+  return asciiLower(built) === asciiLower(instance) ? built : undefined
 }
+
+// Lowercases A to Z only. Full Unicode lowercasing folds some other letters
+// into ASCII, such as the Kelvin sign into `k`, and Windows keeps a folder
+// spelled with one apart from a folder spelled with the other. Chromium
+// lowercases switch names this way too.
+const asciiLower = (text: string): string => text.replace(/[A-Z]+/g, upper => upper.toLowerCase())
+
+// Strips the whitespace Chromium's TrimWhitespace strips on Windows, the set
+// kWhitespaceWide in base/strings/whitespace_constants.h. It is not what
+// String.prototype.trim strips: that keeps U+0085 and strips U+FEFF.
+const EDGE_SPACE =
+  /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g
+const trimmed = (text: string): string => text.replace(EDGE_SPACE, '')
 
 const isBlank = (ch: string | undefined): boolean => ch === ' ' || ch === '\t'
 
 // A command line split into its arguments the way CommandLineToArgvW splits
-// it, which is how the app reads its own. The program name runs to the next
-// quote or blank, with no escapes. After it, blanks outside quotes split;
-// backslashes are literal unless a quote follows them; and a run of quotes
-// inside quotes gives one literal quote for every three. Windows quotes an
+// it, which is how the app reads its own. A quoted program name runs to the
+// next quote, with no escapes. An unquoted one ends at the first character
+// from U+0001 to U+0020, not only at a blank, and that one character is
+// dropped. After the name, blanks outside quotes split, and
+// backslashes are literal unless a quote follows them. Counting the quote
+// that opened the quoting, every third quote in a run is a literal quote, and
+// a run that ends on the second closes the quoting. Windows quotes an
 // argument that holds a space, the whole argument or a part of it, so a home
 // folder with a space shows up quoted either way.
 function argsOf(commandLine: string): string[] {
@@ -600,7 +616,8 @@ function argsOf(commandLine: string): string[] {
     for (i = 1; i < n && commandLine[i] !== '"'; i += 1) program += commandLine[i]
     i += 1
   } else {
-    for (; i < n && !isBlank(commandLine[i]); i += 1) program += commandLine[i]
+    for (; i < n && commandLine[i] > ' '; i += 1) program += commandLine[i]
+    if (i < n) i += 1
   }
   const args = [program]
   while (isBlank(commandLine[i])) i += 1
@@ -650,28 +667,32 @@ function argsOf(commandLine: string): string[] {
 }
 
 // A switch as the app reads one on Windows: `--`, `-` or `/` before its name,
-// the name in any case, and its value after the first `=`.
+// the name in any case of A to Z, and its value after the first `=`.
 function switchOf(arg: string): { name: string; value: string } | undefined {
   const prefix = /^(--|-|\/)/.exec(arg)?.[0]
   if (prefix === undefined || prefix.length === arg.length) return undefined
   const equals = arg.indexOf('=')
   return equals < 0
-    ? { name: arg.slice(prefix.length).toLowerCase(), value: '' }
-    : { name: arg.slice(prefix.length, equals).toLowerCase(), value: arg.slice(equals + 1) }
+    ? { name: asciiLower(arg.slice(prefix.length)), value: '' }
+    : { name: asciiLower(arg.slice(prefix.length, equals)), value: arg.slice(equals + 1) }
 }
 
 // Whether a command line is a main process of the app (no type switch) whose
-// data folder is this one. Every data-folder switch must name it, since the
-// app could take either of two. A line that would stop the app reading
+// data folder is this one. The app trims its whole command line before it
+// splits it, then trims each argument before it looks for `--` or a switch,
+// so this does too (Chromium base/command_line.cc: ParseFromString and
+// AppendSwitchesAndArguments). The app reads its line as a C string, so it
+// stops at the first NUL. Every data-folder switch must name the folder,
+// though the app takes the last. A line that would stop the app reading
 // switches part way, with `--` or --single-argument, does not count.
 function holdsFolder(commandLine: string, dataDir: string): boolean {
   if (commandLine.toLowerCase().includes('single-argument')) return false
-  const args = argsOf(commandLine).slice(1)
+  const args = argsOf(trimmed(commandLine.split('\0', 1)[0] ?? '')).slice(1).map(trimmed)
   if (args.includes('--')) return false
   const switches = args.map(switchOf).filter(one => one !== undefined)
   if (switches.some(one => one.name === 'type')) return false
   const folders = switches.filter(one => one.name === 'user-data-dir')
-  return folders.length > 0 && folders.every(one => one.value.toLowerCase() === dataDir.toLowerCase())
+  return folders.length > 0 && folders.every(one => asciiLower(one.value) === asciiLower(dataDir))
 }
 
 // Whether an instance of the app runs with this data folder, read from the
@@ -686,11 +707,11 @@ async function isInstanceRunning($: Engine, dataDir: string, install: string): P
     timeoutMs: QUERY_TIMEOUT_MS,
   })
   if (listed.exitCode !== 0) return false
-  const prefix = `${install}\\`.toLowerCase()
+  const prefix = asciiLower(`${install}\\`)
   return listed.stdout.split(/\r?\n/).some(line => {
     const tab = line.indexOf('\t')
     if (tab < 0) return false
-    const exe = line.slice(0, tab).toLowerCase()
+    const exe = asciiLower(line.slice(0, tab))
     const commandLine = line.slice(tab + 1)
     return exe.startsWith(prefix) && holdsFolder(commandLine, dataDir)
   })
