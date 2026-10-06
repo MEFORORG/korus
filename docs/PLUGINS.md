@@ -445,7 +445,7 @@ value reaches that query.
 
 Each field prints as base64 of its UTF-16 bytes, because Windows PowerShell's plain text would turn a
 Kelvin sign into `K`. A line in another shape, a field holding U+FFFD, or a list cut at the output cap
-does not count. Constrained Language Mode prints no lines, so the button never launches.
+does not count. Under Constrained Language Mode no line prints, so the button never launches.
 
 It launches only if a line shows a `claude.exe` under the install folder, with no `type` switch, whose
 `--user-data-dir=` names that folder. A file in the folder, such as a planted `lockfile`, does not count.
@@ -459,8 +459,8 @@ and trims the front of the line, then each argument, of the same space character
 switch starts with `--`, `-` or `/`, and its name matches in any case of the letters A to Z.
 
 Where the app settles on one reading, the reader is stricter. Every `user-data-dir` switch must name
-that folder, though the app takes the last. Case is ignored for A to Z only. A longer folder, a parent,
-a switch inside another argument, a bare `--` or any `single-argument` does not count.
+that folder, though the app takes the last. Folder case is ignored for A to Z only. A longer folder, a
+parent, a switch inside another argument, a bare `--` or any `single-argument` does not count.
 
 The check trusts the process list as text. A program already running as the user could fake a
 matching line, but such a program could start the app directly anyway.
