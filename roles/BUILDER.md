@@ -1046,6 +1046,27 @@ Extras-gated suites skip at *module* scope, so a large number of absent tests co
 handful of skip lines. **Diff collected node ids (`pytest --collect-only -q`), not counts** -- a
 count cannot see this class.
 
+### 5i-bis. A lint that scans every test file sits outside the tests that cover your change
+
+Some tests are lints over the whole test tree. The engine has one for absence assertions, and it
+pins an exact count per file. **Running only the modules that cover your change misses it.** It
+then goes red on every test leg, after your process has exited.
+
+Two shapes trip it:
+
+- **You remove or rewrite an absence assertion in an existing test file.** That file drops below
+  its pinned count. The count is exact, so lower its row in the same commit.
+- **You add a test that ends on `assert not X` over a collection it just built.** The lint wants
+  an earlier top-level `assert <source>` or `assert len(<source>) >= N` in the same test. A guard
+  inside `all(...)`, a loop, a `with` block or a helper does not count.
+
+**After you add or edit any file under `tests/`, run the whole-tree lints as well as your own
+tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py`. Repair a new
+site by adding the earlier count. Do not raise the pinned number to fit it.
+
+This turned five engine pull requests red in two days. Wiki events `20261004T211146838Z-048o5q`
+and `20261005T041557542Z-9vguro`.
+
 ### 5j. Read `$LASTEXITCODE` before you read silence as a pass
 
 What is worth keeping is the habit: **a probe that prints nothing has not told you it passed.** A
