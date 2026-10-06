@@ -3309,8 +3309,9 @@ const BAD_FIELDS: { name: string; line: string }[] = [
   { name: 'URL-safe base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^.{4}/, '-_-_')}` },
   { name: 'padding left off', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/=+$/, '')}` },
   // Encoding.Unicode.GetBytes writes a lone surrogate as U+FFFD, so the
-  // reader cannot tell what the app holds there.
-  { name: 'a replacement character', line: encodedLine(processLine(APP_EXE, `"${APP_EXE}" --user-data-dir=${INSTANCE}\ufffd`)) },
+  // reader cannot tell what the app holds there. It sits in an argument of its
+  // own here, so only that refusal stops the line counting.
+  { name: 'a replacement character', line: encodedLine(processLine(APP_EXE, `"${APP_EXE}" --note=\ufffd --user-data-dir=${INSTANCE}`)) },
 ]
 for (const { name, line } of BAD_FIELDS) {
   test(`a process line with ${name} does not count`, async ($, on) => {
