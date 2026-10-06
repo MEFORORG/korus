@@ -174,8 +174,10 @@ a clean control log.
 
 1. **Given** a planted conflict, **When** lint runs, **Then** it reports the pair and changes no
    event.
-2. **Given** a lesson written by two or more seats, **When** lint runs, **Then** it drafts a pull
-   request against the right playbook for the Owner to approve or close.
+2. **Given** a lesson written by two or more seats, **When** lint runs, **Then** it lists the
+   lesson as a promotion candidate, and the playbook pull request drafted from it goes to the
+   Lander. Amended 2026-10-06 (FR-022): this ended "it drafts a pull request against the right
+   playbook for the Owner to approve or close".
 
 ---
 
@@ -268,10 +270,10 @@ between pages. It opens `wiki/` rather than `wiki/pages/` because `index.md` sit
 - **FR-020**: Lint MUST report and MUST NOT change an event.
 - **FR-021**: Lint MUST find: live conflicts, dead evidence, orphan pages, and lessons written by
   two or more seats.
-- **FR-022**: A playbook change drafted by lint MUST arrive as a pull request, and MUST NOT merge
-  without proof that code review ran on it. The Lander lands it like any other pull request.
-  Amended 2026-10-06 by Owner ruling, given to the Lander seat in session: "I always want the
-  lander to handle all three repos." This read "and MUST NOT merge without the Owner".
+- **FR-022**: A playbook change drafted from a lint promotion candidate MUST arrive as a pull
+  request, and MUST NOT merge until code review has run on it. The Lander lands it. Amended
+  2026-10-06 by Owner ruling, quoted in `roles/WIKI.md`. It read "A playbook change drafted by
+  lint MUST arrive as a pull request, and MUST NOT merge without the Owner."
 - **FR-028**: Compile MUST hold back each pending event that the record repository's own leak
   scanner flags, or that carries an email address. Added 2026-09-24.
 

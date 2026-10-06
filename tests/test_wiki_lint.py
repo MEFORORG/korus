@@ -183,7 +183,7 @@ class OneOfEachClass(_LintCase):
         for c in CLASSES:
             self.assertIn(f"| {c} | 1 |", out)
         self.assertIn("DRAFT, and the Lander lands it once code review has run on it", out)
-        self.assertNotIn("only the Owner decides", out)
+        self.assertNotIn("owner decides", out.lower())
 
 
 class LintChangesNothing(_LintCase):

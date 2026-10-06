@@ -225,8 +225,8 @@ The old slugs still redirect.
 | --- | --- |
 | Open, non-draft, mergeable | **Yes.** This is the number the goal is about. |
 | Open and red | **Yes.** Triage it or route it. A red nobody has read is not drained. |
-| Draft | No. Name it, do not chase it. |
-| Wiki-promotion draft (`wiki promotion:` title, `wiki-promotion/` branch, korus) | **Yes. It is yours to land.** Owner ruling 2026-10-06: *"I always want the lander to handle all three repos."* Get review proof first; [WIKI.md](WIKI.md) says how. |
+| Wiki-promotion draft (korus, title starts `wiki promotion:`) | **Yes. It is yours to land.** Mark it ready once *4a-quinquies* is met, then merge. Owner ruling 2026-10-06, quoted in [WIKI.md](WIKI.md). |
+| Any other draft | No. Name it, do not chase it. |
 | Blocked on an Owner ruling | No. Name it in the blockers table, section 18. |
 
 **Zero is the state the loop exists to catch, not a reason to stop.** *Keep a standing `/loop`
