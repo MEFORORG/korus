@@ -39,6 +39,7 @@ const BAND_PROPS = {
 type World = {
   files: Map<string, { text: string; mtimeMs: number }>
   runs: { argv: readonly string[]; cwd: string | undefined }[]
+  timeouts: (number | undefined)[]
   copies: string[]
   opens: string[]
   tools: string[]
@@ -54,6 +55,10 @@ type WorldOptions = {
   stdout?: string
   exitCode?: number
   hang?: boolean
+  /** Output for one command by its argv; undefined falls back to `stdout`. */
+  stdoutFor?: (argv: readonly string[]) => string | undefined
+  /** Awaited after a run is recorded, before it returns: holds a run in flight. */
+  gate?: (argv: readonly string[]) => Promise<void> | undefined
   /** A machine that is not Windows: HOME only, no ProgramFiles, `/` paths. */
   unix?: boolean
 }
@@ -67,6 +72,7 @@ const UNIX_CWD = '/work/repo'
 function world(on: On, opts: WorldOptions = {}): World {
   const files = new Map<string, { text: string; mtimeMs: number }>()
   const runs: World['runs'] = []
+  const timeouts: World['timeouts'] = []
   const copies: string[] = []
   const opens: string[] = []
   const tools: string[] = []
@@ -130,17 +136,19 @@ function world(on: On, opts: WorldOptions = {}): World {
   on('process.run', async ($, e) => {
     if (opts.hang === true) await new Promise(() => undefined)
     runs.push({ argv: e.argv, cwd: e.init?.cwd })
+    timeouts.push(e.init?.timeoutMs)
+    await opts.gate?.(e.argv)
     return {
       value: {
         exitCode: opts.exitCode ?? 0,
-        stdout: opts.stdout ?? 'switched fine\n',
+        stdout: opts.stdoutFor?.(e.argv) ?? opts.stdout ?? 'switched fine\n',
         stderr: '',
         isStdoutTruncated: false,
         isStderrTruncated: false,
       },
     }
   })
-  return { files, runs, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance }
+  return { files, runs, timeouts, copies, opens, tools, statusCalls, settle: clock.settle, advance: clock.advance }
 }
 
 // ------------------------------------------------------------- refusal texts
@@ -1567,12 +1575,12 @@ async function remoteFrom($: Kit, on: On, fields: Record<string, unknown>): Prom
 for (const surface of SURFACES) {
   test(`another session's card names it by its title, not its folder and id, on ${surface}`, async ($, on) => {
     const w = world(on)
-    w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Manager: #2861 separators', entries: [REMOTE_SIGNAL] }) })
+    w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Manager: batch 7 parser', entries: [REMOTE_SIGNAL] }) })
     await $.session.start({ cwd: CWD, surface, isInteractive: true })
     await w.settle()
     const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PLUGIN, props: PANE_PROPS })
     const from = await textOf(ui, /^From: another session/)
-    expect(from).toContain('another session (Manager: #2861 separators)')
+    expect(from).toContain('another session (Manager: batch 7 parser)')
     expect(from).not.toContain('other-worktree')
     expect(from).not.toContain('sess-oth')
     await ui.unmount()
@@ -1640,13 +1648,13 @@ test('the title a prompt hands over is published, and a later one replaces it', 
   await $.classic.UserPromptSubmit({ prompt: 'go', session_title: 'Watchdog' })
   await w.settle()
   expect(ownTitle(w)).toBe('Watchdog')
-  await $.classic.UserPromptSubmit({ prompt: 'go on', session_title: 'Manager: #2861 separators' })
+  await $.classic.UserPromptSubmit({ prompt: 'go on', session_title: 'Manager: batch 7 parser' })
   await w.settle()
-  expect(ownTitle(w)).toBe('Manager: #2861 separators')
+  expect(ownTitle(w)).toBe('Manager: batch 7 parser')
   // A prompt with no title keeps the one held.
   await $.classic.UserPromptSubmit({ prompt: 'again' })
   await w.settle()
-  expect(ownTitle(w)).toBe('Manager: #2861 separators')
+  expect(ownTitle(w)).toBe('Manager: batch 7 parser')
 })
 
 test('the title session start hands over is published', async ($, on) => {
@@ -2764,5 +2772,255 @@ test('a remote card with room to spare draws its Details when opened', async ($,
   expect(await ui.find({ type: 'Text', text: 'Full command:' })).toBeDefined()
   expect(await textOf(ui, /^Details do not fit/)).toBeUndefined()
   expect(await textOf(ui, /more waiting/)).toBeUndefined()
+  await ui.unmount()
+})
+
+// ------------------------------------------------------ go to the session
+
+// Every id here is made up. None is a real account, organization or session.
+const LOCAL = `${HOME}\\AppData\\Local`
+const ROAMING = `${HOME}\\AppData\\Roaming`
+const INSTALL = `${LOCAL}\\AnthropicClaude`
+const STUB = `${INSTALL}\\claude.exe`
+const APP_EXE = `${INSTALL}\\app-9.9.9\\claude.exe`
+const SYSTEM_ROOT = 'C:\\Windows'
+const PS = `${SYSTEM_ROOT}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+const INSTANCE = `${HOME}\\.claude-desktop-3`
+const APP_SID = 'local_11111111-2222-4333-8444-555555555555'
+const GO = 'rgo:sess-other-2:e3'
+const ACCOUNT = '00000000-1111-4222-8333-444444444444'
+const ORG = '99999999-8888-4777-8666-555555555555'
+const MY_SID = 'local_aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+const MY_INSTANCE = `${HOME}\\.claude-desktop-2`
+const MY_ENV = {
+  CLAUDE_CODE_HOST_SESSION_ID: MY_SID,
+  CLAUDE_CODE_EXECPATH: `${MY_INSTANCE}\\claude-code\\9.9.9\\0123456789ab\\claude.exe`,
+  CLAUDE_CODE_ACCOUNT_UUID: ACCOUNT,
+  CLAUDE_CODE_ORGANIZATION_UUID: ORG,
+}
+const MY_RECORD = `${MY_INSTANCE}\\claude-code-sessions\\${ACCOUNT}\\${ORG}\\${MY_SID}.json`
+const RECORD_TEXT = JSON.stringify({ sessionId: MY_SID, cliSessionId: ME })
+
+// One process-list line, as the query prints it: executable, tab, command line.
+function processLine(exe: string, commandLine: string): string {
+  return `${exe}\t${commandLine}`
+}
+function mainProcess(folder: string): string {
+  return processLine(APP_EXE, `"${APP_EXE}" --user-data-dir="${folder}" `)
+}
+
+type DesktopOptions = { fields?: Record<string, unknown>; processes?: readonly string[]; gate?: WorldOptions['gate'] }
+
+// A desktop machine with the app's launcher installed, a process list holding
+// `processes` (by default a running instance 3), and another session's file
+// naming `place`.
+function desktop(on: On, place: unknown, options: DesktopOptions = {}): World {
+  const processes = options.processes ?? [mainProcess(INSTANCE)]
+  const w = world(on, {
+    env: { LOCALAPPDATA: LOCAL, APPDATA: ROAMING, SystemRoot: SYSTEM_ROOT },
+    stdoutFor: argv => (argv[0] === PS ? `${processes.join('\r\n')}\r\n` : undefined),
+    gate: options.gate,
+  })
+  w.files.set(STUB, { text: '', mtimeMs: 0 })
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...options.fields }) })
+  return w
+}
+
+function launches(w: World): (readonly string[])[] {
+  return w.runs.filter(run => run.argv[0] === STUB).map(run => run.argv)
+}
+
+async function paneWithGo($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Kit['ui']['mount']>>; found: Found | undefined }> {
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await w.settle()
+  const ui = await $.ui.mount(MOUNT)
+  return { ui, found: await ui.find({ type: 'Button', key: GO }) }
+}
+
+async function pressGo($: Kit, w: World): Promise<(readonly string[])[]> {
+  const { ui } = await paneWithGo($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  await ui.unmount()
+  return launches(w)
+}
+
+function placeWritten(w: World): unknown {
+  return (JSON.parse(w.files.get(MY_FILE)?.text ?? '{}') as { place?: unknown }).place
+}
+
+async function publishWith($: Kit, on: On, env: Record<string, string>, record?: string): Promise<World> {
+  const w = world(on, { env })
+  if (record !== undefined) w.files.set(MY_RECORD, { text: record, mtimeMs: 0 })
+  refuseQuoting(on)
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: 'PowerShell', command: SWITCH_PART })
+  await w.settle()
+  return w
+}
+
+// ---- the writer
+
+test("a desktop session publishes where the app shows it, once the app's record names it", async ($, on) => {
+  const w = await publishWith($, on, MY_ENV, RECORD_TEXT)
+  expect(placeWritten(w)).toEqual({ instance: MY_INSTANCE, id: MY_SID })
+})
+
+test("a process that inherited another session's app environment publishes no place", async ($, on) => {
+  const w = await publishWith($, on, MY_ENV, JSON.stringify({ sessionId: MY_SID, cliSessionId: 'the-parent-session' }))
+  expect(placeWritten(w)).toBeUndefined()
+})
+
+test('a session outside the desktop app publishes no place', async ($, on) => {
+  const w = await publishWith($, on, {})
+  expect(placeWritten(w)).toBeUndefined()
+})
+
+test('a session whose app record is written after it starts publishes its place within a few polls', async ($, on) => {
+  const w = await publishWith($, on, MY_ENV)
+  expect(placeWritten(w)).toBeUndefined()
+  w.files.set(MY_RECORD, { text: RECORD_TEXT, mtimeMs: 0 })
+  await w.advance(6000)
+  expect(placeWritten(w)).toEqual({ instance: MY_INSTANCE, id: MY_SID })
+})
+
+test('an ended file names no place', async ($, on) => {
+  const w = await publishWith($, on, MY_ENV, RECORD_TEXT)
+  expect(placeWritten(w)).toEqual({ instance: MY_INSTANCE, id: MY_SID })
+  await $.session.end({ reason: 'clear', sessionId: ME } as never)
+  await w.settle()
+  expect(placeWritten(w)).toBeUndefined()
+})
+
+// ---- the button
+
+test('Go to session reads the process list, then hands the link to the running instance through the launcher', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  const { ui, found } = await paneWithGo($, w)
+  expect(found?.text).toBe('Go to session')
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs.map(run => run.argv[0])).toEqual([PS, STUB])
+  expect(w.runs[0]?.argv.slice(1, 4)).toEqual(['-NoProfile', '-NonInteractive', '-Command'])
+  expect(w.runs[0]?.argv.join(' ')).not.toContain(INSTANCE)
+  expect(launches(w)).toEqual([[STUB, `--user-data-dir=${INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+  expect(w.timeouts).toEqual([15_000, 20_000])
+  await ui.unmount()
+})
+
+test("the folder launched is this machine's own spelling, never the file's", async ($, on) => {
+  const w = desktop(on, { instance: `${HOME}\\.CLAUDE-DESKTOP-3`, id: APP_SID })
+  expect((await pressGo($, w)).map(argv => argv[1])).toEqual([`--user-data-dir=${INSTANCE}`])
+})
+
+test('a running instance is recognised with or without quotes around its folder', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, `${APP_EXE} --user-data-dir=${INSTANCE}`)] })
+  expect(await pressGo($, w)).toHaveLength(1)
+})
+
+test('a session whose file has gone quiet offers no Go to session', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { fields: { updatedAt: NOW - 13 * 60 * 1000 } })
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a file that was fresh when read stops offering Go to session once it goes quiet', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeDefined()
+  await w.advance(13 * 60 * 1000)
+  expect(await ui.find({ type: 'Button', key: GO })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a file dated more than five minutes ahead offers no Go to session; one a little ahead does', async ($, on) => {
+  const far = desktop(on, { instance: INSTANCE, id: APP_SID }, { fields: { updatedAt: NOW + 10 * 60 * 1000 } })
+  const { ui, found } = await paneWithGo($, far)
+  expect(found).toBeUndefined()
+  far.files.set(OTHER_FILE, {
+    mtimeMs: NOW + 1,
+    text: otherFile({ title: 'Watchdog', place: { instance: INSTANCE, id: APP_SID }, updatedAt: NOW + 2 * 60 * 1000, entries: [REMOTE_SIGNAL] }),
+  })
+  await far.advance(6000)
+  expect(await ui.find({ type: 'Button', key: GO })).toBeDefined()
+  await ui.unmount()
+})
+
+const BAD_PLACES: { name: string; place: unknown }[] = [
+  { name: 'a quote in the folder', place: { instance: `${HOME}\\x" --inspect\\.claude-desktop-3`, id: APP_SID } },
+  { name: 'a control character in the folder', place: { instance: `${HOME}\\x\n\\.claude-desktop-3`, id: APP_SID } },
+  { name: 'a trailing dot', place: { instance: `${INSTANCE}.`, id: APP_SID } },
+  { name: 'a trailing space', place: { instance: `${INSTANCE} `, id: APP_SID } },
+  { name: 'a folder that is no instance folder', place: { instance: `${HOME}\\Documents`, id: APP_SID } },
+  { name: 'the default instance, whose hand-off is not measured', place: { instance: `${ROAMING}\\Claude`, id: APP_SID } },
+  { name: 'an id that is not an app id', place: { instance: INSTANCE, id: 'local_x?y=1' } },
+  { name: 'an id with something after it', place: { instance: INSTANCE, id: `${APP_SID} --flag` } },
+  { name: 'a place that is not an object', place: `${INSTANCE}|${APP_SID}` },
+]
+for (const { name, place } of BAD_PLACES) {
+  test(`a place with ${name} offers no Go to session`, async ($, on) => {
+    const w = desktop(on, place)
+    const { ui, found } = await paneWithGo($, w)
+    expect(found).toBeUndefined()
+    await ui.unmount()
+  })
+}
+
+const REFUSED_ON_PRESS: { name: string; instance: string; processes?: readonly string[] }[] = [
+  { name: "another user's home", instance: 'C:\\Users\\tester2\\.claude-desktop-3' },
+  { name: 'another drive', instance: 'D:\\profiles\\.claude-desktop-3' },
+  { name: 'a folder nested below the home', instance: `${HOME}\\Code\\p\\.claude-desktop-3` },
+  { name: 'an instance no process holds', instance: INSTANCE, processes: [] },
+  { name: 'an instance only a renderer names', instance: INSTANCE, processes: [processLine(APP_EXE, `"${APP_EXE}" --type=renderer --user-data-dir="${INSTANCE}"`)] },
+  { name: 'an instance held by a program outside the install', instance: INSTANCE, processes: [mainProcess(INSTANCE).replace(APP_EXE, `${HOME}\\Downloads\\claude.exe`)] },
+  { name: 'a different instance that is running', instance: `${HOME}\\.claude-desktop-4` },
+]
+for (const { name, instance, processes } of REFUSED_ON_PRESS) {
+  test(`a place naming ${name} is refused when pressed, and nothing is launched`, async ($, on) => {
+    const w = desktop(on, { instance, id: APP_SID }, { processes: processes ?? [mainProcess(name === 'a different instance that is running' ? INSTANCE : instance)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+test('a lockfile planted in an instance folder does not count as that instance running', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [] })
+  w.files.set(`${INSTANCE}\\lockfile`, { text: '', mtimeMs: 0 })
+  expect(await pressGo($, w)).toEqual([])
+})
+
+test('without the launcher installed, nothing is launched', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  w.files.delete(STUB)
+  expect(await pressGo($, w)).toEqual([])
+})
+
+test('a second press while the first launch is in flight launches nothing more', async ($, on) => {
+  let release: () => void = () => undefined
+  const held = new Promise<void>(resolve => {
+    release = resolve
+  })
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { gate: argv => (argv[0] === STUB ? held : undefined) })
+  const { ui } = await paneWithGo($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  await ui.press({ key: GO })
+  await w.settle()
+  release()
+  await w.settle()
+  expect(launches(w)).toHaveLength(1)
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(launches(w)).toHaveLength(2)
+  await ui.unmount()
+})
+
+test('outside the desktop app, pressing Go to session runs nothing', async ($, on) => {
+  const w = world(on)
+  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ place: { instance: INSTANCE, id: APP_SID }, entries: [REMOTE_SIGNAL] }) })
+  const { ui } = await paneWithGo($, w)
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
   await ui.unmount()
 })
