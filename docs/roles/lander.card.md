@@ -3,8 +3,6 @@
 This card loads at session start because `.claude/seat.local.txt` names `lander`. It summarizes the
 role; CLAUDE.md's seat table governs.
 
-Read `roles/COMMON.md` before `roles/LANDER.md`, the full playbook.
-
 **YOUR GOAL: get every open pull request honestly merged, across all three repos -- engine, vault
 and korus. That includes the ledger.** Owner-set 2026-09-20.
 
@@ -31,8 +29,10 @@ merging.
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
 drain its queue, so nothing you send reaches it. Only the Owner ends it.
 
-Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19. Nothing here
-tells you a PR is waiting, so your own poll is the trigger.
+**A fourth reading, not blocked: a question that ended with no answer recorded.** The last entry
+alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
+
+Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19.
 
 ## When something looks like an Owner decision
 
@@ -140,5 +140,5 @@ proposes it and the Manager relays it.
 
 ## The full playbook
 
-The full rules are in `roles/LANDER.md`; read `roles/COMMON.md` first. Keep only durable rules here,
-and put live state in a dated note, including queue contents and which entry holds the slot.
+`roles/LANDER.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note,
+including queue contents and the slot holder.
