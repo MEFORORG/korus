@@ -412,23 +412,29 @@ a different root. The send reports success either way.
 Expiry is silent at both ends. Before a longer dark, commit what you need read.
 
 **The caps belong to the drain, not to the sender.** Whoever writes a file into an inbox never runs
-`mail.ps1`, so the sender reports the bounds and enforces none of them.
+`mail.ps1`, so this repository's sender reports the bounds and enforces none of them. The engine's
+sender refuses two of them; see below.
 
 | Bound | Value | What happens past it |
 | --- | --- | --- |
-| Rendered body | 2000 bytes | The drain truncates at render. The send still reports success. |
+| Rendered body | 2000 bytes | The drain truncates at render. This repository's sender still reports success. |
 | Line | 240 characters | Cut, and counted as truncation. |
 | Messages per injection | 5 | The rest wait for the next drain. |
 
 So long content goes in a file, and you mail the path.
 
-**The engine repository's sender does enforce them, and a long line queues nothing.** Its
-`mail.ps1 -Send` throws on a body line over 240 characters and writes no message. Behind a
-redirect or an output filter, the refusal prints nothing.
+**The engine repository's `mail.ps1 -Send` refuses two of these bounds and queues nothing.** It
+throws on a body over 2000 characters and on any body line over 240 characters. The throw goes to
+stderr, so `2>$null`, `*>` or `2>&1 | <filter>` hides it.
 
-Wrap body lines under 240 characters, or mail a file path. Confirm by the `Queued` line or the
-exit code. Wiki key `coord/mail/line-cap`, events `20260927T011745812Z-6ju7lz`,
-`20260928T204609668Z-qgszhy`, `20261001T175125944Z-3q4h79`.
+Break long lines with real newlines, or mail a file path. A send worked only when it prints
+`Queued N message(s)` with N at least 1 and no `FAILED to queue` line. `Queued 0` prints when
+nothing was written.
+
+| Evidence | Source |
+| --- | --- |
+| The engine's caps and output lines | `scripts/coord/mail.ps1`, read at engine `origin/main` `0f9f2fbe7` |
+| Three seats wrote this lesson | Wiki key `coord/mail/line-cap`, events `20260927T011745812Z-6ju7lz`, `20260928T204609668Z-qgszhy`, `20261001T175125944Z-3q4h79` |
 
 **Nothing sensitive goes in a body.** Delivery copies it into the recipient's transcript, and every
 `from` field is an unverified self-assertion.
