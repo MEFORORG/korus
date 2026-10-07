@@ -54,9 +54,13 @@ type WorldOptions = {
   cwdFails?: boolean
   stdout?: string
   exitCode?: number
+  /** Exit code for one command by its argv; undefined falls back to `exitCode`. */
+  exitCodeFor?: (argv: readonly string[]) => number | undefined
   hang?: boolean
   /** Output for one command by its argv; undefined falls back to `stdout`. */
   stdoutFor?: (argv: readonly string[]) => string | undefined
+  /** Whether one command's output was cut at the cap, by its argv. */
+  isTruncatedFor?: (argv: readonly string[]) => boolean
   /** Awaited after a run is recorded, before it returns: holds a run in flight. */
   gate?: (argv: readonly string[]) => Promise<void> | undefined
   /** A machine that is not Windows: HOME only, no ProgramFiles, `/` paths. */
@@ -140,10 +144,10 @@ function world(on: On, opts: WorldOptions = {}): World {
     await opts.gate?.(e.argv)
     return {
       value: {
-        exitCode: opts.exitCode ?? 0,
+        exitCode: opts.exitCodeFor?.(e.argv) ?? opts.exitCode ?? 0,
         stdout: opts.stdoutFor?.(e.argv) ?? opts.stdout ?? 'switched fine\n',
         stderr: '',
-        isStdoutTruncated: false,
+        isStdoutTruncated: opts.isTruncatedFor?.(e.argv) ?? false,
         isStderrTruncated: false,
       },
     }
@@ -2809,25 +2813,61 @@ function mainProcess(folder: string): string {
   return processLine(APP_EXE, `"${APP_EXE}" --user-data-dir="${folder}" `)
 }
 
-type DesktopOptions = { fields?: Record<string, unknown>; processes?: readonly string[]; gate?: WorldOptions['gate'] }
+type DesktopOptions = {
+  fields?: Record<string, unknown>
+  processes?: readonly string[]
+  gate?: WorldOptions['gate']
+  /** The user's home folder; the app's install and the inbox folder follow it. */
+  home?: string
+  /** A query that exits with this code, still printing the process list. */
+  queryExitCode?: number
+  /** A machine whose environment has no SystemRoot. */
+  isSystemRootUnset?: boolean
+  /** A query that prints each process line as plain text, not base64. */
+  isPlainList?: boolean
+  /** A query whose output was cut at the cap. */
+  isListTruncated?: boolean
+}
+
+// The query prints each field as the base64 of its UTF-16LE bytes.
+function utf16Bytes(text: string): string {
+  let bytes = ''
+  for (let i = 0; i < text.length; i += 1) bytes += String.fromCharCode(text.charCodeAt(i) & 255, text.charCodeAt(i) >> 8)
+  return bytes
+}
+const utf16Base64 = (text: string): string => btoa(utf16Bytes(text))
+function encodedLine(line: string): string {
+  const tab = line.indexOf('\t')
+  return tab < 0 ? line : `${utf16Base64(line.slice(0, tab))}\t${utf16Base64(line.slice(tab + 1))}`
+}
 
 // A desktop machine with the app's launcher installed, a process list holding
 // `processes` (by default a running instance 3), and another session's file
 // naming `place`.
 function desktop(on: On, place: unknown, options: DesktopOptions = {}): World {
+  const home = options.home ?? HOME
+  const local = `${home}\\AppData\\Local`
   const processes = options.processes ?? [mainProcess(INSTANCE)]
+  const env: Record<string, string> = { USERPROFILE: home, LOCALAPPDATA: local, APPDATA: `${home}\\AppData\\Roaming` }
+  if (options.isSystemRootUnset !== true) env.SystemRoot = SYSTEM_ROOT
   const w = world(on, {
-    env: { LOCALAPPDATA: LOCAL, APPDATA: ROAMING, SystemRoot: SYSTEM_ROOT },
-    stdoutFor: argv => (argv[0] === PS ? `${processes.join('\r\n')}\r\n` : undefined),
+    env,
+    stdoutFor: argv =>
+      argv[0] === PS ? `${processes.map(line => (options.isPlainList === true ? line : encodedLine(line))).join('\r\n')}\r\n` : undefined,
+    exitCodeFor: argv => (argv[0] === PS ? options.queryExitCode : undefined),
+    isTruncatedFor: argv => argv[0] === PS && options.isListTruncated === true,
     gate: options.gate,
   })
-  w.files.set(STUB, { text: '', mtimeMs: 0 })
-  w.files.set(OTHER_FILE, { mtimeMs: NOW - 1000, text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...options.fields }) })
+  w.files.set(`${local}\\AnthropicClaude\\claude.exe`, { text: '', mtimeMs: 0 })
+  w.files.set(`${home}\\.korus-inbox\\sess-other-2.json`, {
+    mtimeMs: NOW - 1000,
+    text: otherFile({ title: 'Watchdog', place, entries: [REMOTE_SIGNAL], ...options.fields }),
+  })
   return w
 }
 
-function launches(w: World): (readonly string[])[] {
-  return w.runs.filter(run => run.argv[0] === STUB).map(run => run.argv)
+function launches(w: World, stub = STUB): (readonly string[])[] {
+  return w.runs.filter(run => run.argv[0] === stub).map(run => run.argv)
 }
 
 async function paneWithGo($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Kit['ui']['mount']>>; found: Found | undefined }> {
@@ -2838,7 +2878,8 @@ async function paneWithGo($: Kit, w: World): Promise<{ ui: Awaited<ReturnType<Ki
 }
 
 async function pressGo($: Kit, w: World): Promise<(readonly string[])[]> {
-  const { ui } = await paneWithGo($, w)
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeDefined()
   await ui.press({ key: GO })
   await w.settle()
   await ui.unmount()
@@ -2967,10 +3008,24 @@ for (const { name, place } of BAD_PLACES) {
   })
 }
 
-const REFUSED_ON_PRESS: { name: string; instance: string; processes?: readonly string[] }[] = [
+// Each names instance 3 in a folder that is not this home. The process list
+// holds both that folder and this home's instance 3, so only the check that
+// the file's folder is this machine's own folder stands between the press and
+// a launch; it refuses before the process list is even read.
+const FOREIGN_FOLDERS: { name: string; instance: string }[] = [
   { name: "another user's home", instance: 'C:\\Users\\tester2\\.claude-desktop-3' },
   { name: 'another drive', instance: 'D:\\profiles\\.claude-desktop-3' },
   { name: 'a folder nested below the home', instance: `${HOME}\\Code\\p\\.claude-desktop-3` },
+]
+for (const { name, instance } of FOREIGN_FOLDERS) {
+  test(`a place naming ${name} is refused when pressed, even with this home's instance running`, async ($, on) => {
+    const w = desktop(on, { instance, id: APP_SID }, { processes: [mainProcess(instance), mainProcess(INSTANCE)] })
+    await pressGo($, w)
+    expect(w.runs).toEqual([])
+  })
+}
+
+const REFUSED_ON_PRESS: { name: string; instance: string; processes?: readonly string[] }[] = [
   { name: 'an instance no process holds', instance: INSTANCE, processes: [] },
   { name: 'an instance only a renderer names', instance: INSTANCE, processes: [processLine(APP_EXE, `"${APP_EXE}" --type=renderer --user-data-dir="${INSTANCE}"`)] },
   { name: 'an instance held by a program outside the install', instance: INSTANCE, processes: [mainProcess(INSTANCE).replace(APP_EXE, `${HOME}\\Downloads\\claude.exe`)] },
@@ -3023,4 +3078,267 @@ test('outside the desktop app, pressing Go to session runs nothing', async ($, o
   await w.settle()
   expect(w.runs).toEqual([])
   await ui.unmount()
+})
+
+// ---- the guards at the press
+
+test('a process list query that fails does not count as the instance running, whatever it printed', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { queryExitCode: 1 })
+  expect(await pressGo($, w)).toEqual([])
+  expect(w.runs.map(run => run.argv[0])).toEqual([PS])
+})
+
+// Each line holds a main process of the app whose folder only resembles
+// instance 3's: the folder must equal it, not start with it, end it or hold it.
+const NEAR_FOLDERS: { name: string; folder: string }[] = [
+  { name: 'a longer number', folder: `${INSTANCE}4` },
+  { name: 'a folder inside it', folder: `${INSTANCE}\\x` },
+  { name: 'the home it sits in', folder: HOME },
+  { name: 'a longer path that ends with it', folder: `D:\\copy\\${INSTANCE}` },
+]
+for (const { name, folder } of NEAR_FOLDERS) {
+  test(`a running instance whose folder is ${name} does not count as instance 3 running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [mainProcess(folder)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+// The app counts only from its install folder, %LOCALAPPDATA%\AnthropicClaude:
+// a folder beside it whose name starts the same is somewhere else.
+const OUTSIDE_INSTALL: { name: string; exe: string }[] = [
+  { name: 'a sibling folder sharing its name as a prefix', exe: `${LOCAL}\\AnthropicClaudeBeta\\app-9.9.9\\claude.exe` },
+  { name: 'the folder that holds the install', exe: `${LOCAL}\\claude.exe` },
+]
+for (const { name, exe } of OUTSIDE_INSTALL) {
+  test(`a claude.exe in ${name} does not count as the app running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [mainProcess(INSTANCE).replace(APP_EXE, exe)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+test('with SystemRoot unset, a press runs nothing at all, not even a powershell found by PATH', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isSystemRootUnset: true })
+  await pressGo($, w)
+  expect(w.runs).toEqual([])
+})
+
+test('a button drawn while its session was alive launches nothing when pressed after it went quiet', async ($, on) => {
+  // The file's session goes quiet two seconds after the pane is drawn, and
+  // the next poll, which would redraw the pane, is five seconds away (POLL_MS).
+  // So the button is still drawn when it is pressed three seconds later; the
+  // find below fails loudly if a shorter poll ever redraws it first.
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { fields: { updatedAt: NOW - 12 * 60 * 1000 + 2000 } })
+  const { ui, found } = await paneWithGo($, w)
+  expect(found).toBeDefined()
+  await w.advance(3000)
+  expect(await ui.find({ type: 'Button', key: GO })).toBeDefined()
+  await ui.press({ key: GO })
+  await w.settle()
+  expect(w.runs).toEqual([])
+  await ui.unmount()
+})
+
+test('a held place whose id lost its shape after the file was read is refused at the press, and nothing runs', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID })
+  // The reader checks the shape when it reads the file. Here every read of
+  // the held entries returns a bad id instead. The pane draws the button
+  // without checking the id, so only the check at the press can refuse it.
+  on('state.get', async ($$: unknown, e: { key?: unknown }, next: (e: unknown) => unknown) => {
+    const got = await next(e)
+    if (e.key !== 'remoteHeld') return got
+    const copy = JSON.parse(JSON.stringify(got)) as { value?: { value?: { entries?: { place?: { id: string } }[] } } }
+    for (const entry of copy.value?.value?.entries ?? []) if (entry.place !== undefined) entry.place.id = `${APP_SID} --inspect`
+    return copy
+  })
+  expect(await pressGo($, w)).toEqual([])
+  expect(w.runs).toEqual([])
+})
+
+// ---- a home folder with a space in it
+
+// Windows quotes an argument that holds a space, either the whole argument or
+// only the folder, and the process list shows the quotes.
+const SPACE_HOME = 'C:\\Users\\Ann Lee'
+const SPACE_INSTANCE = `${SPACE_HOME}\\.claude-desktop-3`
+const SPACE_STUB = `${SPACE_HOME}\\AppData\\Local\\AnthropicClaude\\claude.exe`
+const SPACE_APP_EXE = `${SPACE_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const SPACE_QUOTINGS: { name: string; commandLine: string }[] = [
+  { name: 'the whole argument quoted', commandLine: `"${SPACE_APP_EXE}" "--user-data-dir=${SPACE_INSTANCE}" --flag` },
+  { name: 'only the folder quoted', commandLine: `"${SPACE_APP_EXE}" --user-data-dir="${SPACE_INSTANCE}" --flag` },
+]
+for (const { name, commandLine } of SPACE_QUOTINGS) {
+  test(`a home folder with a space gets a working Go to session, with ${name}`, async ($, on) => {
+    const w = desktop(on, { instance: SPACE_INSTANCE, id: APP_SID }, { home: SPACE_HOME, processes: [processLine(SPACE_APP_EXE, commandLine)] })
+    await pressGo($, w)
+    expect(launches(w, SPACE_STUB)).toEqual([[SPACE_STUB, `--user-data-dir=${SPACE_INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+  })
+}
+
+// The switch counts only as a whole argument of its own, split the way
+// CommandLineToArgvW splits it. Each expected split below was read from that
+// function on Windows 11 on 2026-10-06, so a reader splitting any other way
+// would count a switch the app never sees.
+const SWITCH_NOT_WHOLE: { name: string; commandLine: string }[] = [
+  { name: 'the tail of a longer switch', commandLine: `"${APP_EXE}" --x--user-data-dir=${INSTANCE}` },
+  { name: 'inside another quoted argument', commandLine: `"${APP_EXE}" "--note=see --user-data-dir=${INSTANCE} here"` },
+  { name: 'the folder and more in one quoted value', commandLine: `"${APP_EXE}" --user-data-dir="${INSTANCE} x"` },
+  // A backslash before a quote makes it a plain quote, so the quoting goes on.
+  { name: 'inside an argument with an escaped quote', commandLine: `"${APP_EXE}" "--note=a\\" --user-data-dir=${INSTANCE} b"` },
+  // Three quotes inside quotes give one quote, which stays in the argument.
+  { name: 'a folder followed by a doubled quote', commandLine: `"${APP_EXE}" "--user-data-dir=${INSTANCE}"""` },
+  // Windows splits this as `x"` then `y --user-data-dir=...`: two quotes inside
+  // quotes give one quote and end the quoting.
+  { name: 'the tail of an argument after a doubled quote', commandLine: `"${APP_EXE}" "x"" y" --user-data-dir=${INSTANCE}` },
+  // The program name ends at the next quote, with no escapes, so the quoted
+  // argument after it is one argument.
+  { name: 'inside the argument after a program name ending in a backslash', commandLine: `"${APP_EXE}\\" "x --user-data-dir=${INSTANCE} x"` },
+]
+for (const { name, commandLine } of SWITCH_NOT_WHOLE) {
+  test(`a --user-data-dir= found as ${name} does not count`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, commandLine)] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+// The app reads a switch with `--`, `-` or `/` before it, in any case, and
+// could take either of two data folders. So every data-folder switch must
+// name the folder, and a line that stops the app reading switches part way
+// does not count.
+const OTHER = `${HOME}\\.claude-desktop-4`
+const SWITCH_READINGS: { name: string; commandLine: string; isRunning: boolean }[] = [
+  { name: 'the folder switch in capitals', commandLine: `"${APP_EXE}" --USER-DATA-DIR=${INSTANCE}`, isRunning: true },
+  { name: 'a second folder switch after it', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} --user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch before it', commandLine: `"${APP_EXE}" --user-data-dir=${OTHER} --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a second folder switch with one dash', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} -user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch with a slash', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} /User-Data-Dir=${OTHER}`, isRunning: false },
+  { name: 'the folder switch after a bare --', commandLine: `"${APP_EXE}" -- --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch after --single-argument', commandLine: `"${APP_EXE}" --single-argument --user-data-dir=${INSTANCE}`, isRunning: false },
+  // Quotes split the raw text, and the app reads the switch name after it
+  // removes them.
+  { name: 'the folder switch after --single-argument split by quotes', commandLine: `"${APP_EXE}" --single-argume""nt --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a quoted type switch', commandLine: `"${APP_EXE}" "--type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch with one dash', commandLine: `"${APP_EXE}" -type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  // The app trims each argument of Chromium's whitespace before it looks for
+  // `--` or a switch, so padding inside the quotes hides nothing.
+  { name: 'a second folder switch quoted after a space', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} " --user-data-dir=${OTHER}"`, isRunning: false },
+  // CommandLineToArgvW splits at a space or a tab only, so the vertical tab
+  // stays in the argument, and the app trims it off.
+  { name: 'a second folder switch after a vertical tab', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} \u000b--user-data-dir=${OTHER}`, isRunning: false },
+  { name: 'a second folder switch quoted after a no-break space', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} "\u00a0--user-data-dir=${OTHER}"`, isRunning: false },
+  { name: 'a -- quoted after a space', commandLine: `"${APP_EXE}" " --" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- quoted before a space', commandLine: `"${APP_EXE}" "-- " --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- quoted before an ideographic space', commandLine: `"${APP_EXE}" "--\u3000" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch quoted after a space, after the folder', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE} " --type=renderer"`, isRunning: false },
+  { name: 'a type switch quoted after a space, before the folder', commandLine: `"${APP_EXE}" " --type=renderer" --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch after an ideographic space', commandLine: `"${APP_EXE}" \u3000--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch quoted with a space after it', commandLine: `"${APP_EXE}" "--user-data-dir=${INSTANCE} "`, isRunning: true },
+  // The app trims the whole line before it splits it. With a space in front,
+  // the program name ends at the backslash-quote, so the quoted argument after
+  // it is one argument.
+  { name: 'a space before the program name', commandLine: ` "${APP_EXE}\\" "y --user-data-dir=${INSTANCE} y"`, isRunning: false },
+  { name: 'a vertical tab before the program name', commandLine: `\u000b"${APP_EXE}\\" "y --user-data-dir=${INSTANCE} y"`, isRunning: false },
+  // Chromium trims its own set, not the one String.prototype.trim uses.
+  { name: 'the folder switch after a byte order mark', commandLine: `"${APP_EXE}" \ufeff--user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a type switch after a next-line character', commandLine: `"${APP_EXE}" \u0085--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  // An en dash is not a switch prefix, so the app runs on its default folder.
+  { name: 'the folder switch after an en dash', commandLine: `"${APP_EXE}" \u2013user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'spaces before an ordinary line', commandLine: `  "${APP_EXE}" --user-data-dir=${INSTANCE}`, isRunning: true },
+  // An unquoted program name ends at any character up to U+0020, not only a blank.
+  { name: 'a type switch after a vertical tab ending the program name', commandLine: `${APP_EXE}\u000b--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'a -- after a control character ending the program name', commandLine: `${APP_EXE}\u0001-- --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder switch after a control character ending the program name', commandLine: `${APP_EXE}\u0001--user-data-dir=${INSTANCE}`, isRunning: true },
+  // The app reads its line as a C string and never sees what follows a NUL.
+  { name: 'the folder switch after a NUL', commandLine: `"${APP_EXE}" --flag\u0000 --user-data-dir=${INSTANCE}`, isRunning: false },
+  // A tab splits arguments, so the type switch here is an argument of its own.
+  { name: 'a type switch after a tab', commandLine: `"${APP_EXE}" a\t--type=renderer --user-data-dir=${INSTANCE}`, isRunning: false },
+  { name: 'the folder in capitals', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE.toUpperCase()}`, isRunning: true },
+  // A Kelvin sign lowercases to `k` in full Unicode, but it names another folder.
+  { name: 'the folder spelled with a Kelvin sign', commandLine: `"${APP_EXE}" --user-data-dir=${INSTANCE.replace('desktop', 'des\u212atop')}`, isRunning: false },
+  // Two backslashes before a quote give one, and the quote opens quoting.
+  { name: 'the folder split by a quote after two backslashes', commandLine: `"${APP_EXE}" --user-data-dir=${HOME.replace('\\', '\\\\"')}\\.claude-desktop-3"`, isRunning: true },
+]
+for (const { name, commandLine, isRunning } of SWITCH_READINGS) {
+  test(`a command line with ${name} ${isRunning ? 'counts' : 'does not count'} as instance 3 running`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { processes: [processLine(APP_EXE, commandLine)] })
+    expect(await pressGo($, w)).toHaveLength(isRunning ? 1 : 0)
+  })
+}
+
+// Windows compares folder names in any case, but a Kelvin sign is not a `k`
+// there, though full Unicode lowercasing makes it one.
+const K_HOME = 'C:\\Users\\kim'
+const K_INSTANCE = `${K_HOME}\\.claude-desktop-3`
+const K_SIGN_HOME = 'C:\\Users\\\u212aim'
+const K_EXE = `${K_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const K_SIGN_EXE = `${K_SIGN_HOME}\\AppData\\Local\\AnthropicClaude\\app-9.9.9\\claude.exe`
+const K_STUB = `${K_HOME}\\AppData\\Local\\AnthropicClaude\\claude.exe`
+const kProcess = (exe: string): string => processLine(exe, `"${exe}" --user-data-dir=${K_INSTANCE}`)
+
+// pressGo counts launches of the default home's stub, so these read K_STUB.
+test('an instance running from the install folder counts, for a home folder with a k', async ($, on) => {
+  const w = desktop(on, { instance: K_INSTANCE, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([[K_STUB, `--user-data-dir=${K_INSTANCE}`, `claude://claude.ai/epitaxy/${APP_SID}`]])
+})
+
+test('an instance running from a folder spelled with a Kelvin sign is not from the install', async ($, on) => {
+  const w = desktop(on, { instance: K_INSTANCE, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_SIGN_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([])
+})
+
+// Windows PowerShell writes plain text to a pipe with a best-fit fallback, so
+// a Kelvin sign would arrive as `K` and an en dash as `-`. The query prints
+// base64 instead, and a line in any other shape does not count.
+test('a process list printed as plain text does not count', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true })
+  expect(await pressGo($, w)).toEqual([])
+})
+
+test('a process line encoded by hand counts', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true, processes: [encodedLine(mainProcess(INSTANCE))] })
+  expect(await pressGo($, w)).toHaveLength(1)
+})
+
+// The padding row strips a trailing `=`, so the field must end in one, or the
+// row would test an ordinary line.
+const PADDED_FIELD = utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)
+test('the field the padding row strips ends in =', () => {
+  expect(PADDED_FIELD.endsWith('=')).toBe(true)
+})
+
+const BAD_FIELDS: { name: string; line: string }[] = [
+  // One byte more than whole characters: a reader that kept it as a space
+  // would trim it off and count the line.
+  { name: 'an odd number of bytes', line: `${utf16Base64(APP_EXE)}\t${btoa(`${utf16Bytes(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)} `)}` },
+  { name: 'a character outside base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`)}!` },
+  { name: 'a third field', line: `${encodedLine(mainProcess(INSTANCE))}\t` },
+  { name: 'an = inside a field', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^(.{4})/, '$1A=A=')}` },
+  // A decoder that took URL-safe base64 would read this as two other
+  // characters in front of a program name, then the switch.
+  { name: 'URL-safe base64', line: `${utf16Base64(APP_EXE)}\t${utf16Base64(`"${APP_EXE}" --user-data-dir=${INSTANCE}`).replace(/^.{4}/, '-_-_')}` },
+  { name: 'padding left off', line: `${utf16Base64(APP_EXE)}\t${PADDED_FIELD.replace(/=+$/, '')}` },
+  // Encoding.Unicode.GetBytes writes a lone surrogate as U+FFFD, so the
+  // reader cannot tell what the app holds there. It sits in an argument of its
+  // own here, so only that refusal stops the line counting.
+  { name: 'a replacement character', line: encodedLine(processLine(APP_EXE, `"${APP_EXE}" --note=\ufffd --user-data-dir=${INSTANCE}`)) },
+]
+for (const { name, line } of BAD_FIELDS) {
+  test(`a process line with ${name} does not count`, async ($, on) => {
+    const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isPlainList: true, processes: [line] })
+    expect(await pressGo($, w)).toEqual([])
+  })
+}
+
+// A list cut at the cap can end in a line cut at a base64 group, which
+// decodes to the front of the real line.
+test('a process list cut at the output cap does not count', async ($, on) => {
+  const w = desktop(on, { instance: INSTANCE, id: APP_SID }, { isListTruncated: true })
+  expect(await pressGo($, w)).toEqual([])
+})
+
+test('a place spelled with a Kelvin sign names no instance folder here', async ($, on) => {
+  const w = desktop(on, { instance: `${K_SIGN_HOME}\\.claude-desktop-3`, id: APP_SID }, { home: K_HOME, processes: [kProcess(K_EXE)] })
+  await pressGo($, w)
+  expect(launches(w, K_STUB)).toEqual([])
 })
