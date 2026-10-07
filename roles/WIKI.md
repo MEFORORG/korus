@@ -53,9 +53,12 @@ and imports weekly. It makes no model call and needs no app to be open.
 2026-09-23). That job ran only while one desktop app was open, so the Owner moved the three plain
 scripts to the operating system.
 
-**Lint's promotion step is not part of the cycle.** Drafting a playbook pull request needs a model.
-It stays a Claude Code job or a manual step, and it reads the report the cycle leaves in its lint
-directory. Title the draft `wiki promotion: <lesson>`, which is how the Lander finds it.
+**Lint's promotion step is not part of the cycle.** It needs a model, so it stays a Claude Code job
+or a manual step that reads the cycle's lint report. Title the draft `wiki promotion: <lesson>` and
+open it from a `MEFORORG/korus` branch, not a fork, so the Lander finds it.
+
+The job must run `gh pr list` with `--state all`, not `--state open`, to skip a lesson already
+promoted.
 
 The cycle opens pull requests only through `compile.ps1`, and never merges one. The Lander lands the
 compile pull requests in the record repository, and the promotion step's playbook drafts in korus.

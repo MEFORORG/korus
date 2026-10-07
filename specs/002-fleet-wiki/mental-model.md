@@ -112,8 +112,8 @@ to, and lessons written by two or more seats. The last kind becomes a drafted ko
 so a lesson learned twice can become a playbook rule. The Lander lands it under the review rule in
 `roles/LANDER.md` *4a-quinquies*.
 
-Two Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec. The
-third, of 2026-10-06, is in the last amendment below.
+Two Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec. Two more
+are in the amendments dated 2026-09-26 and 2026-10-06 below.
 
 Amended 2026-09-26 by Owner ruling: the second row read "Scheduled Claude Code job". The operating
 system's scheduler now runs the cycle, so no app has to be open. Drafting the playbook pull request
