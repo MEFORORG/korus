@@ -1058,18 +1058,21 @@ At least three shapes trip it:
 | --- | --- | --- |
 | Guard or remove an unguarded absence site in a file that has a row | The file drops below its pinned count, and the count is exact. Set the row to the count the lint prints, in the same commit. Delete the row at zero. | Leaving the row at its old number. |
 | Add a test that collects into a name with a comprehension, or `list`, `sorted`, `set`, `tuple` or `frozenset` around one, then asserts it empty | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. | A guard inside a loop, `with`, `if` or `try`, a fixture or a called helper. One joined by `and`, or written as `all(...)`. |
-| Edit a guarded test so the guard moves into a block, or the walk's first loop changes | A top-level guard again, on the new first loop's iterable. | Rebinding anything the guard reads between the guard and the walk, unless it keeps the count, such as `files = sorted(files)`. |
+| Edit a guarded test so the guard moves into a block, or the walk's first loop changes | A top-level guard again, on the new first loop's iterable. | Rebinding anything the guard reads between the guard and the walk. A count-keeping rebind such as `files = sorted(files)` keeps the guard only when `files` was bound earlier in the test body. Rebinding a test parameter makes it stale. |
 
-The empty spellings are `assert not X`, `assert len(X) == 0` and `assert X == <empty>`, such as
-`[]` or `set()`. `<source>` is the first loop's iterable as written. For a call such as
-`root.rglob('*.py')`, collect it into a name first and guard the name.
+| Term | What it means here |
+| --- | --- |
+| An empty spelling | `assert not X`, `assert len(X) == 0`, or `assert X == <empty>` such as `[]` or `set()`. |
+| `<source>` | A name, attribute or item the first loop reads, such as `files` in `files - SKIP` or `texts` in `texts.items()`. |
+| A call as the source | For a call such as `root.rglob('*.py')`, collect it into a list first, `files = list(root.rglob('*.py'))`, then guard and walk `files`; a bare generator is always truthy. |
 
-A def nested in a test is its own scope and needs its own top-level guard.
+A def nested in a test is its own scope. Guard it inside, or guard, at the test's top level before
+the def, a value it reads from the test.
 
-**After you add, edit, move or delete any test file under `tests/` or
-`packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints as well as your own
-tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py` and
-`tests/test_tooling_partition.py`.
+**After you add, edit, move or delete a test file under `tests/` or
+`packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints too.** They include
+`tests/test_vacuous_absence_assert_lint.py` and `tests/test_tooling_partition.py`, which globs
+only `tests/test_*.py`, not the console root.
 
 A renamed file moves its row to the new path. Two branches that lower one row to the same number
 merge clean and still miscount. Run the lint on any combined tree; across pull requests the merge
