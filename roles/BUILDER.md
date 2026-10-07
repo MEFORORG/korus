@@ -1054,18 +1054,22 @@ then goes red on every test leg, after your process has exited.
 
 Two shapes trip it:
 
-- **You remove or rewrite an absence assertion in an existing test file.** That file drops below
-  its pinned count. The count is exact, so lower its row in the same commit.
-- **You add a test that ends on `assert not X` over a collection it just built.** The lint wants
-  an earlier top-level `assert <source>` or `assert len(<source>) >= N` in the same test. A guard
-  inside `all(...)`, a loop, a `with` block or a helper does not count.
+| You | The lint wants | Does not count |
+| --- | --- | --- |
+| Guard or remove an unguarded absence site in a file that has a row | The file drops below its pinned count, and the count is exact. Set the row to the count the lint prints, in the same commit. Delete the row at zero. | Leaving the row at its old number. |
+| Add a test that collects into a name, then asserts it empty: `assert not X`, `assert X == []` or `assert len(X) == 0` | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. `<source>` is exactly what the comprehension walks. | A guard inside a loop, `with`, `if` or `try`. One joined by `and`, or written as `all(...)`. |
 
-**After you add or edit any file under `tests/`, run the whole-tree lints as well as your own
-tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py`. Repair a new
-site by adding the earlier count. Do not raise the pinned number to fit it.
+**After you add, edit, move or delete any test file under `tests/` or
+`packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints as well as your own
+tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py`.
 
-This turned five engine pull requests red in two days. Wiki events `20261004T211146838Z-048o5q`
-and `20261005T041557542Z-9vguro`.
+Never raise a pinned number to fit a new site; add the earlier count. Expiry: this stops being
+right when that lint, or its exact per-file baseline, leaves engine `origin/main`. Check by reading
+the file there.
+
+Reported in wiki events `20261004T211146838Z-048o5q` and `20261005T041557542Z-9vguro` as five
+engine pull requests red in two days; not re-measured here. Lint rules read at engine
+`origin/main` `0f9f2fbe7`.
 
 ### 5j. Read `$LASTEXITCODE` before you read silence as a pass
 
