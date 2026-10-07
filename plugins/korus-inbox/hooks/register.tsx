@@ -511,9 +511,37 @@ const QUERY_TIMEOUT_MS = 15_000
 // at each poll for this many polls (about two minutes), then only at publish.
 const PLACE_TRIES = 24
 // The app's processes, one line each: its executable, a tab, its command line.
-// A fixed script: nothing from any file reaches it.
+// A fixed script: nothing from any file reaches it. Each field is printed as
+// the base64 of its UTF-16LE bytes, because Windows PowerShell writes plain
+// text to a pipe in the console code page with a best-fit fallback: a Kelvin
+// sign arrives as `K`, an en dash as `-` and a curly quote as `"`, so a line
+// the app reads one way would reach the reader as another.
 const PROCESS_QUERY =
-  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [string]$_.ExecutablePath + \"`t\" + [string]$_.CommandLine }"
+  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.ExecutablePath)) + \"`t\" + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.CommandLine)) }"
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+// A field the process query printed, decoded from the base64 of its UTF-16LE
+// bytes, or undefined when the field has any other shape. The pattern lets
+// `=` stand only as padding, where indexOf gives -1, so a -1 means no byte.
+// A U+FFFD is refused: the query's encoder writes a lone surrogate as one, so
+// the reader cannot tell what the app holds there.
+function fromUtf16Base64(field: string): string | undefined {
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(field)) return undefined
+  const bytes: number[] = []
+  for (let i = 0; i < field.length; i += 4) {
+    const a = BASE64.indexOf(field.charAt(i))
+    const b = BASE64.indexOf(field.charAt(i + 1))
+    const c = BASE64.indexOf(field.charAt(i + 2))
+    const d = BASE64.indexOf(field.charAt(i + 3))
+    bytes.push((a << 2) | (b >> 4))
+    if (c >= 0) bytes.push(((b & 15) << 4) | (c >> 2))
+    if (d >= 0) bytes.push(((c & 3) << 6) | d)
+  }
+  if (bytes.length % 2 !== 0) return undefined
+  let text = ''
+  for (let i = 0; i < bytes.length; i += 2) text += String.fromCharCode((bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8))
+  return text.includes('\ufffd') ? undefined : text
+}
 
 // The shape a place must have to be offered at all. The folder is matched
 // against this machine's own folders only when the owner presses.
@@ -580,13 +608,126 @@ async function instanceFolder($: Engine, instance: string): Promise<string | und
   const numbered = /\\\.claude-desktop-(\d{1,3})$/i.exec(instance)
   if (home === undefined || home === '' || numbered === null) return undefined
   const built = `${home}\\.claude-desktop-${numbered[1]}`
-  return built.toLowerCase() === instance.toLowerCase() ? built : undefined
+  return asciiLower(built) === asciiLower(instance) ? built : undefined
 }
 
-// The data folder named on a command line, quoted or bare, or undefined.
-function dataDirOf(commandLine: string): string | undefined {
-  const found = /--user-data-dir=(?:"([^"]*)"|(\S+))/.exec(commandLine)
-  return found === null ? undefined : (found[1] ?? found[2])
+// Lowercases A to Z only. Full Unicode lowercasing folds some other letters
+// into ASCII, such as the Kelvin sign into `k`, and Windows keeps a folder
+// spelled with one apart from a folder spelled with the other. Chromium
+// lowercases switch names this way too.
+const asciiLower = (text: string): string => text.replace(/[A-Z]+/g, upper => upper.toLowerCase())
+
+// Strips the whitespace Chromium's TrimWhitespace strips on Windows, the set
+// kWhitespaceWide in base/strings/whitespace_constants.h. It is not what
+// String.prototype.trim strips: that keeps U+0085 and strips U+FEFF.
+const SPACE = /[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/.source
+const EDGE_SPACE = new RegExp(`^${SPACE}+|${SPACE}+$`, 'g')
+const LEADING_SPACE = new RegExp(`^${SPACE}+`)
+const trimmed = (text: string): string => text.replace(EDGE_SPACE, '')
+
+const isBlank = (ch: string | undefined): boolean => ch === ' ' || ch === '\t'
+
+// A command line split into its arguments the way CommandLineToArgvW splits
+// it, which is how the app reads its own. A quoted program name runs to the
+// next quote, with no escapes. An unquoted one ends at the first character
+// from U+0001 to U+0020, not only at a blank, and that one character is
+// dropped. After the name, blanks outside quotes split, and
+// backslashes are literal unless a quote follows them. Counting the quote
+// that opened the quoting, every third quote in a run is a literal quote, and
+// a run that ends on the second closes the quoting. Windows quotes an
+// argument that holds a space, the whole argument or a part of it, so a home
+// folder with a space shows up quoted either way.
+function argsOf(commandLine: string): string[] {
+  const n = commandLine.length
+  let i = 0
+  let program = ''
+  if (commandLine[0] === '"') {
+    for (i = 1; i < n && commandLine[i] !== '"'; i += 1) program += commandLine[i]
+    i += 1
+  } else {
+    for (; i < n && commandLine[i] > ' '; i += 1) program += commandLine[i]
+    if (i < n) i += 1
+  }
+  const args = [program]
+  while (isBlank(commandLine[i])) i += 1
+  let arg = ''
+  let isArg = i < n
+  let quotes = 0
+  let slashes = 0
+  while (i < n) {
+    const ch = commandLine[i]
+    if (isBlank(ch) && quotes === 0) {
+      args.push(arg)
+      arg = ''
+      slashes = 0
+      while (isBlank(commandLine[i])) i += 1
+      isArg = i < n
+      continue
+    }
+    i += 1
+    if (ch === '\\') {
+      arg += ch
+      slashes += 1
+      continue
+    }
+    if (ch !== '"') {
+      arg += ch
+      slashes = 0
+      continue
+    }
+    if (slashes % 2 === 0) {
+      arg = arg.slice(0, arg.length - slashes / 2)
+      quotes += 1
+    } else {
+      arg = `${arg.slice(0, arg.length - (slashes + 1) / 2)}"`
+    }
+    slashes = 0
+    for (; commandLine[i] === '"'; i += 1) {
+      quotes += 1
+      if (quotes === 3) {
+        arg += '"'
+        quotes = 0
+      }
+    }
+    if (quotes === 2) quotes = 0
+  }
+  if (isArg) args.push(arg)
+  return args
+}
+
+// A switch as the app reads one on Windows: `--`, `-` or `/` before its name,
+// the name in any case of A to Z, and its value after the first `=`.
+function switchOf(arg: string): { name: string; value: string } | undefined {
+  const prefix = /^(--|-|\/)/.exec(arg)?.[0]
+  if (prefix === undefined || prefix.length === arg.length) return undefined
+  const equals = arg.indexOf('=')
+  return equals < 0
+    ? { name: asciiLower(arg.slice(prefix.length)), value: '' }
+    : { name: asciiLower(arg.slice(prefix.length, equals)), value: arg.slice(equals + 1) }
+}
+
+// Whether a command line is a main process of the app (no type switch) whose
+// data folder is this one. The app trims whitespace off the front of its
+// command line before it splits it, then trims each argument before it looks
+// for `--` or a switch, so this does too (Chromium base/command_line.cc:
+// ParseFromString and AppendSwitchesAndArguments). ParseFromString trims both
+// ends, but hands CommandLineToArgvW a pointer that still runs to the end of
+// the line, so only the front trim takes effect. The app reads its line as a
+// C string, so it stops at the first NUL. Every data-folder switch must name
+// the folder, though the app takes the last. A line that could stop the app
+// reading switches part way does not count: one with a bare `--`, one whose
+// raw text holds `single-argument` anywhere, in any case, or one with a
+// switch of that name. Quotes can split the raw text, as in
+// --single-argume""nt, so the parsed names are checked as well.
+function holdsFolder(commandLine: string, dataDir: string): boolean {
+  if (commandLine.toLowerCase().includes('single-argument')) return false
+  const line = (commandLine.split('\0', 1)[0] ?? '').replace(LEADING_SPACE, '')
+  const args = argsOf(line).slice(1).map(trimmed)
+  if (args.includes('--')) return false
+  const switches = args.map(switchOf).filter(one => one !== undefined)
+  if (switches.some(one => one.name === 'type' || one.name === 'single-argument')) return false
+  const folders = switches.filter(one => one.name === 'user-data-dir')
+  return folders.length > 0 && folders.every(one => asciiLower(one.value) === asciiLower(dataDir))
 }
 
 // Whether an instance of the app runs with this data folder, read from the
@@ -600,14 +741,17 @@ async function isInstanceRunning($: Engine, dataDir: string, install: string): P
   const listed = await $.process.run([shell, '-NoProfile', '-NonInteractive', '-Command', PROCESS_QUERY], {
     timeoutMs: QUERY_TIMEOUT_MS,
   })
-  if (listed.exitCode !== 0) return false
-  const prefix = `${install}\\`.toLowerCase()
+  // A list cut at the cap can end in a line cut at a base64 group, which
+  // decodes to the front of the real line and could name a shorter folder.
+  if (listed.exitCode !== 0 || listed.isStdoutTruncated) return false
+  const prefix = asciiLower(`${install}\\`)
   return listed.stdout.split(/\r?\n/).some(line => {
-    const tab = line.indexOf('\t')
-    if (tab < 0) return false
-    const exe = line.slice(0, tab).toLowerCase()
-    const commandLine = line.slice(tab + 1)
-    return exe.startsWith(prefix) && !commandLine.includes(' --type=') && dataDirOf(commandLine)?.toLowerCase() === dataDir.toLowerCase()
+    const fields = line.split('\t')
+    if (fields.length !== 2) return false
+    const exe = fromUtf16Base64(fields[0] ?? '')
+    const commandLine = fromUtf16Base64(fields[1] ?? '')
+    if (exe === undefined || commandLine === undefined) return false
+    return asciiLower(exe).startsWith(prefix) && holdsFolder(commandLine, dataDir)
   })
 }
 
