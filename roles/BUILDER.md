@@ -1062,29 +1062,31 @@ these places hold a list you must extend in the same commit:
 3. Each new non-secret `env()` key goes in every `environments/*.toml`. A secret comes from
    `MEFOR_VALUE_<KEY>` and goes in none, as `prod.toml`'s header says. `tests/test_environments.py`
    checks only that the files agree with each other, so a key missing from all of them passes it.
-4. The `windows-service-smoke` job in `.github/workflows/ci.yml` allowlists each outbound
-   destination of the sample graph. Its comment says to keep that list in sync with
-   `samples/config`. A missing entry stops the service at start, on a hosted runner you never see.
+4. `tests/test_lens_param_modes.py` asserts `samples/config` carries no param rows. A handler that
+   uses the action vocabulary, such as `msg.set(...)`, trips it.
 
-Run the three test files before you push, and name the smoke job in your exit report. A new feed
-that passes its own tests still fails these.
+The `windows-service-smoke` job in `.github/workflows/ci.yml` also lists the graph's outbound
+destinations, and its comment says to keep that list in sync. It passes a fixed set of secret
+`MEFOR_VALUE_*` values too. Nothing fails when either drifts: an outbound that cannot start is
+isolated, and the job stays green.
 
-`tests/test_lens_parse.py::test_samples_partition` globs `samples/config/*.py`, so it needs no
-entry. It does parse the new feed.
+Before you push, run the test files above, `tests/test_lens_parse.py`, `tests/test_lens_rewrite.py`
+and `tests/test_tooling_partition.py`. A new feed that passes its own tests still fails the first
+two items.
 
-A new test file that imports no engine package must be classified. `tests/test_tooling_partition.py`
-names the two lists and says to choose `_STAYS_WITHOUT_IMPORTING` when in doubt; read its failure
-text there.
+A new top-level `tests/test_*.py` that imports none of `messagefoundry*`, `harness` or `tee` must
+be classified. `tests/test_tooling_partition.py` names the two lists and says to choose
+`_STAYS_WITHOUT_IMPORTING` when in doubt; read its failure text there.
 
 | Wiki evidence | |
 | --- | --- |
 | The first form | A new feed trips exact-set asserts, and every new test file must be listed in the manifest. Event `20260926T094814871Z-3rhy7h`. The second half was wrong. |
 | The first correction | A test that imports the engine needs no manifest line, and listing it would stop it running on the engine legs. Event `20260929T223223695Z-awupaa`. |
 | The rule above | Names the two test files, adds the `env()` key rule, and states the import test for a partition entry. Event `20261002T125118861Z-3e7n2p`, which replaces both. |
+| Added on review | The lens param test, the smoke job's lists and the secret rule. No event carries them; read at engine `origin/main` `0f9f2fbe7`. |
 
-This stands until those tests stop comparing whole sets and the smoke job stops pinning its
-egress list. Check by reading each file named above at engine `origin/main`. Read there at
-`0f9f2fbe7`.
+This stands until those tests stop comparing whole sets. Check by reading each file named above at
+engine `origin/main`.
 
 ---
 
