@@ -1050,22 +1050,30 @@ count cannot see this class.
 
 Some tests are lints over the whole test tree. The engine has one for absence assertions, and it
 pins an exact count per file. **Running only the modules that cover your change misses it.** It
-then goes red on every test leg, after your process has exited.
+then goes red on every engine test leg, after your process has exited.
 
-Two shapes trip it:
+At least three shapes trip it:
 
 | You | The lint wants | Does not count |
 | --- | --- | --- |
 | Guard or remove an unguarded absence site in a file that has a row | The file drops below its pinned count, and the count is exact. Set the row to the count the lint prints, in the same commit. Delete the row at zero. | Leaving the row at its old number. |
-| Add a test that collects into a name, then asserts it empty: `assert not X`, `assert X == []` or `assert len(X) == 0` | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. `<source>` is exactly what the comprehension walks. | A guard inside a loop, `with`, `if` or `try`. One joined by `and`, or written as `all(...)`. |
+| Add a test that collects into a name with a comprehension, or `list`, `sorted`, `set`, `tuple` or `frozenset` around one, then asserts it empty | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. | A guard inside a loop, `with`, `if` or `try`, or in a helper or fixture. One joined by `and`, or written as `all(...)`. |
+| Edit a guarded test so its guard moves into a block or reads another name | A top-level guard again, on what the walk reads. | Rebinding the guarded name between the guard and the walk. |
+
+The empty spellings are `assert not X`, `assert len(X) == 0` and `assert X == <empty>`, such as
+`[]` or `set()`. `<source>` is a name, attribute or item the comprehension's first loop reads,
+such as `texts` in `texts.items()`.
 
 **After you add, edit, move or delete any test file under `tests/` or
 `packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints as well as your own
 tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py`.
 
+A renamed file moves its row to the new path. Two branches that each lower the same row merge
+clean and still miscount, so a Manager runs the lint again on the combined tree.
+
 Never raise a pinned number to fit a new site; add the earlier count. Expiry: this stops being
-right when that lint, or its exact per-file baseline, leaves engine `origin/main`. Check by reading
-the file there.
+right when that lint, its exact baseline or its site and guard rules change at engine
+`origin/main`. Check by reading the file there.
 
 Reported in wiki events `20261004T211146838Z-048o5q` and `20261005T041557542Z-9vguro` as five
 engine pull requests red in two days; not re-measured here. Lint rules read at engine
