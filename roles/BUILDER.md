@@ -1057,23 +1057,27 @@ At least three shapes trip it:
 | You | The lint wants | Does not count |
 | --- | --- | --- |
 | Guard or remove an unguarded absence site in a file that has a row | The file drops below its pinned count, and the count is exact. Set the row to the count the lint prints, in the same commit. Delete the row at zero. | Leaving the row at its old number. |
-| Add a test that collects into a name with a comprehension, or `list`, `sorted`, `set`, `tuple` or `frozenset` around one, then asserts it empty | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. | A guard inside a loop, `with`, `if` or `try`, or in a helper or fixture. One joined by `and`, or written as `all(...)`. |
-| Edit a guarded test so its guard moves into a block or reads another name | A top-level guard again, on what the walk reads. | Rebinding the guarded name between the guard and the walk. |
+| Add a test that collects into a name with a comprehension, or `list`, `sorted`, `set`, `tuple` or `frozenset` around one, then asserts it empty | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. | A guard inside a loop, `with`, `if` or `try`, a fixture or a called helper. One joined by `and`, or written as `all(...)`. |
+| Edit a guarded test so the guard moves into a block, or the walk's first loop changes | A top-level guard again, on the new first loop's iterable. | Rebinding anything the guard reads between the guard and the walk, unless it keeps the count, such as `files = sorted(files)`. |
 
 The empty spellings are `assert not X`, `assert len(X) == 0` and `assert X == <empty>`, such as
-`[]` or `set()`. `<source>` is a name, attribute or item the comprehension's first loop reads,
-such as `texts` in `texts.items()`.
+`[]` or `set()`. `<source>` is the first loop's iterable as written. For a call such as
+`root.rglob('*.py')`, collect it into a name first and guard the name.
+
+A def nested in a test is its own scope and needs its own top-level guard.
 
 **After you add, edit, move or delete any test file under `tests/` or
 `packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints as well as your own
-tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py`.
+tests.** In the engine that is at least `tests/test_vacuous_absence_assert_lint.py` and
+`tests/test_tooling_partition.py`.
 
-A renamed file moves its row to the new path. Two branches that each lower the same row merge
-clean and still miscount, so a Manager runs the lint again on the combined tree.
+A renamed file moves its row to the new path. Two branches that lower one row to the same number
+merge clean and still miscount. Run the lint on any combined tree; across pull requests the merge
+queue finds it.
 
 Never raise a pinned number to fit a new site; add the earlier count. Expiry: this stops being
-right when that lint, its exact baseline or its site and guard rules change at engine
-`origin/main`. Check by reading the file there.
+right when the lint's site rules, guard rules or exact-baseline rule change at engine
+`origin/main`. A row edit alone does not count. Check by reading the lint's docstring there.
 
 Reported in wiki events `20261004T211146838Z-048o5q` and `20261005T041557542Z-9vguro` as five
 engine pull requests red in two days; not re-measured here. Lint rules read at engine
