@@ -53,13 +53,30 @@ and imports weekly. It makes no model call and needs no app to be open.
 2026-09-23). That job ran only while one desktop app was open, so the Owner moved the three plain
 scripts to the operating system.
 
-**Lint's promotion step is not part of the cycle.** Drafting a playbook pull request needs a model.
-It stays a Claude Code job or a manual step, and it reads the report the cycle leaves in its lint
-directory.
+**Lint's promotion step is not part of the cycle.** It needs a model, so it stays a Claude Code job
+or a manual step that reads the cycle's lint report. Title the draft `wiki promotion: <lesson>`.
+Open it from a branch in the korus repository itself: korus is public, and no fork draft is landed.
+
+Each draft's body names its lesson's wiki key in backticks. Before drafting, the job runs:
+
+```powershell
+gh pr list --repo MEFORORG/korus --state all --limit 500 --json number,state,body,isCrossRepository
+```
+
+It skips the lesson when an open or merged pull request, not from a fork, carries the exact
+backticked key in its body. Promotions merged before this rule name no key, so match those by
+their event ids.
 
 The cycle opens pull requests only through `compile.ps1`, and never merges one. The Lander lands the
-compile pull requests in the record repository. A playbook change the promotion step drafts merges
-only with the Owner, so the Lander does not land it.
+compile pull requests in the record repository, and the promotion step's playbook drafts in korus.
+
+A promotion draft needs proof that code review ran, as [LANDER.md](LANDER.md) *4a-quinquies*
+says. The Lander then marks it ready and merges. Owner ruling 2026-10-06, given to the Lander in
+session: *"I always want the lander to handle all three repos."*
+
+**CORRECTED 2026-10-06.** The Lander was then holding three promotion drafts for the Owner: korus
+200, 203 and 206. Before the ruling, the compile paragraph above ended *"A playbook change the
+promotion step drafts merges only with the Owner, so the Lander does not land it."*
 
 Register the cycle once per machine with `scripts/wiki/register-cycle-task.ps1`. Pass `-WhatIf`
 first: it prints exactly what it would register. `-Status` shows the task and the last log line.

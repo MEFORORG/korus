@@ -98,24 +98,30 @@ is not measuring anything.
 A weekly import of each account's own memory follows the same rule. A note that has not changed
 adds nothing. A note that has changed adds a new event on its key, which replaces the old one.
 
-## No new seat: seats write, a scheduled job files, the Lander lands, the Owner approves
+## No new seat: seats write, a scheduled job files, the Lander lands
 
 | Who | Does | Never does |
 | --- | --- | --- |
 | Any seat | Queries before acting; writes decisions, lessons, gotchas and corrections | Edits the log, the pages or the index |
 | Scheduled cycle (`cycle.ps1`, no model) | Compiles and lints daily, imports weekly, opens vault pull requests | Merges anything |
-| Lander | Merges the job's vault pull requests like any other | Picks a winner when two notes conflict |
-| Owner | Lists which memory folders the import reads; approves or closes playbook changes lint proposes | Hand-edits the log |
+| Lander | Merges the job's vault pull requests like any other, and lands the korus promotion drafts | Picks a winner when two notes conflict |
+| Owner | Lists which memory folders the import reads | Hand-edits the log |
 
 Lint reports four things: notes that conflict, notes whose evidence is gone, pages nothing links
 to, and lessons written by two or more seats. The last kind becomes a drafted korus pull request,
-so a lesson learned twice can become a playbook rule. Nothing changes a playbook without the Owner.
+so a lesson learned twice can become a playbook rule. The Lander lands it under the review rule in
+`roles/LANDER.md` *4a-quinquies*.
 
-Both Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec.
+Two Owner rulings behind this table were given on 2026-09-23 and are recorded in the spec. Two more
+are in the amendments dated 2026-09-26 and 2026-10-06 below.
 
 Amended 2026-09-26 by Owner ruling: the second row read "Scheduled Claude Code job". The operating
 system's scheduler now runs the cycle, so no app has to be open. Drafting the playbook pull request
 still needs a model, so that step stays a Claude Code job or a manual one.
+
+Amended 2026-10-06 by Owner ruling, quoted in `roles/WIKI.md`. The heading ended "the Owner
+approves", and the Owner "approves or closes playbook changes lint proposes". The lint paragraph
+ended "Nothing changes a playbook without the Owner." The Lander lands those pull requests now.
 
 ## Three things it deliberately is not
 

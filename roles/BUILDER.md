@@ -1046,11 +1046,93 @@ Extras-gated suites skip at *module* scope, so a large number of absent tests co
 handful of skip lines. **Diff collected node ids (`pytest --collect-only -q`), not counts** -- a
 count cannot see this class.
 
+### 5i-bis. A lint that scans every test file sits outside the tests that cover your change
+
+Some tests are lints over the whole test tree. The engine has one for absence assertions, and it
+pins an exact count per file. **Running only the modules that cover your change misses it.** It
+then goes red on every engine test leg, after your process has exited.
+
+At least three shapes trip it:
+
+| You | The lint wants | Does not count |
+| --- | --- | --- |
+| Guard or remove an unguarded absence site in a file that has a row | The file drops below its pinned count, and the count is exact. Set the row to the count the lint prints, in the same commit. Delete the row at zero. | Leaving the row at its old number. |
+| Add a test that collects into a name with a comprehension, or `list`, `sorted`, `set`, `tuple` or `frozenset` around one, then asserts it empty | An earlier assert at the test's own top level: `assert <source>`, or `assert len(<source>) >= N` with N above zero. | A guard inside a loop, `with`, `if` or `try`, a fixture or a called helper. One joined by `and`, or written as `all(...)`. |
+| Edit a guarded test so the guard moves into a block, or the walk's first loop changes | A top-level guard again, on the new first loop's iterable. | Rebinding anything the guard reads between the guard and the walk. A count-keeping rebind such as `files = sorted(files)` keeps the guard only when `files` was bound earlier in the test body. Rebinding a test parameter makes it stale. |
+
+| Term | What it means here |
+| --- | --- |
+| An empty spelling | `assert not X`, `assert len(X) == 0`, or `assert X == <empty>` such as `[]` or `set()`. |
+| `<source>` | A name, attribute or item the first loop reads, such as `files` in `files - SKIP` or `texts` in `texts.items()`. |
+| A call as the source | For a call such as `root.rglob('*.py')`, collect it into a list first, `files = list(root.rglob('*.py'))`, then guard and walk `files`; a bare generator is always truthy. |
+
+A def nested in a test is its own scope. Guard it inside, or guard, at the test's top level before
+the def, a value it reads from the test.
+
+**After you add, edit, move or delete a test file under `tests/` or
+`packaging/messagefoundry-webconsole/tests/`, run the whole-tree lints too.** They include
+`tests/test_vacuous_absence_assert_lint.py` and `tests/test_tooling_partition.py`, which globs
+only `tests/test_*.py`, not the console root.
+
+A renamed file moves its row to the new path. Two branches that lower one row to the same number
+merge clean and still miscount. Run the lint on any combined tree; across pull requests the merge
+queue finds it.
+
+Never raise a pinned number to fit a new site; add the earlier count. Expiry: this stops being
+right when the lint's site rules, guard rules or exact-baseline rule change at engine
+`origin/main`. A row edit alone does not count. Check by reading the lint's docstring there.
+
+Reported in wiki events `20261004T211146838Z-048o5q` and `20261005T041557542Z-9vguro` as five
+engine pull requests red in two days; not re-measured here. Lint rules read at engine
+`origin/main` `0f9f2fbe7`.
+
 ### 5j. Read `$LASTEXITCODE` before you read silence as a pass
 
 What is worth keeping is the habit: **a probe that prints nothing has not told you it passed.** A
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
+
+### 5k. A new sample feed trips exact-set tests
+
+**Adding a feed to `samples/config` reds tests that compare the whole set of names.** At least
+these tests need a change in the same commit:
+
+1. `tests/test_cli.py` asserts the exact set of router names and of handler names.
+2. `tests/test_wiring_serve.py` asserts the same two sets on the loaded registry.
+3. Each new non-secret `env()` key goes in every `environments/*.toml`. A secret comes from
+   `MEFOR_VALUE_<KEY>` and goes in none, as `prod.toml`'s header says. `tests/test_environments.py`
+   checks only that the files agree with each other, so a key missing from all of them passes it.
+4. `tests/test_lens_param_modes.py` asserts `samples/config` carries no param rows. An action such
+   as `msg.set(...)`, a lookup or `log_note(...)` trips it. Its failure text says what to change.
+
+The `windows-service-smoke` job in `.github/workflows/ci.yml` lists the graph's outbound
+destinations, and a comment says to keep it in sync. It also passes fixed `MEFOR_VALUE_*` secrets.
+An outbound missing from either starts isolated, and the job stays green.
+
+A lookup connection is different. The engine builds lookups for the whole graph, so a missing
+egress entry or secret there stops the start and reds the job.
+
+Before you push, run at least the test files above, every `tests/test_lens_*.py`,
+`tests/test_checks*.py` and `tests/test_tooling_partition.py`. A new feed that passes its own tests
+still fails the first two items.
+
+A new top-level `tests/test_*.py` must be classified when its own text has no import line for
+`messagefoundry`, `messagefoundry_webconsole`, `messagefoundry_toolkit`, `harness` or `tee`. An
+engine import through a helper module does not count.
+
+`tests/test_tooling_partition.py` names the two lists, `tests/tooling_manifest.txt` and
+`_STAYS_WITHOUT_IMPORTING`, and says to choose the second when in doubt. Read its failure text.
+
+| Wiki evidence | |
+| --- | --- |
+| The first form | A new feed trips exact-set asserts, and every new test file must be listed in the manifest. Event `20260926T094814871Z-3rhy7h`. The second half was wrong. |
+| The first correction | A test that imports the engine needs no manifest line, and listing it would stop it running on the engine legs. Event `20260929T223223695Z-awupaa`. |
+| The rule above | Names the two test files, keeps the `env()` key rule, and states the import test for a partition entry. Event `20261002T125118861Z-3e7n2p`, which replaces both. |
+| Added on review | The lens param test, the smoke job, lookups and the secret rule. No event carries them; read at engine `origin/main` `0f9f2fbe7`. |
+
+Expiry: this stands until those tests stop comparing whole sets, or the engine stops isolating an
+outbound that fails at start. Check the files above and the `RegistryRunner` start path at engine
+`origin/main`.
 
 ---
 

@@ -165,7 +165,8 @@ has merged.
    written by two or more seats.
 2. It changes no event. It writes one report file and exits.
 3. For a lesson seen by two or more seats, draft a pull request against the matching playbook. It
-   never merges; the Owner decides.
+   never merges; the Lander lands it under `roles/LANDER.md` *4a-quinquies*. Amended 2026-10-06 by
+   Owner ruling (spec FR-022): this read "the Owner decides".
 4. Test each finding with a planted case, and a clean control log that MUST report zero.
 
 ### PR 6 - Optional readers (Story 6, P3)

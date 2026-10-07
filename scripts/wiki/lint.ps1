@@ -31,7 +31,9 @@
     be read as clean.
 
     PROMOTION IS LISTED, NEVER ACTED ON. Drafting the playbook pull request is the scheduled Claude
-    Code job's work, and it opens that pull request as a DRAFT that only the Owner decides (FR-022).
+    Code job's work. It opens that pull request as a DRAFT titled `wiki promotion: <lesson>` from a
+    korus branch, not a fork, and the Lander lands it under roles/LANDER.md 4a-quinquies (FR-022,
+    amended by Owner ruling 2026-10-06).
 
     IT WRITES NOTHING UNDER THE STATE ROOT OR THE RECORD REPOSITORY. No inbox file, no event, no
     page, no line in wiki/log.md. The only file it may write is -Out, and it refuses an -Out
@@ -632,7 +634,7 @@ if ($Json) {
     $null = $sb.AppendLine("- online pull request check: $onlineNote")
     if ($eventsRead -eq 0) { $null = $sb.AppendLine().AppendLine('WARNING: no event was read, so every event-based zero above measured nothing.') }
     $null = $sb.AppendLine()
-    $null = $sb.AppendLine('Promotion candidates are listed only. Drafting the playbook pull request is the scheduled Claude Code job''s work, and it opens that pull request as a DRAFT that only the Owner decides (spec FR-022).')
+    $null = $sb.AppendLine('Promotion candidates are listed only. Drafting the playbook pull request is the scheduled Claude Code job''s work. It opens that pull request as a DRAFT titled `wiki promotion: <lesson>` from a korus branch, not a fork, and the Lander lands it under roles/LANDER.md 4a-quinquies (spec FR-022).')
     $text = $sb.ToString()
 }
 
