@@ -1052,21 +1052,29 @@ What is worth keeping is the habit: **a probe that prints nothing has not told y
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
 
-### 5k. A new sample feed trips exact-set tests; a new test file usually trips nothing
+### 5k. A new sample feed trips exact-set tests
 
-**Adding a feed to `samples/config` reds tests that compare the whole set of names.** Three places
-hold a list you must extend in the same commit:
+**Adding a feed to `samples/config` reds tests that compare the whole set of names.** At least
+these places hold a list you must extend in the same commit:
 
 1. `tests/test_cli.py` asserts the exact set of router names and of handler names.
 2. `tests/test_wiring_serve.py` asserts the same two sets on the loaded registry.
-3. Every `environments/*.toml` must carry each new `env()` key. `tests/test_environments.py` checks
-   that every file has the key; only the values differ.
+3. Each new non-secret `env()` key goes in every `environments/*.toml`. A secret comes from
+   `MEFOR_VALUE_<KEY>` and goes in none, as `prod.toml`'s header says. `tests/test_environments.py`
+   checks only that the files agree with each other, so a key missing from all of them passes it.
+4. The `windows-service-smoke` job in `.github/workflows/ci.yml` allowlists each outbound
+   destination of the sample graph. Its comment says to keep that list in sync with
+   `samples/config`. A missing entry stops the service at start, on a hosted runner you never see.
 
-Run those three files before you push. A new feed that passes its own tests still fails these.
+Run the three test files before you push, and name the smoke job in your exit report. A new feed
+that passes its own tests still fails these.
 
-**A new test file needs a partition entry only when it imports none of `messagefoundry`, `harness`
-or `tee`.** An engine test needs no line. Listing one in `tests/tooling_manifest.txt` moves it off
-the engine legs. `tests/test_tooling_partition.py` is the source of record.
+`tests/test_lens_parse.py::test_samples_partition` globs `samples/config/*.py`, so it needs no
+entry. It does parse the new feed.
+
+A new test file that imports no engine package must be classified. `tests/test_tooling_partition.py`
+names the two lists and says to choose `_STAYS_WITHOUT_IMPORTING` when in doubt; read its failure
+text there.
 
 | Wiki evidence | |
 | --- | --- |
@@ -1074,8 +1082,9 @@ the engine legs. `tests/test_tooling_partition.py` is the source of record.
 | The first correction | A test that imports the engine needs no manifest line, and listing it would stop it running on the engine legs. Event `20260929T223223695Z-awupaa`. |
 | The rule above | Names the two test files, adds the `env()` key rule, and states the import test for a partition entry. Event `20261002T125118861Z-3e7n2p`, which replaces both. |
 
-This stands until those asserts stop comparing whole sets. Check by reading the three test files on
-the engine's `origin/main`.
+This stands until those tests stop comparing whole sets and the smoke job stops pinning its
+egress list. Check by reading each file named above at engine `origin/main`. Read there at
+`0f9f2fbe7`.
 
 ---
 
