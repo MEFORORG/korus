@@ -72,7 +72,9 @@ export type InboxEntry = {
 
 /**
  * One entry read from another session's file in the shared folder. Every
- * field is untrusted text: it is shown and copied, never run.
+ * field is untrusted text: it is shown and copied, never run. Its place is
+ * launched only as Go to session, at a folder rebuilt from this machine's own
+ * environment and only while the process list shows that instance running.
  */
 export type InboxRemoteEntry = {
   key: string
@@ -94,7 +96,17 @@ export type InboxRemoteEntry = {
   needs?: InboxNeed
   reviewOutcome?: string
   confidence?: string
+  /**
+   * Where the app shows the asking session: its desktop instance's data
+   * folder and its app session id, as that session wrote them.
+   */
+  place?: InboxPlace
+  /** When the asking session last wrote its file; Go to session shows while it is recent. */
+  placeAt?: number
 }
+
+/** A desktop app instance's data folder and one of its session ids. */
+export type InboxPlace = { instance: string; id: string }
 
 /** A remote entry the owner dismissed: its key and when. */
 export type InboxDismissal = { key: string; at: number }
@@ -112,6 +124,11 @@ declare module 'claude-code' {
       folderNote: string | null
       /** Which Details and the Done section the owner has opened, by key. */
       expanded: string[]
+      /**
+       * This session's title as the app's session list shows it, or null until
+       * the engine has handed one over. Held here so a reload keeps it.
+       */
+      title: string | null
     }
   }
 }
