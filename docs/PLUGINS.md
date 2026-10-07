@@ -400,10 +400,15 @@ dismissed. Run output is never written.
 hide the entry too. When the dismissing session ends, its file holds no dismissals, so the Dismiss
 lapses and an entry that still waits shows again in every pane.
 
+A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
+
+One case outlasts the lapse. The session that raised the entry removes it from its own list when its
+pane sees the Dismiss, and it does not bring it back.
+
 ### A card names its session by the title the app shows
 
 A card's `From:` line names the session by its title in the app's session list, such as
-`Manager: #2861 separators`. The owner cannot match a folder name or a session id to a session.
+`Manager: batch 7 parser`. The owner cannot match a folder name or a session id to a session.
 
 A session with no title falls back to its folder name and the first 8 characters of its id. So does
 a title holding a secret-shaped value, such as `token=...`, since every session's cards show it.
@@ -417,10 +422,56 @@ The inbox also catches a session renaming itself with `set_session_title` and `s
 A rename made any other way, such as by the owner in the sidebar, shows from that session's next
 prompt.
 
-A Dismiss also lapses after 24 hours, and when its file drops out of the 200 that panes read.
+### Go to session brings the asking session forward in its own app window
 
-One case outlasts the lapse. The session that raised the entry removes it from its own list when its
-pane sees the Dismiss, and it does not bring it back.
+Each extra instance of the desktop app runs with its own data folder, `%USERPROFILE%\.claude-desktop-N`.
+A launch naming a running instance's folder hands a `claude://claude.ai/epitaxy/local_...` link to
+it, which brings that session forward. The default instance, `%APPDATA%\Claude`, is not offered.
+
+A desktop session writes its folder and its app session id (`local_...`) to its inbox file. It does
+so only when the app's own record of that session names it, so a process it starts cannot claim it.
+
+A new session's record can lag its start, so the session looks again at each poll for two minutes.
+
+A remote card offers **Go to session** while the asking session's file is under 12 minutes old, and
+dated no more than five minutes ahead. The pane redraws when a button goes stale.
+
+The place is another session's data, so it is never launched as written. The reader rebuilds the
+folder from its own environment and launches only if the two match.
+
+Each press first runs a fixed Windows PowerShell query of the machine's `claude.exe` processes, even
+when nothing is running. Unless it runs elevated, it sees only the user's own command lines. No card
+value reaches that query.
+
+Each field prints as base64 of its UTF-16 bytes, because Windows PowerShell's plain text would turn a
+Kelvin sign into `K`. A line in another shape, a field holding U+FFFD, or a list cut at the output cap
+does not count. Under Constrained Language Mode no line prints, so the button never launches.
+
+It launches only if a line shows a `claude.exe` under the install folder, with no `type` switch, whose
+`--user-data-dir=` names that folder. A file in the folder, such as a planted `lockfile`, does not count.
+
+The reader splits each command line as Windows does, by the rules of `CommandLineToArgvW`. So an
+unquoted program name ends at any character from U+0001 to U+0020, not only at a space or tab. A home
+folder with a space works, quoted either way.
+
+It reads switches the way the app's Chromium code does. It reads the line only up to its first NUL,
+and trims the front of the line, then each argument, of the same space characters Chromium trims. A
+switch starts with `--`, `-` or `/`, and its name matches in any case of the letters A to Z.
+
+Where the app settles on one reading, the reader is stricter. Every `user-data-dir` switch must name
+that folder, though the app takes the last. Folder case is ignored for A to Z only. A longer folder, a
+parent, a switch inside another argument, a bare `--` or any `single-argument` does not count.
+
+The check trusts the process list as text. A program already running as the user could fake a
+matching line, but such a program could start the app directly anyway.
+
+At least two other gaps remain. An instance that exits between the check and the launch would start
+again. And a crafted file can name another running instance's real session, so its card brings that
+one forward.
+
+It runs the app's own launcher, `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which outlives app
+updates and exits in under a second. Each value is one argument, with no shell. It works in the
+desktop app on Windows only.
 
 ### Run is offered only for this session's own entries
 
@@ -429,7 +480,7 @@ pane sees the Dismiss, and it does not bring it back.
 | A PowerShell refusal, or a signal's command, this session's main loop raised, in a folder known as a full path | Run, Copy, Details, Dismiss |
 | A Bash refusal on Windows | Copy, Details and Dismiss. Git Bash can expand a command differently from what the card shows. |
 | One a subagent raised | Copy, Details and Dismiss. The subagent's folder is not known. |
-| Anything read from another session's file | Copy, Details and Dismiss. Never Run. |
+| Anything read from another session's file | Copy, Details and Dismiss, plus Go to session while that session is alive. Never Run. |
 | A question | Copy and Dismiss |
 
 **For a refusal, Run is offered only when the blocked part is the first command on the line.** The
@@ -621,6 +672,6 @@ It reads no subfolder and follows no link. It refuses a `-Folder` whose last seg
 | Check | Where it runs |
 |---|---|
 | `claude plugin validate plugins/korus-inbox` | **Your machine only.** |
-| `claude plugin test plugins/korus-inbox` | **Your machine only.** 290 tests, all passing under Claude Code 2.1.286 on 2026-10-04. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests fail that pass under 2.1.286. |
+| `claude plugin test plugins/korus-inbox` | **Your machine only.** 386 tests, all passing under Claude Code 2.1.288 on 2026-10-06. Run the binary the app runs (`CLAUDE_CODE_EXECPATH`): under an older `claude` on PATH, 2.1.283, four tests failed on 2026-10-06 that passed under 2.1.286. |
 | The marketplace lists it, its files are ASCII, and `WRITERS` names it as a writer that still writes | CI, through `tests/test_the_plugin_marketplace_resolves.py`. |
 | The prune deletes the spent files and keeps everything else | CI, through `tests/test_the_inbox_prune_deletes_only_spent_files.py`. |

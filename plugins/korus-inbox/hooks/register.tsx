@@ -6,6 +6,7 @@ import type {
   InboxEntry,
   InboxNeed,
   InboxOption,
+  InboxPlace,
   InboxQuestion,
   InboxRemoteEntry,
   InboxRun,
@@ -17,7 +18,11 @@ import type {
 // tool. Each session writes its own entries to one JSON file in a shared
 // folder under the home folder, and every pane reads the 200 newest files of
 // 256 KB or less. Entries read from disk are untrusted text: they are shown
-// and copied, never run. Run exists only for this session's own entries, read
+// and copied, never run. A remote card's Go to session press runs two
+// things: a fixed Windows PowerShell query of the process list (no card value
+// reaches it), and, when that shows the instance running, the app's launcher
+// with a link, at a folder rebuilt from this machine's own environment. Run
+// exists only for this session's own entries, read
 // from $.state at the moment the owner presses it. Only the newest remote
 // entries are held and drawn; the count still takes in every one.
 
@@ -484,6 +489,319 @@ async function titleFromEvent(
   await noteTitle($, set).catch(() => undefined)
 }
 
+// ------------------------------------------------- where the app shows it
+
+// Each extra instance of the desktop app runs with its own data folder,
+// %USERPROFILE%\.claude-desktop-N. A launch naming a running instance's
+// folder hands a claude:// link to that instance, which brings the session
+// forward, and exits. The default instance (%APPDATA%\Claude) is not offered:
+// a hand-off to it has not been measured.
+const APP_ID = /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+// The last segment of an instance folder, matched exactly: no trailing dot or
+// space, which Windows would resolve to the same folder under another name.
+const INSTANCE_NAME = /\\\.claude-desktop-\d{1,3}$/i
+// A file whose session wrote within this long is alive. A file dated further
+// ahead than this is not believed.
+const FRESH_MS = HEARTBEAT_MS + 2 * 60 * 1000
+const AHEAD_MS = 5 * 60 * 1000
+const LAUNCH_TIMEOUT_MS = 20_000
+const QUERY_TIMEOUT_MS = 15_000
+// A new session's record can lag its start, so its place is looked up again
+// at each poll for this many polls (about two minutes), then only at publish.
+const PLACE_TRIES = 24
+// The app's processes, one line each: its executable, a tab, its command line.
+// A fixed script: nothing from any file reaches it. Each field is printed as
+// the base64 of its UTF-16LE bytes, because Windows PowerShell writes plain
+// text to a pipe in the console code page with a best-fit fallback: a Kelvin
+// sign arrives as `K`, an en dash as `-` and a curly quote as `"`, so a line
+// the app reads one way would reach the reader as another.
+const PROCESS_QUERY =
+  "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.ExecutablePath)) + \"`t\" + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$_.CommandLine)) }"
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+// A field the process query printed, decoded from the base64 of its UTF-16LE
+// bytes, or undefined when the field has any other shape. The pattern lets
+// `=` stand only as padding, where indexOf gives -1, so a -1 means no byte.
+// A U+FFFD is refused: the query's encoder writes a lone surrogate as one, so
+// the reader cannot tell what the app holds there.
+function fromUtf16Base64(field: string): string | undefined {
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(field)) return undefined
+  const bytes: number[] = []
+  for (let i = 0; i < field.length; i += 4) {
+    const a = BASE64.indexOf(field.charAt(i))
+    const b = BASE64.indexOf(field.charAt(i + 1))
+    const c = BASE64.indexOf(field.charAt(i + 2))
+    const d = BASE64.indexOf(field.charAt(i + 3))
+    bytes.push((a << 2) | (b >> 4))
+    if (c >= 0) bytes.push(((b & 15) << 4) | (c >> 2))
+    if (d >= 0) bytes.push(((c & 3) << 6) | d)
+  }
+  if (bytes.length % 2 !== 0) return undefined
+  let text = ''
+  for (let i = 0; i < bytes.length; i += 2) text += String.fromCharCode((bytes[i] ?? 0) | ((bytes[i + 1] ?? 0) << 8))
+  return text.includes('\ufffd') ? undefined : text
+}
+
+// The shape a place must have to be offered at all. The folder is matched
+// against this machine's own folders only when the owner presses.
+function placeOf(raw: unknown): InboxPlace | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const { instance, id } = raw as Record<string, unknown>
+  if (typeof instance !== 'string' || typeof id !== 'string') return undefined
+  if (!APP_ID.test(id) || instance.length > 260 || /["\x00-\x1f]/.test(instance) || !INSTANCE_NAME.test(instance)) return undefined
+  return { instance, id }
+}
+
+// A place another session wrote is offered while that session is alive.
+function isPlaceFresh(at: number | undefined, now: number): boolean {
+  return at !== undefined && now - at <= FRESH_MS && at - now <= AHEAD_MS
+}
+
+// Only a found place is kept. A new session starts before the app has
+// written its id into the record, so a miss is looked up again.
+let placeCache: { sessionId: string; place: InboxPlace } | undefined
+let placeTries = 0
+
+// This session's place in the app, from what the app put in its environment,
+// and only when the app's own record of that session names this session. A
+// process a session starts inherits that environment, and the record keeps it
+// from claiming its parent's place. Undefined outside the desktop app.
+async function myPlace($: Engine): Promise<InboxPlace | undefined> {
+  const sessionId = await $.session.id()
+  if (placeCache?.sessionId === sessionId) return placeCache.place
+  let place: InboxPlace | undefined
+  const id = await $.env.get('CLAUDE_CODE_HOST_SESSION_ID')
+  const exec = await $.env.get('CLAUDE_CODE_EXECPATH')
+  const account = await $.env.get('CLAUDE_CODE_ACCOUNT_UUID')
+  const org = await $.env.get('CLAUDE_CODE_ORGANIZATION_UUID')
+  // Matched on the path as written, so the folder keeps its own spelling.
+  const instance = exec === undefined ? undefined : /^(.+)\\claude-code\\/i.exec(exec)?.[1]
+  const candidate = instance === undefined ? undefined : placeOf({ instance, id })
+  if (candidate !== undefined && account !== undefined && org !== undefined && UUID.test(account) && UUID.test(org)) {
+    const record = `${candidate.instance}\\claude-code-sessions\\${account}\\${org}\\${candidate.id}.json`
+    const text = await $.fs.read(record).catch(() => '')
+    try {
+      const parsed = JSON.parse(text) as { cliSessionId?: unknown }
+      if (parsed.cliSessionId === sessionId) place = candidate
+    } catch {
+      // Not written yet, or mid-write: looked up again later.
+    }
+  }
+  if (place !== undefined) placeCache = { sessionId, place }
+  return place
+}
+
+// Looks this session's place up again while it is still missing, for a
+// while after start, and publishes it the moment it is found.
+async function retryPlace($: Engine): Promise<void> {
+  if (placeCache !== undefined || placeTries >= PLACE_TRIES) return
+  placeTries += 1
+  if ((await myPlace($)) !== undefined) void publish($)
+}
+
+// The folder a place names, rebuilt from this machine's own environment, or
+// undefined when it names no instance folder here. The file's spelling is
+// never launched: only the folder built here is.
+async function instanceFolder($: Engine, instance: string): Promise<string | undefined> {
+  const home = (await $.env.get('USERPROFILE'))?.replace(/\\+$/, '')
+  const numbered = /\\\.claude-desktop-(\d{1,3})$/i.exec(instance)
+  if (home === undefined || home === '' || numbered === null) return undefined
+  const built = `${home}\\.claude-desktop-${numbered[1]}`
+  return asciiLower(built) === asciiLower(instance) ? built : undefined
+}
+
+// Lowercases A to Z only. Full Unicode lowercasing folds some other letters
+// into ASCII, such as the Kelvin sign into `k`, and Windows keeps a folder
+// spelled with one apart from a folder spelled with the other. Chromium
+// lowercases switch names this way too.
+const asciiLower = (text: string): string => text.replace(/[A-Z]+/g, upper => upper.toLowerCase())
+
+// Strips the whitespace Chromium's TrimWhitespace strips on Windows, the set
+// kWhitespaceWide in base/strings/whitespace_constants.h. It is not what
+// String.prototype.trim strips: that keeps U+0085 and strips U+FEFF.
+const SPACE = /[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/.source
+const EDGE_SPACE = new RegExp(`^${SPACE}+|${SPACE}+$`, 'g')
+const LEADING_SPACE = new RegExp(`^${SPACE}+`)
+const trimmed = (text: string): string => text.replace(EDGE_SPACE, '')
+
+const isBlank = (ch: string | undefined): boolean => ch === ' ' || ch === '\t'
+
+// A command line split into its arguments the way CommandLineToArgvW splits
+// it, which is how the app reads its own. A quoted program name runs to the
+// next quote, with no escapes. An unquoted one ends at the first character
+// from U+0001 to U+0020, not only at a blank, and that one character is
+// dropped. After the name, blanks outside quotes split, and
+// backslashes are literal unless a quote follows them. Counting the quote
+// that opened the quoting, every third quote in a run is a literal quote, and
+// a run that ends on the second closes the quoting. Windows quotes an
+// argument that holds a space, the whole argument or a part of it, so a home
+// folder with a space shows up quoted either way.
+function argsOf(commandLine: string): string[] {
+  const n = commandLine.length
+  let i = 0
+  let program = ''
+  if (commandLine[0] === '"') {
+    for (i = 1; i < n && commandLine[i] !== '"'; i += 1) program += commandLine[i]
+    i += 1
+  } else {
+    for (; i < n && commandLine[i] > ' '; i += 1) program += commandLine[i]
+    if (i < n) i += 1
+  }
+  const args = [program]
+  while (isBlank(commandLine[i])) i += 1
+  let arg = ''
+  let isArg = i < n
+  let quotes = 0
+  let slashes = 0
+  while (i < n) {
+    const ch = commandLine[i]
+    if (isBlank(ch) && quotes === 0) {
+      args.push(arg)
+      arg = ''
+      slashes = 0
+      while (isBlank(commandLine[i])) i += 1
+      isArg = i < n
+      continue
+    }
+    i += 1
+    if (ch === '\\') {
+      arg += ch
+      slashes += 1
+      continue
+    }
+    if (ch !== '"') {
+      arg += ch
+      slashes = 0
+      continue
+    }
+    if (slashes % 2 === 0) {
+      arg = arg.slice(0, arg.length - slashes / 2)
+      quotes += 1
+    } else {
+      arg = `${arg.slice(0, arg.length - (slashes + 1) / 2)}"`
+    }
+    slashes = 0
+    for (; commandLine[i] === '"'; i += 1) {
+      quotes += 1
+      if (quotes === 3) {
+        arg += '"'
+        quotes = 0
+      }
+    }
+    if (quotes === 2) quotes = 0
+  }
+  if (isArg) args.push(arg)
+  return args
+}
+
+// A switch as the app reads one on Windows: `--`, `-` or `/` before its name,
+// the name in any case of A to Z, and its value after the first `=`.
+function switchOf(arg: string): { name: string; value: string } | undefined {
+  const prefix = /^(--|-|\/)/.exec(arg)?.[0]
+  if (prefix === undefined || prefix.length === arg.length) return undefined
+  const equals = arg.indexOf('=')
+  return equals < 0
+    ? { name: asciiLower(arg.slice(prefix.length)), value: '' }
+    : { name: asciiLower(arg.slice(prefix.length, equals)), value: arg.slice(equals + 1) }
+}
+
+// Whether a command line is a main process of the app (no type switch) whose
+// data folder is this one. The app trims whitespace off the front of its
+// command line before it splits it, then trims each argument before it looks
+// for `--` or a switch, so this does too (Chromium base/command_line.cc:
+// ParseFromString and AppendSwitchesAndArguments). ParseFromString trims both
+// ends, but hands CommandLineToArgvW a pointer that still runs to the end of
+// the line, so only the front trim takes effect. The app reads its line as a
+// C string, so it stops at the first NUL. Every data-folder switch must name
+// the folder, though the app takes the last. A line that could stop the app
+// reading switches part way does not count: one with a bare `--`, one whose
+// raw text holds `single-argument` anywhere, in any case, or one with a
+// switch of that name. Quotes can split the raw text, as in
+// --single-argume""nt, so the parsed names are checked as well.
+function holdsFolder(commandLine: string, dataDir: string): boolean {
+  if (commandLine.toLowerCase().includes('single-argument')) return false
+  const line = (commandLine.split('\0', 1)[0] ?? '').replace(LEADING_SPACE, '')
+  const args = argsOf(line).slice(1).map(trimmed)
+  if (args.includes('--')) return false
+  const switches = args.map(switchOf).filter(one => one !== undefined)
+  if (switches.some(one => one.name === 'type' || one.name === 'single-argument')) return false
+  const folders = switches.filter(one => one.name === 'user-data-dir')
+  return folders.length > 0 && folders.every(one => asciiLower(one.value) === asciiLower(dataDir))
+}
+
+// Whether an instance of the app runs with this data folder, read from the
+// process list. A file in the folder would not do: whoever can write an inbox
+// file can plant one, and a launch into a folder no instance holds starts the
+// app on it. Only a main process counts (no --type), from the app's install.
+async function isInstanceRunning($: Engine, dataDir: string, install: string): Promise<boolean> {
+  const systemRoot = (await $.env.get('SystemRoot'))?.replace(/\\+$/, '')
+  if (systemRoot === undefined || systemRoot === '') return false
+  const shell = `${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+  const listed = await $.process.run([shell, '-NoProfile', '-NonInteractive', '-Command', PROCESS_QUERY], {
+    timeoutMs: QUERY_TIMEOUT_MS,
+  })
+  // A list cut at the cap can end in a line cut at a base64 group, which
+  // decodes to the front of the real line and could name a shorter folder.
+  if (listed.exitCode !== 0 || listed.isStdoutTruncated) return false
+  const prefix = asciiLower(`${install}\\`)
+  return listed.stdout.split(/\r?\n/).some(line => {
+    const fields = line.split('\t')
+    if (fields.length !== 2) return false
+    const exe = fromUtf16Base64(fields[0] ?? '')
+    const commandLine = fromUtf16Base64(fields[1] ?? '')
+    if (exe === undefined || commandLine === undefined) return false
+    return asciiLower(exe).startsWith(prefix) && holdsFolder(commandLine, dataDir)
+  })
+}
+
+const launching = new Set<string>()
+// The keys whose Go to session was fresh at the last poll.
+let lastFresh = ''
+
+// Brings another session forward in its own, running instance of the app.
+// It does not start an instance: one is launched only when the process list
+// shows it running, so the launch hands the link over. An instance that exits
+// between the check and the launch is the gap. No shell: each value is one
+// argument. The app is the install's own launcher, which outlives app updates
+// and exits as soon as it has handed the link over. It lives under
+// LOCALAPPDATA, where the user can write, because the app installs there.
+async function goTo($: Engine, key: string, raw: InboxPlace | undefined, at: number | undefined): Promise<void> {
+  if (launching.has(key)) return
+  launching.add(key)
+  try {
+    const place = placeOf(raw)
+    if (place === undefined || !isPlaceFresh(at, await $.clock.now())) {
+      $.ui.toast('Go to session: that session has gone quiet, so its app window may be closed.')
+      return
+    }
+    const dataDir = await instanceFolder($, place.instance)
+    const appData = (await $.env.get('LOCALAPPDATA'))?.replace(/\\+$/, '')
+    if (dataDir === undefined || appData === undefined || appData === '') {
+      $.ui.toast('Go to session: that session names no app instance on this machine.')
+      return
+    }
+    const install = `${appData}\\AnthropicClaude`
+    const app = `${install}\\claude.exe`
+    if (!(await $.fs.exists(app).catch(() => false))) {
+      $.ui.toast(clean(`Go to session: the app was not found at ${app}.`, 200))
+      return
+    }
+    if (!(await isInstanceRunning($, dataDir, install))) {
+      $.ui.toast('Go to session: that app instance is not running.')
+      return
+    }
+    const ran = await $.process.run([app, `--user-data-dir=${dataDir}`, `claude://claude.ai/epitaxy/${place.id}`], {
+      timeoutMs: LAUNCH_TIMEOUT_MS,
+    })
+    if (ran.exitCode !== 0) $.ui.toast(`Go to session: the app exited ${ran.exitCode}.`)
+  } catch (error: unknown) {
+    $.ui.toast(clean(`Go to session did not open it: ${errorText(error)}`, 200))
+  } finally {
+    launching.delete(key)
+  }
+}
+
 // Writes this session's file, queued so two writes never interleave. $.fs has
 // no rename and no delete, so the write is in place and whole; a reader that
 // catches it half-written fails to parse it and reads it again next poll.
@@ -505,6 +823,8 @@ function publish($: Engine, options: { ended?: string; heartbeat?: boolean } = {
         sessionId,
         label: await label($),
         title: (await read($, title)) ?? undefined,
+        // An ended file names no place: the id it was for is gone.
+        place: options.ended !== undefined ? undefined : await myPlace($).catch(() => undefined),
         updatedAt: now,
         ended: options.ended !== undefined,
         // Run output is never written: only what the owner must act on.
@@ -616,6 +936,9 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
   // The title the owner sees in the app's session list. A file with none, or
   // from a version before titles, falls back to the folder and id prefix.
   const shown = titleOf(file.title)
+  // Offered only while the asking session is alive, so its instance runs.
+  const place = placeOf(file.place)
+  const placeAt = place === undefined ? undefined : file.updatedAt
   const sessionLabel = shown !== '' ? shown : `${flat(clean(file.label, 60)) || 'session'} ${stem.slice(0, 8)}`
   const list = Array.isArray(file.entries) ? file.entries.slice(0, MAX_ENTRIES) : []
   const entries = list.flatMap((one: unknown): InboxRemoteEntry[] => {
@@ -646,6 +969,8 @@ function parseFile(stem: string, text: string, now: number): ParsedFile | undefi
       {
         key: `${stem}:${e.id}`,
         sessionLabel,
+        place,
+        placeAt,
         kind: e.kind,
         createdAt: e.createdAt,
         questions: e.kind === 'question' ? parseQuestions(e.questions) : [],
@@ -728,6 +1053,14 @@ async function poll($: Engine): Promise<void> {
   const held = { entries: visible.slice(0, MAX_REMOTE_SHOWN), total: visible.length }
   const current = await read($, remote)
   if (JSON.stringify(current) !== JSON.stringify(held)) await update($, remote, () => held)
+  // A Go to session button goes stale with time alone, which no state write
+  // marks, so the pane is redrawn when the set of fresh ones changes.
+  const fresh = held.entries.filter(entry => entry.place !== undefined && isPlaceFresh(entry.placeAt, now)).map(entry => entry.key).join(' ')
+  if (fresh !== lastFresh) {
+    lastFresh = fresh
+    $.ui.invalidate('ui.render')
+  }
+  await retryPlace($).catch(() => undefined)
 
   // A Dismiss pressed in another pane clears one of this session's entries
   // here too. Any file can name one, so this only ever hides, never adds.
@@ -1935,7 +2268,8 @@ export const register: Register = on => {
       return { entry, card, from, where, folderText, isOpen, chars: remoteCardChars(card, from, where, folderText) }
     }
 
-    // A card read from disk: shown and copied, nothing else. No Run, ever.
+    // A card read from disk: shown and copied. No Run, ever. Its one launch is
+    // Go to session, which hands a link to an instance already running.
     // Details the owner opened are drawn only when they fit the budget; the
     // card itself always stays, so its Hide details stays within reach.
     const remoteCard = (
@@ -1961,6 +2295,15 @@ export const register: Register = on => {
                 key={`rdetails:${entry.key}`}
                 label={isOpen ? 'Hide details' : 'Details'}
                 onPress={() => toggle($, `rdetails:${entry.key}`)}
+              />
+            )}
+            {entry.place !== undefined && isPlaceFresh(entry.placeAt, now) && (
+              <Button
+                key={`rgo:${entry.key}`}
+                label="Go to session"
+                onPress={() => {
+                  void goTo($, entry.key, entry.place, entry.placeAt)
+                }}
               />
             )}
             <Button key={`rdismiss:${entry.key}`} label="Dismiss" onPress={() => dismissRemote($, entry.key)} />
