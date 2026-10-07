@@ -408,19 +408,46 @@ a different root. The send reports success either way.
 **Queued is not delivered.** The recipient's own drain hook delivers, and that runs at their next
 `SessionStart` or `Stop`. `mail.ps1` prints this on every send.
 
-**The default time to live is 1440 minutes.** It clears an overnight gap and expires a weekend.
-Expiry is silent at both ends. Before a longer dark, commit what you need read.
+**This repository's default time to live is 1440 minutes.** It clears an overnight gap and expires
+a weekend. The engine's sender defaults to 4320 minutes (engine `mail.ps1:121`).
+
+The recipient's drain files an expired message under `expired/` and names it only at that
+session's next `SessionStart`; a sweep at `Stop` says nothing, and the sender is never told. Before
+a longer dark, commit what you need read.
 
 **The caps belong to the drain, not to the sender.** Whoever writes a file into an inbox never runs
-`mail.ps1`, so the sender reports the bounds and enforces none of them.
+`mail.ps1`, so no sender check is the binding control. This repository's sender enforces none of
+them. The engine's sender checks its own form of two; see below.
 
 | Bound | Value | What happens past it |
 | --- | --- | --- |
-| Rendered body | 2000 bytes | The drain truncates at render. The send still reports success. |
-| Line | 240 characters | Cut, and counted as truncation. |
+| Rendered body | 2000 bytes | The drain truncates at render. A sender's success report does not rule this out. |
+| Line | 240 characters | Cut, and counted as truncation. Here the 6-character frame counts, so content over 234 is cut. |
 | Messages per injection | 5 | The rest wait for the next drain. |
 
 So long content goes in a file, and you mail the path.
+
+**The engine repository's `mail.ps1 -Send` refuses a long body or a long line, and queues
+nothing.** It throws on a raw body over 2000 characters, or on any body line over 240 characters.
+
+Run as `pwsh -File`, it exits 1 and the throw goes to stderr, so `2>$null`, `2>/dev/null` or `*>`
+hides it. A pipe such as `| grep Queued` hides the exit code instead.
+
+Run in-process with `&`, the throw stops the rest of your command, and `$LASTEXITCODE` still reads 0
+from an earlier `git` call inside the script. Read the error, not the exit code.
+
+Passing is not a whole render. The drain charges each line 7 bytes of frame. So a body under 2000
+characters can still render past 2000 bytes, and splitting lines adds to it.
+
+Break long lines with real newlines, or mail a file path. Without `-Json`, an engine send worked
+when it exits 0 and prints `Queued N message(s)`. Targets under a `FAILED to queue` line were not
+confirmed, and a copy may still have arrived. Re-send only to those, and say it may repeat.
+
+| Evidence | Source |
+| --- | --- |
+| The engine's caps, output lines and 4320-minute default time to live | `scripts/coord/mail.ps1`, read at engine `origin/main` `0f9f2fbe7` |
+| The 7-byte line frame | `scripts/hooks/mail-drain.ps1` `Format-Body`, same ref |
+| Three seats wrote this lesson | Wiki key `coord/mail/line-cap`, events `20260927T011745812Z-6ju7lz`, `20260928T204609668Z-qgszhy`, `20261001T175125944Z-3q4h79` |
 
 **Nothing sensitive goes in a body.** Delivery copies it into the recipient's transcript, and every
 `from` field is an unverified self-assertion.
