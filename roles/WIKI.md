@@ -57,8 +57,15 @@ scripts to the operating system.
 or a manual step that reads the cycle's lint report. Title the draft `wiki promotion: <lesson>`.
 Open it from a branch in the korus repository itself: korus is public, and no fork draft is landed.
 
-Each draft's body names its lesson's wiki key. The job skips a lesson whose key an open or merged
-korus pull request carries: `gh pr list --state all --search "<key> in:body"`, closed ones ignored.
+Each draft's body names its lesson's wiki key in backticks. Before drafting, the job runs:
+
+```powershell
+gh pr list --repo MEFORORG/korus --state all --limit 500 --json number,state,body,isCrossRepository
+```
+
+It skips the lesson when an open or merged pull request, not from a fork, carries the exact
+backticked key in its body. Promotions merged before this rule name no key, so match those by
+their event ids.
 
 The cycle opens pull requests only through `compile.ps1`, and never merges one. The Lander lands the
 compile pull requests in the record repository, and the promotion step's playbook drafts in korus.
