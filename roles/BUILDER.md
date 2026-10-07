@@ -1065,10 +1065,9 @@ these places hold a list you must extend in the same commit:
 4. `tests/test_lens_param_modes.py` asserts `samples/config` carries no param rows. A handler that
    uses the action vocabulary, such as `msg.set(...)`, trips it.
 
-The `windows-service-smoke` job in `.github/workflows/ci.yml` also lists the graph's outbound
-destinations, and its comment says to keep that list in sync. It passes a fixed set of secret
-`MEFOR_VALUE_*` values too. Nothing fails when either drifts: an outbound that cannot start is
-isolated, and the job stays green.
+The `windows-service-smoke` job in `.github/workflows/ci.yml` lists the graph's outbound
+destinations, and a comment says to keep it in sync. It also passes fixed `MEFOR_VALUE_*` secrets.
+Neither can fail the job: an outbound that cannot start is isolated, and the job stays green.
 
 Before you push, run the test files above, `tests/test_lens_parse.py`, `tests/test_lens_rewrite.py`
 and `tests/test_tooling_partition.py`. A new feed that passes its own tests still fails the first
