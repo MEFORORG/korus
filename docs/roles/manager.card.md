@@ -79,6 +79,9 @@ result with an unfiltered run.
 Read the Builder's LAST commit message. It carries the proposed PR title and the proposed ledger
 banner text. Put the Builder's report in the PR body; it cannot post there itself.
 
+Open the body with the merge danger and the evidence. `roles/MANAGER.md`, section
+*Open the body with the merge danger and the evidence*, holds the block.
+
 Label the PR and post the Builder's QA line on it, verbatim. It ran the check and then exited, so you
 are the seat that can record it:
 
