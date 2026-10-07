@@ -633,7 +633,7 @@ if ($Json) {
     $null = $sb.AppendLine("- online pull request check: $onlineNote")
     if ($eventsRead -eq 0) { $null = $sb.AppendLine().AppendLine('WARNING: no event was read, so every event-based zero above measured nothing.') }
     $null = $sb.AppendLine()
-    $null = $sb.AppendLine('Promotion candidates are listed only. Drafting the playbook pull request is the scheduled Claude Code job''s work. It opens that pull request as a DRAFT, and the Lander lands it under roles/LANDER.md 4a-quinquies (spec FR-022).')
+    $null = $sb.AppendLine('Promotion candidates are listed only. Drafting the playbook pull request is the scheduled Claude Code job''s work. It opens that pull request as a DRAFT titled `wiki promotion: <lesson>`, and the Lander lands it under roles/LANDER.md 4a-quinquies (spec FR-022).')
     $text = $sb.ToString()
 }
 

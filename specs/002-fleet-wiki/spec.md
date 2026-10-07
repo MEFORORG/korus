@@ -175,9 +175,9 @@ a clean control log.
 1. **Given** a planted conflict, **When** lint runs, **Then** it reports the pair and changes no
    event.
 2. **Given** a lesson written by two or more seats, **When** lint runs, **Then** it lists the
-   lesson as a promotion candidate, and the playbook pull request drafted from it goes to the
-   Lander. Amended 2026-10-06 (FR-022): this ended "it drafts a pull request against the right
-   playbook for the Owner to approve or close".
+   lesson as a promotion candidate. FR-022 says who lands the pull request drafted from it.
+   Amended 2026-10-06 (FR-022): this ended "it drafts a pull request against the right playbook
+   for the Owner to approve or close".
 
 ---
 

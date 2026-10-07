@@ -54,11 +54,11 @@ and imports weekly. It makes no model call and needs no app to be open.
 scripts to the operating system.
 
 **Lint's promotion step is not part of the cycle.** It needs a model, so it stays a Claude Code job
-or a manual step that reads the cycle's lint report. Title the draft `wiki promotion: <lesson>` and
-open it from a `MEFORORG/korus` branch, not a fork, so the Lander finds it.
+or a manual step that reads the cycle's lint report. Title the draft `wiki promotion: <lesson>`.
+Open it from a branch in the korus repository itself: korus is public, and no fork draft is landed.
 
-The job must run `gh pr list` with `--state all`, not `--state open`, to skip a lesson already
-promoted.
+The job must run `gh pr list` with `--state all` and a high `--limit`, not `--state open`, to skip
+a lesson already promoted.
 
 The cycle opens pull requests only through `compile.ps1`, and never merges one. The Lander lands the
 compile pull requests in the record repository, and the promotion step's playbook drafts in korus.
