@@ -1092,6 +1092,48 @@ What is worth keeping is the habit: **a probe that prints nothing has not told y
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
 
+### 5k. A new sample feed trips exact-set tests
+
+**Adding a feed to `samples/config` reds tests that compare the whole set of names.** At least
+these tests need a change in the same commit:
+
+1. `tests/test_cli.py` asserts the exact set of router names and of handler names.
+2. `tests/test_wiring_serve.py` asserts the same two sets on the loaded registry.
+3. Each new non-secret `env()` key goes in every `environments/*.toml`. A secret comes from
+   `MEFOR_VALUE_<KEY>` and goes in none, as `prod.toml`'s header says. `tests/test_environments.py`
+   checks only that the files agree with each other, so a key missing from all of them passes it.
+4. `tests/test_lens_param_modes.py` asserts `samples/config` carries no param rows. An action such
+   as `msg.set(...)`, a lookup or `log_note(...)` trips it. Its failure text says what to change.
+
+The `windows-service-smoke` job in `.github/workflows/ci.yml` lists the graph's outbound
+destinations, and a comment says to keep it in sync. It also passes fixed `MEFOR_VALUE_*` secrets.
+An outbound missing from either starts isolated, and the job stays green.
+
+A lookup connection is different. The engine builds lookups for the whole graph, so a missing
+egress entry or secret there stops the start and reds the job.
+
+Before you push, run at least the test files above, every `tests/test_lens_*.py`,
+`tests/test_checks*.py` and `tests/test_tooling_partition.py`. A new feed that passes its own tests
+still fails the first two items.
+
+A new top-level `tests/test_*.py` must be classified when its own text has no import line for
+`messagefoundry`, `messagefoundry_webconsole`, `messagefoundry_toolkit`, `harness` or `tee`. An
+engine import through a helper module does not count.
+
+`tests/test_tooling_partition.py` names the two lists, `tests/tooling_manifest.txt` and
+`_STAYS_WITHOUT_IMPORTING`, and says to choose the second when in doubt. Read its failure text.
+
+| Wiki evidence | |
+| --- | --- |
+| The first form | A new feed trips exact-set asserts, and every new test file must be listed in the manifest. Event `20260926T094814871Z-3rhy7h`. The second half was wrong. |
+| The first correction | A test that imports the engine needs no manifest line, and listing it would stop it running on the engine legs. Event `20260929T223223695Z-awupaa`. |
+| The rule above | Names the two test files, keeps the `env()` key rule, and states the import test for a partition entry. Event `20261002T125118861Z-3e7n2p`, which replaces both. |
+| Added on review | The lens param test, the smoke job, lookups and the secret rule. No event carries them; read at engine `origin/main` `0f9f2fbe7`. |
+
+Expiry: this stands until those tests stop comparing whole sets, or the engine stops isolating an
+outbound that fails at start. Check the files above and the `RegistryRunner` start path at engine
+`origin/main`.
+
 ---
 
 ## 6. COMMON owns the handoff format; five things are builder-only

@@ -30,6 +30,14 @@ LINT = w.WIKI / "lint.ps1"
 CLASSES = ("conflict", "dead-evidence", "stale", "orphan-page", "promotion-candidate")
 # Hex with a digit, so it reads as a commit, and absent from any throwaway repository.
 MISSING_SHA = "0badc0de4242"
+PROMOTION_RULE = (
+    "It opens that pull request as a DRAFT titled `wiki promotion: <lesson>` from a korus branch, "
+    "not a fork, and the Lander lands it under roles/LANDER.md 4a-quinquies"
+)
+PROMOTION_LINE = (
+    "Promotion candidates are listed only. Drafting the playbook pull request is the scheduled "
+    "Claude Code job's work. " + PROMOTION_RULE + " (spec FR-022)."
+)
 
 
 def tree_hashes(*roots: Path) -> dict[str, str]:
@@ -182,7 +190,12 @@ class OneOfEachClass(_LintCase):
             self.assertIn(f"`{f['id']}`", out)
         for c in CLASSES:
             self.assertIn(f"| {c} | 1 |", out)
-        self.assertIn("DRAFT that only the Owner decides", out)
+        self.assertIn(PROMOTION_LINE, out)
+        self.assertNotIn("owner decides", out.lower())
+
+    def test_the_header_states_the_same_promotion_rule_as_the_report(self):
+        header = " ".join(LINT.read_text(encoding="utf-8").split("Exit codes:")[0].split())
+        self.assertIn(PROMOTION_RULE, header)
 
 
 class LintChangesNothing(_LintCase):

@@ -225,7 +225,8 @@ The old slugs still redirect.
 | --- | --- |
 | Open, non-draft, mergeable | **Yes.** This is the number the goal is about. |
 | Open and red | **Yes.** Triage it or route it. A red nobody has read is not drained. |
-| Draft | No. Name it, do not chase it. |
+| Wiki-promotion draft (title starts `wiki promotion:`, branch in `MEFORORG/korus`, not a fork) | **Yes. It is yours to land.** Mark it ready once *4a-quinquies* is met, then merge. Do not mark it ready while its head commit message admits it is unfinished (*4d-ter*). Owner ruling 2026-10-06, quoted in [WIKI.md](WIKI.md). |
+| Any other draft | No. Name it, do not chase it. |
 | Blocked on an Owner ruling | No. Name it in the blockers table, section 18. |
 
 **Zero is the state the loop exists to catch, not a reason to stop.** *Keep a standing `/loop`
