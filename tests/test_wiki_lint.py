@@ -182,7 +182,11 @@ class OneOfEachClass(_LintCase):
             self.assertIn(f"`{f['id']}`", out)
         for c in CLASSES:
             self.assertIn(f"| {c} | 1 |", out)
-        self.assertIn("and the Lander lands it under roles/LANDER.md 4a-quinquies", out)
+        self.assertIn(
+            "DRAFT titled `wiki promotion: <lesson>` from a korus branch, not a fork, "
+            "and the Lander lands it under roles/LANDER.md 4a-quinquies",
+            out,
+        )
         self.assertNotIn("owner decides", out.lower())
 
 
