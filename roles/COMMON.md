@@ -408,32 +408,40 @@ a different root. The send reports success either way.
 **Queued is not delivered.** The recipient's own drain hook delivers, and that runs at their next
 `SessionStart` or `Stop`. `mail.ps1` prints this on every send.
 
-**The default time to live is 1440 minutes.** It clears an overnight gap and expires a weekend.
-Expiry is silent at both ends. Before a longer dark, commit what you need read.
+**This repository's default time to live is 1440 minutes.** It clears an overnight gap and expires
+a weekend. The engine's sender defaults to 4320. Expiry is silent at both ends. Before a longer
+dark, commit what you need read.
 
 **The caps belong to the drain, not to the sender.** Whoever writes a file into an inbox never runs
-`mail.ps1`, so this repository's sender reports the bounds and enforces none of them. The engine's
-sender refuses two of them; see below.
+`mail.ps1`, so no sender check is the binding control. This repository's sender enforces none of
+them. The engine's sender checks two of them; see below.
 
 | Bound | Value | What happens past it |
 | --- | --- | --- |
-| Rendered body | 2000 bytes | The drain truncates at render. This repository's sender still reports success. |
+| Rendered body | 2000 bytes | The drain truncates at render. A sender's success report does not rule this out. |
 | Line | 240 characters | Cut, and counted as truncation. |
 | Messages per injection | 5 | The rest wait for the next drain. |
 
 So long content goes in a file, and you mail the path.
 
-**The engine repository's `mail.ps1 -Send` refuses two of these bounds and queues nothing.** It
-throws on a body over 2000 characters and on any body line over 240 characters. The throw goes to
-stderr, so `2>$null`, `*>` or `2>&1 | <filter>` hides it.
+**The engine repository's `mail.ps1 -Send` checks two of these bounds and queues nothing past
+them.** It throws on a raw body over 2000 characters and on any body line over 240 characters, and
+exits 1.
 
-Break long lines with real newlines, or mail a file path. A send worked only when it prints
-`Queued N message(s)` with N at least 1 and no `FAILED to queue` line. `Queued 0` prints when
-nothing was written.
+Run as `pwsh -File`, the throw goes to stderr, so `2>$null`, `2>/dev/null`, `*>` or a pipe through
+a filter hides it. Run in-process with `&`, it also stops the rest of your command.
+
+Passing is not a whole render. The drain charges each line 7 bytes of frame, so a body under 2000
+characters can still render past 2000 bytes, and splitting lines adds to it.
+
+Break long lines with real newlines, or mail a file path. Without `-Json`, an engine send worked
+when it exits 0 and prints `Queued N message(s)` with N at least 1. A `FAILED to queue` line names
+a target that got nothing; re-send to that one only.
 
 | Evidence | Source |
 | --- | --- |
-| The engine's caps and output lines | `scripts/coord/mail.ps1`, read at engine `origin/main` `0f9f2fbe7` |
+| The engine's caps, output lines and default time to live | `scripts/coord/mail.ps1`, read at engine `origin/main` `0f9f2fbe7` |
+| The 7-byte line frame | `scripts/hooks/mail-drain.ps1` `Format-Body`, same ref |
 | Three seats wrote this lesson | Wiki key `coord/mail/line-cap`, events `20260927T011745812Z-6ju7lz`, `20260928T204609668Z-qgszhy`, `20261001T175125944Z-3q4h79` |
 
 **Nothing sensitive goes in a body.** Delivery copies it into the recipient's transcript, and every
