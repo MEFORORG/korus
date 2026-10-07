@@ -1091,8 +1091,8 @@ engine import through a helper module does not count.
 | Added on review | The lens param test, the smoke job, lookups and the secret rule. No event carries them; read at engine `origin/main` `0f9f2fbe7`. |
 
 Expiry: this stands until those tests stop comparing whole sets, or the engine stops isolating an
-outbound that fails at start. Check the files above and `messagefoundry/pipeline/wiring_runner.py`
-at engine `origin/main`.
+outbound that fails at start. Check the files above and the `RegistryRunner` start path at engine
+`origin/main`.
 
 ---
 
