@@ -181,6 +181,39 @@ before the pull request exists.
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
 the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
 
+### Open the body with the merge danger and the evidence
+
+**Owner request 2026-10-07.** Every pull request body you open starts with these two blocks, above
+the Builder reports. They tell the Lander two things the diff does not show: how bad a wrong merge
+would be, and what proves the change works.
+
+The shape comes from `skills/engineering/pr/SKILL.md` in `mattpocock/skills`, tag `v1.3.1`. Its
+"door" became *Reversible*, and its one-word blast radius became a list.
+
+```markdown
+## Merge danger
+
+**Reversible:** yes | no -- <how to undo it, or the act that makes it no>
+
+**Blast radius:** <what it touches>
+
+## Evidence
+
+- **Before:** <the failing test, the wrong output, or the zero and its control>
+- **After:** <the same instrument, now passing or corrected>
+```
+
+In a batch, repeat both blocks once per item, under the item's name.
+
+| Field | Rule |
+| --- | --- |
+| Reversible | **Yes** only if a revert of the change on `main` undoes all of it. **No** when it acts outside the commit: a migration against a real store, a branch-protection or required-context change, a published release. Name that act. |
+| Reversible, in a batch | `main` squashes the batch into one commit, so reverting one item is a hand revert (see *When to cut a pull request*). That still counts as yes. If any item is no, name it in the body's first line. |
+| Blast radius | Name the things it touches, never a rating word. In the engine: connections, pipeline stages, the store schema, the API. In the method: seats, gates, required contexts. "This file only" is an answer. |
+| Evidence | Before and after from the SAME instrument. A zero needs its control beside it -- [CLAUDE.md](../CLAUDE.md), *Arm every detector before you trust a zero*. Take it from the Builder's report. |
+| Evidence, in a batch | Each item's pair comes from its Builder's report. Put the combined-tree checks after the last item, as one batch-wide After. Never invent a reading to fill the block. |
+| No evidence | Say "none" and why, such as a prose-only change. A blank block reads as proof. |
+| A picture | Optional. A call tree, a file tree or a diff sketch, in a plain text code block, next to the line it supports. No glyphs. |
 
 ### When to cut a pull request
 
@@ -230,7 +263,8 @@ switch back.
    two items interact, so leave the later one out and re-brief a Builder against the batch branch.
 7. Push the batch branch, check it with `git ls-remote --heads origin`, and open one pull request.
 8. Title it with a short summary plus every backlog number it closes.
-9. In the body, give each item its own section: the Builder's report, its source branch, and that
+9. Open the body with the merge danger and the evidence (the section above), one pair per item.
+   Then give each item its own section: the Builder's report, its source branch, and that
    branch's head SHA.
 10. Post each Builder's QA line as its own comment. Apply the `qa` label only if every item has
     one; otherwise leave it off and name the item that has none.
