@@ -912,6 +912,7 @@ the job"*.
 | Unless the finding names a defect the merge would SHIP | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. |
 | No review proof at all | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
+| Name the repository's review standards | If the repository has a review-standards file, the subagent names it in the skill's arguments. `BUILDER.md` 4c holds how to name it. |
 | Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and a tag names the one that ran where the skill returns one. |
 | So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
 | Expect NO tag at all | Measured 2026-09-22 in `BUILDER.md` 4e: both QA lines on one pull request had none. Read an absence as unknown, never as inline, and read the commit. |
