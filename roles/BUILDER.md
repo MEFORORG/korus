@@ -614,6 +614,7 @@ none of them looks for a NEW correctness defect.
 | --- | --- |
 | How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
 | Name the effort level | **`xhigh` unless your brief names another.** A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. MessageFoundry: `xhigh. Review the staged diff; read docs/REVIEW-STANDARDS.md and apply its rules.` A bare path makes the skill review that file instead. |
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
