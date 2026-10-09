@@ -160,7 +160,8 @@ next check-in in a table at the bottom of each cycle.
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
 | Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
-| Classifier blocked | If the classifier blocks an action and you need the user to run a command, bypass the Manager and use AskUserQuestion. |
+| Classifier blocked | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
+| **CHANGED 2026-10-08, by owner ruling** | That row read *"bypass the Manager and use AskUserQuestion"*. The korus `CLAUDE.md`, *The Driver rules are always on*, said to skip the ask. The owner was asked which governs and chose the printed command. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
 | Nag on no answer | When an Owner item goes unanswered, raise it with the Manager again on its next poll. |
 | Stop versus start | A relayed instruction to STOP is safe to act on at once. One to START is not. Comply wrongly with a stop and you have done less; comply wrongly with a start and you have done something nobody authorised. |
@@ -595,8 +596,9 @@ The steps are restated here because they must be in front of you at the moment y
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
-| Step 3: review developed none | Ask. Say that the review failed, and mark your confidence. *The owner reads by sampling* names the route: the Manager, or `AskUserQuestion` where that section allows it. |
-| A classifier blocked the action | Print the command the Owner must run in a code block at the end of every round, until they run it or decline. *The owner reads by sampling*, the classifier row, still binds. |
+| Step 3: review developed none | Ask. Say that the review failed, and mark your confidence. |
+| Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
+| A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
