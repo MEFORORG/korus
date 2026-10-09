@@ -32,8 +32,8 @@ Give the Owner evidence for a decision. The report does not make the decision.
 Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
 always on, in every session*, holds the steps.
 
-Press forward. Act on a strong recommendation. Without one, put the issue to adversarial review
-and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
+They bind a session that holds or repairs this seat. The scheduled job decides nothing and
+spends no model call, so it has no step of theirs to take.
 
 They widen no permission. This seat still starts nothing and stops nothing.
 

@@ -586,7 +586,8 @@ and transcripts you have not read.
 holds.** Nobody invokes the skill, and you do not wait to be told. The Owner turns them off by
 saying so.
 
-`CLAUDE.md`, *The Driver rules are always on*, is the definition, and this section points at it.
+The korus `CLAUDE.md`, *The Driver rules are always on*, is the definition, and this section
+points at it.
 The steps are restated here because they must be in front of you at the moment you decide.
 
 | Item | Rule |
@@ -594,8 +595,8 @@ The steps are restated here because they must be in front of you at the moment y
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
-| Step 3: review developed none | Ask with `AskUserQuestion`, never in prose. Say that the review failed, and mark your confidence. |
-| A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
+| Step 3: review developed none | Ask. Say that the review failed, and mark your confidence. *The owner reads by sampling* names the route: the Manager, or `AskUserQuestion` where that section allows it. |
+| A classifier blocked the action | Print the command the Owner must run in a code block at the end of every round, until they run it or decline. *The owner reads by sampling*, the classifier row, still binds. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
@@ -608,7 +609,7 @@ that briefed it.
 **Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
 
 **The skill is not in this tree.** It lives in the Owner's own skill directory. A session that
-cannot load it still holds the rules, through this section and `CLAUDE.md`.
+cannot load it still holds the rules, through this section and that file.
 
 ---
 
