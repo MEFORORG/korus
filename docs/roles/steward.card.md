@@ -29,7 +29,7 @@ Give the Owner evidence for a decision. The report does not make the decision.
 
 ## The `/driver` rules are always on
 
-Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
+Owner ruling 2026-09-21, and nobody has to invoke the skill. `roles/COMMON.md`, *The Driver rules are
 always on, in every session*, holds the steps.
 
 They bind a session that holds or repairs this seat. The scheduled job decides nothing and

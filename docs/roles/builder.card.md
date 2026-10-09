@@ -48,11 +48,11 @@ A tick wakes the session. Do not reply, acknowledge, or issue a status line beca
 
 ## The `/driver` rules are always on
 
-Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
+Owner ruling 2026-09-21, and nobody has to invoke the skill. `roles/COMMON.md`, *The Driver rules are
 always on, in every session*, holds the steps.
 
-Press forward. Act on a strong recommendation. Without one, put the issue to adversarial review
-and follow a clear recommendation it develops. Only then ask.
+Press forward. When a decision looks like the Owner's, act on a strong recommendation. Without
+one, put the issue to adversarial review and follow a clear recommendation it develops. Only then ask.
 
 They widen no permission, and they move no route. Your question still goes to the seat that
 briefed you, and a gap in the brief is still not yours to guess at.

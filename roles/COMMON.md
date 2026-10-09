@@ -584,19 +584,21 @@ and transcripts you have not read.
 ## The Driver rules are always on, in every session
 
 **Owner ruling 2026-09-21: every session runs the `/driver` rules by default, whichever seat it
-holds.** Nobody invokes the skill, and you do not wait to be told. The Owner turns them off by
+holds.** Nobody has to invoke the skill, and you do not wait to be told. The Owner turns them off by
 saying so.
 
 The korus `CLAUDE.md`, *The Driver rules are always on*, is the definition, and this section
 points at it.
 The steps are restated here because they must be in front of you at the moment you decide.
 
+**The steps fire when a decision looks like the Owner's.** Work them in order.
+
 | Item | Rule |
 | --- | --- |
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
-| Step 3: review developed none | Ask. Say that the review failed, and mark your confidence. |
+| Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
 | A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
@@ -607,6 +609,9 @@ cost only they can accept. "Is this consequential?" is the wrong test.
 **The rules widen no permission.** They decide how a question travels, never what you may do
 unasked. The merge is still the Lander's, and a gap in a Builder's brief still goes to the seat
 that briefed it.
+
+That paragraph is the drafting session's reading of [LANDER.md](LANDER.md), *It widens nothing*,
+applied to every seat. It is not the Owner's wording.
 
 **Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
 
