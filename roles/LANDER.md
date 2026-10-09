@@ -71,6 +71,7 @@ here" lists belong in a dated episode note.
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
+| Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items and owner decisions in PR comments, where nothing reads them back. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
 it is still true and was never a decision procedure.
@@ -450,6 +451,53 @@ every trigger is a poll, nothing is pushed, and **a seat waiting to be notified 
 **What the handover gives you that the poll cannot** is the other four fields. An unread leg, a
 shipped round-two finding and a landing-order constraint exist in no API you can query. Read them
 from the message, and treat them as claims to check rather than facts to inherit.
+
+#### An item left in a PR comment is yours to carry, because nothing else reads it back
+
+**Owner-set 2026-10-08, in the Lander's own chat, in their words:** *"multiple sessions keep
+putting unhandled items or items that need my decisions or similar into PR comments. You need to
+watch for that and handle those so they don't get lost."*
+
+**A PR comment is a dead end once the pull request merges.** No workflow reads one back, and
+the author's process has usually exited.
+
+**An item that exists only there is lost at the merge.** It also looks handled, because somebody
+wrote it down.
+
+**Sweep the comments and the body of every pull request you touch.** Do it when the pull request
+reaches you, and again right before you merge it, because comments arrive in between.
+
+| What you find in a comment or body | What you do with it |
+| --- | --- |
+| A question or decision for the owner | Put it in *Table 2 -- the blockers*, every turn, with your recommendation. Say which pull request holds it. |
+| An owner answer relayed by a peer | Read it first-hand in that session's transcript before you rely on it. Then see it reaches the record. |
+| A finding shipped open, or a known defect | It needs a ledger row or a written decline. File it in your next ledger round. |
+| A follow-up "for a later pass", or a "row to file" | Same: a row, or a line saying it is declined and why. |
+| A request addressed to the Lander | Answer it on the pull request, then act. |
+| A request addressed to a seat that is gone | It is yours now. Route it, file it, or say on the pull request that it is declined. |
+| A leg nobody read, or a check nobody ran | Read it or run it before the merge. *A handed-over PR is yours* names the five fields. |
+| A landing-order constraint | Honour it, and repeat it on the sibling pull request it binds. |
+
+**Your own review comments count.** A review you posted with "follow-ups for the next pass" is an
+item you created. It goes in the same ledger round as everybody else's.
+
+**Close the loop where the item was raised.** Reply on the pull request with the row number, the
+decision, or the decline. A reader who finds the comment must also find what became of it.
+
+**A merged pull request is not exempt.** If the sweep was missed before the merge, the comments are
+still there. Sweep the pull requests merged since your last ledger round before you close that round.
+
+**It widens nothing.** Three rules still hold:
+
+| Rule | Where |
+| --- | --- |
+| You are not a second reader of the diff. | *4a-quinquies* |
+| An owner decision travels by the ladder, and you do not answer it yourself. | *Never use AskUserQuestion* |
+| A new row is filed the way every row is. | *Filing a new ledger item routes to the Lander* |
+
+**SEAT PRACTICE, not measured:** keep one running list of swept items in your dated episode note,
+one line each, with the pull request and what became of it. An item on no list is the one that is
+lost.
 
 #### On a red check, rule out a capacity artifact before you call it a failure
 
