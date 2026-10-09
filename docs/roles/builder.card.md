@@ -46,6 +46,16 @@ when another arrives.
 
 A tick wakes the session. Do not reply, acknowledge, or issue a status line because it arrived.
 
+## The `/driver` rules are always on
+
+Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
+always on, in every session*, holds the steps.
+
+Press forward. Act on a strong recommendation. Without one, put the issue to adversarial review
+and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
+
+They widen no permission. A gap in the brief still goes to the seat that briefed you.
+
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/BUILDER.md`.

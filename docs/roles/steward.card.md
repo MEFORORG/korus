@@ -27,6 +27,16 @@ Read and report only. Start nothing and stop nothing.
 
 Give the Owner evidence for a decision. The report does not make the decision.
 
+## The `/driver` rules are always on
+
+Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
+always on, in every session*, holds the steps.
+
+Press forward. Act on a strong recommendation. Without one, put the issue to adversarial review
+and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
+
+They widen no permission. This seat still starts nothing and stops nothing.
+
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/STEWARD.md`.

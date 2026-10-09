@@ -32,10 +32,10 @@ drains no queue, so you cannot wake it. Answering it is a verdict you may not is
 **A fourth reading, not blocked: a question that ended with no answer recorded.** The last entry
 alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
 
-## When something looks like an Owner decision
+## The `/driver` rules: when something looks like an Owner decision
 
-**You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session until the
-Owner answers, and a stalled Watchdog cannot report that it stopped. Every other seat still uses it.
+**You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session, and a
+stalled Watchdog cannot report that it stopped. Other seats still use it.
 
 1. Strong recommendation? Proceed with it.
 2. None? Put it to adversarial review, and follow a clear recommendation it develops.

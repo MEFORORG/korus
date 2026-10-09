@@ -47,6 +47,17 @@ Anything outside your instruction still goes to the Manager.
 The instruction carries no seat's powers with it. Doing Lander-shaped work is not a grant of the
 Lander's merge authority.
 
+## The `/driver` rules are always on
+
+Owner ruling 2026-09-21, and nobody invokes the skill. `roles/COMMON.md`, *The Driver rules are
+always on, in every session*, holds the steps.
+
+Press forward. Act on a strong recommendation. Without one, put the issue to adversarial review
+and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
+
+They widen no permission, and they start no work while you stand by. `roles/SPECIAL.md`, *Be
+proactive, and escalate only what only the Owner has*, carries the ladder.
+
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/SPECIAL.md`.
