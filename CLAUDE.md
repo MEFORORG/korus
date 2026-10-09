@@ -380,6 +380,12 @@ invoke the skill, and you do not wait to be told. The Owner turns them off by sa
 context, or a cost only they can accept. "Is this consequential?" is the wrong test. A merge-gate
 or repository-settings change is theirs; a choice between two implementations is not.
 
+**NARROWED 2026-10-08, by Owner ruling: where a Manager is running, the ask in step 2 goes to the
+Manager.** This section read as sending every seat to `AskUserQuestion`, against
+[roles/COMMON.md](roles/COMMON.md), *The owner reads by sampling*. The Owner ruled COMMON right.
+
+A seat with no Manager running still uses `AskUserQuestion`, and so does the Manager.
+
 **Where a classifier blocked an action, skip the ask.** Print the command the Owner must run in a
 code block at the end of every round, and keep printing it until they run it or decline.
 

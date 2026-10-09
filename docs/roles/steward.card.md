@@ -27,6 +27,16 @@ Read and report only. Start nothing and stop nothing.
 
 Give the Owner evidence for a decision. The report does not make the decision.
 
+## The `/driver` rules are always on
+
+Owner ruling 2026-09-21, and nobody has to invoke the skill. `roles/COMMON.md`, *The Driver rules are
+always on, in every session*, holds the steps.
+
+They bind a session that holds or repairs this seat. The scheduled job decides nothing and
+spends no model call, so it has no step of theirs to take.
+
+They widen no permission. This seat still starts nothing and stops nothing.
+
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/STEWARD.md`.

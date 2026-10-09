@@ -34,10 +34,10 @@ alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `
 
 Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19.
 
-## When something looks like an Owner decision
+## The `/driver` rules: when something looks like an Owner decision
 
-**You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session until the
-Owner answers, and this pair exists to keep merging. Every other seat still uses it.
+**You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session, and this
+pair exists to keep merging. Other seats still use it.
 
 1. Strong recommendation? Proceed with it. Confirming is asking.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.

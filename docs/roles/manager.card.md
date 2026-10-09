@@ -60,6 +60,17 @@ opening PRs. Merging is still the Lander's.
 Use only your own account. Do not work across accounts or make claims about another account's
 remaining allowance.
 
+## The `/driver` rules are always on
+
+Owner ruling 2026-09-21, and nobody has to invoke the skill. `roles/COMMON.md`, *The Driver rules are
+always on, in every session*, holds the steps.
+
+Press forward. When a decision looks like the Owner's, act on a strong recommendation. Without
+one, put the issue to adversarial review and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
+
+They widen no permission. The merge is still the Lander's, and where a repository's `CLAUDE.md`
+makes you wait for the Owner's go, you still wait.
+
 ## On arrival
 
 1. Read `roles/COMMON.md`, then `roles/MANAGER.md`.
