@@ -277,9 +277,20 @@ function Resolve-Python {
         # Ask the interpreter, do not trust the lookup. On Windows a `python` on PATH is often an app
         # execution alias stub that resolves cleanly and then does not run anything -- the instrument
         # answers "found", which is not the question ("will this execute the checker?").
+        #
+        # Capture ALL the output, read the exit code, and only then take the first line. Piping the
+        # call into `Select-Object -First 1` stops the native command before pwsh records its exit
+        # code, so $LASTEXITCODE keeps whatever ran last: null rejected every working interpreter, and
+        # a stale 0 from an earlier git call would pass a stub that printed and failed.
+        # tests/test_the_status_report_finds_a_python_that_runs.py pins both.
         $ver = $null
-        try { $ver = (& $c.Path --version 2>&1 | Select-Object -First 1) } catch { $ver = $null }
-        if ($LASTEXITCODE -eq 0 -and $ver) {
+        $rc = $null
+        try {
+            $out = @(& $c.Path --version 2>&1)
+            $rc = $LASTEXITCODE
+            if ($out.Count) { $ver = $out[0] }
+        } catch { $rc = $null }
+        if ($rc -eq 0 -and $ver) {
             return [pscustomobject]@{ Path = $c.Path; How = $c.How; Version = [string]$ver }
         }
     }
