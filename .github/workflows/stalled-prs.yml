@@ -9,10 +9,10 @@ name: stalled PRs
 # already passed.
 #
 # WHY NO EXISTING SIGNAL CATCHES IT. Every other signal here is a check OUTCOME, and no check has
-# failed -- that is the whole problem. `scripts/cron/watch-ci-red.ps1` watches for red, and there is
-# no red to watch. The author's last signal was a full pass, so they have no reason to look. A green
-# dashboard and a wedged repository are indistinguishable unless something asks the different
-# question: can this still merge AT ALL?
+# failed -- that is the whole problem. A watch for red has no red to watch here; the retired
+# `scripts/cron/watch-ci-red.ps1` was one. The author's last signal was a full pass, so they have no
+# reason to look. A green dashboard and a wedged repository are indistinguishable unless something
+# asks the different question: can this still merge AT ALL?
 #
 # MEASURED HERE 2026-09-05: four open pull requests, and merging one of them (#48) put the other
 # three BEHIND at once. Nothing reported it.
