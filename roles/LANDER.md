@@ -388,7 +388,7 @@ so step 1 of the ladder in *Never use AskUserQuestion* does not skip it.
 
 COMMON.md carries that exception as the row *Stop versus start, except the Lander*.
 
-Vault `docs/security/OWNER-RULINGS-2026-10-10-BATCH309.md`, entry B309-R1, records the ruling. It was
+Vault `docs/security/OWNER-RULINGS-2026-10-11-BATCH309.md`, entry B309-R1, records the ruling. It was
 not on vault `main` on 2026-10-11.
 
 ### The role is assigned in chat and is recorded nowhere a registry can see
