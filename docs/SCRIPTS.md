@@ -132,15 +132,15 @@ Once installed, these controls run through client events or git hooks.
 
 ## Scheduled jobs
 
-You must register this job with a scheduler. No installer schedules it, and no client or git event
-triggers it.
+`watch-ci-red.ps1` is retired, so do not register it with a scheduler. No installer schedules it,
+and no client or git event triggers it.
 
-The fleet wiki's `cycle.ps1` is scheduled too. `register-cycle-task.ps1` registers it on Windows,
-and both rows are under *The fleet wiki*.
+The fleet wiki's `cycle.ps1` is a scheduled job that stays live. `register-cycle-task.ps1`
+registers it on Windows, and both rows are under *The fleet wiki*.
 
 | Script | Does | Doc |
 |---|---|---|
-| `scripts/cron/watch-ci-red.ps1` | Polls for pull requests your repository labelled red and starts one session per red to attribute it. Zero model calls; a quiet repository is free. Exits non-zero on a zero it cannot establish, or a dead seat. `-DryRun`, `-Json` | [Watching for a red](CI-RED-WATCH.md) |
+| `scripts/cron/watch-ci-red.ps1` | **Retired 2026-10-10, by a seat decision under owner delegation 2026-10-08, not an owner ruling. Do not schedule it.** It started one session per labelled red to attribute it, and that seat is retired. `-DryRun`, `-Json` | [Watching for a red](CI-RED-WATCH.md) |
 
 ## Gates you have to run yourself
 
