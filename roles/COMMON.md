@@ -165,6 +165,8 @@ next check-in in a table at the bottom of each cycle.
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
 | Nag on no answer | When an Owner item goes unanswered, raise it with the Manager again on its next poll. |
 | Stop versus start | A relayed instruction to STOP is safe to act on at once. One to START is not. Comply wrongly with a stop and you have done less; comply wrongly with a start and you have done something nobody authorised. |
+| Stop versus start, except the Lander | **A relayed stop does not bind the Lander.** It asks the owner in its own chat to confirm, and keeps merging until the owner answers. A wrong stop there stalls the merge queue. |
+| **ADDED 2026-10-11, by owner ruling** | This file and LANDER.md disagreed, so the owner was asked on 2026-10-10. The owner chose *"Confirm, keep merging (Recommended)"*. Vault `docs/security/OWNER-RULINGS-2026-10-10-BATCH309.md`, entry B309-R1, records it. It was not on vault `main` on 2026-10-11. |
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act. |
 
 **Re-measure immediately before an irreversible act**, never from the approval-time list. If the
