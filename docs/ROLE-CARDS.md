@@ -15,8 +15,8 @@ in `roles/` that says what it owns and what it must not do. [The playbooks](PLAY
 six live seats.
 
 A **worktree** is a separate checkout of this repository in its own folder. Each session works in
-its own worktree, so no session's checkout or uncommitted work is disturbed by another.
-[Worktrees](WORKTREES.md) has the commands.
+its own worktree, so one session's checkout does not change under another. Some git state is still
+shared, and CLAUDE.md lists it. [Worktrees](WORKTREES.md) has the commands.
 
 [Seats and worktrees](SEATS-AND-WORKTREES.md) shows how to set up both for one session.
 
@@ -28,8 +28,8 @@ of that message, and it carries less weight with every turn.
 A compaction is worse. When the context fills, the harness swaps the conversation for a summary,
 and the seat instruction can fall out of it.
 
-Rereading the playbook does not fix this. Measured at `5f5a1a1` with `wc -l`, `roles/BUILDER.md`
-runs 1,321 lines and `roles/LANDER.md` 1,882. Their cards run 119 and 144.
+Rereading the playbook does not fix this. Measured at `189eb42` with `wc -l`, `roles/BUILDER.md`
+runs 1,372 lines and `roles/LANDER.md` 1,882. Their cards run 119 and 144.
 
 ## The card puts the seat back in front of the session
 
@@ -41,7 +41,7 @@ runs 1,321 lines and `roles/LANDER.md` 1,882. Their cards run 119 and 144.
    into the fresh context.
 4. The hook also writes a copy to `.claude/ROLE.local.md`. The session can reread it at any time.
 
-With no seat set, the hook prints one line saying so and injects nothing. The card file is read from
+With no seat set, the hook prints a short notice and the command that sets one, and no card. The card file is read from
 the checkout the hook script lives in, which may not be the worktree.
 
 The card is the playbook cut down to what a session must hold every turn. It names what the seat
@@ -50,36 +50,37 @@ owns, what it must not do, what it may decide alone, what to check on arrival, a
 The playbook still governs. The card points back to it, and tests cap each card at 150 lines and
 8 KB so it stays short enough to read in full.
 
-Whether the card arrives at the weight of `CLAUDE.md` or as plain hook output is still open. *The
-one thing still unproven* below holds that question.
+The hook prints the card as plain stdout. Whether `additionalContext` would give it more weight at
+`SessionStart` is untested. *The one thing still unproven* below holds that question.
 
 ### What was checked on 2026-10-12
 
 The instrument was a Python scan of the 600 newest `~/.claude*/projects/*/*.jsonl` transcripts on
 the Owner's machine. A hit is a `SessionStart` row whose content starts `[role-card] SEAT:`.
 
-Of those 600 transcripts, 417 got a card. The 417 held 41 `compact_boundary` rows, and every one was
-followed by a `SessionStart:compact` card. The first, plain-text pass returned 427, not 417.
+Of those 600 transcripts, 417 got a card. The 417 held 41 `compact_boundary` rows. A transcript
+failed if it had fewer `SessionStart:compact` card rows than compactions, and none did.
 
-Those 10 named the string in prose and got no card. That is the control: the pattern fires on text,
-so only the parsed hook rows count.
+The plain-text pass returned 427. The 10 extra named the string in prose and got no card, so only
+parsed hook rows count. The gap check has no planted control, so a zero there is weaker.
 
 A fresh `claude -p` session, started in the worktree that made this change with a `watchdog` marker,
-got the Watchdog card once. The primary checkout had no marker, so the marker came from the worktree.
+got the Watchdog card once. `$env:KORUS_SEAT` was unset, so the marker in the worktree supplied it.
 
 **Whether a card changes behaviour was not measured.** The one clean test was the Lander's ban on
-`AskUserQuestion`. The three Lander transcripts in the sample all predate that rule.
+`AskUserQuestion`. The three transcripts whose first card was Lander all predate that rule.
 
 **A reminder can be the wrong one.** A MessageFoundry session declared itself Lander and wrote the
-marker, then got the Builder card at its five compactions, timestamps 2026-10-05T03:26Z to 10-06T12:19Z.
+marker, then got the Builder card at its five compactions, from 2026-10-05T03:26Z to
+2026-10-06T12:19Z.
 
 Its own tool output shows the `lander` marker write and card at 2026-10-04T16:41Z. The cause is not
-yet found, and a separate session is investigating it.
+yet found.
 
 ## Set the seat once per worktree
 
-If you run only one session here, you may not need a card at all. Otherwise, set the marker once in
-each worktree:
+A short single session may not need a card. A long one does, for the reason above. Set the marker
+once in each worktree:
 
 ```powershell
 Set-Content .claude\seat.local.txt 'builder'
@@ -287,8 +288,8 @@ Keep expiring information out of cards. Put open queues, item numbers, and block
 A seat folder elsewhere had two failures from stale instructions. A "do not install" rule became
 wrong after a fix merged, and sessions twice cited an expired freeze.
 
-Tests enforce the 150-line and 8 KB caps, and the hook checks the byte cap again. An oversized card
-cannot load merely because a worktree skipped its tests.
+Tests enforce the 150-line and 8 KB caps, and the hook checks the byte cap again. A card
+over 8 KB cannot load merely because a worktree skipped its tests. One over 150 lines still can.
 
 **The byte cap rose from 6 KB on 2026-09-19**, by the Owner's Lander-and-Watchdog pairing ruling,
 which gave those two seats five blocks the other cards lack. The line cap did not move, and bytes
