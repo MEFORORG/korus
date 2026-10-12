@@ -34,7 +34,7 @@ These pages were revised on September 9, 2026. Each archive preserves the versio
 | Pruning worktrees | [Read current](PRUNING.md) | [Read archive](PRUNING.old.md) |
 | Install KORUS and test a blocked edit | [Read current](QUICKSTART-HUMAN.md) | [Read archive](QUICKSTART-HUMAN.old.md) |
 | Quickstart | [Read current](QUICKSTART.md) | [Read archive](QUICKSTART.old.md) |
-| Role cards: giving a worktree a seat that outlives its session | [Read current](ROLE-CARDS.md) | [Read archive](ROLE-CARDS.old.md) |
+| Role cards: A short reminder that keeps a long session on its role | [Read current](ROLE-CARDS.md) | [Read archive](ROLE-CARDS.old.md) |
 | Running multiple sessions | [Read current](RUNNING-MULTIPLE-SESSIONS.md) | [Read archive](RUNNING-MULTIPLE-SESSIONS.old.md) |
 | Every script, and what it does | [Read current](SCRIPTS.md) | [Read archive](SCRIPTS.old.md) |
 | Seats and worktrees | [Read current](SEATS-AND-WORKTREES.md) | [Read archive](SEATS-AND-WORKTREES.old.md) |
