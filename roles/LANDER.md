@@ -495,12 +495,11 @@ between.
 posted on a line of the diff is otherwise never swept. *4a-quinquies* names the same call.
 
 **Filing never holds a green pull request.** A row to file, a reply and an owner question all
-travel beside the merge. Three rows in the table can hold it: a defect the merge would ship, a
+travel beside the merge. Three rows in the table do hold it: a defect the merge would ship, a
 leg nobody read, and a landing-order constraint.
 
-**NARROWED 2026-10-12, by owner ruling.** That sentence read *"do hold it"*, and the first of those
-rows read *"The owner's ruling, not yours."* Such a defect now holds only where *4a-quinquies*
-says so.
+**NARROWED 2026-10-12, by owner ruling.** The first of those rows read *"The owner's ruling, not
+yours."* Such a defect now holds only where *4a-quinquies* says so.
 
 | What you find in a comment, a review or the body | What you do with it |
 | --- | --- |
@@ -1008,7 +1007,7 @@ below is verbatim.
 This narrows one row of the table below, *Unless the finding names a defect the merge would SHIP*.
 Before it, every such finding went to the owner.
 
-**Why the owner set it.** That day three engine pull requests, 2244, 2263 and 2282, each carried
+**Why the Lander asked.** That day three engine pull requests, 2244, 2263 and 2282, each carried
 review proof. Each also listed known defects that would ship. Two of them waited more than
 thirteen hours for a ruling, with green checks.
 
@@ -1035,11 +1034,11 @@ section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Searc
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP, and the defect changes behaviour or weakens a control | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. **NARROWED 2026-10-12, by owner ruling:** this item ended at *SHIP*. |
 | A shipped defect that does neither does not hold the merge | Merge once each such finding is filed as a ledger row and named on the pull request. |
-| Name each one on the pull request before you merge | One line each: the finding, then its row. *An item left in a PR comment is yours to carry* holds when to say *filed*, and the rule for a public repository. |
+| Name each one on the pull request before you merge | One line each: the finding, then its row. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | When you cannot tell which kind a finding is | It goes to the owner. The ruling lets you merge when *none* does, and you cannot say that. |
 | Examples that do not hold, at least | A code comment that a dependency bump made out of date. A docstring sentence that overstates. Neither changes what the code does. |
 | Examples that still go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
-| Those last two are not the owner's examples | They follow from the ruling's words, *"changes behaviour or weakens a control"*. |
+| None of these examples is the owner's | The owner named none. The last two follow from the ruling's words, *"changes behaviour or weakens a control"*. |
 | The late check and the lost prefix are on neither list | The owner merged both by the 16:55Z ruling, before the standing rule existed. That ruling does not classify them, and neither does this record. |
 | What the ruling does not give you | A decline of such a finding. A way past review proof. A choice between two authors' deliberate changes, which *4c-quinquies* leaves with the authors. |
 | No review proof at all | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
