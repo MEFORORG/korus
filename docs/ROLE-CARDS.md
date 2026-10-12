@@ -1,16 +1,86 @@
-# Role cards: giving a worktree a seat that outlives its session
+# Role cards: A short reminder that keeps a long session on its role
 
 <a id="tldrbluf"></a>
 
-A worktree can keep its seat across sessions. Set a one-word marker, and the `SessionStart` hook
-loads the matching role card.
+A role card is a short reminder of one seat's duties. A hook puts it in front of a session when the
+session starts and again after each compaction, so a long-running session keeps to its role.
 
-A seat assigned in an opening message competes with later chat and may be lost during compaction.
-The marker lets the hook restore that instruction.
+**CHANGED 2026-10-12, by Owner correction: this page was titled "giving a worktree a seat that
+outlives its session".** That named the delivery, not the purpose.
 
-If you run only one session here, you may not need separate seat cards.
+## A card joins a seat to a worktree
 
-Set the marker once in each worktree:
+A **seat** is the role a session holds, such as Builder, Lander or Manager. Each seat has a playbook
+in `roles/` that says what it owns and what it must not do. [The playbooks](PLAYBOOKS.md) lists the
+six live seats.
+
+A **worktree** is a separate checkout of this repository in its own folder. Each session works in
+its own worktree, so one session's checkout does not change under another. Some git state is still
+shared, and CLAUDE.md lists it. [Worktrees](WORKTREES.md) has the commands.
+
+[Seats and worktrees](SEATS-AND-WORKTREES.md) shows how to set up both for one session.
+
+## Long sessions lose track of their seat
+
+Without a card, a session learns its seat from its first message. Hours of later chat pile on top
+of that message, and it carries less weight with every turn.
+
+A compaction is worse. When the context fills, the harness swaps the conversation for a summary,
+and the seat instruction can fall out of it.
+
+Rereading the playbook does not fix this. Measured at `189eb42` with `wc -l`, `roles/BUILDER.md`
+runs 1,372 lines and `roles/LANDER.md` 1,882. Their cards run 119 and 144.
+
+## The card puts the seat back in front of the session
+
+1. A worktree with a seat holds a one-word marker, `.claude/seat.local.txt`, that names it. Git
+   ignores the file, so it stays with that one folder.
+2. When a session starts, the `SessionStart` hook reads the marker, or `$env:KORUS_SEAT` if there
+   is none. It prints the matching card, `docs/roles/<seat>.card.md`, into the session's context.
+3. After a compaction, the harness runs `SessionStart` hooks again. The hook puts the card back
+   into the fresh context.
+4. The hook also writes a copy to `.claude/ROLE.local.md`. The session can reread it at any time.
+
+With no seat set, the hook prints a short notice and the command that sets one, and no card. The card file is read from
+the checkout the hook script lives in, which may not be the worktree.
+
+The card is the playbook cut down to what a session must hold every turn. It names what the seat
+owns, what it must not do, what it may decide alone, what to check on arrival, and its playbook.
+
+The playbook still governs. The card points back to it, and tests cap each card at 150 lines and
+8 KB so it stays short enough to read in full.
+
+The hook prints the card as plain stdout. Whether `additionalContext` would give it more weight at
+`SessionStart` is untested. *The one thing still unproven* below holds that question.
+
+### What was checked on 2026-10-12
+
+The instrument was a Python scan of the 600 newest `~/.claude*/projects/*/*.jsonl` transcripts on
+the Owner's machine. A hit is a `SessionStart` row whose content starts `[role-card] SEAT:`.
+
+Of those 600 transcripts, 417 got a card. The 417 held 41 `compact_boundary` rows. A transcript
+failed if it had fewer `SessionStart:compact` card rows than compactions, and none did.
+
+The plain-text pass returned 427. The 10 extra named the string in prose and got no card, so only
+parsed hook rows count. The gap check has no planted control, so a zero there is weaker.
+
+A fresh `claude -p` session, started in the worktree that made this change with a `watchdog` marker,
+got the Watchdog card once. `$env:KORUS_SEAT` was unset, so the marker in the worktree supplied it.
+
+**Whether a card changes behaviour was not measured.** The one clean test was the Lander's ban on
+`AskUserQuestion`. The three transcripts whose first card was Lander all predate that rule.
+
+**A reminder can be the wrong one.** A MessageFoundry session declared itself Lander and wrote the
+marker, then got the Builder card at its five compactions, from 2026-10-05T03:26Z to
+2026-10-06T12:19Z.
+
+Its own tool output shows the `lander` marker write and card at 2026-10-04T16:41Z. The cause is not
+yet found.
+
+## Set the seat once per worktree
+
+A short single session may not need a card. A long one does, for the reason above. Set the marker
+once in each worktree:
 
 ```powershell
 Set-Content .claude\seat.local.txt 'builder'
@@ -26,6 +96,8 @@ builder                a prompt that is EXACTLY a roster label. The hook treats 
 
 *Two ways a seat gets set* explains why the second one is a declaration rather than the guess this
 page spends most of its length refusing.
+
+The rest of this page covers the delivery in detail: the marker, the roster, the checks and the rollout.
 
 ---
 
@@ -216,12 +288,15 @@ Keep expiring information out of cards. Put open queues, item numbers, and block
 A seat folder elsewhere had two failures from stale instructions. A "do not install" rule became
 wrong after a fix merged, and sessions twice cited an expired freeze.
 
-Tests enforce the 150-line and 8 KB caps, and the hook checks them again. Oversized cards cannot
-load merely because a worktree skipped its tests.
+Tests enforce the 150-line and 8 KB caps, and the hook checks the byte cap again. A card
+over 8 KB cannot load merely because a worktree skipped its tests. One over 150 lines still can.
 
 **The byte cap rose from 6 KB on 2026-09-19**, by the Owner's Lander-and-Watchdog pairing ruling,
-which gave those two seats five standing blocks the other cards do not carry. The line cap did not
-move, and it now binds both: 142 and 146 of 150.
+which gave those two seats five blocks the other cards lack. The line cap did not move, and bytes
+bind both. `wc -l -c` at `5f5a1a1`: lander 144 lines, 8,173 bytes; watchdog 140, 8,181.
+
+**CORRECTED 2026-10-12: that sentence read "it now binds both: 142 and 146 of 150".**
+`tests/test_role_cards.py` retracted the line-cap reading on 2026-09-21, and this page kept it.
 
 **The hook's `$maxBytes` is the copy that decides**, because it is what refuses to inject. Raising
 the test alone ships a card that silently never loads. `test_the_two_copies_of_the_byte_cap_agree`
