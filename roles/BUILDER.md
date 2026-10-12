@@ -1093,6 +1093,57 @@ What is worth keeping is the habit: **a probe that prints nothing has not told y
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
 
+### 5j-bis. A native command piped into `Select-Object -First` leaves a stale exit code
+
+In pwsh 7, `Select-Object -First N` ends the pipeline once N lines reach it. pwsh then never
+records the upstream command's exit code. **`$LASTEXITCODE` keeps the value it had before the
+pipe.**
+
+| `$LASTEXITCODE` before the pipe | What the check after it sees | The wrong result |
+| --- | --- | --- |
+| Unset | Null, which is not 0 | A working program is rejected. |
+| 0, from an earlier command | 0 | A program that failed is passed. |
+| Non-zero, from an earlier command | That old value | A working program is rejected. |
+
+Every row holds only when at least N lines reach `Select-Object`. With fewer, the check reads the
+program's real code, even when piped.
+
+Capture the output unpiped, read `$LASTEXITCODE`, then take the first line:
+
+    $out = python --version
+    $rc = $LASTEXITCODE
+    $first = $out | Select-Object -First 1
+
+A test of such a check must do each of these:
+
+| The test must | Why |
+| --- | --- |
+| Preset `$global:LASTEXITCODE`, never a bare `$LASTEXITCODE` | Below the global scope, such as in a function or a script block, a bare assignment makes a local variable that hides the global. Correct unpiped code then reads the preset. |
+| Preset a non-zero value for a stub that exits 0, and 0 for a stub that fails | A test that leaves it unset covers only the `Unset` row. |
+| Make each stub send at least N lines to `Select-Object` | Otherwise a silent failing stub passes the preset-0 test on the piped form. |
+
+Measured 2026-10-12 in pwsh 7.6.6 on Windows. Each piped run went into `Select-Object -First 1`.
+Each preset was `$global:LASTEXITCODE = <value>`, and unset means a new pwsh process:
+
+| Command | Run | `$LASTEXITCODE` read back |
+| --- | --- | --- |
+| `cmd /c "echo a& echo b"` | Piped, preset unset | Empty |
+| `cmd /c "echo a& echo b"` | Piped, preset 7 | 7 |
+| `cmd /c "echo a& echo b"` | Unpiped, preset 7 | 0 |
+| `cmd /c "echo a& exit 7"` | Piped, preset 0 | 0, on 10 of 10 runs |
+| `cmd /c "exit 7"` | Piped, preset 0 | 7 |
+| `cmd /c "exit 0"` | Piped, preset 7 | 0 |
+
+The preset also ran inside a function and inside a script block, each time before an unpiped
+`cmd /c "exit 0"`. After a bare `$LASTEXITCODE = 7`, `$LASTEXITCODE` read 7 and
+`$global:LASTEXITCODE` read 0. After `$global:LASTEXITCODE = 7`, both read 0.
+
+Reported in wiki events `20261009T151316241Z-6h1rmx` and `20261010T002714105Z-mmcc72`.
+
+Expiry: this stands until pwsh records an exit code for a native command whose pipeline a
+downstream `Select-Object -First` ended. Check by re-running the measured row
+`cmd /c "echo a& echo b"`, `Piped, preset 7`.
+
 ### 5k. A new sample feed trips exact-set tests
 
 **Adding a feed to `samples/config` reds tests that compare the whole set of names.** At least
