@@ -2,14 +2,18 @@
 
 <a id="tldrbluf"></a>
 
+**Retired 2026-10-10: do not schedule this watcher.** Each seat it starts attributes a red, and the
+fleet retired that seat on 2026-09-19. The Lander polls the label instead. This is a seat decision
+under owner delegation 2026-10-08, not an owner ruling. The page below records what the watcher did.
+
 The cron watcher polls for pull requests labelled red and starts one session per failure to identify
 its cause. The script makes no model calls.
 
 Without a watcher, a failure waits for a long-lived session to notice it. That session may already
 be busy with the operator.
 
-Your repository must label failing pull requests first. Add `ciRed` to `ccx.config.json`,
-then schedule [`scripts/cron/watch-ci-red.ps1`](https://claude-multisession.pages.dev/scripts/cron/watch-ci-red.ps1); test with `-DryRun`.
+While it was live, the watcher required your repository to label failing pull requests first. You
+added `ciRed` to `ccx.config.json`, then scheduled [`scripts/cron/watch-ci-red.ps1`](https://claude-multisession.pages.dev/scripts/cron/watch-ci-red.ps1); test with `-DryRun`.
 
 ---
 
@@ -70,7 +74,8 @@ Add the block to `ccx.config.json`. Every key is optional and every one has a de
 | `spawn.command` | `claude` | What starts a seat. Give a full path if a shim resolves it |
 | `spawn.args` | `["-p"]` | Fixed arguments. The generated prompt is appended after them |
 
-Then schedule it. On Windows, one line registers a task that ticks every five minutes:
+**Retired: do not run this command.** It is kept as the record of how the watcher was scheduled.
+On Windows, one line registered a task that ticked every five minutes:
 
 ```
 schtasks /Create /TN ccx-ci-red /SC MINUTE /MO 5 /TR "pwsh -NoProfile -File C:\path\scripts\cron\watch-ci-red.ps1"

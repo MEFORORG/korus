@@ -1,4 +1,17 @@
 #Requires -Version 7.3
+# RETIRED 2026-10-10. OUT OF SERVICE: DO NOT SCHEDULE THIS SCRIPT.
+#
+# Every spawn it makes starts an ATTRIBUTING seat. The decision record says that seat was retired
+# by the owner 2026-09-19, with the Regulator, and no seat attributes a red now. The Lander triages.
+# Retiring this watcher is a seat decision under owner delegation 2026-10-08, not an owner ruling.
+# The records are vault BACKLOG #1402 and #1403.
+#
+# What is left: a red, or a merge-queue ejection, waits until a seat polls for it. The Lander's
+# standing loop reads the `ci-red` label (roles/LANDER.md, *Keep a standing `/loop` running*).
+#
+# Its behaviour is unchanged and it still runs if started by hand, so its tests keep pinning it.
+# On 2026-10-10 the reference machine had no `ccx-ci-red` task registered. If yours has one,
+# delete it.
 <#
 .SYNOPSIS
     Poll for pull requests a consuming repository has labelled red, and start one attributing seat
@@ -1072,6 +1085,7 @@ try {
         $journal = Write-Journal -Number $number -Text (New-Briefing -Pr $pr -Key $key)
         # BEFORE THE SPAWN, so the seat cannot have written yet whatever -WaitForSpawn is set to.
         $journalBaseline = Get-JournalSize -Journal $journal
+        # RETIRED: this prompt starts the retired attributing seat. See the note at the top of this file.
         $prompt = ("You are the attributing seat for a red required check. Read '$journal'. It is " +
             "your only memory of this pull request. Follow the instructions in its last entry, and " +
             "append what you find to the same file before you finish.")

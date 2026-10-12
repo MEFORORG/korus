@@ -322,8 +322,10 @@ restates them; the routing does not.
 | That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for it there returns zero. Control on *This table governs the roster*: 1 hit, so the grep was live. |
 | Neither you nor the Builder ever started it | Part of the same retired row. A Builder's process has already exited when its PR opens. |
 | Where the spawn grant lives -- **YOU NEED IT NOW TOO** | PER CONFIG ROOT: `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `CLAUDE_CONFIG_DIR` root's `settings.json`. On all six roots, 2026-09-16. Measured 2026-09-02: `.claude-account-1` carries both rules and spawned a session in 38.8 seconds, and every root measured without them was refused. |
-| Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label nothing reads back. |
+| Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label that nothing sends to a seat. |
 | What that means for you | A green PR nobody has taken is waiting on your own poll, not on a broken route. Say that, and do not infer that the route changed. |
+| *Every trigger is a POLL* -- CORRECTED 2026-10-10 | It read *"writes a `ci-red` label nothing reads back"*. False since engine PR 1240: `ci-red-report.yml` reads it into a daily advisory run summary, sent to no seat. |
+| Who polls for reds now | You do, on your loop. *Keep a standing `/loop` running* carries the read. The watcher that spawned a seat per red is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
 | Notification -- STILL RETIRED as a guarantee | Nothing in the system pushes you a pull request. **A seat that waits to be notified waits forever**, and the 2026-09-18 handover does not change that. |
 | The three ways a handover fails | It is never sent, it reaches another Lander, or it names a pull request nobody opened. |
 | Hand-off to the Lander -- RESTORED 2026-09-18, as a COURTESY | A Manager messages you at step 10 with five fields. It tells you things the queue cannot: unread legs, shipped findings, landing order. **Poll anyway.** The row below held until then. |
@@ -735,6 +737,9 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | --- | --- |
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
 | The loop covers scheduled-run reds | The prompt says *poll each queue*. Read the board's *Scheduled runs failing* panel on the same tick. *A scheduled run's red is yours too* holds the duty. |
+| The loop covers labelled reds | Each tick, run `gh pr list --repo MEFORORG/MessageFoundry --label ci-red --state open --limit 200`. At 200 hits, re-read higher. Nothing removes the label on its own. A dry run of engine `scripts/ci/clear_stale_ci_red.py` tells stale from real, ejections included. |
+| Why that read is yours | Only the engine applies the label. The watcher that read it is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
+| A queue ejection waits for the same poll | `failure-signal.yml` labels a PR that the merge queue ejected on a watched red. A red with no PR goes to the issue *Reds with no pull request behind them*; read it each tick. Vault BACKLOG #1403, same decision. |
 | Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* binds this. Send no ACK, and invent no work to fill a quiet tick. Mark it `noop: true` when nothing moved, `noop: false` on a landing, filed item or finding. |
