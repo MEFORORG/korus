@@ -1035,8 +1035,7 @@ section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Searc
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP, and the defect changes behaviour or weakens a control | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. **NARROWED 2026-10-12, by owner ruling:** this item ended at *SHIP*. |
 | A shipped defect that does neither does not hold the merge | Merge once each such finding is filed as a ledger row and named on the pull request. |
-| Name each one on the pull request before you merge | One line each: the finding, then its row or *"queued for my next ledger pull request"*. *An item left in a PR comment is yours to carry* holds when to say *filed*, and the rule for a public repository. |
-| *Queued* counts as filed here, and that is a SEAT READING | The owner's words are *"filed as rows"*. The 16:55Z ruling named the merge first and the filing second. *Filing never holds a green pull request* already let a row travel beside the merge. |
+| Name each one on the pull request before you merge | One line each: the finding, then its row. *An item left in a PR comment is yours to carry* holds when to say *filed*, and the rule for a public repository. |
 | When you cannot tell which kind a finding is | It goes to the owner. The ruling lets you merge when *none* does, and you cannot say that. |
 | Examples that do not hold, at least | A code comment that a dependency bump made out of date. A docstring sentence that overstates. Neither changes what the code does. |
 | Examples that still go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
