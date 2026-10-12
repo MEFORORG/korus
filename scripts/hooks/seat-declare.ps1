@@ -62,7 +62,8 @@ function Write-Note {
 try {
     # ------------------------------------------------------------------------ read the user's turn
     $stdin = ''
-    try { $stdin = [Console]::In.ReadToEnd() } catch { $stdin = '' }
+    # UTF-8 bytes, not the console code page, so a non-ASCII `cwd` survives the read.
+    try { $stdin = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false)).ReadToEnd() } catch { $stdin = '' }
     if ([string]::IsNullOrWhiteSpace($stdin)) { exit 0 }
 
     $prompt = $null
@@ -73,16 +74,20 @@ try {
         # reads. Under the desktop app this process starts in the PRIMARY checkout (measured
         # 2026-10-12, docs/LIMITS.md), so `$PWD` would set the primary's seat instead.
         if ($payload.PSObject.Properties.Name -contains 'cwd' -and $payload.cwd) {
-            $at = [string]$payload.cwd
-            if (Test-Path -LiteralPath $at -PathType Container) {
-                $at = (Resolve-Path -LiteralPath $at).ProviderPath
-                while ($at) {
-                    if (Test-Path -LiteralPath (Join-Path $at '.git')) { $WorktreeRoot = $at; break }
-                    $parent = Split-Path -Parent $at
-                    if (-not $parent -or $parent -eq $at) { break }
-                    $at = $parent
+            # Its own try: a path error here must not read as malformed stdin and drop the declaration.
+            try {
+                $at = [string]$payload.cwd
+                if (Test-Path -LiteralPath $at -PathType Container) {
+                    $at = (Resolve-Path -LiteralPath $at).ProviderPath
+                    while ($at) {
+                        if (Test-Path -LiteralPath (Join-Path $at '.git')) { $WorktreeRoot = $at; break }
+                        $parent = Split-Path -Parent $at
+                        if (-not $parent -or $parent -eq $at) { break }
+                        $at = $parent
+                    }
                 }
             }
+            catch { }
         }
     }
     catch {

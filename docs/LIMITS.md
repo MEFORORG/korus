@@ -149,12 +149,12 @@ MessageFoundry's worktree transcripts: its coordination hook named the primary 4
 48 for a worktree.
 
 That count is `grep -rohE "This chat's worktree: [^ ]*"` over
-`~/.claude-account-*/projects/C--Users-Scott-Code-MessageFoundry--claude-worktrees-*/`, read
+`<config-root>/projects/C--Users-<u>-Code-MessageFoundry--claude-worktrees-*/` in every config root, read
 2026-10-12. Transcripts are machine-local, so no git ref can pin it.
 
-`role-card-inject.ps1` reads the input's `cwd` since 2026-10-12. The other hooks here still resolve
-from their working directory, and this session's own announce hook named `korus (main)` from a
-worktree on another branch.
+Since 2026-10-12, `role-card-inject.ps1`, `seat-declare.ps1`, `precompact-reprime.ps1` and the
+korus-card shim read the input's `cwd`. The other hooks here still resolve from their working
+directory. This session's own announce hook named `korus (main)` from a worktree on another branch.
 
 ## What the collision gate does not see
 

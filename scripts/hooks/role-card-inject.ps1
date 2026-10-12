@@ -105,6 +105,9 @@ catch { }
 try {
     $fromInput = Get-InputWorktree $hookInput
     if ($fromInput) { $WorktreeRoot = $fromInput }
+    elseif ($hookInput -match '"cwd"\s*:\s*"[^"]') {
+        Write-Output "[role-card] The hook input names a cwd inside no checkout, so the seat below comes from $WorktreeRoot."
+    }
 }
 catch {
     # Said aloud, because falling back in silence is the fault this read exists to fix.

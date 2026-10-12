@@ -658,10 +658,11 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
         """The control. With no `cwd` the same call reads the primary, so the arms here can fail."""
         self.assertIn("SEAT: steward", self.run_hook("{}").stdout)
 
-    def test_a_cwd_that_does_not_exist_falls_back(self):
+    def test_a_cwd_that_does_not_exist_falls_back_and_says_so(self):
         r = self.run_hook(json.dumps({"cwd": str(self.primary / "gone")}))
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("SEAT: steward", r.stdout)
+        self.assertIn("names a cwd inside no checkout", r.stdout)
 
     def test_input_that_is_not_json_falls_back(self):
         r = self.run_hook("not json {")
