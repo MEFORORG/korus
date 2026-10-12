@@ -1,16 +1,73 @@
-# Role cards: giving a worktree a seat that outlives its session
+# Role cards: a short reminder that keeps a long session on its role
 
 <a id="tldrbluf"></a>
 
-A worktree can keep its seat across sessions. Set a one-word marker, and the `SessionStart` hook
-loads the matching role card.
+A role card is a short reminder of one seat's duties. A hook puts it in front of a session when the
+session starts and again after each compaction, so a long-running session keeps to its role.
 
-A seat assigned in an opening message competes with later chat and may be lost during compaction.
-The marker lets the hook restore that instruction.
+**CHANGED 2026-10-12, by Owner correction: this page was titled "giving a worktree a seat that
+outlives its session".** That named the delivery, not the purpose.
 
-If you run only one session here, you may not need separate seat cards.
+## A card joins a seat to a worktree
 
-Set the marker once in each worktree:
+A **seat** is the role a session holds, such as Builder, Lander or Manager. Each seat has a playbook
+in `roles/` that says what it owns and what it must not do. [The playbooks](PLAYBOOKS.md) lists the
+six live seats.
+
+A **worktree** is a separate checkout of this repository in its own folder. Each session works in
+its own worktree, so two sessions never edit the same files. [Worktrees](WORKTREES.md) has the
+commands.
+
+[Seats and worktrees](SEATS-AND-WORKTREES.md) shows how to set up both for one session.
+
+## Long sessions lose track of their seat
+
+A session learns its seat from its first message. Hours of later chat pile on top of that message,
+and it carries less weight with every turn.
+
+A compaction is worse. When the context fills, the harness swaps the conversation for a summary,
+and the seat instruction can fall out of it.
+
+Rereading the playbook does not fix this. Measured at `5f5a1a1` with `wc -l`, `roles/BUILDER.md`
+runs 1,321 lines and `roles/LANDER.md` 1,882. Their cards run 119 and 144.
+
+## The card puts the seat back in front of the session
+
+1. Each worktree holds a one-word marker, `.claude/seat.local.txt`, that names its seat. Git
+   ignores the file, so it stays with that one folder.
+2. When a session starts, the `SessionStart` hook reads the marker. It prints the matching card,
+   `docs/roles/<seat>.card.md`, into the session's context.
+3. After a compaction, the harness runs `SessionStart` hooks again. The hook puts the card back
+   into the fresh context.
+4. The hook also writes a copy to `.claude/ROLE.local.md`. The session can reread it at any time.
+
+The card is the playbook cut down to what a session must hold every turn. It names what the seat
+owns, what it must not do, what it may decide alone, what to check on arrival, and its playbook.
+
+The playbook still governs. The card points back to it, and tests cap each card at 150 lines and
+8 KB so it stays short enough to read in full.
+
+Whether the card arrives at the weight of `CLAUDE.md` or as plain hook output is still open. *The
+one thing still unproven* below holds that question.
+
+### What was checked on 2026-10-12
+
+The delivery holds. Of the 600 newest session transcripts on the Owner's machine, 417 got a card.
+They held 41 compactions, and a card came back after every one of them.
+
+A fresh session started in this worktree with a `watchdog` marker got the Watchdog card once. The
+primary checkout had no marker, so the card came from the worktree, not the checkout.
+
+**Whether a card changes behaviour was not measured.** The one clean test was the Lander's ban on
+`AskUserQuestion`. Its three Lander transcripts all predate that rule, so they say nothing.
+
+**A reminder can be the wrong one.** A MessageFoundry session declared itself Lander, then got the
+Builder card at all five of its compactions, over 33 hours. The cause is not yet found.
+
+## Set the seat once per worktree
+
+If you run only one session here, you may not need a card at all. Otherwise, set the marker once in
+each worktree:
 
 ```powershell
 Set-Content .claude\seat.local.txt 'builder'
@@ -26,6 +83,8 @@ builder                a prompt that is EXACTLY a roster label. The hook treats 
 
 *Two ways a seat gets set* explains why the second one is a declaration rather than the guess this
 page spends most of its length refusing.
+
+The rest of this page covers how the hook delivers the card, and why it never guesses a seat.
 
 ---
 
