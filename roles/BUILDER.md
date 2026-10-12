@@ -1095,18 +1095,18 @@ time, and say which one you read.
 
 ### 5j-bis. A native command piped into `Select-Object -First` leaves a stale exit code
 
-In pwsh 7, `Select-Object -First N` stops the command upstream once it has its N lines. pwsh then
-never records that command's exit code. **`$LASTEXITCODE` keeps the value the last native command
-before it left.**
+In pwsh 7, `Select-Object -First N` ends the pipeline once N lines reach it. pwsh then never
+records the upstream command's exit code. **`$LASTEXITCODE` keeps the value it had before the
+pipe.**
 
 | `$LASTEXITCODE` before the pipe | What the check after it sees | The wrong result |
 | --- | --- | --- |
 | Unset | Null, which is not 0 | A working program is rejected. |
-| 0, from an earlier command | 0 | A program that printed at least N lines and then failed is passed. |
+| 0, from an earlier command | 0 | A program that failed is passed. |
 | Non-zero, from an earlier command | That old value | A working program is rejected. |
 
-Every row holds only for a program that prints at least N lines. A program that prints fewer reads
-back its real code, even when piped.
+Every row holds only when at least N lines reach `Select-Object`. With fewer, the check reads the
+program's real code, even when piped.
 
 Capture the output unpiped, read `$LASTEXITCODE`, then take the first line:
 
@@ -1118,21 +1118,21 @@ A test of such a check must do each of these:
 
 | The test must | Why |
 | --- | --- |
-| Preset `$global:LASTEXITCODE`, never a bare `$LASTEXITCODE` | Inside a function or script block, a bare assignment makes a local variable that hides the global. Correct unpiped code then reads the preset. |
+| Preset `$global:LASTEXITCODE`, never a bare `$LASTEXITCODE` | Below the global scope, such as in a function or a script block, a bare assignment makes a local variable that hides the global. Correct unpiped code then reads the preset. |
 | Preset a non-zero value for a stub that exits 0, and 0 for a stub that fails | A test that leaves it unset covers only the `Unset` row. |
-| Make each stub print at least N lines | A stub that prints fewer reads back its real code even when piped. A silent failing stub then passes the preset-0 test on the piped form. |
+| Make each stub send at least N lines to `Select-Object` | Otherwise a silent failing stub passes the preset-0 test on the piped form. |
 
-Measured 2026-10-12 in pwsh 7.6.6 on Windows. Each piped run went into `Select-Object -First 1`,
-and each preset used `$global:`. The programs were `python -c` and `cmd /c` one-line commands:
+Measured 2026-10-12 in pwsh 7.6.6 on Windows. Each piped run went into `Select-Object -First 1`.
+Each preset was `$global:LASTEXITCODE = <value>`, and unset means a new pwsh process:
 
-| Program | Run | `$LASTEXITCODE` read back |
+| Command | Run | `$LASTEXITCODE` read back |
 | --- | --- | --- |
-| Prints two lines, exits 0 | Piped, preset unset | Empty |
-| Prints two lines, exits 0 | Piped, preset 7 | 7 |
-| Prints two lines, exits 0 | Unpiped, preset 7 | 0 |
-| Prints one line, exits 7 | Piped, preset 0 | 0, on 10 of 10 runs |
-| Prints nothing, exits 7 | Piped, preset 0 | 7 |
-| Prints nothing, exits 0 | Piped, preset 7 | 0 |
+| `cmd /c "echo a& echo b"` | Piped, preset unset | Empty |
+| `cmd /c "echo a& echo b"` | Piped, preset 7 | 7 |
+| `cmd /c "echo a& echo b"` | Unpiped, preset 7 | 0 |
+| `cmd /c "echo a& exit 7"` | Piped, preset 0 | 0, on 10 of 10 runs |
+| `cmd /c "exit 7"` | Piped, preset 0 | 7 |
+| `cmd /c "exit 0"` | Piped, preset 7 | 0 |
 
 The preset also ran inside a function and inside a script block, each time before an unpiped
 `cmd /c "exit 0"`. After a bare `$LASTEXITCODE = 7`, `$LASTEXITCODE` read 7 and
@@ -1140,9 +1140,9 @@ The preset also ran inside a function and inside a script block, each time befor
 
 Reported in wiki events `20261009T151316241Z-6h1rmx` and `20261010T002714105Z-mmcc72`.
 
-Expiry: this stands until pwsh records an exit code for a native command that a downstream
-`Select-Object -First` stopped. Check by re-running the measured row `Prints two lines, exits 0`,
-`Piped, preset 7`.
+Expiry: this stands until pwsh records an exit code for a native command whose pipeline a
+downstream `Select-Object -First` ended. Check by re-running the measured row
+`cmd /c "echo a& echo b"`, `Piped, preset 7`.
 
 ### 5k. A new sample feed trips exact-set tests
 
