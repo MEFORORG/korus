@@ -148,6 +148,10 @@ So any hook that resolves its repository from where it runs reads the primary. M
 MessageFoundry's worktree transcripts: its coordination hook named the primary 410 times, against
 48 for a worktree.
 
+That count is `grep -rohE "This chat's worktree: [^ ]*"` over
+`~/.claude-account-*/projects/C--Users-Scott-Code-MessageFoundry--claude-worktrees-*/`, read
+2026-10-12. Transcripts are machine-local, so no git ref can pin it.
+
 `role-card-inject.ps1` reads the input's `cwd` since 2026-10-12. The other hooks here still resolve
 from their working directory, and this session's own announce hook named `korus (main)` from a
 worktree on another branch.

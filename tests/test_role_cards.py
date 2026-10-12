@@ -638,6 +638,7 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
             input=stdin,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             env=env,
             cwd=str(self.primary),
             timeout=TIMEOUT_SECONDS,
@@ -666,6 +667,14 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
         r = self.run_hook("not json {")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("SEAT: steward", r.stdout)
+
+    def test_a_non_ascii_cwd_survives_the_read(self):
+        """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""
+        wt = self.primary / ".claude" / "worktrees" / "caf\u00e9"
+        (wt / ".claude").mkdir(parents=True)
+        (wt / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
+        (wt / ".claude" / "seat.local.txt").write_text("lander", encoding="ascii")
+        self.assertIn("SEAT: lander", self.run_hook(json.dumps({"cwd": str(wt)}, ensure_ascii=False)).stdout)
 
     def test_the_worktrees_own_roster_is_read_when_it_has_one(self):
         """A worktree ahead of the primary gets its own card, not the primary's older copy."""

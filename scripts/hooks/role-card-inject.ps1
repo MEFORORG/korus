@@ -95,12 +95,21 @@ function Get-InputWorktree {
 # session's worktree. See WHICH WORKTREE above. Reading it also keeps the caller from blocking on
 # the write.
 $hookInput = ''
-try { $hookInput = [Console]::In.ReadToEnd() } catch { }
+try {
+    # As UTF-8 bytes, not through [Console]::In: that decodes with the console code page, which
+    # would mangle a non-ASCII cwd and send the hook quietly back to -WorktreeRoot.
+    $reader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false))
+    $hookInput = $reader.ReadToEnd()
+}
+catch { }
 try {
     $fromInput = Get-InputWorktree $hookInput
     if ($fromInput) { $WorktreeRoot = $fromInput }
 }
-catch { }
+catch {
+    # Said aloud, because falling back in silence is the fault this read exists to fix.
+    Write-Output "[role-card] Could not read the hook input's cwd ($($_.Exception.Message)), so the seat below comes from $WorktreeRoot."
+}
 
 $MarkerRelPath = '.claude/seat.local.txt'
 $RoleCopyRelPath = '.claude/ROLE.local.md'
