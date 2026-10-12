@@ -1102,8 +1102,11 @@ before it left.**
 | `$LASTEXITCODE` before the pipe | What the check after it sees | The wrong result |
 | --- | --- | --- |
 | Unset | Null, which is not 0 | A working program is rejected. |
-| 0, from an earlier command | 0 | A program that failed is passed. |
+| 0, from an earlier command | 0 | A program that printed at least N lines and then failed is passed. |
 | Non-zero, from an earlier command | That old value | A working program is rejected. |
+
+Every row holds only for a program that prints at least N lines. A program that prints fewer reads
+back its real code, even when piped.
 
 Capture the output unpiped, read `$LASTEXITCODE`, then take the first line:
 
@@ -1111,23 +1114,35 @@ Capture the output unpiped, read `$LASTEXITCODE`, then take the first line:
     $rc = $LASTEXITCODE
     $first = $out | Select-Object -First 1
 
-A test of such a check must preset `$LASTEXITCODE` to a non-zero value and to 0 before the call. A
-test that leaves it unset covers only the first row.
+A test of such a check must do each of these:
 
-Measured 2026-10-12 in pwsh 7.6.6 on Windows, with a `python -c` that prints two lines and
-exits 0:
-
-| Run | `$LASTEXITCODE` read back |
+| The test must | Why |
 | --- | --- |
-| Piped, preset unset | Empty |
-| Piped, preset 7 | 7 |
-| Unpiped | 0 |
+| Preset `$global:LASTEXITCODE`, never a bare `$LASTEXITCODE` | Inside a function or script block, a bare assignment makes a local variable that hides the global. Correct unpiped code then reads the preset. |
+| Preset a non-zero value for a stub that exits 0, and 0 for a stub that fails | A test that leaves it unset covers only the `Unset` row. |
+| Make each stub print at least N lines | A stub that prints fewer reads back its real code even when piped. A silent failing stub then passes the preset-0 test on the piped form. |
 
-A piped program that itself exits non-zero was not measured here. Reported in wiki events
-`20261009T151316241Z-6h1rmx` and `20261010T002714105Z-mmcc72`.
+Measured 2026-10-12 in pwsh 7.6.6 on Windows. Each piped run went into `Select-Object -First 1`,
+and each preset used `$global:`. The programs were `python -c` and `cmd /c` one-line commands:
+
+| Program | Run | `$LASTEXITCODE` read back |
+| --- | --- | --- |
+| Prints two lines, exits 0 | Piped, preset unset | Empty |
+| Prints two lines, exits 0 | Piped, preset 7 | 7 |
+| Prints two lines, exits 0 | Unpiped, preset 7 | 0 |
+| Prints one line, exits 7 | Piped, preset 0 | 0, on 10 of 10 runs |
+| Prints nothing, exits 7 | Piped, preset 0 | 7 |
+| Prints nothing, exits 0 | Piped, preset 7 | 0 |
+
+The preset also ran inside a function and inside a script block, each time before an unpiped
+`cmd /c "exit 0"`. After a bare `$LASTEXITCODE = 7`, `$LASTEXITCODE` read 7 and
+`$global:LASTEXITCODE` read 0. After `$global:LASTEXITCODE = 7`, both read 0.
+
+Reported in wiki events `20261009T151316241Z-6h1rmx` and `20261010T002714105Z-mmcc72`.
 
 Expiry: this stands until pwsh records an exit code for a native command that a downstream
-`Select-Object -First` stopped. Check by re-running the second row of the table.
+`Select-Object -First` stopped. Check by re-running the measured row `Prints two lines, exits 0`,
+`Piped, preset 7`.
 
 ### 5k. A new sample feed trips exact-set tests
 
