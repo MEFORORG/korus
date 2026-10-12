@@ -410,4 +410,8 @@ reading. Your instrument may be the one that is down.
 It is the stop-versus-start rule seen from the other side. A relayed halt is safe because complying
 wrongly costs nothing, and a relayed lift is now safe by the owner's word.
 
+The Lander is the exception to the halt half, because a wrong stop there stalls the merge queue. It
+is exempt from usage holds, and it confirms a relayed owner stop in its own chat. COMMON.md, *Stop
+versus start, except the Lander*.
+
 ---
