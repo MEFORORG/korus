@@ -150,7 +150,7 @@
     # rather than Run a build because the mechanism is a SessionStart hook that runs unattended in
     # every worktree, like the hooks above it.
     - label: Role cards
-      title: "Role cards: a short reminder that keeps a long session on its role"
+      title: "Role cards: A short reminder that keeps a long session on its role"
       path: /ROLE-CARDS.html
     - label: Usage awareness (design)
       title: "Usage awareness: Knowing when to stop, without lying about it"
