@@ -1093,6 +1093,42 @@ What is worth keeping is the habit: **a probe that prints nothing has not told y
 builder nearly recorded exactly that silence as "the wired hooks passed". Read the exit code every
 time, and say which one you read.
 
+### 5j-bis. A native command piped into `Select-Object -First` leaves a stale exit code
+
+In pwsh 7, `Select-Object -First N` stops the command upstream once it has its N lines. pwsh then
+never records that command's exit code. **`$LASTEXITCODE` keeps the value the last native command
+before it left.**
+
+| `$LASTEXITCODE` before the pipe | What the check after it sees | The wrong result |
+| --- | --- | --- |
+| Unset | Null, which is not 0 | A working program is rejected. |
+| 0, from an earlier command | 0 | A program that failed is passed. |
+| Non-zero, from an earlier command | That old value | A working program is rejected. |
+
+Capture the output unpiped, read `$LASTEXITCODE`, then take the first line:
+
+    $out = python --version
+    $rc = $LASTEXITCODE
+    $first = $out | Select-Object -First 1
+
+A test of such a check must preset `$LASTEXITCODE` to a non-zero value and to 0 before the call. A
+test that leaves it unset covers only the first row.
+
+Measured 2026-10-12 in pwsh 7.6.6 on Windows, with a `python -c` that prints two lines and
+exits 0:
+
+| Run | `$LASTEXITCODE` read back |
+| --- | --- |
+| Piped, preset unset | Empty |
+| Piped, preset 7 | 7 |
+| Unpiped | 0 |
+
+A piped program that itself exits non-zero was not measured here. Reported in wiki events
+`20261009T151316241Z-6h1rmx` and `20261010T002714105Z-mmcc72`.
+
+Expiry: this stands until pwsh records an exit code for a native command that a downstream
+`Select-Object -First` stopped. Check by re-running the second row of the table.
+
 ### 5k. A new sample feed trips exact-set tests
 
 **Adding a feed to `samples/config` reds tests that compare the whole set of names.** At least
