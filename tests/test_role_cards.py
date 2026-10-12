@@ -662,7 +662,7 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
         r = self.run_hook(json.dumps({"cwd": str(self.primary / "gone")}))
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("SEAT: steward", r.stdout)
-        self.assertIn("names a cwd inside no checkout", r.stdout)
+        self.assertIn("names a cwd that is missing or inside no checkout", r.stdout)
 
     def test_input_that_is_not_json_falls_back(self):
         r = self.run_hook("not json {")
