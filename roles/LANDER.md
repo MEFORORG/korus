@@ -499,8 +499,8 @@ travel beside the merge. Two rows do hold it: a leg nobody read and a landing-or
 A defect the merge would ship holds it only where *4a-quinquies* says so.
 
 **NARROWED 2026-10-12, by owner ruling.** This read *"Three rows in the table do hold it"*, with
-such a defect named first. Its row opened *"The owner's ruling, not yours"*. The new rows in
-*4a-quinquies* pull against the first sentence above, and that section says where.
+such a defect named first. Its row opened *"The owner's ruling, not yours."* The new rows in
+*4a-quinquies* pull against the first sentence above, and that section says so.
 
 | What you find in a comment, a review or the body | What you do with it |
 | --- | --- |
@@ -1034,16 +1034,16 @@ section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Searc
 | Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line is not a hold | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. |
 | Unless the finding names a defect the merge would SHIP, and the defect changes behaviour or weakens a control | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. **NARROWED 2026-10-12, by owner ruling:** this item ended at *SHIP*. |
-| When no open finding changes behaviour or weakens a control | Merge when the open findings are filed as rows. |
-| A finding you declined in one written line is closed, not open | That is the Lander's reading of how this fits the sweep table in *An item left in a PR comment is yours to carry*. The owner did not say it. That table names what you may decline. |
-| This pulls against *Filing never holds a green pull request* | That text lets a row travel beside the merge. The rule here puts the rows first. The owner was asked which governs on 2026-10-12, in the Lander's session, and had not answered when this was written. |
+| Merge when the open findings are filed as rows and none changes behaviour or weakens a control | Those are the proposal's words, which the owner approved. Anything that does either still goes to the owner. |
+| The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. The sweep table in *An item left in a PR comment is yours to carry* names what you may decline. |
+| This pulls against *Filing never holds a green pull request* and *An open finding in the line is not a hold* | Neither holds a merge until a row is filed. The proposal says the findings *"are filed"*. The owner was asked which governs on 2026-10-12, in the Lander's session, and had not answered when this was written. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | When you cannot tell which kind a finding is | It goes to the owner. The ruling lets you merge when *none* does, and you cannot say that. |
 | Examples that do not hold, at least | A code comment that a dependency bump made out of date. A docstring sentence that overstates. Neither changes what the code does. |
 | Examples that still go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
 | None of these examples is the owner's | The owner named none. The last two follow from the proposal's words, which the owner approved: *"changes behaviour or weakens a control"*. |
 | The late check and the lost prefix are on neither list | The owner merged both by the 16:55Z ruling, before the standing rule existed. That ruling does not classify them, and neither does this record. |
-| What the ruling does not give you | A decline of such a finding. A way past review proof. A choice between two authors' deliberate changes, which *4c-quinquies* leaves with the authors. |
+| What the ruling does not give you | A decline of a finding that names a defect the merge would ship. A way past review proof. A choice between two authors' deliberate changes, which *4c-quinquies* leaves with the authors. |
 | No review proof at all | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
 | Name the repository's review standards | If the repository has a review-standards file, the subagent names it in the skill's arguments. `BUILDER.md` 4c holds how to name it. |
