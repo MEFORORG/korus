@@ -284,8 +284,21 @@ jobs:
               sys.exit("the detector flags braces inside a code sample -- it would redden real pages")
           print("detector armed: sees a planted leak, ignores braces in a code block")
 
+          # A SOURCE FILE PUBLISHED VERBATIM IS NOT RENDERED OUTPUT. publish_sources.py copies
+          # repository files into the site byte for byte, and scripts/board/template.html is one:
+          # its `{{ }}` placeholders are the template's whole job. That file held this step red
+          # behind the plugin step's own red from 2026-09-19, so the site published nothing. A
+          # page counts as verbatim only when the repository file at the same path has identical
+          # bytes, so anything Jekyll touched is still scanned.
           site = pathlib.Path("_site")
-          pages = sorted(site.rglob("*.html"))
+
+          def verbatim(page):
+              src = page.relative_to(site)
+              return src.is_file() and src.read_bytes() == page.read_bytes()
+
+          every = sorted(site.rglob("*.html"))
+          copies = [p for p in every if verbatim(p)]
+          pages = [p for p in every if p not in copies]
           if not pages:
               sys.exit("no html to scan -- this step examined nothing")
           found = []
@@ -293,7 +306,9 @@ jobs:
               hit = leaks(page.read_text(encoding="utf-8", errors="replace"))
               if hit:
                   found.append(f"{page}: {' '.join(hit)}")
-          print(f"scanned {len(pages)} rendered pages")
+          print(f"scanned {len(pages)} rendered pages; skipped {len(copies)} verbatim source copies")
+          for c in copies:
+              print(f"  skipped, identical to the tracked file: {c}")
           for f in found:
               print("  " + f)
           if found:
