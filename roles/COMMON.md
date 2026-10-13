@@ -58,6 +58,27 @@ true on 2026-09-04, when the playbooks moved to korus at `5728484`.
 The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
 who trusted this table went to the stale copy**, which is why this is a correction and not a tidy-up.
 
+### An engine pull request never carries the scorecard's map
+
+The engine repository is public. An ASVS cell id is vault content. So is the map from a cell to
+the code path its anchor cites. **A pull request body or comment on the engine repository that
+lists them publishes that map.** The terms are public. The content is not.
+
+At least two seats have leaked it this way:
+
+| Seat | How it leaked | Do this |
+| --- | --- | --- |
+| Manager | It copied a Builder's report into the pull request body. The report listed the cells and anchors the change touched. | Put a count and a pointer to the vault row in the body. Send the table to the Lander by mail, or record it in the vault. |
+| Lander | Its hold comment listed each removed anchor with its cell id and path. | Ask for the classification in a vault row. Post only paths and counts on the pull request. |
+
+A Builder that opens its own pull request follows the Manager row.
+
+**Editing the text out does not remove it.** The edit history keeps the earlier revision until
+someone deletes that revision in the web interface. Check before you post.
+
+Reported in wiki events `20261006T024731642Z-oa66y4` and `20261012T132616366Z-tr2mhy`. The edit
+history point is from `20261012T143741394Z-z27yll`.
+
 **Project status:** no installed operational instances of mefor exist, so a code change needs no
 migration plan and no compatibility shim. There is no installed base to protect.
 
