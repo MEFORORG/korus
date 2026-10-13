@@ -1,6 +1,6 @@
 # Watchdog episode note, 2026-09-19
 
-**Live state for the seat, written at handoff.** [WATCHDOG.md](../../roles/WATCHDOG.md) holds what
+**Live state for the seat, written at handoff.** [WATCHDOG.md](https://github.com/MEFORORG/korus/blob/main/roles/WATCHDOG.md) holds what
 never expires. This holds what was true when this session ended, and it expires.
 
 **The session that wrote this is transferring to another account.** Nothing below is a rule.
@@ -43,7 +43,7 @@ The merge is the Lander's on every one of them. This seat opened them and merged
 **Nine instrument failures in one shift, every one looking clean.** The shape was identical each
 time: a filter that did not match what the reading claimed to check.
 
-[WATCHDOG.md](../../roles/WATCHDOG.md) section 4 lists them. Two reached the owner as published
+[WATCHDOG.md](https://github.com/MEFORORG/korus/blob/main/roles/WATCHDOG.md) section 4 lists them. Two reached the owner as published
 findings before a control caught them.
 
 **A seat suspended on its own question looks exactly like an idle one.** The Lander sat on an
@@ -64,7 +64,7 @@ and 57 merges rendered as "never" on a board that read healthy.
 
 ## For the next Watchdog
 
-Read [WATCHDOG.md](../../roles/WATCHDOG.md) and its card first. Then, before your first reading:
+Read [WATCHDOG.md](https://github.com/MEFORORG/korus/blob/main/roles/WATCHDOG.md) and its card first. Then, before your first reading:
 
 1. Establish the Lander is alive from **two** surfaces. One is a guess, and a false "missing"
    spawns a second Lander onto one queue.
