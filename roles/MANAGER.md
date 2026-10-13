@@ -177,8 +177,8 @@ request exists, and the other four fields exist nowhere it can read them.
 what did not, and any question the Builder stopped on. The Builder cannot post it: its process ends
 before the pull request exists.
 
-**One thing in it never goes in that body:** what [COMMON.md](COMMON.md), *A public repository
-never carries the scorecard's map*, names. Post where it is recorded instead.
+**Some of it never goes in that body:** what [COMMON.md](COMMON.md), *A public repository never
+carries the scorecard's map*, keeps out of a public place. That section says where it goes.
 
 **Read the Builder's LAST commit message before you write the title.** It carries the proposed pull
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry

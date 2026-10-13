@@ -66,48 +66,71 @@ migration plan and no compatibility shim. There is no installed base to protect.
 
 ### A public repository never carries the scorecard's map
 
-Two of the repositories above are public. **Whatever a seat writes to one is published.** That is
-at least a committed file, a branch name, an issue, a commit message, and a pull request's title,
-body, comments and review threads.
+Two of the repositories above are public, and korus is one of them. **A public place** is any text
+in a public repository. That is at least a pull request title, body, comment or review, a commit
+message, a branch name, a changelog fragment, a code comment or a doc.
 
-A bare OWASP requirement number given as the reason for a change is fine. The engine's `main`
-cites them that way, read at `cbcf3fa47`. Two things stay in the vault:
+A requirement number here is an OWASP ASVS requirement id, which the scorecard also uses as its
+cell id. Three clauses say what a seat may write about those requirements in a public place:
 
-- a list that pairs ASVS cells with the code paths their anchors cite;
-- any coverage, verdict or gap statement.
+1. A requirement number may tag a sentence that says what the code does, or what the change makes
+   it do.
+2. No sentence in a public place may give a requirement's status, any count or score, or three or
+   more requirement numbers each beside a path. Status is given by words such as gap, unmet,
+   partial, residual, covered, last, remaining and still open.
+3. Text already on a public `main` is no precedent, and no seat sweeps it without a ruled item.
 
-The requirement list is closed and public, so a map of what is covered also shows what is not. The
-engine repository's `scripts/asvs/CLAUDE.md` gives that reason. Read it at `origin/main`.
+**Why:** the requirement list is closed and public, so a map of what is covered also shows what is
+not.
 
-**The list goes in the vault, and a public post says only where it is:** a vault path or a ledger
-row number. It may add that anchors were checked. Mail carries that pointer and never the list,
+Three invented lines, and how the clauses sort them:
+
+| Line | Verdict |
+| --- | --- |
+| "Refuses X with no posture set (requirement N)." | Allowed. It says what the code does, and the number only tags it. |
+| "Closes a gap in N." | Not allowed. "Gap" gives requirement N a status. |
+| "N1 `some/file.py`, N2 `other/file.py`, N3 `third/file.py`." | Not allowed. Three numbers, each beside a path, with or without a status word. |
+
+**The rule has a limit.** A fix tagged with a number still implies the requirement fell short
+before, and only a ban on numbers would hide that. A ban was judged unworkable, because requirement
+numbers already appear widely in public code, tests and docs.
+
+**This is a Lander seat decision, made 2026-10-13 under the owner's Driver rules**, after two code
+reviews and one adversarial review. It is not an owner ruling on the substance.
+
+One question is still with the owner: whether operator-facing docs may state a residual against a
+requirement on purpose. Until it is answered, clause 2 applies to new text there too.
+
+The engine's own instruction text says cell ids stay vaulted. A separate engine change is bringing
+it into line with this section. Where the two differ, a seat follows the stricter reading.
+
+**The Manager records in the vault what clause 2 keeps out.** A subagent Builder puts it in its
+report, which returns to the Manager and is not published. The Manager records it by a vault pull
+request that names the item's ledger row.
+
+Public text may cite that ledger row number, and says nothing else about it. A seat that is not a
+Manager's subagent records its own the same way. Mail carries the row number and never the content,
 because *What mail does not promise* bars anything sensitive from a body.
 
 The rule binds every seat. At least three meet it in a routine step:
 
 | Seat | Where it meets this |
 | --- | --- |
-| Manager | The Builder's report it puts in a pull request body. It strips the list first. |
+| Manager | The Builder's report it puts in a pull request body. It takes out what clause 2 names first. |
 | Builder | Its commit messages. A Builder in its own session also follows the Manager row. |
 | Lander | A hold or merge comment, and the commit message of a conflict it resolves. |
 
-**Read your text before you commit or post it.** Look for a requirement number beside a file path,
-and for a sentence saying a requirement is covered, met or unmet. A number that only gives the
-reason for the change stays. Anything else you find goes to the vault.
+**Read your text against clause 2 before you commit or post it.**
 
 **Editing the text out does not remove it.** A pushed commit message cannot be edited in place, and
 a comment keeps its edit history. GitHub's page *Tracking changes in a comment*, read 2026-10-13
 and not measured here, says the author or anyone with write access can delete a revision.
 
 Delete the revision that shows the content being added; the edit's time and author stay visible.
-That page names comments only. Deleting recalls no copy already taken, so treat the content as
-disclosed.
+Deleting recalls no copy already taken, so treat the content as disclosed.
 
-**Then tell your Manager, or the owner where none is running, never in text that will be posted.**
-Do the same for a pushed commit message, and for a revision you cannot delete.
-
-Source: wiki key `asvs/disclosure/engine-pr-body`, events `20261006T024731642Z-oa66y4`,
-`20261012T132616366Z-tr2mhy` and `20261012T143741394Z-z27yll`.
+**Then tell your Manager, never in text that will be posted.** A Manager, or a seat with none,
+tells the owner. Do the same for a pushed commit message, and for a revision you cannot delete.
 
 ---
 
