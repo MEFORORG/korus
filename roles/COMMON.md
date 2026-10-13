@@ -102,22 +102,26 @@ One question is still with the owner: whether operator-facing docs may state a r
 requirement on purpose. Until it is answered, clause 2 applies to new text there too.
 
 The engine's own instruction text says cell ids stay vaulted. A separate engine change is bringing
-it into line with this section. Where the two differ, a seat follows the stricter reading.
+it into line with this section. Until it lands, a seat follows the stricter reading where the two
+differ.
 
-**The Manager records in the vault what clause 2 keeps out.** A subagent Builder puts it in its
-report, which returns to the Manager and is not published. The Manager records it by a vault pull
-request that names the item's ledger row.
+**The Manager owns recording in the vault what clause 2 keeps out.** A subagent Builder puts it in
+its report, which returns to the Manager and is not published.
 
-Public text may cite that ledger row number, and says nothing else about it. A seat that is not a
-Manager's subagent records its own the same way. Mail carries the row number and never the content,
-because *What mail does not promise* bars anything sensitive from a body.
+The Manager briefs a Builder in the vault to record it. That pull request names the item's ledger
+row, where the item has one. This file does not say where in the vault:
+[LANDER.md](LANDER.md), *Repo topology and safety*, says why.
+
+Public text may cite that ledger row number. A seat that is not a Manager's subagent records its
+own by a vault pull request. Mail carries the row number and never the content, because *What mail
+does not promise* bars anything sensitive from a body.
 
 The rule binds every seat. At least three meet it in a routine step:
 
 | Seat | Where it meets this |
 | --- | --- |
 | Manager | The Builder's report it puts in a pull request body. It takes out what clause 2 names first. |
-| Builder | Its commit messages. A Builder in its own session also follows the Manager row. |
+| Builder | Its commit messages, and the QA line the Manager posts as given. A Builder in its own session also follows the Manager row. |
 | Lander | A hold or merge comment, and the commit message of a conflict it resolves. |
 
 **Read your text against clause 2 before you commit or post it.**
@@ -126,11 +130,11 @@ The rule binds every seat. At least three meet it in a routine step:
 a comment keeps its edit history. GitHub's page *Tracking changes in a comment*, read 2026-10-13
 and not measured here, says the author or anyone with write access can delete a revision.
 
-Delete the revision that shows the content being added; the edit's time and author stay visible.
-Deleting recalls no copy already taken, so treat the content as disclosed.
+Delete every revision that shows the content; each edit's time and author stay visible. Deleting
+recalls no copy already taken, so treat the content as disclosed.
 
 **Then tell your Manager, never in text that will be posted.** A Manager, or a seat with none,
-tells the owner. Do the same for a pushed commit message, and for a revision you cannot delete.
+tells the owner. Do the same for a pushed commit message, and for anything else you cannot delete.
 
 ---
 

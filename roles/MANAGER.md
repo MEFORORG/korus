@@ -301,6 +301,7 @@ That Builder:
 1. Pushes its branch.
 2. Opens one pull request for its item, and does for it what steps 9 and 10 have you do for a batch.
 3. Puts its report and head SHA in the body, posts its QA line as a comment, and applies `qa`.
+   [COMMON.md](COMMON.md), *A public repository never carries the scorecard's map*, binds both.
 4. Hands the pull request to the Lander.
 
 When you raise a chip or spawn a Builder session, write into its prompt that it opens its own pull

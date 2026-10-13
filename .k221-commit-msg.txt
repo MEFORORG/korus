@@ -1,0 +1,16 @@
+COMMON: fix what the code review of the three-clause section found
+
+- Recording: the Manager owns it and briefs a Builder in the vault; the
+  file says why it names no place there. "Says nothing else about it"
+  is cut, since LANDER.md has the Lander name a filed item's subject.
+- The Builder row names the QA line, which the Manager posts as given.
+- The stricter-reading line now carries its end: the engine change.
+- Edit history: delete every revision that shows the content, and tell
+  the owner's route about anything else that cannot be deleted.
+- MANAGER.md: the own-session Builder's step that puts a report in the
+  body now points at the section.
+
+Correction to the previous commit message: its sweep named two other
+places that tell a seat to put a report in a pull request body. That
+MANAGER.md step is a third. This change does not sweep text already in
+this repository against the new rule; clause 3 of the section says why.
