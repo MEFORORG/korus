@@ -1020,9 +1020,8 @@ At 16:55Z the owner ruled on them, verbatim: *"merge 2244, 2263, 2282 and 2385; 
 as rows"*. The fourth number is a vault pull request, outside this record. The Lander then
 proposed the rule above, so the wait does not recur.
 
-As of 2026-10-12, engine `main` still carries the old rule in at least three files: `CLAUDE.md`
-section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Search each for
-`defect the merge would ship`. Engine PR 2295 changes them.
+Engine `main` carried the old rule until engine PR 2295 merged on 2026-10-13. It changed three
+files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`.
 
 | Item | Rule |
 | --- | --- |
