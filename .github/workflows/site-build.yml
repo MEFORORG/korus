@@ -284,8 +284,49 @@ jobs:
               sys.exit("the detector flags braces inside a code sample -- it would redden real pages")
           print("detector armed: sees a planted leak, ignores braces in a code block")
 
+          # A SOURCE FILE PUBLISHED VERBATIM IS NOT RENDERED OUTPUT. publish_sources.py copies
+          # repository files into the site byte for byte, and scripts/board/template.html is one:
+          # its `{{ }}` placeholders are the template's whole job. That file held this step red
+          # behind the plugin step's own red from 2026-09-19, so the site published nothing. A
+          # page counts as verbatim only when git tracks the file at the same path and its bytes are
+          # identical, so anything Jekyll touched is still scanned.
+          import filecmp, subprocess
           site = pathlib.Path("_site")
-          pages = sorted(site.rglob("*.html"))
+          tracked = set(subprocess.run(["git", "ls-files", "*.html"], capture_output=True,
+                                       text=True, check=True).stdout.split())
+
+          def verbatim(page):
+              src = page.relative_to(site)
+              return src.as_posix() in tracked and filecmp.cmp(src, page, shallow=False)
+
+          # THE EXEMPTION IS ARMED TOO, one control per half. An untracked file never earns it by
+          # matching bytes. A tracked copy whose bytes differ -- what Jekyll rendering a file would
+          # produce -- never earns it either. And at least one real copy must match, or the test
+          # has gone blind and exempts nothing.
+          plant = pathlib.Path("planted-untracked.html")
+          try:
+              plant.write_text("<p>{{ x }}</p>")
+              (site / plant).write_text("<p>{{ x }}</p>")
+              if verbatim(site / plant):
+                  sys.exit("the verbatim test exempted a file git does not track")
+          finally:
+              plant.unlink(missing_ok=True)
+              (site / plant).unlink(missing_ok=True)
+          copied = [site / p for p in sorted(tracked) if (site / p).exists() and verbatim(site / p)]
+          if not copied:
+              sys.exit("no tracked html matched its published copy -- the test is blind")
+          probe, original = copied[0], copied[0].read_bytes()
+          try:
+              probe.write_bytes(original + b"<!-- rendered -->")
+              if verbatim(probe):
+                  sys.exit(f"the verbatim test exempted {probe} after its bytes changed")
+          finally:
+              probe.write_bytes(original)
+          print(f"exemption armed: refuses an untracked file and a changed {probe}, matches it intact")
+
+          pages, copies = [], []
+          for p in sorted(site.rglob("*.html")):
+              (copies if verbatim(p) else pages).append(p)
           if not pages:
               sys.exit("no html to scan -- this step examined nothing")
           found = []
@@ -293,7 +334,9 @@ jobs:
               hit = leaks(page.read_text(encoding="utf-8", errors="replace"))
               if hit:
                   found.append(f"{page}: {' '.join(hit)}")
-          print(f"scanned {len(pages)} rendered pages")
+          print(f"scanned {len(pages)} rendered pages; skipped {len(copies)} verbatim source copies")
+          for c in copies:
+              print(f"  skipped, identical to the tracked file: {c}")
           for f in found:
               print("  " + f)
           if found:

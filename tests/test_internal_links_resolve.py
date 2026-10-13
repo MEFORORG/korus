@@ -269,9 +269,12 @@ def broken_links(paths: list[Path]) -> list[str]:
             known = resolvable_anchors(parse(t.read(dest))[0])
         return known
 
+    site_root = (t.REPO_ROOT / SITE_SOURCE_ROOT).resolve()
+
     for path in paths:
         _, body = parsed[path]
         rel = path.relative_to(t.REPO_ROOT).as_posix()
+        on_site = path.resolve().is_relative_to(site_root)
         for lineno, line in body:
             for target in INLINE_LINK.findall(line):
                 urlpart, _, url_anchor = target.partition("#")
@@ -307,6 +310,16 @@ def broken_links(paths: list[Path]) -> list[str]:
                 dest = (path.parent / filepart).resolve()
                 if not dest.exists():
                     failures.append(f"{rel}:{lineno} -> {target} (no such file)")
+                    continue
+                if on_site and dest.suffix == ".md" and not dest.is_relative_to(site_root):
+                    # jekyll-relative-links rewrites only targets inside the Jekyll source, and
+                    # site-build.yml refuses to publish when one survives. 16 of these kept the
+                    # site unpublished from 2026-09-19, because nothing ran that check on a PR.
+                    # The served form is checked by test_docs_do_not_drift.SourceLinksResolve.
+                    failures.append(
+                        f"{rel}:{lineno} -> {target} (leaves {SITE_SOURCE_ROOT}/, so the site "
+                        f"build refuses to publish; link {SERVED_HOST}/<repo path> instead)"
+                    )
                     continue
                 if anchor and dest.suffix in LINK_BEARING:
                     known = anchors.get(dest)
@@ -536,6 +549,17 @@ class TheScanCanActuallyBite(unittest.TestCase):
                 "docs/standards/ref.md": "# Ref\n\n## Still here\n",
             }
         )
+        self.assertEqual([], found)
+
+    def test_a_docs_link_leaving_the_site_source_is_reported(self):
+        found = self._scan(
+            {"roles/X.md": "# X\n", "docs/a.md": "# A\n\nsee [the playbook](../roles/X.md)\n"}
+        )
+        self.assertEqual(1, len(found), found)
+        self.assertIn("leaves docs/", found[0])
+
+    def test_the_same_link_outside_the_site_source_is_fine(self):
+        found = self._scan({"roles/X.md": "# X\n", "roles/Y.md": "# Y\n\nsee [the other](X.md)\n"})
         self.assertEqual([], found)
 
     def test_another_hosts_url_is_still_left_alone(self):
