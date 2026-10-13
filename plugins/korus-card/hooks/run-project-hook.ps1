@@ -22,8 +22,9 @@
          wins, and this shim stands down, so the card is not injected twice.
 
     CASE 3 READS AT LEAST THESE FILES: .claude/settings.json and .claude/settings.local.json under
-    both $env:CLAUDE_PROJECT_DIR and the repository root, and the user settings.json in
-    $env:CLAUDE_CONFIG_DIR, or in ~/.claude when that is unset. Managed settings are not read.
+    the payload's cwd, $env:CLAUDE_PROJECT_DIR and the repository root, and the user
+    settings.json in $env:CLAUDE_CONFIG_DIR, or in ~/.claude when that is unset. Managed settings
+    are not read.
 
     WHAT COUNTS AS WIRING. A SessionStart command counts when it names the script's file name as a
     whole path segment, and one of these holds:
@@ -129,8 +130,12 @@ try {
     if ($Allowed -notcontains $Script) { exit 0 }
 
     # ------------------------------------------------------------------ which repository is this
-    $start = $env:CLAUDE_PROJECT_DIR
-    if (-not $start -and $raw) {
+    # THE PAYLOAD `cwd` FIRST. It read CLAUDE_PROJECT_DIR first until 2026-10-12. Under the desktop
+    # app that variable names the PRIMARY checkout for a worktree session, because the app passes
+    # `--project-config-root <primary>`, so this shim ran the primary's copy of the script.
+    # docs/LIMITS.md records the measurement.
+    $start = $null
+    if ($raw) {
         try {
             $payload = $raw | ConvertFrom-Json -ErrorAction Stop
             if ($payload -and $payload.PSObject.Properties['cwd'] -and $payload.cwd) {
@@ -139,6 +144,8 @@ try {
         }
         catch { }
     }
+    if ($start -and -not (Test-Path -LiteralPath $start -PathType Container)) { $start = $null }
+    if (-not $start) { $start = $env:CLAUDE_PROJECT_DIR }
     if (-not $start) { $start = $PWD.Path }
     if (-not (Test-Path -LiteralPath $start -PathType Container)) { exit 0 }
 
@@ -158,7 +165,10 @@ try {
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { exit 0 }
 
     $settingsFiles = [System.Collections.Generic.List[string]]::new()
-    foreach ($dir in @($start, $root)) {
+    # CLAUDE_PROJECT_DIR is where the harness loads project settings from, so its rows are the ones
+    # that actually run. Under the desktop app it is not $start.
+    foreach ($dir in @($start, $root, $env:CLAUDE_PROJECT_DIR)) {
+        if (-not $dir) { continue }
         foreach ($leaf in @('.claude/settings.json', '.claude/settings.local.json')) {
             $file = Join-Path $dir $leaf
             if (-not $settingsFiles.Contains($file)) { $settingsFiles.Add($file) }

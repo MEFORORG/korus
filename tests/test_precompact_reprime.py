@@ -158,6 +158,46 @@ class ItReportsWhatThisWorktreeHolds(_RepoCase):
         self.assertIn("0011", self.ctx())
 
 
+class ItReadsTheWorktreeThePayloadNames(_RepoCase):
+    """The desktop app starts a worktree session's hooks in the PRIMARY checkout.
+
+    Measured 2026-10-12: it passes `--project-config-root <primary>`, and a hook's working
+    directory followed it. Only the payload `cwd` named the worktree. MessageFoundry's copy of this
+    hook then restored the primary's seat and goal into a worktree session, beside that worktree's
+    own role card. docs/LIMITS.md records the fault.
+    """
+
+    def setUp(self):
+        super().setUp()
+        wt = Path(self.tmp.name) / "wt"
+        self.git("worktree", "add", "-q", "-b", "wt", str(wt))
+        self.wt_path = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--show-toplevel"],
+            cwd=wt,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+        ).stdout.strip()
+        self.write_alloc("adr", "0021", worktree=self.wt_path)
+        self.write_alloc("adr", "0022")  # the primary's
+
+    def compact(self, **fields: str) -> str:
+        r = self.run_hook(json.dumps({"hook_event_name": "SessionStart", "source": "compact", **fields}))
+        self.assertEqual(0, r.returncode, r.stderr)
+        return _context(r) or ""
+
+    def test_the_payload_cwd_wins_over_where_the_hook_runs(self):
+        out = self.compact(cwd=self.wt_path)
+        self.assertIn("0021", out)
+        self.assertNotIn("0022", out)
+
+    def test_without_a_cwd_it_reads_where_it_runs(self):
+        """The control: the same call with no `cwd` reads the primary, so the arm above can fail."""
+        out = self.compact()
+        self.assertIn("0022", out)
+        self.assertNotIn("0021", out)
+
+
 class AStaleRecordIsNotRestoredAsCurrentIntent(_RepoCase):
     def test_a_claim_from_another_branch_is_flagged_not_restored(self):
         self.write_claim("old-work", "a previous occupant's job", branch="some-other-branch")

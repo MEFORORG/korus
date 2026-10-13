@@ -80,8 +80,10 @@ function Compare-Path {
 # Read before any other work, so a cold start costs one JSON parse and exits.
 $hookSource = ''
 $hookEvent = ''
+$hookCwd = ''
 try {
-    $raw = [Console]::In.ReadToEnd()
+    # UTF-8 bytes, not the console code page, so a non-ASCII `cwd` survives the read.
+    $raw = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false)).ReadToEnd()
     if ($raw) {
         $payload = $raw | ConvertFrom-Json -ErrorAction Stop
         $names = @($payload.PSObject.Properties.Name)
@@ -89,6 +91,7 @@ try {
         if ($names -contains 'hook_event_name' -and $payload.hook_event_name) {
             $hookEvent = [string]$payload.hook_event_name
         }
+        if ($names -contains 'cwd' -and $payload.cwd) { $hookCwd = [string]$payload.cwd }
     }
 }
 catch {
@@ -101,6 +104,15 @@ catch {
 # Its output never reaches context, so it stays quiet.
 if ($hookSource -and $hookSource -ne 'compact') { exit 0 }
 if ($hookEvent -and $hookEvent -ne 'SessionStart') { exit 0 }
+
+# EVERY GIT READ BELOW RESOLVES FROM THE SESSION'S OWN DIRECTORY, which is the payload `cwd`. Under
+# the desktop app this process starts in the PRIMARY checkout: measured 2026-10-12, the app passes
+# `--project-config-root <primary>`, and a hook's working directory followed it. This hook then
+# restored the primary's seat and goal into a worktree session's context, beside that worktree's
+# own role card.
+if ($hookCwd -and (Test-Path -LiteralPath $hookCwd -PathType Container)) {
+    try { Set-Location -LiteralPath $hookCwd } catch { }
+}
 
 try {
     $common = (& git rev-parse --path-format=absolute --git-common-dir 2>$null)
