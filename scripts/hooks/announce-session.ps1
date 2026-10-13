@@ -218,14 +218,26 @@ try {
     # conditional on redirection: measured on the development host, [Console]::IsInputRedirected is
     # True from an agent shell with NO pipe at all, so a read guarded only on redirection turns the
     # diagnostic switch into a hang.
+    #
+    # A cwd this hook cannot use, or a missing helper, sets $cwdNote, and step 6a then announces
+    # nothing. Announcing the starting directory as this session's identity is the fault itself.
+    $haveInput = $false
+    $cwdNote = ''
+    $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
+    try {
+        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+        . $helper
+        $haveInput = $true
+    } catch { $cwdNote = "the hook could not load its input reader ($($_.Exception.Message))" }
     $raw = $PayloadOverride
     if (-not $raw -and -not $SelfTest) {
-        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $raw = Read-CcxHookInput } catch { $raw = '' }
+        # Without the helper the session id still matters, so the old read stands in for it.
+        if ($haveInput) { $raw = Read-CcxHookInput }
+        elseif ([Console]::IsInputRedirected) { try { $raw = [Console]::In.ReadToEnd() } catch { $raw = '' } }
     }
-    $cwdNote = ''
     $startedIn = $PWD.Path
-    if ($raw) {
-        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $cwdNote = Enter-CcxHookCwd -Text $raw } catch { $cwdNote = '' }
+    if ($raw -and $haveInput) {
+        try { $cwdNote = Enter-CcxHookCwd -Text $raw } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
     }
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
@@ -341,6 +353,20 @@ try {
     if (-not $substrate) {
         Write-Receipt 'ERROR' @{ note = 'scripts/coord/_common.ps1 did not load; standing down' }
         exit 0
+    }
+
+    # --- 6a. NO SESSION DIRECTORY, NO ANNOUNCEMENT ---------------------------------------------------
+    # Step 0 could not move into the session's own directory, so every answer below would describe
+    # where this hook started. Under the desktop app that is the primary, and peers told "a session
+    # works in the primary" would steer around a session that is not there. Said aloud, every prompt.
+    if ($cwdNote) {
+        if ($SelfTest) {
+            Write-Output "[announce -SelfTest] $cwdNote; a real run would announce nothing."
+        } else {
+            Write-Output "[announce] $cwdNote, so this hook cannot tell which checkout this session is in and announced nothing."
+            Write-Receipt 'ERROR' @{ note = $cwdNote }
+            exit 0
+        }
     }
 
     if (-not $SelfTest) {
@@ -706,11 +732,6 @@ try {
         $lines += "4. Message at most $($targets.Count) peer(s) you actually reached, one message each,"
         $lines += '   this shape and nothing else:'
         $lines += "     [SESSION-ANNOUNCE] $top ($branch)"
-        if ($cwdNote) {
-            # Said beside the line it makes wrong. The cwd above is where this hook started, and under
-            # the desktop app that is the primary checkout, not this session's worktree.
-            $lines += "   CAUTION: $cwdNote, so the cwd above is where this hook started and may not be yours."
-        }
         $lines += '     intent: <one line -- the task you were just given>'
         $lines += '     touching: <one line, if you already know>'
         $lines += '   It lands as a USER turn in their session. Ask nothing, expect no answer.'

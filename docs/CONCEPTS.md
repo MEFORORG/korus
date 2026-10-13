@@ -215,7 +215,7 @@ All cross-session coordination state uses this location:
     locks/              one file per held short-lived mutex
     announce/           per-session announce bookkeeping, and the OFF kill switch
     gate-unresolved/    receipts from a collision check that could not resolve
-    overlap-cache.json  the overlap detector's cache
+    overlap-cache/      the overlap detector's cache, one file per worktree root
 ```
 
 `Get-CcxStateRoot` and Python `state_root()` in

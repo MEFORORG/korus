@@ -34,10 +34,12 @@ try {
     $root = ''
     $cwdNote = ''
     try {
-        . (Join-Path $PSScriptRoot '_hookinput.ps1')
+        $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
+        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+        . $helper
         $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput)
         if ($wt.Root) { $root = $wt.Root } else { $cwdNote = $wt.Reason }
-    } catch { }
+    } catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
     if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
     if (-not $root) { exit 0 }
 

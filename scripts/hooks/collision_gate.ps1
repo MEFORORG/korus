@@ -100,8 +100,14 @@ function Write-Unresolved([string]$Slug, [string]$Detail) {
             # other session for the whole cooldown -- and those sessions would read that silence as
             # "checked, nobody is here", which is precisely the defect this notice exists to remove.
             # One session's diagnostic must never become another session's false all-clear.
+            #
+            # $script:StampWho names the session when the gate never reached its directory. Then
+            # git answers for where the gate started, the primary under the desktop app, and every
+            # worktree session would share that one stamp.
             $who = "shared"
-            $top = Invoke-CcxGit -Arguments @('rev-parse', '--path-format=absolute', '--show-toplevel')
+            $top = $null
+            if ($script:StampWho) { $who = $script:StampWho }
+            else { $top = Invoke-CcxGit -Arguments @('rev-parse', '--path-format=absolute', '--show-toplevel') }
             if ($top) {
                 $who = ConvertTo-CcxSafeName (Split-Path $top -Leaf)
                 if (-not $who) { $who = "shared" }
@@ -140,7 +146,15 @@ $target = $PathOverride
 if (-not $target) {
     if (-not [Console]::IsInputRedirected) { exit 0 }
     $text = $null
-    try { . (Join-Path $PSScriptRoot "_hookinput.ps1"); $text = Read-CcxHookInput } catch { $text = $null }
+    $cwdNote = ''
+    $haveHelper = $false
+    $helper = Join-Path $PSScriptRoot "_hookinput.ps1"
+    try {
+        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+        . $helper
+        $text = Read-CcxHookInput
+        $haveHelper = $true
+    } catch { $cwdNote = "the gate could not load its input reader ($($_.Exception.Message))" }
     if ($null -eq $text) { try { $text = [Console]::In.ReadToEnd() } catch { $text = '' } }
     try { $hook = $text | ConvertFrom-Json -ErrorAction Stop } catch {
         Write-Unresolved "payload-unreadable" `
@@ -150,10 +164,21 @@ if (-not $target) {
     # by the directory it runs in, and it runs in this one. Measured 2026-10-12: under the desktop app
     # this process starts in the PRIMARY checkout, so the session's own worktree read as a PEER's.
     # A cwd the payload names but this gate cannot enter leaves it unable to tell the two apart.
-    $cwdNote = ''
-    try { $cwdNote = Enter-CcxHookCwd -Text $text } catch { $cwdNote = '' }
+    if (-not $cwdNote) {
+        try { $cwdNote = Enter-CcxHookCwd -Text $text } catch { $cwdNote = "the gate could not read its input's cwd ($($_.Exception.Message))" }
+    }
     if ($cwdNote) {
-        Write-Unresolved "cwd-unusable" "$cwdNote, so the gate could not tell this session's own worktree from a peer's"
+        # Keyed on the cwd the payload named, so each session keeps its own notice. See Write-Unresolved.
+        $named = ''
+        try { $named = [string]$hook.cwd } catch { $named = '' }
+        if ($named) {
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $h = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($named))[0..3] | ForEach-Object { $_.ToString('x2') })
+            $sha.Dispose()
+            $script:StampWho = "cwd-$h"
+        }
+        $slug = if ($haveHelper) { "cwd-unusable" } else { "input-reader-missing" }
+        Write-Unresolved $slug "$cwdNote, so the gate could not tell this session's own worktree from a peer's"
     }
     # Parsed, but to nothing. An empty payload or a literal `null` on stdin does not throw, so this
     # used to be the one unreadable-input path that still exited silently -- the gate had learned no

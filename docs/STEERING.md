@@ -160,8 +160,12 @@ scripts need no port, daemon, process identity, shared code, or interprocess com
 `Resolve-ProjectDir` in `bin/ccx-steer.ps1` resolves the target in this order:
 
 1. `-ProjectDir`, if given,
-2. `$env:CLAUDE_PROJECT_DIR`, if set,
-3. the enclosing worktree root, from `git rev-parse --show-toplevel`.
+2. the enclosing worktree root, from `git rev-parse --show-toplevel`,
+3. `$env:CLAUDE_PROJECT_DIR`, if set.
+
+**Steps 2 and 3 were the other way round until 2026-10-13.** Run from a desktop worktree session's
+own shell, `CLAUDE_PROJECT_DIR` names the primary, so the note went where that session's hook no
+longer looks.
 
 The command throws if none resolves to a directory. It also throws if that directory lacks
 `.claude`; it never falls back to the current directory.
@@ -224,9 +228,9 @@ Expect one compact JSON line containing your text, followed by the removal of `.
 
 Use these precautions:
 
-- **Unset `CLAUDE_PROJECT_DIR` afterwards.** It outranks the worktree root in `ccx-steer.ps1`'s own
-  resolution order. Left set, it silently aims every later `ccx-steer` run at the directory you
-  probed from -- including notes you meant for another worktree.
+- **Unset `CLAUDE_PROJECT_DIR` afterwards.** Outside a worktree, `ccx-steer.ps1` falls back to it.
+  Left set, it silently aims every later run from outside a checkout at the directory you probed
+  from -- including notes you meant for another worktree.
 - This consumes the note. Probe with a throwaway message, never with one you actually queued for a
   session.
 - Run the copy your settings name, not the repo copy, if the two differ. A control is enforced by

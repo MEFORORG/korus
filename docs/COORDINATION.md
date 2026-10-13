@@ -72,7 +72,7 @@ Follow [Quickstart](QUICKSTART.md) to install; [Install](INSTALL.md) explains fl
   locks/            short-lived operation mutexes
   announce/         announce markers, receipts, the OFF switch
   gate-unresolved/  collision-gate "could not check" throttle stamps
-  overlap-cache.json
+  overlap-cache/    one overlap cache per worktree root
 ```
 
 That location provides three properties:

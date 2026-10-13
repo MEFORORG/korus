@@ -3,14 +3,14 @@
 Measured 2026-10-12. The desktop app starts a worktree session's CLI with
 `--project-config-root <primary checkout>`. A hook then runs with its working directory,
 `CLAUDE_PROJECT_DIR` and git's top-level answer all naming the PRIMARY. Only the `cwd` in the JSON
-on stdin names the worktree. Across MessageFoundry worktree transcripts, the session banner said
-"This chat's worktree: <primary>" 410 times against 48 for a worktree.
+on stdin names the worktree. korus#220 records the fixture that measured it.
 
 Every case below starts the REAL hook in the primary and names the worktree only in the input, which
 is the shape of that launch. Each class carries a control with no `cwd`, which must answer for the
 primary. Without it, a pass could mean the fixture never reproduced the fault.
 
-The role-card, seat-declare and pre-compact hooks have their own cases beside their own tests.
+The role-card, seat-declare and pre-compact hooks are fixed in korus#220, with their cases beside
+their own tests there.
 """
 
 import json
@@ -99,13 +99,34 @@ class _Fixture(unittest.TestCase):
         r.stderr = r.stderr.decode("utf-8", "replace")
         return r
 
-    def stub_tree(self) -> Path:
+    def run_shim(self, script: Path, payload, *args: str) -> subprocess.CompletedProcess:
+        """Run a hook the way the installed shim does: in-process, by `&`, with stdin inherited."""
+        call = "& '" + str(script).replace("'", "''") + "'"
+        for a in args:
+            # A parameter name goes in bare. Quoted, PowerShell binds it as a positional value.
+            call += " " + a if a.startswith("-") else " '" + a.replace("'", "''") + "'"
+        e = dict(os.environ)
+        for leak in ("CCX_CONFIG", "CCX_TRUNK", "CLAUDE_PROJECT_DIR", "CCX_SESSION_BANNER"):
+            e.pop(leak, None)
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-Command", call],
+            input=json.dumps(payload).encode("utf-8"),
+            capture_output=True,
+            env=e,
+            cwd=str(self.primary),
+            timeout=TIMEOUT_SECONDS,
+        )
+        r.stdout = r.stdout.decode("utf-8", "replace")
+        r.stderr = r.stderr.decode("utf-8", "replace")
+        return r
+
+    def stub_tree(self, name: str = "tree") -> Path:
         """A copy of `scripts/` whose presence and overlap are stubs that answer at once.
 
         The banner calls them by `$PSScriptRoot`, so a copy is the only way to swap them. The banner's
         own code runs unchanged. The real pair would read this machine's session registry.
         """
-        tree = self.base / "tree"
+        tree = self.base / name
         if not tree.exists():
             shutil.copytree(t.REPO_ROOT / "scripts", tree / "scripts")
             stub = "param([switch]$Json,[switch]$All,[string]$Repo,[string]$File)\nWrite-Output '[]'\nexit 0\n"
@@ -136,6 +157,33 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         self.assertIn(f"This chat's worktree: {slashed(self.primary)}", out)
         self.assertIn("[session-context] the hook input names cwd", out)
 
+    def test_run_through_the_shim_it_still_reads_the_input(self):
+        """The installed shim runs the hook in-process with `&`, so stdin is inherited, not piped."""
+        r = self.run_shim(self.stub_tree() / "worktree" / "session-context.ps1", {"cwd": str(self.worktree)})
+        self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", r.stdout, r.stderr)
+
+    def test_a_missing_input_reader_is_said_aloud(self):
+        """A copier who leaves out _hookinput.ps1 gets the old answer, and is told why."""
+        scripts = self.stub_tree("tree-no-helper")
+        (scripts / "hooks" / "_hookinput.ps1").unlink()
+        r = self.run_hook(scripts / "worktree" / "session-context.ps1", {"cwd": str(self.worktree)})
+        self.assertIn("could not read its input", r.stdout)
+        self.assertIn("_hookinput.ps1 is missing", r.stdout)
+
+    def test_a_primary_whose_path_says_worktrees_is_still_the_primary(self):
+        """From a subdirectory --git-dir is absolute, so a match on 'worktrees' misread this primary."""
+        app = self.base / "worktrees" / "app"
+        app.mkdir(parents=True)
+        self.git(app, "init", "-q", "-b", "main")
+        (app / "a.txt").write_text("a", encoding="ascii")
+        self.git(app, "add", "-A")
+        self.git(app, "commit", "-qm", "init")
+        self.git(app, "worktree", "add", "-q", str(self.base / "app-wt"), "-b", "side")
+        (app / "src").mkdir()
+        out = self.banner({"cwd": str(app / "src")})
+        self.assertIn(f"This chat's worktree: {slashed(app)}", out)
+        self.assertIn("SHARED PRIMARY checkout", out)
+
 
 class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
     PEER = {
@@ -144,7 +192,7 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         "Worktree": "peer", "Branch": "peer-branch",
     }
 
-    def announce(self, payload, run: str) -> str:
+    def announce(self, payload, run: str, shim: bool = False) -> str:
         peer = dict(self.PEER, Cwd=str(self.base / "peer"))
         stub = self.base / "presence-stub.ps1"
         stub.write_text(
@@ -153,7 +201,13 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         )
         # A state dir per run, so one run's cooldown stamp cannot silence the next.
         state = self.base / f"announce-{run}"
-        r = self.run_hook(ANNOUNCE, payload, "-PresenceScript", str(stub), "-StateDir", str(state))
+        args = ("-PresenceScript", str(stub), "-StateDir", str(state))
+        if shim:
+            # The shim passes -CommonDir from where IT started, which is the primary.
+            common = self.git(self.primary, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+            r = self.run_shim(ANNOUNCE, payload, *args, "-CommonDir", common)
+        else:
+            r = self.run_hook(ANNOUNCE, payload, *args)
         self.assertEqual(0, r.returncode, r.stderr)
         return r.stdout
 
@@ -166,10 +220,16 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         out = self.announce({"session_id": "sess-b"}, "b")
         self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.primary)} (main)", out)
 
-    def test_a_missing_cwd_falls_back_and_says_so(self):
+    def test_a_missing_cwd_announces_nothing_and_says_so(self):
+        """Announcing the primary as this session's identity is the fault, so it announces nothing."""
         out = self.announce({"session_id": "sess-c", "cwd": str(self.missing)}, "c")
-        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.primary)} (main)", out)
-        self.assertIn("CAUTION: the hook input names cwd", out)
+        self.assertNotIn("[SESSION-ANNOUNCE]", out)
+        self.assertIn("[announce] the hook input names cwd", out)
+        self.assertIn("announced nothing", out)
+
+    def test_run_through_the_shim_it_names_the_worktree(self):
+        out = self.announce({"session_id": "sess-d", "cwd": str(self.worktree)}, "d", shim=True)
+        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
 
 class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
@@ -179,7 +239,7 @@ class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
     directory the gate started it in, which is the one fact under test.
     """
 
-    def gate(self, payload) -> str:
+    def gate(self, payload, state: str = "gate-state") -> str:
         stub = self.base / "overlap-stub.ps1"
         stub.write_text(
             "param([string]$File,[switch]$Json)\n"
@@ -190,7 +250,7 @@ class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
             encoding="utf-8",
         )
         r = self.run_hook(
-            COLLISION, payload, "-OverlapScript", str(stub), "-StateDir", str(self.base / "gate-state")
+            COLLISION, payload, "-OverlapScript", str(stub), "-StateDir", str(self.base / state)
         )
         self.assertEqual(0, r.returncode, r.stderr)
         return r.stdout
@@ -209,6 +269,14 @@ class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
         ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
         self.assertIn("could NOT check this edit (cwd-unusable)", ctx)
         self.assertNotIn("RAN-IN:", out)
+
+    def test_two_sessions_with_unusable_cwds_each_get_the_notice(self):
+        """Both gates start in the primary. Keyed on that, the second session's notice was throttled."""
+        state = "gate-state-two"
+        first = self.gate({"cwd": str(self.base / "gone-1"), "tool_input": {"file_path": "a.txt"}}, state)
+        second = self.gate({"cwd": str(self.base / "gone-2"), "tool_input": {"file_path": "a.txt"}}, state)
+        self.assertIn("cwd-unusable", first)
+        self.assertIn("cwd-unusable", second, "one session's notice silenced another's")
 
 
 class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
@@ -235,10 +303,17 @@ class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
         self.assertNotIn("MAIL-SENTINEL", ctx)
         self.assertIn("No mail", ctx)
 
-    def test_a_missing_cwd_falls_back_and_says_so(self):
+    def test_a_missing_cwd_reads_no_box_and_says_so(self):
+        """Showing the primary's box here would let this session's Stop file the primary's mail."""
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(MAIL), "-Send", "-To", str(self.primary), "-Body", "PRIMARY-MAIL"],
+            capture_output=True, text=True, cwd=str(self.worktree), timeout=TIMEOUT_SECONDS,
+        )
+        self.assertEqual(0, r.returncode, r.stdout + r.stderr)
         ctx = self.drain({"cwd": str(self.missing)})
-        self.assertIn("CAUTION: the hook input names cwd", ctx)
-        self.assertNotIn("MAIL-SENTINEL", ctx)
+        self.assertIn("NO BOX", ctx)
+        self.assertIn("the hook input names cwd", ctx)
+        self.assertNotIn("PRIMARY-MAIL", ctx)
 
 
 class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):

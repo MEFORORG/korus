@@ -365,7 +365,7 @@ function Get-CcxStateRoot {
         on EVIDENCE (the directory is gone AND deregistered) rather than on a timer.
 
         Subdirectories, all created by their owners rather than here:
-            alloc/  claims/  locks/  announce/  gate-unresolved/   overlap-cache.json
+            alloc/  claims/  locks/  announce/  gate-unresolved/   overlap-cache/
     #>
     [CmdletBinding()]
     param(

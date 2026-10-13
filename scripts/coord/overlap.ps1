@@ -188,11 +188,19 @@ if (-not $Trunk) {
     [Console]::Error.WriteLine("overlap: trunk unresolved -- reporting UNCOMMITTED changes only. Committed-but-unlanded work in peer worktrees is INVISIBLE in this run. Set trunk in ccx.config.json or CCX_TRUNK.")
 }
 
-# The cache lives in the shared state root (<git-common-dir>/<prefix>-coord), so every worktree of this
-# clone reads and writes the same file and no `git add` can sweep it into a commit. A state root we
-# cannot resolve means no cache: a slower hook, not a broken one.
+# The cache lives in the shared state root (<git-common-dir>/<prefix>-coord), so no `git add` can sweep
+# it into a commit. A state root we cannot resolve means no cache: a slower hook, not a broken one.
+#
+# ONE FILE PER ROOT. The map skips the root it was built from, so it is only valid there. One shared
+# file served every session while the collision gate ran from the primary. Once the gate ran from each
+# session's own worktree (2026-10-13), sessions in different worktrees evicted each other on every edit.
 $cacheFile = $null
-try { $cacheFile = Join-Path (Get-CcxStateRoot -Repo $Repo) 'overlap-cache.json' } catch { $cacheFile = $null }
+try {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $rootKey = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes([string]$myRootNorm))[0..3] | ForEach-Object { $_.ToString('x2') })
+    $sha.Dispose()
+    $cacheFile = Join-Path (Join-Path (Get-CcxStateRoot -Repo $Repo) 'overlap-cache') "$rootKey.json"
+} catch { $cacheFile = $null }
 
 function Get-WorktreeList {
     $out = @(); $cur = $null
