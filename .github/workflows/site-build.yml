@@ -299,24 +299,30 @@ jobs:
               src = page.relative_to(site)
               return src.as_posix() in tracked and filecmp.cmp(src, page, shallow=False)
 
-          # THE EXEMPTION IS ARMED TOO, three ways. A page Jekyll rendered is never a copy. An
-          # untracked file never earns it by matching bytes. And where tracked html sits outside
-          # docs/, at least one copy must match, or the test has gone blind and exempts nothing.
-          if verbatim(site / "index.html"):
-              sys.exit("the verbatim test exempted index.html, a page Jekyll rendered")
+          # THE EXEMPTION IS ARMED TOO, one control per half. An untracked file never earns it by
+          # matching bytes. A tracked copy whose bytes differ -- what Jekyll rendering a file would
+          # produce -- never earns it either. And at least one real copy must match, or the test
+          # has gone blind and exempts nothing.
           plant = pathlib.Path("planted-untracked.html")
-          plant.write_text("<p>{{ x }}</p>")
-          (site / plant).write_text("<p>{{ x }}</p>")
           try:
+              plant.write_text("<p>{{ x }}</p>")
+              (site / plant).write_text("<p>{{ x }}</p>")
               if verbatim(site / plant):
                   sys.exit("the verbatim test exempted a file git does not track")
           finally:
-              plant.unlink()
-              (site / plant).unlink()
-          outside = {p for p in tracked if not p.startswith("docs/")}
-          if outside and not any(verbatim(site / p) for p in outside if (site / p).exists()):
-              sys.exit("tracked html sits outside docs/ but no copy matched -- the test is blind")
-          print("exemption armed: refuses a rendered page and an untracked file, matches a copy")
+              plant.unlink(missing_ok=True)
+              (site / plant).unlink(missing_ok=True)
+          copied = [site / p for p in sorted(tracked) if (site / p).exists() and verbatim(site / p)]
+          if not copied:
+              sys.exit("no tracked html matched its published copy -- the test is blind")
+          probe, original = copied[0], copied[0].read_bytes()
+          try:
+              probe.write_bytes(original + b"<!-- rendered -->")
+              if verbatim(probe):
+                  sys.exit(f"the verbatim test exempted {probe} after its bytes changed")
+          finally:
+              probe.write_bytes(original)
+          print(f"exemption armed: refuses an untracked file and a changed {probe}, matches it intact")
 
           pages, copies = [], []
           for p in sorted(site.rglob("*.html")):
