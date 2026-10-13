@@ -135,6 +135,27 @@ edit silently, just as when no peers exist.
 
 The doctor's census exposes that zero count. Nothing inside a session detects the moved directory.
 
+### A desktop worktree session's hooks start in the primary checkout
+
+The desktop app starts a worktree session's CLI with `--project-config-root` set to the primary
+checkout. Measured 2026-10-12 in a fixture launched that way from a worktree.
+
+At SessionStart, the hook's working directory, `CLAUDE_PROJECT_DIR` and
+`git rev-parse --show-toplevel` all named the primary. Only the hook input's `cwd` named the
+worktree.
+
+So any hook that resolves its repository from where it runs reads the primary. Measured over
+MessageFoundry's worktree transcripts: its coordination hook named the primary 410 times, against
+48 for a worktree.
+
+That count is `grep -rohE "This chat's worktree: [^ ]*"` over
+`<config-root>/projects/C--Users-<u>-Code-MessageFoundry--claude-worktrees-*/` in every config root, read
+2026-10-12. Transcripts are machine-local, so no git ref can pin it.
+
+Since 2026-10-12, `role-card-inject.ps1`, `seat-declare.ps1`, `precompact-reprime.ps1` and the
+korus-card shim read the input's `cwd`. The other hooks here still resolve from their working
+directory. This session's own announce hook named `korus (main)` from a worktree on another branch.
+
 ## What the collision gate does not see
 
 <a id="g11"></a>
