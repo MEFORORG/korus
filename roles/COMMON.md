@@ -48,7 +48,7 @@ Relabelling it as document ambiguity moves it where nobody can settle it.
 | --- | --- | --- |
 | MessageFoundry | Public | Only what is required to run mefor. Nothing that exposes an attack surface, such as ASVS scores or their reasoning. |
 | MessageFoundry-vault | Private | Confidential material and anything naming an attack vector. The ledger, the ADR mirror, the security scorecard, the handoffs, the fleet tooling. |
-| korus | Private | **This folder.** The role playbooks and the `fleet-*` skills. |
+| korus | Public | **This folder.** The role playbooks and the `fleet-*` skills. |
 
 **CORRECTED 2026-09-17, by owner ruling: korus is the folder of record for `roles/`.**
 
@@ -58,29 +58,50 @@ true on 2026-09-04, when the playbooks moved to korus at `5728484`.
 The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
 who trusted this table went to the stale copy**, which is why this is a correction and not a tidy-up.
 
-### An engine pull request never carries the scorecard's map
-
-The engine repository is public. An ASVS cell id is vault content. So is the map from a cell to
-the code path its anchor cites. **A pull request body or comment on the engine repository that
-lists them publishes that map.** The terms are public. The content is not.
-
-At least two seats have leaked it this way:
-
-| Seat | How it leaked | Do this |
-| --- | --- | --- |
-| Manager | It copied a Builder's report into the pull request body. The report listed the cells and anchors the change touched. | Put a count and a pointer to the vault row in the body. Send the table to the Lander by mail, or record it in the vault. |
-| Lander | Its hold comment listed each removed anchor with its cell id and path. | Ask for the classification in a vault row. Post only paths and counts on the pull request. |
-
-A Builder that opens its own pull request follows the Manager row.
-
-**Editing the text out does not remove it.** The edit history keeps the earlier revision until
-someone deletes that revision in the web interface. Check before you post.
-
-Reported in wiki events `20261006T024731642Z-oa66y4` and `20261012T132616366Z-tr2mhy`. The edit
-history point is from `20261012T143741394Z-z27yll`.
+**CORRECTED 2026-10-13: the korus row read `Private`.** `gh repo view MEFORORG/korus --json
+visibility` returned `PUBLIC` that day, and [WIKI.md](WIKI.md) already said so.
 
 **Project status:** no installed operational instances of mefor exist, so a code change needs no
 migration plan and no compatibility shim. There is no installed base to protect.
+
+### A public post never carries the scorecard's map
+
+The engine and korus are public. **Everything posted to one is published:** a pull request's title,
+body, comments and review threads, and every commit message.
+
+A bare OWASP requirement number given as the reason for a change is fine. Two things stay in the
+vault:
+
+- a list that pairs ASVS cells with the code paths their anchors cite;
+- any coverage, verdict or gap statement.
+
+The requirement list is closed and public, so a map of what is covered also shows what is not. The
+engine repository's `scripts/asvs/CLAUDE.md` holds the rule. Read it at `origin/main`.
+
+**Record the list in the vault, and post only where it is:** a path or a row number. A public post
+may add that anchors were checked, and how many. Mail carries that pointer and never the list;
+*What mail does not promise* says why.
+
+| Seat | Where it meets this |
+| --- | --- |
+| Manager | The Builder's report it puts in a pull request body. |
+| Builder | Its commit messages, and the report a Manager will post. A Builder in its own session also follows the Manager row. |
+| Lander | A hold or merge comment, and the commit message of a conflict it resolves. |
+
+**Read your text before you post it.** Look for a requirement number beside a file path, and for a
+coverage, verdict or gap word about the scorecard. A number that only gives the reason for the
+change stays. Anything else you find goes to the vault.
+
+**Editing the text out does not remove it**, and a pushed commit message cannot be edited at all.
+GitHub's documentation, read 2026-10-13 and not measured here, says a comment's author or anyone
+with write access can delete a revision from the comment's edit history in the web interface.
+
+The revision to delete is the one that shows the content being added, and the edit's time and
+author stay visible. That page names comments only. A seat that cannot delete the revision tells
+the owner privately.
+
+Source: wiki key `asvs/disclosure/engine-pr-body`, events `20261006T024731642Z-oa66y4`,
+`20261012T132616366Z-tr2mhy` and `20261012T143741394Z-z27yll`.
 
 ---
 
