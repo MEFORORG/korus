@@ -75,10 +75,13 @@ cell id. Three clauses say what a seat may write about those requirements in a p
 
 1. A requirement number may tag a sentence that says what the code does, or what the change makes
    it do.
-2. No sentence in a public place may give a requirement's status, any count or score, or three or
-   more requirement numbers each beside a path. Status is given by words such as gap, unmet,
-   partial, residual, covered, last, remaining and still open.
+2. No sentence in a public place may give a requirement's status, or any count or score from the
+   scorecard. No pull request, comment, commit message or file may hold three or more requirement
+   numbers each beside a path.
 3. Text already on a public `main` is no precedent, and no seat sweeps it without a ruled item.
+
+Status is given by words such as gap, unmet, partial, residual, covered, last, remaining and still
+open.
 
 **Why:** the requirement list is closed and public, so a map of what is covered also shows what is
 not.
@@ -89,7 +92,7 @@ Three invented lines, and how the clauses sort them:
 | --- | --- |
 | "Refuses X with no posture set (requirement N)." | Allowed. It says what the code does, and the number only tags it. |
 | "Closes a gap in N." | Not allowed. "Gap" gives requirement N a status. |
-| "N1 `some/file.py`, N2 `other/file.py`, N3 `third/file.py`." | Not allowed. Three numbers, each beside a path, with or without a status word. |
+| "N1 `some/file.py`, N2 `other/file.py`, N3 `third/file.py`." | Not allowed. Three numbers, each beside a path, with or without a status word, in one sentence or one per row. |
 
 **The rule has a limit.** A fix tagged with a number still implies the requirement fell short
 before, and only a ban on numbers would hide that. A ban was judged unworkable, because requirement
@@ -101,9 +104,9 @@ reviews and one adversarial review. It is not an owner ruling on the substance.
 One question is still with the owner: whether operator-facing docs may state a residual against a
 requirement on purpose. Until it is answered, clause 2 applies to new text there too.
 
-The engine's own instruction text says cell ids stay vaulted. A separate engine change is bringing
-it into line with this section. Until it lands, a seat follows the stricter reading where the two
-differ.
+The engine repository's own instruction text is stricter than clause 2 on a number beside a path.
+Until that text changes, a seat follows it in every engine pull request, comment and commit
+message. Clause 1 still covers a tag in a tracked code, test or doc file there.
 
 **The Manager owns recording in the vault what clause 2 keeps out.** A subagent Builder puts it in
 its report, which returns to the Manager and is not published.

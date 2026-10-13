@@ -95,7 +95,8 @@ Nobody can take the claim on the builder's behalf.
 **Step 6 stops at two rounds.** Adversarial repair is not monotonic. A second round can introduce
 what the first accepted, so an unbounded loop oscillates rather than converges.
 
-If round two still reports findings, ship anyway. Attach the critic notes to the pull request body.
+If round two still reports findings, ship anyway. Attach the critic notes to the pull request body,
+minus what roles/COMMON.md, "A public repository never carries the scorecard's map", keeps out.
 
 **Step 7 requires a self-describing final commit.** Its message carries the proposed pull request
 title and the proposed ledger banner text.
