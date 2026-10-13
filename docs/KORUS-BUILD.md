@@ -95,7 +95,8 @@ Nobody can take the claim on the builder's behalf.
 **Step 6 stops at two rounds.** Adversarial repair is not monotonic. A second round can introduce
 what the first accepted, so an unbounded loop oscillates rather than converges.
 
-If round two still reports findings, ship anyway. Attach the critic notes to the pull request body.
+If round two still reports findings, ship anyway. Attach the critic notes to the pull request body,
+minus what roles/COMMON.md, "A public repository never carries the scorecard's map", keeps out.
 
 **Step 7 requires a self-describing final commit.** Its message carries the proposed pull request
 title and the proposed ledger banner text.
@@ -174,8 +175,9 @@ the steps. Do not count open pull requests first: every manager reading one shar
 "clear" at the same moment, and they all open together.
 
 Put each builder's report in the pull request body, one section per item, with its branch and
-head SHA. A builder cannot post there itself. Read each builder's last commit message for the
-proposed title and the proposed ledger banner text.
+head SHA. A builder cannot post there itself. First take out what roles/COMMON.md, "A public
+repository never carries the scorecard's map", keeps out of a public place. Read each builder's
+last commit message for the proposed title and the proposed ledger banner text.
 
 Post each builder's QA line on it, verbatim, one comment per item. Label it qa only if every
 item has a line:

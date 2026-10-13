@@ -537,7 +537,8 @@ it did not do; reporting it as research discards the pointer, which is the whole
 scrolled off screen before they return. See [COMMON.md](COMMON.md), *The owner reads by sampling, so
 route through the Manager*.
 
-**This is what they see. Send it to the Manager**, which carries it into the pull request body.
+**This is what they see. Send it to the Manager**, which carries it into the pull request body,
+minus what [COMMON.md](COMMON.md), *A public repository never carries the scorecard's map*, names.
 Until 2026-09-18 this line read *"Put it in the pull request body"*; this seat no longer opens one.
 
 | # | Column | What goes in it |

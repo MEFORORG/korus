@@ -48,7 +48,7 @@ Relabelling it as document ambiguity moves it where nobody can settle it.
 | --- | --- | --- |
 | MessageFoundry | Public | Only what is required to run mefor. Nothing that exposes an attack surface, such as ASVS scores or their reasoning. |
 | MessageFoundry-vault | Private | Confidential material and anything naming an attack vector. The ledger, the ADR mirror, the security scorecard, the handoffs, the fleet tooling. |
-| korus | Private | **This folder.** The role playbooks and the `fleet-*` skills. |
+| korus | Public | **This folder.** The role playbooks and the `fleet-*` skills. |
 
 **CORRECTED 2026-09-17, by owner ruling: korus is the folder of record for `roles/`.**
 
@@ -58,8 +58,86 @@ true on 2026-09-04, when the playbooks moved to korus at `5728484`.
 The vault's `roles/` last changed 2026-09-02 and now opens with a STOP banner saying so. **A reader
 who trusted this table went to the stale copy**, which is why this is a correction and not a tidy-up.
 
+**CORRECTED 2026-10-13: the korus row read `Private`.** `gh repo view MEFORORG/korus --json
+visibility` returned `PUBLIC` that day, and [WIKI.md](WIKI.md) already said so.
+
 **Project status:** no installed operational instances of mefor exist, so a code change needs no
 migration plan and no compatibility shim. There is no installed base to protect.
+
+### A public repository never carries the scorecard's map
+
+Two of the repositories above are public, and korus is one of them. **A public place** is any text
+in a public repository. That is at least a pull request title, body, comment or review, a commit
+message, a branch name, a changelog fragment, a code comment or a doc.
+
+A requirement number here is an OWASP ASVS requirement id, which the scorecard also uses as its
+cell id. Three clauses say what a seat may write about those requirements in a public place:
+
+1. A requirement number may tag a sentence that says what the code does, or what the change makes
+   it do.
+2. No sentence in a public place may give a requirement's status, or any count or score from the
+   scorecard. No pull request, comment, commit message or file may hold three or more requirement
+   numbers each beside a path.
+3. Text already on a public `main` is no precedent, and no seat sweeps it without a ruled item.
+
+Status is given by words such as gap, unmet, partial, residual, covered, last, remaining and still
+open.
+
+**Why:** the requirement list is closed and public, so a map of what is covered also shows what is
+not.
+
+Three invented lines, and how the clauses sort them:
+
+| Line | Verdict |
+| --- | --- |
+| "Refuses X with no posture set (requirement N)." | Allowed. It says what the code does, and the number only tags it. |
+| "Closes a gap in N." | Not allowed. "Gap" gives requirement N a status. |
+| "N1 `some/file.py`, N2 `other/file.py`, N3 `third/file.py`." | Not allowed. Three numbers, each beside a path, with or without a status word, in one sentence or one per row. |
+
+**The rule has a limit.** A fix tagged with a number still implies the requirement fell short
+before, and only a ban on numbers would hide that. A ban was judged unworkable, because requirement
+numbers already appear widely in public code, tests and docs.
+
+**This is a Lander seat decision, made 2026-10-13 under the owner's Driver rules**, after two code
+reviews and one adversarial review. It is not an owner ruling on the substance.
+
+One question is still with the owner: whether operator-facing docs may state a residual against a
+requirement on purpose. Until it is answered, clause 2 applies to new text there too.
+
+The engine repository's own instruction text is stricter than clause 2 on a number beside a path.
+Until that text changes, a seat follows it in every engine pull request, comment and commit
+message. Clause 1 still covers a tag in a tracked code, test or doc file there.
+
+**The Manager owns recording in the vault what clause 2 keeps out.** A subagent Builder puts it in
+its report, which returns to the Manager and is not published.
+
+The Manager briefs a Builder in the vault to record it. That pull request names the item's ledger
+row, where the item has one. This file does not say where in the vault:
+[LANDER.md](LANDER.md), *Repo topology and safety*, says why.
+
+Public text may cite that ledger row number. A seat that is not a Manager's subagent records its
+own by a vault pull request. Mail carries the row number and never the content, because *What mail
+does not promise* bars anything sensitive from a body.
+
+The rule binds every seat. At least three meet it in a routine step:
+
+| Seat | Where it meets this |
+| --- | --- |
+| Manager | The Builder's report it puts in a pull request body. It takes out what clause 2 names first. |
+| Builder | Its commit messages, and the QA line the Manager posts as given. A Builder in its own session also follows the Manager row. |
+| Lander | A hold or merge comment, and the commit message of a conflict it resolves. |
+
+**Read your text against clause 2 before you commit or post it.**
+
+**Editing the text out does not remove it.** A pushed commit message cannot be edited in place, and
+a comment keeps its edit history. GitHub's page *Tracking changes in a comment*, read 2026-10-13
+and not measured here, says the author or anyone with write access can delete a revision.
+
+Delete every revision that shows the content; each edit's time and author stay visible. Deleting
+recalls no copy already taken, so treat the content as disclosed.
+
+**Then tell your Manager, never in text that will be posted.** A Manager, or a seat with none,
+tells the owner. Do the same for a pushed commit message, and for anything else you cannot delete.
 
 ---
 
