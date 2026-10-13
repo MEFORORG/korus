@@ -64,41 +64,47 @@ visibility` returned `PUBLIC` that day, and [WIKI.md](WIKI.md) already said so.
 **Project status:** no installed operational instances of mefor exist, so a code change needs no
 migration plan and no compatibility shim. There is no installed base to protect.
 
-### A public post never carries the scorecard's map
+### A public repository never carries the scorecard's map
 
-The engine and korus are public. **Everything posted to one is published:** a pull request's title,
-body, comments and review threads, and every commit message.
+Two of the repositories above are public. **Whatever a seat writes to one is published.** That is
+at least a committed file, a branch name, an issue, a commit message, and a pull request's title,
+body, comments and review threads.
 
-A bare OWASP requirement number given as the reason for a change is fine. Two things stay in the
-vault:
+A bare OWASP requirement number given as the reason for a change is fine. The engine's `main`
+cites them that way, read at `cbcf3fa47`. Two things stay in the vault:
 
 - a list that pairs ASVS cells with the code paths their anchors cite;
 - any coverage, verdict or gap statement.
 
 The requirement list is closed and public, so a map of what is covered also shows what is not. The
-engine repository's `scripts/asvs/CLAUDE.md` holds the rule. Read it at `origin/main`.
+engine repository's `scripts/asvs/CLAUDE.md` gives that reason. Read it at `origin/main`.
 
-**Record the list in the vault, and post only where it is:** a path or a row number. A public post
-may add that anchors were checked, and how many. Mail carries that pointer and never the list;
-*What mail does not promise* says why.
+**The list goes in the vault, and a public post says only where it is:** a vault path or a ledger
+row number. It may add that anchors were checked. Mail carries that pointer and never the list,
+because *What mail does not promise* bars anything sensitive from a body.
+
+The rule binds every seat. At least three meet it in a routine step:
 
 | Seat | Where it meets this |
 | --- | --- |
-| Manager | The Builder's report it puts in a pull request body. |
-| Builder | Its commit messages, and the report a Manager will post. A Builder in its own session also follows the Manager row. |
+| Manager | The Builder's report it puts in a pull request body. It strips the list first. |
+| Builder | Its commit messages. A Builder in its own session also follows the Manager row. |
 | Lander | A hold or merge comment, and the commit message of a conflict it resolves. |
 
-**Read your text before you post it.** Look for a requirement number beside a file path, and for a
-coverage, verdict or gap word about the scorecard. A number that only gives the reason for the
-change stays. Anything else you find goes to the vault.
+**Read your text before you commit or post it.** Look for a requirement number beside a file path,
+and for a sentence saying a requirement is covered, met or unmet. A number that only gives the
+reason for the change stays. Anything else you find goes to the vault.
 
-**Editing the text out does not remove it**, and a pushed commit message cannot be edited at all.
-GitHub's documentation, read 2026-10-13 and not measured here, says a comment's author or anyone
-with write access can delete a revision from the comment's edit history in the web interface.
+**Editing the text out does not remove it.** A pushed commit message cannot be edited in place, and
+a comment keeps its edit history. GitHub's page *Tracking changes in a comment*, read 2026-10-13
+and not measured here, says the author or anyone with write access can delete a revision.
 
-The revision to delete is the one that shows the content being added, and the edit's time and
-author stay visible. That page names comments only. A seat that cannot delete the revision tells
-the owner privately.
+Delete the revision that shows the content being added; the edit's time and author stay visible.
+That page names comments only. Deleting recalls no copy already taken, so treat the content as
+disclosed.
+
+**Then tell your Manager, or the owner where none is running, never in text that will be posted.**
+Do the same for a pushed commit message, and for a revision you cannot delete.
 
 Source: wiki key `asvs/disclosure/engine-pr-body`, events `20261006T024731642Z-oa66y4`,
 `20261012T132616366Z-tr2mhy` and `20261012T143741394Z-z27yll`.

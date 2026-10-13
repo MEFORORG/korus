@@ -538,7 +538,7 @@ scrolled off screen before they return. See [COMMON.md](COMMON.md), *The owner r
 route through the Manager*.
 
 **This is what they see. Send it to the Manager**, which carries it into the pull request body,
-minus what [COMMON.md](COMMON.md), *A public post never carries the scorecard's map*, names.
+minus what [COMMON.md](COMMON.md), *A public repository never carries the scorecard's map*, names.
 Until 2026-09-18 this line read *"Put it in the pull request body"*; this seat no longer opens one.
 
 | # | Column | What goes in it |
