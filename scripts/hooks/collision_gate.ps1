@@ -139,9 +139,21 @@ function Write-Unresolved([string]$Slug, [string]$Detail) {
 $target = $PathOverride
 if (-not $target) {
     if (-not [Console]::IsInputRedirected) { exit 0 }
-    try { $hook = [Console]::In.ReadToEnd() | ConvertFrom-Json -ErrorAction Stop } catch {
+    $text = $null
+    try { . (Join-Path $PSScriptRoot "_hookinput.ps1"); $text = Read-CcxHookInput } catch { $text = $null }
+    if ($null -eq $text) { try { $text = [Console]::In.ReadToEnd() } catch { $text = '' } }
+    try { $hook = $text | ConvertFrom-Json -ErrorAction Stop } catch {
         Write-Unresolved "payload-unreadable" `
             "the PreToolUse payload on stdin was not readable JSON, so the gate never learned which file this edit targets"
+    }
+    # THE SESSION'S OWN WORKTREE IS THE ONE THE PAYLOAD NAMES. overlap.ps1 skips "your own worktree"
+    # by the directory it runs in, and it runs in this one. Measured 2026-10-12: under the desktop app
+    # this process starts in the PRIMARY checkout, so the session's own worktree read as a PEER's.
+    # A cwd the payload names but this gate cannot enter leaves it unable to tell the two apart.
+    $cwdNote = ''
+    try { $cwdNote = Enter-CcxHookCwd -Text $text } catch { $cwdNote = '' }
+    if ($cwdNote) {
+        Write-Unresolved "cwd-unusable" "$cwdNote, so the gate could not tell this session's own worktree from a peer's"
     }
     # Parsed, but to nothing. An empty payload or a literal `null` on stdin does not throw, so this
     # used to be the one unreadable-input path that still exited silently -- the gate had learned no

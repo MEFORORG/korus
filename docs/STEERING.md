@@ -169,8 +169,16 @@ The command throws if none resolves to a directory. It also throws if that direc
 An earlier version used the working directory and created `.claude` when absent. It could
 report "queued" from the wrong directory even though no hook read that note.
 
-The hook reads only `<project root>/.claude/steer.txt`. If `CLAUDE_PROJECT_DIR` is unset, it exits 0 immediately without
-searching.
+The hook reads only `<worktree>/.claude/steer.txt`. It finds the worktree by walking up from the
+`cwd` in its JSON input to the nearest `.git`. With no usable `cwd` it falls back to
+`CLAUDE_PROJECT_DIR`, and with neither it exits 0 without searching.
+
+**That paragraph read "The hook reads only `<project root>/.claude/steer.txt`" until 2026-10-13.**
+The project root was `CLAUDE_PROJECT_DIR`, which the desktop app sets to the PRIMARY checkout for a
+worktree session. Measured 2026-10-12. So a note queued from the worktree was never read there.
+
+A note read from the fallback says so in the text the session sees, because it may be another
+session's note.
 
 ## Encoding
 
@@ -201,7 +209,7 @@ Check the note file outside the hook:
 
 Run the hook to inspect its actual output.
 
-The hook reads its environment and note file, with no stdin. Drive it directly:
+Run from a terminal with no input, the hook falls back to `CLAUDE_PROJECT_DIR`. Drive it directly:
 
 ```powershell
 pwsh -NoProfile -File bin/ccx-steer.ps1 "throwaway probe, ignore"

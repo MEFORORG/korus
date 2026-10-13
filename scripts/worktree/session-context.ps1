@@ -29,11 +29,29 @@
     every sub-probe is individually try/caught. A probe that cannot answer prints nothing; it never
     prints a guess.
 
+    WHICH WORKTREE: THE ONE THE HOOK INPUT NAMES. Measured 2026-10-12: the desktop app starts a
+    worktree session's CLI with `--project-config-root <primary checkout>`, and this hook then runs
+    with its working directory and git's top-level answer both naming the PRIMARY. Only the `cwd` in
+    the JSON on stdin names the worktree. Across MessageFoundry worktree transcripts this banner said
+    "This chat's worktree: <primary>" 410 times against 48 for a worktree. So the hook moves into
+    that `cwd` before its first git call. With no `cwd` in the input it stays where it started.
+
     See docs/WORKTREES.md and docs/COORDINATION.md.
 #>
 $ErrorActionPreference = "SilentlyContinue"
 
 $lines = @()
+
+# --- (0) move into the session's own directory, before any git call -----------------------------
+# A cwd the input names but this hook cannot use goes in the banner. A banner that names the wrong
+# worktree in silence is the fault this read exists to fix.
+try {
+    . (Join-Path $PSScriptRoot "../hooks/_hookinput.ps1")
+    $cwdNote = Enter-CcxHookCwd -Text (Read-CcxHookInput)
+    if ($cwdNote) {
+        $lines += "[session-context] $cwdNote, so this banner describes $($PWD.Path) instead."
+    }
+} catch { }
 
 # --- (1) the project's own banner ----------------------------------------------------------------
 $bannerPath = $null

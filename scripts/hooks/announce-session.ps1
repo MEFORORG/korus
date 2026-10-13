@@ -207,10 +207,35 @@ function Write-Receipt {
 # $script:MarkerKey and $script:SelfId are read defensively in Write-Receipt, so $null is fine.
 
 try {
+    # --- 0. THE SESSION'S OWN DIRECTORY, BEFORE ANY GIT CALL ---------------------------------------
+    # Measured 2026-10-12: the desktop app starts a worktree session's CLI with
+    # `--project-config-root <primary checkout>`, so this process starts in the PRIMARY and every
+    # bare git call below answered for it. The payload `cwd` is the only name for the worktree. On
+    # 2026-10-13 this hook told a session in a worktree to announce itself as
+    # "[SESSION-ANNOUNCE] <primary> (main)".
+    #
+    # The payload is read once, here, and parsed in step 5. '-not $SelfTest' is UNCONDITIONAL, not
+    # conditional on redirection: measured on the development host, [Console]::IsInputRedirected is
+    # True from an agent shell with NO pipe at all, so a read guarded only on redirection turns the
+    # diagnostic switch into a hang.
+    $raw = $PayloadOverride
+    if (-not $raw -and -not $SelfTest) {
+        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $raw = Read-CcxHookInput } catch { $raw = '' }
+    }
+    $cwdNote = ''
+    $startedIn = $PWD.Path
+    if ($raw) {
+        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $cwdNote = Enter-CcxHookCwd -Text $raw } catch { $cwdNote = '' }
+    }
+
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
     # MANDATORY inert-outside-a-repo guarantee: this entry is user-global and runs in every unrelated
-    # project on the machine.
+    # project on the machine. A payload `cwd` outside every repository lands here too, and stands down.
+    #
+    # -CommonDir is the shim's answer, from where the shim started. Once the hook has moved, that
+    # answer is about somewhere else, so it is resolved again from here.
     $cd = $CommonDir
+    if ($PWD.Path -ne $startedIn) { $cd = '' }
     if (-not $cd) {
         $cd = (& git rev-parse --path-format=absolute --git-common-dir 2>$null)
         if ($LASTEXITCODE -ne 0 -or -not $cd) { exit 0 }
@@ -280,11 +305,7 @@ try {
     $script:StateDir = $StateDir
 
     # --- 5. PAYLOAD ----------------------------------------------------------------------------------
-    # '-not $SelfTest' is UNCONDITIONAL, not conditional on redirection: measured on the development
-    # host, [Console]::IsInputRedirected is True from an agent shell with NO pipe at all, so a read
-    # guarded only on redirection turns the diagnostic switch into a hang.
-    $raw = $PayloadOverride
-    if (-not $raw -and -not $SelfTest -and [Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
+    # Read in step 0, before the first git call, which says why it skips stdin under -SelfTest.
     $selfId = ''
     if ($raw) {
         try {
@@ -685,6 +706,11 @@ try {
         $lines += "4. Message at most $($targets.Count) peer(s) you actually reached, one message each,"
         $lines += '   this shape and nothing else:'
         $lines += "     [SESSION-ANNOUNCE] $top ($branch)"
+        if ($cwdNote) {
+            # Said beside the line it makes wrong. The cwd above is where this hook started, and under
+            # the desktop app that is the primary checkout, not this session's worktree.
+            $lines += "   CAUTION: $cwdNote, so the cwd above is where this hook started and may not be yours."
+        }
         $lines += '     intent: <one line -- the task you were just given>'
         $lines += '     touching: <one line, if you already know>'
         $lines += '   It lands as a USER turn in their session. Ask nothing, expect no answer.'

@@ -18,13 +18,30 @@
 #
 # ASCII-only on purpose (the note is written by another process and must not depend on console
 # encoding); run under pwsh 7 by the hook.
+#
+# WHICH WORKTREE: THE ONE THE HOOK INPUT NAMES. bin/ccx-steer.ps1, run from a terminal in the
+# session's worktree, writes <worktree>\.claude\steer.txt. Measured 2026-10-12: the desktop app starts
+# a worktree session's CLI with `--project-config-root <primary checkout>`, and CLAUDE_PROJECT_DIR then
+# names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
+# on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names none it can use.
+#
+# A FALLBACK IS SAID ONLY WITH A NOTE. This hook runs before every tool call, so a line on each one
+# would be noise. When it delivers a note from the fallback, the note says where it came from.
 
 $ErrorActionPreference = 'SilentlyContinue'
 
 try {
-    if (-not $env:CLAUDE_PROJECT_DIR) { exit 0 }
+    $root = ''
+    $cwdNote = ''
+    try {
+        . (Join-Path $PSScriptRoot '_hookinput.ps1')
+        $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput)
+        if ($wt.Root) { $root = $wt.Root } else { $cwdNote = $wt.Reason }
+    } catch { }
+    if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
+    if (-not $root) { exit 0 }
 
-    $noteFile = Join-Path $env:CLAUDE_PROJECT_DIR ".claude\steer.txt"
+    $noteFile = Join-Path $root ".claude\steer.txt"
     if (-not (Test-Path -LiteralPath $noteFile)) { exit 0 }
 
     $note = Get-Content -LiteralPath $noteFile -Raw
@@ -34,6 +51,9 @@ try {
     $note = $note.Trim()
 
     $context = "[STEERING NOTE -- the user just typed this via a side channel while you were mid-task, not through the normal prompt queue. Read it now and act on it right away -- adjust your current work accordingly before or alongside your next step. Do not wait for the current turn to end.]: $note"
+    if ($cwdNote) {
+        $context += " [steer-inject: $cwdNote, so this note was read from $noteFile, under CLAUDE_PROJECT_DIR. It may have been meant for another session.]"
+    }
 
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{

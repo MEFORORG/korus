@@ -66,10 +66,15 @@ $ErrorActionPreference = 'Stop'
 
 # ------------------------------------------------------------------------------ emit, always safely
 $script:Emitted = $false
+$script:CwdNote = ''
 function Write-Drain {
     param([string] $Text)
     if ($script:Emitted) { return }
     $script:Emitted = $true
+    if ($script:CwdNote) {
+        # Every emit carries it, because the drain speaks once and any path may be that once.
+        $Text = "[session-mail] CAUTION: $($script:CwdNote), so the box below belongs to $($PWD.Path) and may not be this session's. " + $Text
+    }
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{
             hookEventName     = if ($Event) { $Event } else { 'SessionStart' }
@@ -188,7 +193,12 @@ try {
     # stdin is read but never trusted for identity beyond the session id.
     $sessionId = 'unknown-session'
     try {
-        $raw = [Console]::In.ReadToEnd()
+        # THE BOX IS THE SESSION'S OWN CWD, so the drain moves into the cwd the payload names before
+        # it keys anything on `$PWD`. Measured 2026-10-12: under the desktop app this process starts
+        # in the PRIMARY checkout, so a worktree session drained the primary's box and never its own.
+        $raw = ''
+        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $raw = Read-CcxHookInput } catch { $raw = [Console]::In.ReadToEnd() }
+        try { $script:CwdNote = Enter-CcxHookCwd -Text $raw } catch { $script:CwdNote = '' }
         if ($raw) {
             $payload = $raw | ConvertFrom-Json
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {
