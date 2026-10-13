@@ -288,17 +288,39 @@ jobs:
           # repository files into the site byte for byte, and scripts/board/template.html is one:
           # its `{{ }}` placeholders are the template's whole job. That file held this step red
           # behind the plugin step's own red from 2026-09-19, so the site published nothing. A
-          # page counts as verbatim only when the repository file at the same path has identical
-          # bytes, so anything Jekyll touched is still scanned.
+          # page counts as verbatim only when git tracks the file at the same path and its bytes are
+          # identical, so anything Jekyll touched is still scanned.
+          import filecmp, subprocess
           site = pathlib.Path("_site")
+          tracked = set(subprocess.run(["git", "ls-files", "*.html"], capture_output=True,
+                                       text=True, check=True).stdout.split())
 
           def verbatim(page):
               src = page.relative_to(site)
-              return src.is_file() and src.read_bytes() == page.read_bytes()
+              return src.as_posix() in tracked and filecmp.cmp(src, page, shallow=False)
 
-          every = sorted(site.rglob("*.html"))
-          copies = [p for p in every if verbatim(p)]
-          pages = [p for p in every if p not in copies]
+          # THE EXEMPTION IS ARMED TOO, three ways. A page Jekyll rendered is never a copy. An
+          # untracked file never earns it by matching bytes. And where tracked html sits outside
+          # docs/, at least one copy must match, or the test has gone blind and exempts nothing.
+          if verbatim(site / "index.html"):
+              sys.exit("the verbatim test exempted index.html, a page Jekyll rendered")
+          plant = pathlib.Path("planted-untracked.html")
+          plant.write_text("<p>{{ x }}</p>")
+          (site / plant).write_text("<p>{{ x }}</p>")
+          try:
+              if verbatim(site / plant):
+                  sys.exit("the verbatim test exempted a file git does not track")
+          finally:
+              plant.unlink()
+              (site / plant).unlink()
+          outside = {p for p in tracked if not p.startswith("docs/")}
+          if outside and not any(verbatim(site / p) for p in outside if (site / p).exists()):
+              sys.exit("tracked html sits outside docs/ but no copy matched -- the test is blind")
+          print("exemption armed: refuses a rendered page and an untracked file, matches a copy")
+
+          pages, copies = [], []
+          for p in sorted(site.rglob("*.html")):
+              (copies if verbatim(p) else pages).append(p)
           if not pages:
               sys.exit("no html to scan -- this step examined nothing")
           found = []

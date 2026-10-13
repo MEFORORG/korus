@@ -604,5 +604,5 @@ State the cadence on the board itself, so a stale page is visible as stale.
 ## Related
 
 - [TIPS-AND-TRICKS.md](TIPS-AND-TRICKS.md) -- the merge queue findings the traps table points at
-- [roles/LANDER.md](https://github.com/MEFORORG/korus/blob/main/roles/LANDER.md) -- the seat the board watches, and its own queue rules
+- [roles/LANDER.md](https://claude-multisession.pages.dev/roles/LANDER.md) -- the seat the board watches, and its own queue rules
 - [CI-RED-WATCH.md](CI-RED-WATCH.md) -- noticing a red without a session watching for it

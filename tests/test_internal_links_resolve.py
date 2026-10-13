@@ -269,13 +269,31 @@ def broken_links(paths: list[Path]) -> list[str]:
             known = resolvable_anchors(parse(t.read(dest))[0])
         return known
 
+    site_root = (t.REPO_ROOT / SITE_SOURCE_ROOT).resolve()
+
     for path in paths:
         _, body = parsed[path]
         rel = path.relative_to(t.REPO_ROOT).as_posix()
+        on_site = path.resolve().is_relative_to(site_root)
         for lineno, line in body:
             for target in INLINE_LINK.findall(line):
                 urlpart, _, url_anchor = target.partition("#")
                 source = served_url_source(urlpart)
+                served = SERVED_SITE.fullmatch(urlpart)
+                if source is None and served and (served.group(1) or "/").rstrip("/"):
+                    # A served URL naming a FILE rather than a page. publish_sources.py serves a
+                    # tracked file at its own repository path, and this is how a docs page reaches
+                    # roles/ and specs/ -- so a typo here is a dead link on the live site.
+                    checked += 1
+                    # The host also serves a page without its `.html`, so /WORKTREES is a page.
+                    rp = served.group(1).lstrip("/")
+                    homes = (t.REPO_ROOT / rp, site_root / rp, site_root / f"{rp}.md")
+                    if not any(h.exists() for h in homes):
+                        failures.append(
+                            f"{rel}:{lineno} -> {target} (served URL names no published file: "
+                            f"neither {rp} nor {SITE_SOURCE_ROOT}/{rp} exists)"
+                        )
+                    continue
                 if source is not None:
                     # A link to this site's own page, written the long way. It has to resolve for the
                     # same reason a relative one does -- and it is the form a heading rename breaks
@@ -307,6 +325,15 @@ def broken_links(paths: list[Path]) -> list[str]:
                 dest = (path.parent / filepart).resolve()
                 if not dest.exists():
                     failures.append(f"{rel}:{lineno} -> {target} (no such file)")
+                    continue
+                if on_site and dest.suffix == ".md" and not dest.is_relative_to(site_root):
+                    # jekyll-relative-links rewrites only targets inside the Jekyll source, and
+                    # site-build.yml refuses to publish when one survives. 16 of these kept the
+                    # site unpublished from 2026-09-19, because nothing ran that check on a PR.
+                    failures.append(
+                        f"{rel}:{lineno} -> {target} (leaves {SITE_SOURCE_ROOT}/, so the site "
+                        f"build refuses to publish; link {SERVED_HOST}/<repo path> instead)"
+                    )
                     continue
                 if anchor and dest.suffix in LINK_BEARING:
                     known = anchors.get(dest)
@@ -535,6 +562,28 @@ class TheScanCanActuallyBite(unittest.TestCase):
                 "a.md": f"# A\n\nsee [the row]({self.SERVED}#still-here) for more\n",
                 "docs/standards/ref.md": "# Ref\n\n## Still here\n",
             }
+        )
+        self.assertEqual([], found)
+
+    def test_a_docs_link_leaving_the_site_source_is_reported(self):
+        found = self._scan(
+            {"roles/X.md": "# X\n", "docs/a.md": "# A\n\nsee [the playbook](../roles/X.md)\n"}
+        )
+        self.assertEqual(1, len(found), found)
+        self.assertIn("leaves docs/", found[0])
+
+    def test_the_same_link_outside_the_site_source_is_fine(self):
+        found = self._scan({"roles/X.md": "# X\n", "roles/Y.md": "# Y\n\nsee [the other](X.md)\n"})
+        self.assertEqual([], found)
+
+    def test_a_served_file_url_naming_nothing_is_reported(self):
+        found = self._scan({"docs/a.md": f"# A\n\nsee [it]({SERVED_HOST}/roles/NOPE.md)\n"})
+        self.assertEqual(1, len(found), found)
+        self.assertIn("names no published file", found[0])
+
+    def test_a_good_served_file_url_passes(self):
+        found = self._scan(
+            {"roles/X.md": "# X\n", "docs/a.md": f"# A\n\nsee [it]({SERVED_HOST}/roles/X.md)\n"}
         )
         self.assertEqual([], found)
 
