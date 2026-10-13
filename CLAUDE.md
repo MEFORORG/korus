@@ -313,8 +313,12 @@ not read a missing `qa` as a skipped step.
 
 **The Lander is not a second reader.** Owner rulings 2026-09-21 and 2026-09-29. Given a QA line or
 other review proof on the change, the Lander need not review the diff. It reads the findings and
-arms the PR. A finding of a defect the merge would ship goes to the owner (LANDER.md
-*4a-quinquies*).
+arms the PR. LANDER.md *4a-quinquies* says which findings go to the owner, and what the others
+need before the merge.
+
+**NARROWED 2026-10-12, by owner ruling given in the Lander's own chat.** That last sentence read
+*"A finding of a defect the merge would ship goes to the owner"*, with no condition. LANDER.md
+*4a-quinquies* holds the approved words.
 
 **WIDENED 2026-09-29, by owner ruling given to a Lander seat.** This passage read *"Where the QA
 line is posted, the diff has been read"* and *"A missing QA line is unknown"*. The owner named a
