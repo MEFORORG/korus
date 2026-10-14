@@ -1558,6 +1558,18 @@ script's own blessing. [MANAGER.md](MANAGER.md), *Always clean up after your tea
 **Do not close the item and leave the release for later.** Later is a different session, and it has no
 way to learn the release is owed.
 
+**A repair commit on a row whose claim a dead Builder holds needs the claim moved first.** The claim
+gate refuses a commit that cites the row until the repair worktree holds the claim. Wiki events
+`20261006T165114975Z-4w2nl6` and `20261009T191442003Z-h8530z`, written by two seats.
+
+| Item | Rule |
+| --- | --- |
+| A clean, pushed holder needs no force | Run `claim.ps1 -Release <N>` from INSIDE the holder worktree, with that worktree's own copy of the script. It succeeds and logs to the claims history. |
+| Then take it where the repair runs | Run `claim.ps1 -Take <N>` from inside the repair worktree, with its own copy. The worktree you run from is the holder you get. |
+| A dirty or unpushed holder is not this case | Its work is not safe to drop. A force-release there was the owner's act, and a seat's attempt was refused. |
+| Never move the number to dodge the gate | Taking the row number out of the commit subject so the gate does not fire is not acceptable. |
+| Move the claim before the repairer's first commit | Put the release and the take in the repair brief. Commits made before the move reached the branch without the gate's check. |
+
 ### 7d-bis. An item whose own body declares any part of itself still open is PARTIAL, never closed
 
 | Item | Rule |
