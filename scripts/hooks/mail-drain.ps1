@@ -203,7 +203,7 @@ try {
             try { $cwdNote = Enter-CcxHookCwd -Text $raw }
             catch { $cwdNote = "the drain could not read its input's cwd ($($_.Exception.Message))" }
         }
-        else { $raw = [Console]::In.ReadToEnd() }
+        # No helper means NO BOX below, so stdin is not read: an unbounded read here could only hang.
         if ($raw) {
             $payload = $raw | ConvertFrom-Json
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {

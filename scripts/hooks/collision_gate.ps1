@@ -100,14 +100,8 @@ function Write-Unresolved([string]$Slug, [string]$Detail) {
             # other session for the whole cooldown -- and those sessions would read that silence as
             # "checked, nobody is here", which is precisely the defect this notice exists to remove.
             # One session's diagnostic must never become another session's false all-clear.
-            #
-            # $script:StampWho names the session when the gate never reached its directory. Then
-            # git answers for where the gate started, the primary under the desktop app, and every
-            # worktree session would share that one stamp.
             $who = "shared"
-            $top = $null
-            if ($script:StampWho) { $who = $script:StampWho }
-            else { $top = Invoke-CcxGit -Arguments @('rev-parse', '--path-format=absolute', '--show-toplevel') }
+            $top = Invoke-CcxGit -Arguments @('rev-parse', '--path-format=absolute', '--show-toplevel')
             if ($top) {
                 $who = ConvertTo-CcxSafeName (Split-Path $top -Leaf)
                 if (-not $who) { $who = "shared" }

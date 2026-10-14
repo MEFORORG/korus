@@ -222,6 +222,13 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         out = self.start("pin-3", self.sibling, "resume")
         self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
 
+    def test_a_refused_resume_leaves_no_old_pin_behind(self):
+        """korus#223 review round 1: a refused launch cwd left the old run's pin answering in silence."""
+        self.start("pin-4", self.worktree, "startup")
+        self.start("pin-4", self.missing, "resume")
+        out = self.banner({"cwd": str(self.sibling), "session_id": "pin-4", "hook_event_name": "SessionStart", "source": "compact"})
+        self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+
     def test_a_cwd_in_another_repository_falls_back_and_says_so(self):
         """korus#223 review point 4: the banner answered for the other repository, or said nothing."""
         out = self.banner({"cwd": str(self.other), "session_id": "s"})
@@ -521,11 +528,24 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
         self.assertEqual("", self.steer({}).strip())
         self.assertTrue(note.exists())
 
-    def test_a_missing_cwd_falls_back_and_says_so(self):
+    def test_a_missing_cwd_reads_no_note_and_says_so(self):
+        """korus#223 review round 1: the fallback here is the primary, and its note is another session's."""
+        note = self.plant(self.primary, "PRIMARY-NOTE")
+        r = self.run_hook(STEER, {"cwd": str(self.missing)}, env={"CLAUDE_PROJECT_DIR": str(self.primary)})
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn("PRIMARY-NOTE", r.stdout)
+        self.assertTrue(note.exists(), "the hook deleted the primary's note")
+        self.assertIn("[steer-inject] the hook input names cwd", r.stderr)
+
+    def test_a_missing_input_reader_falls_back_and_says_so(self):
+        """Without the helper nothing can be checked, so the old fallback stands, with a caveat."""
+        scripts = self.stub_tree("tree-steer-no-helper")
+        (scripts / "hooks" / "_hookinput.ps1").unlink()
         self.plant(self.primary, "PRIMARY-NOTE")
-        out = self.steer({"cwd": str(self.missing)})
-        self.assertIn("PRIMARY-NOTE", out)
-        self.assertIn("steer-inject: the hook input names cwd", out)
+        r = self.run_hook(scripts / "hooks" / "steer-inject.ps1", {"cwd": str(self.worktree)},
+                          env={"CLAUDE_PROJECT_DIR": str(self.primary)})
+        self.assertIn("PRIMARY-NOTE", r.stdout)
+        self.assertIn("It may have been meant for another session", r.stdout)
 
     def test_a_non_ascii_cwd_survives_the_read(self):
         """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""

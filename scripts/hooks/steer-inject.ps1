@@ -23,7 +23,7 @@
 # session's worktree, writes <worktree>\.claude\steer.txt. Measured 2026-10-12: the desktop app starts
 # a worktree session's CLI with `--project-config-root <primary checkout>`, and CLAUDE_PROJECT_DIR then
 # names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
-# on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names none it can use.
+# on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names no cwd at all.
 #
 # BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
 # text the user typed. The korus#223 review measured it reading and deleting steer.txt in another
@@ -44,7 +44,15 @@ try {
         . $helper
         $startDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $PWD.Path }
         $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput) -StartDir $startDir
-        if ($wt.Root) { $root = $wt.Root } else { $cwdNote = $wt.Reason }
+        if ($wt.Root) { $root = $wt.Root }
+        # A cwd the input NAMED and the helper refused: read nothing. The fallback is the primary under
+        # the desktop app, and its note belongs to another session; this hook would deliver it as typed
+        # text and delete it. A note left unread is safe. The refusal goes to stderr, not the chat,
+        # because this hook runs before every tool call.
+        elseif ($wt.Reason) {
+            [Console]::Error.WriteLine("[steer-inject] $($wt.Reason), so no steering note was read.")
+            exit 0
+        }
     } catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
     if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
     if (-not $root) { exit 0 }

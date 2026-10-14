@@ -229,6 +229,10 @@ function Resolve-CcxHookSession {
         catch { }   # an unreadable or stale pin is not this session's answer; the cwd decides below
     }
 
+    # A launch whose cwd is refused leaves no pin behind. An older run's pin would otherwise answer, in
+    # silence, for every later event of this session.
+    if ($repin -and $pinFile) { Remove-Item -LiteralPath $pinFile -Force -ErrorAction SilentlyContinue }
+
     if (-not $p.Named) { return $out }
     if (-not $p.Cwd) { $out.Reason = $p.Reason; return $out }
     $loc = Get-CcxGitLocation -Path $p.Cwd
@@ -243,8 +247,14 @@ function Resolve-CcxHookSession {
     $out.Dir = $p.Cwd; $out.Root = $loc.Root; $out.Source = 'cwd'
     if ($pinFile) {
         try {
-            New-Item -ItemType Directory -Force -Path (Split-Path $pinFile) -ErrorAction Stop | Out-Null
+            $pinDir = Split-Path $pinFile
+            New-Item -ItemType Directory -Force -Path $pinDir -ErrorAction Stop | Out-Null
             Set-Content -LiteralPath $pinFile -Value $loc.Root -Encoding UTF8 -ErrorAction Stop
+            # A pin is written about once per session, so pruning here is rare. Thirty days is far
+            # past any session's life.
+            Get-ChildItem -LiteralPath $pinDir -Filter '*.txt' -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+                Remove-Item -Force -ErrorAction SilentlyContinue
         }
         catch { }   # no pin means a later `cd` is followed, not that this answer is wrong
     }
