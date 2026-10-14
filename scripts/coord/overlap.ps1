@@ -399,6 +399,13 @@ if ($null -eq $map) {
             # hot path of every edit would be worse than the thing it protects.
             @{ at = (Get-Date).ToString("o"); root = $myRootNorm; rows = $map } |
                 ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cacheFile -Encoding UTF8
+            # One file per root leaves one behind per removed worktree. A cache is stale after
+            # $CacheSeconds, so a day-old file is litter. The single pre-2026-10-13 file goes too.
+            $cacheDir = Split-Path $cacheFile
+            Get-ChildItem -LiteralPath $cacheDir -Filter '*.json' -File -EA SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } |
+                Remove-Item -Force -EA SilentlyContinue
+            Remove-Item -LiteralPath (Join-Path (Split-Path $cacheDir) 'overlap-cache.json') -Force -EA SilentlyContinue
         } catch { }   # a cache we cannot write is a slow hook, not a broken one
     }
 }

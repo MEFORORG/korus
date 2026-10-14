@@ -75,6 +75,9 @@ Follow [Quickstart](QUICKSTART.md) to install; [Install](INSTALL.md) explains fl
   overlap-cache/    one overlap cache per worktree root
 ```
 
+Session pins sit beside it, in `<git-common-dir>/ccx-session-root/`. `scripts/hooks/_hookinput.ps1`
+says why.
+
 That location provides three properties:
 
 1. Identical across worktrees. Every linked worktree of a clone resolves the same git common dir, so

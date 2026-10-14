@@ -239,7 +239,7 @@ try {
     }
     $startedIn = $PWD.Path
     if ($raw -and $haveInput) {
-        try { $cwdNote = Enter-CcxHookCwd -Text $raw } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
+        try { $cwdNote = Enter-CcxHookCwd -Text $raw -NoPin:$SelfTest } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
     }
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------

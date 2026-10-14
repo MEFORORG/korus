@@ -30,14 +30,15 @@
 # repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 now
 # refuses a cwd outside CLAUDE_PROJECT_DIR's clone and pins each session to its first worktree.
 #
-# A FALLBACK IS SAID ONLY WITH A NOTE. This hook runs before every tool call, so a line on each one
-# would be noise. When it delivers a note from the fallback, the note says where it came from.
+# A REFUSAL READS NOTHING. A cwd the helper refuses, or a helper that is missing or throws, leaves the
+# hook unable to tell whose note is under CLAUDE_PROJECT_DIR: the primary's, under the desktop app.
+# Delivering and deleting it would hand one session another's note, so the hook reads none and says
+# why on stderr. That is not the chat, because this hook runs before every tool call.
 
 $ErrorActionPreference = 'SilentlyContinue'
 
 try {
     $root = ''
-    $cwdNote = ''
     try {
         $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
         if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
@@ -45,15 +46,12 @@ try {
         $startDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $PWD.Path }
         $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput) -StartDir $startDir
         if ($wt.Root) { $root = $wt.Root }
-        # A cwd the input NAMED and the helper refused: read nothing. The fallback is the primary under
-        # the desktop app, and its note belongs to another session; this hook would deliver it as typed
-        # text and delete it. A note left unread is safe. The refusal goes to stderr, not the chat,
-        # because this hook runs before every tool call.
-        elseif ($wt.Reason) {
-            [Console]::Error.WriteLine("[steer-inject] $($wt.Reason), so no steering note was read.")
-            exit 0
-        }
-    } catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
+        elseif ($wt.Reason) { throw $wt.Reason }
+    } catch {
+        [Console]::Error.WriteLine("[steer-inject] $($_.Exception.Message), so no steering note was read.")
+        exit 0
+    }
+    # The input named no cwd at all: an older harness, or a hand run. The old behaviour stands.
     if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
     if (-not $root) { exit 0 }
 
@@ -67,9 +65,6 @@ try {
     $note = $note.Trim()
 
     $context = "[STEERING NOTE -- the user just typed this via a side channel while you were mid-task, not through the normal prompt queue. Read it now and act on it right away -- adjust your current work accordingly before or alongside your next step. Do not wait for the current turn to end.]: $note"
-    if ($cwdNote) {
-        $context += " [steer-inject: $cwdNote, so this note was read from $noteFile, under CLAUDE_PROJECT_DIR. It may have been meant for another session.]"
-    }
 
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{

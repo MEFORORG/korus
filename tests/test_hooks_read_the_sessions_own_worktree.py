@@ -222,6 +222,12 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         out = self.start("pin-3", self.sibling, "resume")
         self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
 
+    def test_a_clear_does_not_pin_again(self):
+        """korus#223 review round 2: after a cd, a /clear's cwd may be the sibling, not the launch."""
+        self.start("pin-5", self.worktree, "startup")
+        out = self.start("pin-5", self.sibling, "clear")
+        self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
+
     def test_a_refused_resume_leaves_no_old_pin_behind(self):
         """korus#223 review round 1: a refused launch cwd left the old run's pin answering in silence."""
         self.start("pin-4", self.worktree, "startup")
@@ -537,15 +543,16 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
         self.assertTrue(note.exists(), "the hook deleted the primary's note")
         self.assertIn("[steer-inject] the hook input names cwd", r.stderr)
 
-    def test_a_missing_input_reader_falls_back_and_says_so(self):
-        """Without the helper nothing can be checked, so the old fallback stands, with a caveat."""
+    def test_a_missing_input_reader_reads_no_note_and_says_so(self):
+        """korus#223 review round 2: without the helper the fallback took the primary's note."""
         scripts = self.stub_tree("tree-steer-no-helper")
         (scripts / "hooks" / "_hookinput.ps1").unlink()
-        self.plant(self.primary, "PRIMARY-NOTE")
+        note = self.plant(self.primary, "PRIMARY-NOTE")
         r = self.run_hook(scripts / "hooks" / "steer-inject.ps1", {"cwd": str(self.worktree)},
                           env={"CLAUDE_PROJECT_DIR": str(self.primary)})
-        self.assertIn("PRIMARY-NOTE", r.stdout)
-        self.assertIn("It may have been meant for another session", r.stdout)
+        self.assertNotIn("PRIMARY-NOTE", r.stdout)
+        self.assertTrue(note.exists())
+        self.assertIn("_hookinput.ps1 is missing", r.stderr)
 
     def test_a_non_ascii_cwd_survives_the_read(self):
         """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""

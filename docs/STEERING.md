@@ -180,16 +180,13 @@ The hook reads only `<worktree>/.claude/steer.txt`. It finds the worktree by wal
 It accepts a `cwd` only in the clone `CLAUDE_PROJECT_DIR` names, because it deletes the note it
 delivers. A `.git` file that names no git directory is not a checkout.
 
-A `cwd` it refuses reads no note at all, not the fallback's, and the refusal goes to stderr.
+A refused `cwd`, or a missing helper, reads no note at all, and the refusal goes to stderr.
 
 The first worktree a session is seen in is pinned, so a `cd` into a sibling cannot take its note.
 
 **That paragraph read "The hook reads only `<project root>/.claude/steer.txt`" until 2026-10-13.**
 The project root was `CLAUDE_PROJECT_DIR`, which the desktop app sets to the PRIMARY checkout for a
 worktree session. Measured 2026-10-12. So a note queued from the worktree was never read there.
-
-A note read from the fallback says so in the text the session sees, because it may be another
-session's note.
 
 ## Encoding
 

@@ -23,8 +23,13 @@
         no real git directory is refused, and the hook stays where it started and says so.
       * FIRST SEEN WINS. The first accepted `cwd` for a session id is pinned under the common
         directory, in ccx-session-root/. Later events answer for the pinned worktree, so a `cd` to a
-        sibling does not move them. A SessionStart that is not a compaction (startup, resume, clear)
-        pins again, because its `cwd` is where the session was launched.
+        sibling does not move them. A SessionStart for a startup or a resume pins again, because its
+        `cwd` is where the session was launched. A compaction or a /clear does not: the shell may
+        still stand where a `cd` left it, which nobody has measured.
+
+    Pins are written only in a clone that opted in with ccx.config.json, so a user-scope hook leaves
+    no file inside an unrelated repository. They sit beside the state root, not in it, because this
+    file reads no config and so cannot know the state root's prefix.
 
     The cost of the pin: a session that moves into another worktree on purpose, mid-session, keeps
     answering for the one it started in until its next SessionStart. docs/WORKTREES.md already says to
@@ -186,7 +191,7 @@ function Resolve-CcxHookSession {
         the cwd against, so the hook stays put in silence, as it did before it read any cwd. That is
         the user-scope case: an unrelated project with no repository.
     #>
-    param([string] $Text, [string] $StartDir = $PWD.Path)
+    param([string] $Text, [string] $StartDir = $PWD.Path, [switch] $NoPin)
     $out = [pscustomobject]@{ Named = $false; Dir = $null; Root = $null; Source = 'start'; Reason = '' }
     $p = Get-CcxHookPayloadCwd -Text $Text
     $out.Named = $p.Named
@@ -216,7 +221,11 @@ function Resolve-CcxHookSession {
         $pinFile = Join-Path (Join-Path $start.CommonDir 'ccx-session-root') "$key.txt"
     }
 
-    $repin = ($hookEvent -eq 'SessionStart' -and $source -ne 'compact')
+    $repin = ($hookEvent -eq 'SessionStart' -and $source -notin @('compact', 'clear'))
+    # Opted in: ccx.config.json at the primary checkout (the common dir's parent) or this checkout.
+    $optedIn = (Test-Path -LiteralPath (Join-Path (Split-Path $start.CommonDir -Parent) 'ccx.config.json') -PathType Leaf) -or
+        (Test-Path -LiteralPath (Join-Path $start.Root 'ccx.config.json') -PathType Leaf)
+    $mayWrite = $pinFile -and $optedIn -and -not $NoPin
     if ($pinFile -and -not $repin -and (Test-Path -LiteralPath $pinFile -PathType Leaf)) {
         try {
             $pinned = ([string](Get-Content -LiteralPath $pinFile -Raw -ErrorAction Stop)).Trim()
@@ -231,25 +240,32 @@ function Resolve-CcxHookSession {
 
     # A launch whose cwd is refused leaves no pin behind. An older run's pin would otherwise answer, in
     # silence, for every later event of this session.
-    if ($repin -and $pinFile) { Remove-Item -LiteralPath $pinFile -Force -ErrorAction SilentlyContinue }
+    # Removed only when the launch cwd is refused, so a hook reading in parallel never meets a gap
+    # between a removal and a rewrite.
+    $loc = $null
+    if ($p.Cwd) { $loc = Get-CcxGitLocation -Path $p.Cwd }
+    $accepted = $loc -and $loc.CommonDir -eq $start.CommonDir
+    if ($repin -and $mayWrite -and -not $accepted) { Remove-Item -LiteralPath $pinFile -Force -ErrorAction SilentlyContinue }
 
     if (-not $p.Named) { return $out }
     if (-not $p.Cwd) { $out.Reason = $p.Reason; return $out }
-    $loc = Get-CcxGitLocation -Path $p.Cwd
     if (-not $loc) {
         $out.Reason = "the hook input names cwd $($p.Cwd), which is inside no checkout"
         return $out
     }
-    if ($loc.CommonDir -ne $start.CommonDir) {
+    if (-not $accepted) {
         $out.Reason = "the hook input names cwd $($p.Cwd), which is in a different repository from $StartDir"
         return $out
     }
     $out.Dir = $p.Cwd; $out.Root = $loc.Root; $out.Source = 'cwd'
-    if ($pinFile) {
+    if ($mayWrite) {
         try {
             $pinDir = Split-Path $pinFile
             New-Item -ItemType Directory -Force -Path $pinDir -ErrorAction Stop | Out-Null
-            Set-Content -LiteralPath $pinFile -Value $loc.Root -Encoding UTF8 -ErrorAction Stop
+            # Written whole and then renamed, so a reader never sees a half-written pin.
+            $tmp = "$pinFile.$PID.tmp"
+            Set-Content -LiteralPath $tmp -Value $loc.Root -Encoding UTF8 -ErrorAction Stop
+            Move-Item -LiteralPath $tmp -Destination $pinFile -Force -ErrorAction Stop
             # A pin is written about once per session, so pruning here is rare. Thirty days is far
             # past any session's life.
             Get-ChildItem -LiteralPath $pinDir -Filter '*.txt' -File -ErrorAction SilentlyContinue |
@@ -285,9 +301,11 @@ function Enter-CcxHookCwd {
         launched after this answers for the session too.
 
         '' means the hook is where it should be, or the input named no cwd and the hook stays put.
+
+        -NoPin reads a pin but never writes one, for a diagnostic run such as announce -SelfTest.
     #>
-    param([string] $Text, [string] $StartDir = $PWD.Path)
-    $r = Resolve-CcxHookSession -Text $Text -StartDir $StartDir
+    param([string] $Text, [string] $StartDir = $PWD.Path, [switch] $NoPin)
+    $r = Resolve-CcxHookSession -Text $Text -StartDir $StartDir -NoPin:$NoPin
     if (-not $r.Dir) { return $r.Reason }
     try { Set-Location -LiteralPath $r.Dir -ErrorAction Stop }
     catch { return "the hook could not enter $($r.Dir) ($($_.Exception.Message))" }
