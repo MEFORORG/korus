@@ -251,6 +251,26 @@ class ItFindsTheRepositoryWithoutTheProjectVariable(_Project):
     def test_the_payload_cwd_leads_to_the_repository(self):
         self.assertIn(CARD, self.run_row("role-card-inject.ps1", cwd=self.repo).stdout)
 
+    def test_the_payload_cwd_outranks_a_project_dir_naming_another_checkout(self):
+        """The desktop shape. Measured 2026-10-12: a worktree session's CLAUDE_PROJECT_DIR is the
+        PRIMARY checkout, and only the payload `cwd` names the worktree. docs/LIMITS.md."""
+        primary = Path(self.tmp.name) / "primary"
+        (primary / "scripts" / "hooks").mkdir(parents=True)
+        (primary / "ccx.config.json").write_text('{"prefix": "ccx"}', encoding="ascii")
+        (primary / "scripts" / "hooks" / "role-card-inject.ps1").write_text(
+            "Write-Output 'PRIMARY-COPY-RAN'\n", encoding="ascii")
+        out = self.run_row("role-card-inject.ps1", project=primary, cwd=self.repo).stdout
+        self.assertIn(CARD, out)
+        self.assertNotIn("PRIMARY-COPY-RAN", out)
+
+    def test_a_project_dir_that_wires_the_hook_still_stands_the_shim_down(self):
+        """The harness loads project rows from CLAUDE_PROJECT_DIR, so a row there runs the card."""
+        primary = Path(self.tmp.name) / "primary"
+        (primary / ".claude").mkdir(parents=True)
+        self.settings(primary / ".claude" / "settings.json",
+                      _wiring('pwsh -NoProfile -File "$CLAUDE_PROJECT_DIR/scripts/hooks/role-card-inject.ps1"'))
+        self.assertEqual("", self.run_row("role-card-inject.ps1", project=primary, cwd=self.repo).stdout)
+
     def test_a_subdirectory_walks_up_to_the_repository_root(self):
         sub = self.repo / "deep" / "er"
         sub.mkdir(parents=True)

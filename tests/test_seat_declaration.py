@@ -87,6 +87,35 @@ class SeatDeclarationHookBase(unittest.TestCase):
         return p.read_text(encoding="utf-8").strip() if p.exists() else None
 
 
+class TheMarkerGoesWhereThePayloadSays(SeatDeclarationHookBase):
+    """Under the desktop app this hook starts in the PRIMARY checkout. See docs/LIMITS.md.
+
+    role-card-inject.ps1 reads the worktree the payload `cwd` names. If this hook wrote under `$PWD`
+    instead, a seat declared in a worktree session would set the primary's seat, and the card hook
+    would not see it at the next start.
+    """
+
+    def setUp(self):
+        super().setUp()
+        (self.root / ".git").mkdir()
+        self.wt = self.root / ".claude" / "worktrees" / "wt"
+        (self.wt / ".claude").mkdir(parents=True)
+        (self.wt / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
+
+    def test_the_marker_lands_in_the_payload_worktree(self):
+        r = self.run_hook("", raw_stdin=json.dumps({"prompt": "lander", "cwd": str(self.wt)}))
+        self.assertEqual(0, r.returncode, r.stderr)
+        p = self.wt / ".claude" / "seat.local.txt"
+        self.assertTrue(p.is_file(), r.stdout)
+        self.assertEqual("lander", p.read_text(encoding="utf-8").strip())
+        self.assertIsNone(self.marker(), "the hook set the primary's seat")
+
+    def test_without_a_cwd_it_writes_where_it_runs(self):
+        """The control: no `cwd`, and the marker lands in the root the hook was started in."""
+        self.run_hook("lander")
+        self.assertEqual("lander", self.marker())
+
+
 class AWholePromptRosterLabelDeclaresTheSeat(SeatDeclarationHookBase):
     """The widening itself. An exact roster label, alone on the turn, is a declaration."""
 

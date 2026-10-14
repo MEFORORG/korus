@@ -177,6 +177,9 @@ request exists, and the other four fields exist nowhere it can read them.
 what did not, and any question the Builder stopped on. The Builder cannot post it: its process ends
 before the pull request exists.
 
+**Some of it never goes in that body:** what [COMMON.md](COMMON.md), *A public repository never
+carries the scorecard's map*, keeps out of a public place. That section says where it goes.
+
 **Read the Builder's LAST commit message before you write the title.** It carries the proposed pull
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
 the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
@@ -298,6 +301,7 @@ That Builder:
 1. Pushes its branch.
 2. Opens one pull request for its item, and does for it what steps 9 and 10 have you do for a batch.
 3. Puts its report and head SHA in the body, posts its QA line as a comment, and applies `qa`.
+   [COMMON.md](COMMON.md), *A public repository never carries the scorecard's map*, binds both.
 4. Hands the pull request to the Lander.
 
 When you raise a chip or spawn a Builder session, write into its prompt that it opens its own pull

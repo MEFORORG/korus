@@ -596,6 +596,97 @@ class TheHookResolvesInOrder(unittest.TestCase):
         self.assertIn("What this seat owns", copy.read_text(encoding="utf-8"))
 
 
+class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
+    """The desktop app starts a worktree session with its project root set to the PRIMARY checkout.
+
+    Measured 2026-10-12. A desktop worktree session's CLI carries `--project-config-root <primary>`.
+    In a fixture launched with that flag from a worktree, a SessionStart hook ran with its working
+    directory, `CLAUDE_PROJECT_DIR` and git's top-level answer all naming the primary. Only the
+    hook input's `cwd` named the worktree.
+
+    The user-scope wrapper passes `-WorktreeRoot` from that top-level answer, so a desktop worktree
+    session read the primary's marker. MessageFoundry session 07991bb9 declared Lander and got the
+    Builder card at five compactions running. The hook now takes the worktree from the input's
+    `cwd`, and `-WorktreeRoot` is the fallback for a caller that sends none.
+    """
+
+    def setUp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the hook cannot be executed here")
+        self.pwsh: str = pwsh
+        self.tmp = tempfile.TemporaryDirectory(prefix="ccx-rolecard-cwd-")
+        self.addCleanup(self.tmp.cleanup)
+        # A primary carries a `.git` DIRECTORY and a worktree a `.git` FILE. Either marks a root.
+        self.primary = Path(self.tmp.name) / "primary"
+        (self.primary / ".git").mkdir(parents=True)
+        (self.primary / ".claude").mkdir()
+        (self.primary / ".claude" / "seat.local.txt").write_text("steward", encoding="ascii")
+        self.worktree = self.primary / ".claude" / "worktrees" / "wt"
+        (self.worktree / ".claude").mkdir(parents=True)
+        (self.worktree / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
+        (self.worktree / ".claude" / "seat.local.txt").write_text("lander", encoding="ascii")
+        self.subdir = self.worktree / "docs" / "deep"
+        self.subdir.mkdir(parents=True)
+
+    def run_hook(self, stdin: str):
+        # The shape of the failing compactions: cwd and the argument both name the primary.
+        env = dict(os.environ)
+        env.pop("KORUS_SEAT", None)
+        return subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(HOOK), "-WorktreeRoot", str(self.primary)],
+            input=stdin,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            cwd=str(self.primary),
+            timeout=TIMEOUT_SECONDS,
+        )
+
+    def test_the_input_cwd_wins_over_the_primary(self):
+        r = self.run_hook(json.dumps({"cwd": str(self.subdir), "source": "compact"}))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn("SEAT: lander", r.stdout)
+
+    def test_the_copy_lands_in_the_worktree_and_not_in_the_primary(self):
+        self.run_hook(json.dumps({"cwd": str(self.worktree)}))
+        self.assertTrue((self.worktree / ".claude" / "ROLE.local.md").is_file())
+        self.assertFalse((self.primary / ".claude" / "ROLE.local.md").exists())
+
+    def test_the_fixture_reproduces_the_fault_without_a_cwd(self):
+        """The control. With no `cwd` the same call reads the primary, so the arms here can fail."""
+        self.assertIn("SEAT: steward", self.run_hook("{}").stdout)
+
+    def test_a_cwd_that_does_not_exist_falls_back_and_says_so(self):
+        r = self.run_hook(json.dumps({"cwd": str(self.primary / "gone")}))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn("SEAT: steward", r.stdout)
+        self.assertIn("names a cwd that is missing or inside no checkout", r.stdout)
+
+    def test_input_that_is_not_json_falls_back(self):
+        r = self.run_hook("not json {")
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertIn("SEAT: steward", r.stdout)
+
+    def test_a_non_ascii_cwd_survives_the_read(self):
+        """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""
+        wt = self.primary / ".claude" / "worktrees" / "caf\u00e9"
+        (wt / ".claude").mkdir(parents=True)
+        (wt / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
+        (wt / ".claude" / "seat.local.txt").write_text("lander", encoding="ascii")
+        self.assertIn("SEAT: lander", self.run_hook(json.dumps({"cwd": str(wt)}, ensure_ascii=False)).stdout)
+
+    def test_the_worktrees_own_roster_is_read_when_it_has_one(self):
+        """A worktree ahead of the primary gets its own card, not the primary's older copy."""
+        roles = self.worktree / "docs" / "roles"
+        roles.mkdir(parents=True)
+        (roles / "seats.json").write_text(t.read(SEATS_JSON), encoding="utf-8")
+        (roles / "lander.card.md").write_text("# Lander\n\nWORKTREE-OWN-CARD-SENTINEL\n", encoding="ascii")
+        r = self.run_hook(json.dumps({"cwd": str(self.worktree)}))
+        self.assertIn("WORKTREE-OWN-CARD-SENTINEL", r.stdout)
+
+
 class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
     """A retired SEAT resolving to silence is already guarded above. A retired RULE is not.
 

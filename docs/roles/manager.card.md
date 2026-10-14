@@ -88,7 +88,8 @@ a claim; this is the instrument. A failed read and an absent branch look the sam
 result with an unfiltered run.
 
 Read the Builder's LAST commit message. It carries the proposed PR title and the proposed ledger
-banner text. Put the Builder's report in the PR body; it cannot post there itself.
+banner text. Put the Builder's report in the PR body; it cannot post there itself. First take out
+what `roles/COMMON.md`, *A public repository never carries the scorecard's map*, keeps out.
 
 Open the body with the merge danger and the evidence. `roles/MANAGER.md`, section
 *Open the body with the merge danger and the evidence*, holds the block.
