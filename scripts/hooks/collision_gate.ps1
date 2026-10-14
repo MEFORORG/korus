@@ -142,44 +142,29 @@ function Write-Unresolved([string]$Slug, [string]$Detail) {
     exit 0
 }
 
+$haveHelper = $false
+$helperNote = ''
+$helper = Join-Path $PSScriptRoot "_hookinput.ps1"
+try {
+    if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+    . $helper
+    $haveHelper = $true
+} catch { $helperNote = "the gate could not load its input reader ($($_.Exception.Message))" }
+
 $target = $PathOverride
+$payloadCwd = $null
 if (-not $target) {
     if (-not [Console]::IsInputRedirected) { exit 0 }
     $text = $null
-    $cwdNote = ''
-    $haveHelper = $false
-    $helper = Join-Path $PSScriptRoot "_hookinput.ps1"
-    try {
-        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
-        . $helper
-        $text = Read-CcxHookInput
-        $haveHelper = $true
-    } catch { $cwdNote = "the gate could not load its input reader ($($_.Exception.Message))" }
+    if ($haveHelper) { try { $text = Read-CcxHookInput } catch { $text = $null } }
     if ($null -eq $text) { try { $text = [Console]::In.ReadToEnd() } catch { $text = '' } }
     try { $hook = $text | ConvertFrom-Json -ErrorAction Stop } catch {
         Write-Unresolved "payload-unreadable" `
             "the PreToolUse payload on stdin was not readable JSON, so the gate never learned which file this edit targets"
     }
-    # THE SESSION'S OWN WORKTREE IS THE ONE THE PAYLOAD NAMES. overlap.ps1 skips "your own worktree"
-    # by the directory it runs in, and it runs in this one. Measured 2026-10-12: under the desktop app
-    # this process starts in the PRIMARY checkout, so the session's own worktree read as a PEER's.
-    # A cwd the payload names but this gate cannot enter leaves it unable to tell the two apart.
-    if (-not $cwdNote) {
-        try { $cwdNote = Enter-CcxHookCwd -Text $text } catch { $cwdNote = "the gate could not read its input's cwd ($($_.Exception.Message))" }
-    }
-    if ($cwdNote) {
-        # Keyed on the cwd the payload named, so each session keeps its own notice. See Write-Unresolved.
-        $named = ''
-        try { $named = [string]$hook.cwd } catch { $named = '' }
-        if ($named) {
-            $sha = [System.Security.Cryptography.SHA256]::Create()
-            $h = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($named))[0..3] | ForEach-Object { $_.ToString('x2') })
-            $sha.Dispose()
-            $script:StampWho = "cwd-$h"
-        }
-        $slug = if ($haveHelper) { "cwd-unusable" } else { "input-reader-missing" }
-        Write-Unresolved $slug "$cwdNote, so the gate could not tell this session's own worktree from a peer's"
-    }
+    # The cwd serves one purpose here: the base for a RELATIVE file_path. A cwd that is missing or
+    # unusable leaves the gate's own directory as that base, and the check still runs.
+    if ($haveHelper) { try { $payloadCwd = (Get-CcxHookPayloadCwd -Text $text).Cwd } catch { $payloadCwd = $null } }
     # Parsed, but to nothing. An empty payload or a literal `null` on stdin does not throw, so this
     # used to be the one unreadable-input path that still exited silently -- the gate had learned no
     # more than in the case above, and said no more than an all-clear.
@@ -192,6 +177,36 @@ if (-not $target) {
     if (-not $target) { $target = [string]$hook.tool_input.notebook_path }
 }
 if (-not $target) { exit 0 }
+
+if (-not $haveHelper) {
+    Write-Unresolved "input-reader-missing" "$helperNote, so the gate could not find the worktree this file is in"
+}
+
+# THE SESSION'S OWN WORKTREE, FOR THIS QUESTION, IS THE ONE THE FILE IS IN. overlap.ps1 skips "your
+# own worktree" by the directory it runs in, and matches the file by its path under that directory.
+# So it runs in the worktree that holds the target. Measured 2026-10-12: under the desktop app this
+# process starts in the PRIMARY checkout, so the session's own worktree read as a peer's and its
+# absolute path matched nothing. The payload cwd is no better: after a `cd` it names wherever the
+# session went, and the korus#223 review measured a real collision allowed in silence that way.
+#
+# ONLY WITHIN THIS CLONE. A target in another repository, or in none, keeps the old run from here, so
+# the gate never starts an overlap walk across a repository it was not installed for.
+try {
+    $abs = $target
+    if (-not [System.IO.Path]::IsPathRooted($abs)) {
+        $base = if ($payloadCwd) { $payloadCwd } else { $PWD.Path }
+        $abs = Join-Path $base $abs
+    }
+    $abs = [System.IO.Path]::GetFullPath($abs)
+    $here = Get-CcxGitLocation -Path $PWD.Path
+    $there = Get-CcxGitLocation -Path $abs
+    if ($here -and $there -and $here.CommonDir -eq $there.CommonDir) {
+        Set-Location -LiteralPath $there.Root -ErrorAction Stop
+        $target = $abs
+    }
+} catch {
+    Write-Unresolved "target-unresolved" "the gate could not find the worktree that holds $target ($($_.Exception.Message))"
+}
 
 if (-not (Test-Path -LiteralPath $OverlapScript)) {
     Write-Unresolved "overlap-missing" "no overlap script at $OverlapScript"

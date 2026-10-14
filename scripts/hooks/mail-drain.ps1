@@ -192,6 +192,8 @@ try {
         # THE BOX IS THE SESSION'S OWN CWD, so the drain moves into the cwd the payload names before
         # it keys anything on `$PWD`. Measured 2026-10-12: under the desktop app this process starts
         # in the PRIMARY checkout, so a worktree session drained the primary's box and never its own.
+        # A cwd in another clone is refused, and each session is pinned to its first worktree, so a
+        # `cd` into a sibling never shows (and marks shown) the sibling's mail. See _hookinput.ps1.
         $raw = ''
         $haveInput = $false
         try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $haveInput = $true }

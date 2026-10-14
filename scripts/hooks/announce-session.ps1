@@ -219,8 +219,10 @@ try {
     # True from an agent shell with NO pipe at all, so a read guarded only on redirection turns the
     # diagnostic switch into a hang.
     #
-    # A cwd this hook cannot use, or a missing helper, sets $cwdNote, and step 6a then announces
+    # A cwd this hook cannot use, or a missing helper, sets $cwdNote, and step 9a then announces
     # nothing. Announcing the starting directory as this session's identity is the fault itself.
+    # _hookinput.ps1 refuses a cwd in another clone, and pins each session to its first worktree, so a
+    # `cd` into a sibling does not make this session announce as the sibling.
     $haveInput = $false
     $cwdNote = ''
     $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
@@ -242,7 +244,8 @@ try {
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
     # MANDATORY inert-outside-a-repo guarantee: this entry is user-global and runs in every unrelated
-    # project on the machine. A payload `cwd` outside every repository lands here too, and stands down.
+    # project on the machine. A payload `cwd` outside this clone is refused in step 0, so the hook is
+    # still where it started here.
     #
     # -CommonDir is the shim's answer, from where the shim started. Once the hook has moved, that
     # answer is about somewhere else, so it is resolved again from here.
@@ -355,18 +358,9 @@ try {
         exit 0
     }
 
-    # --- 6a. NO SESSION DIRECTORY, NO ANNOUNCEMENT ---------------------------------------------------
-    # Step 0 could not move into the session's own directory, so every answer below would describe
-    # where this hook started. Under the desktop app that is the primary, and peers told "a session
-    # works in the primary" would steer around a session that is not there. Said aloud, every prompt.
-    if ($cwdNote) {
-        if ($SelfTest) {
-            Write-Output "[announce -SelfTest] $cwdNote; a real run would announce nothing."
-        } else {
-            Write-Output "[announce] $cwdNote, so this hook cannot tell which checkout this session is in and announced nothing."
-            Write-Receipt 'ERROR' @{ note = $cwdNote }
-            exit 0
-        }
+    # -SelfTest says it at once. A real run says it after the kill switch, in step 9a.
+    if ($cwdNote -and $SelfTest) {
+        Write-Output "[announce -SelfTest] $cwdNote; a real run would announce nothing."
     }
 
     if (-not $SelfTest) {
@@ -423,6 +417,31 @@ try {
                     $obj | Add-Member -NotePropertyName disabledAt -NotePropertyValue (Get-Date).ToString('o') -Force
                     $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $marker -Encoding ascii
                 } catch { }
+            }
+            exit 0
+        }
+
+        # --- 9a. NO SESSION DIRECTORY, NO ANNOUNCEMENT --------------------------------------------
+        # Step 0 could not find this session's own directory, so every answer below would describe
+        # where this hook started. Under the desktop app that is the primary, and peers told "a session
+        # works in the primary" would steer around a session that is not there.
+        #
+        # After the kill switch, so OFF silences it too. Said once an hour per session, not on every
+        # prompt: the korus#223 review found the earlier line unthrottled and deaf to the switch.
+        if ($cwdNote) {
+            $noteStamp = Join-Path $StateDir "$markerKey.cwd-note.stamp"
+            $recent = $false
+            if (Test-Path -LiteralPath $noteStamp) {
+                $age = ((Get-Date) - (Get-Item -LiteralPath $noteStamp).LastWriteTime).TotalHours
+                if ($age -ge 0 -and $age -lt 1) { $recent = $true }
+            }
+            if (-not $recent) {
+                try {
+                    if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }
+                    Set-Content -LiteralPath $noteStamp -Value (Get-Date).ToString('o') -Encoding ascii
+                } catch { }
+                Write-Output "[announce] $cwdNote, so this hook cannot tell which checkout this session is in and announced nothing."
+                Write-Receipt 'ERROR' @{ note = $cwdNote }
             }
             exit 0
         }

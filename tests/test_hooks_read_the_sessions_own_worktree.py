@@ -11,6 +11,11 @@ primary. Without it, a pass could mean the fixture never reproduced the fault.
 
 The role-card, seat-declare and pre-compact hooks are fixed in korus#220, with their cases beside
 their own tests there.
+
+The korus#223 review found the `cwd` trusted too far: after a `cd` the hooks answered for a sibling
+worktree or another repository. So the cases also cover the two rules in `_hookinput.ps1`: a `cwd`
+outside the starting clone is refused, and a session stays pinned to its first worktree. The
+collision gate reads no `cwd` at all now; it runs in the worktree that holds the file.
 """
 
 import json
@@ -70,6 +75,17 @@ class _Fixture(unittest.TestCase):
         self.subdir = self.worktree / "docs" / "deep"
         self.subdir.mkdir(parents=True)
         self.missing = self.base / "gone"
+        # A second linked worktree of the same clone: where a session lands after `cd ../sib`.
+        self.sibling = self.base / "sib"
+        self.git(self.primary, "worktree", "add", "-q", str(self.sibling), "-b", "sib-branch")
+        # A different repository altogether, with the same layout.
+        self.other = self.base / "other"
+        self.other.mkdir()
+        self.git(self.other, "init", "-q", "-b", "main")
+        (self.other / ".claude").mkdir()
+        (self.other / ".claude" / "keep.txt").write_text("x", encoding="ascii")
+        self.git(self.other, "add", "-A")
+        self.git(self.other, "commit", "-qm", "init")
 
     def git(self, cwd: Path, *args: str) -> subprocess.CompletedProcess:
         r = subprocess.run(
@@ -79,8 +95,8 @@ class _Fixture(unittest.TestCase):
             raise AssertionError(f"fixture setup failed: git {' '.join(args)}\n{r.stdout}\n{r.stderr}")
         return r
 
-    def run_hook(self, script: Path, payload, *args: str, env=None) -> subprocess.CompletedProcess:
-        """Run a hook from the PRIMARY, with the payload on stdin as UTF-8 bytes."""
+    def run_hook(self, script: Path, payload, *args: str, env=None, start=None) -> subprocess.CompletedProcess:
+        """Run a hook from the PRIMARY, or from start, with the payload on stdin as UTF-8 bytes."""
         e = dict(os.environ)
         for leak in ("CCX_CONFIG", "CCX_TRUNK", "CLAUDE_PROJECT_DIR", "CCX_SESSION_BANNER"):
             e.pop(leak, None)
@@ -92,7 +108,7 @@ class _Fixture(unittest.TestCase):
             input=text.encode("utf-8"),
             capture_output=True,
             env=e,
-            cwd=str(self.primary),
+            cwd=str(start or self.primary),
             timeout=TIMEOUT_SECONDS,
         )
         r.stdout = r.stdout.decode("utf-8", "replace")
@@ -136,8 +152,8 @@ class _Fixture(unittest.TestCase):
 
 
 class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
-    def banner(self, payload) -> str:
-        r = self.run_hook(self.stub_tree() / "worktree" / "session-context.ps1", payload)
+    def banner(self, payload, start=None) -> str:
+        r = self.run_hook(self.stub_tree() / "worktree" / "session-context.ps1", payload, start=start)
         self.assertEqual(0, r.returncode, r.stderr)
         return r.stdout
 
@@ -180,9 +196,37 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         self.git(app, "commit", "-qm", "init")
         self.git(app, "worktree", "add", "-q", str(self.base / "app-wt"), "-b", "side")
         (app / "src").mkdir()
-        out = self.banner({"cwd": str(app / "src")})
+        # Started in that repository: a cwd in another clone than the start is refused.
+        out = self.banner({"cwd": str(app / "src")}, start=app)
         self.assertIn(f"This chat's worktree: {slashed(app)}", out)
         self.assertIn("SHARED PRIMARY checkout", out)
+
+    def start(self, sid: str, cwd: Path, source: str) -> str:
+        return self.banner({"cwd": str(cwd), "session_id": sid, "hook_event_name": "SessionStart", "source": source})
+
+    def test_after_a_cd_to_a_sibling_it_still_names_the_first_worktree(self):
+        """korus#223 review point 4. The startup cwd pins; a later cwd in a sibling does not move it."""
+        self.start("pin-1", self.worktree, "startup")
+        out = self.start("pin-1", self.sibling, "compact")
+        self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
+        self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+
+    def test_with_no_pin_a_sibling_cwd_is_followed(self):
+        """The control for the case above: without the startup pin, the sibling's cwd is believed."""
+        out = self.start("pin-2", self.sibling, "compact")
+        self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+
+    def test_a_resume_pins_again(self):
+        """A resume's cwd is where the session was launched this time, so it replaces the old pin."""
+        self.start("pin-3", self.worktree, "startup")
+        out = self.start("pin-3", self.sibling, "resume")
+        self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+
+    def test_a_cwd_in_another_repository_falls_back_and_says_so(self):
+        """korus#223 review point 4: the banner answered for the other repository, or said nothing."""
+        out = self.banner({"cwd": str(self.other), "session_id": "s"})
+        self.assertIn(f"This chat's worktree: {slashed(self.primary)}", out)
+        self.assertIn("which is in a different repository", out)
 
 
 class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
@@ -231,12 +275,44 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         out = self.announce({"session_id": "sess-d", "cwd": str(self.worktree)}, "d", shim=True)
         self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
+    def test_after_a_cd_to_a_sibling_it_announces_the_first_worktree(self):
+        """korus#223 review point 4: after a `cd` the session announced itself as the sibling."""
+        self.announce({"session_id": "sess-e", "cwd": str(self.worktree)}, "e1")
+        out = self.announce({"session_id": "sess-e", "cwd": str(self.sibling)}, "e2")
+        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
+
+    def test_with_no_pin_a_sibling_cwd_is_announced(self):
+        """The control: a first sighting in the sibling is believed."""
+        out = self.announce({"session_id": "sess-f", "cwd": str(self.sibling)}, "f")
+        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.sibling)} (sib-branch)", out)
+
+    def test_a_cwd_in_another_repository_announces_nothing_and_says_so(self):
+        out = self.announce({"session_id": "sess-g", "cwd": str(self.other)}, "g")
+        self.assertNotIn("[SESSION-ANNOUNCE]", out)
+        self.assertIn("which is in a different repository", out)
+
+    def test_the_cannot_tell_line_obeys_the_kill_switch(self):
+        """korus#223 review: the line ignored the OFF file."""
+        state = self.base / "announce-h"
+        state.mkdir()
+        (state / "OFF").write_text("", encoding="ascii")
+        out = self.announce({"session_id": "sess-h", "cwd": str(self.missing)}, "h")
+        self.assertNotIn("announced nothing", out)
+
+    def test_the_cannot_tell_line_is_said_once_not_every_prompt(self):
+        """korus#223 review: the line was unthrottled, so it rode on every prompt."""
+        first = self.announce({"session_id": "sess-i", "cwd": str(self.missing)}, "i")
+        second = self.announce({"session_id": "sess-i", "cwd": str(self.missing)}, "i")
+        self.assertIn("announced nothing", first)
+        self.assertNotIn("announced nothing", second)
+
 
 class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
     """overlap.ps1 skips "your own worktree" by the directory it runs in. The stub reports that one.
 
-    A stub, because the real overlap needs a live session registry. It decides nothing: it names the
-    directory the gate started it in, which is the one fact under test.
+    The gate runs it in the worktree that holds the TARGET file, never in the payload's cwd: after a
+    `cd` the cwd names wherever the session went (korus#223 review point 1). The stub decides
+    nothing; it names the directory the gate started it in, which is the one fact under test.
     """
 
     def gate(self, payload, state: str = "gate-state") -> str:
@@ -255,28 +331,114 @@ class TheCollisionGateSkipsTheSessionsOwnWorktree(_Fixture):
         self.assertEqual(0, r.returncode, r.stderr)
         return r.stdout
 
-    def test_the_input_cwd_is_where_overlap_runs(self):
+    def test_an_absolute_file_in_the_worktree_runs_overlap_there(self):
+        out = self.gate({"tool_input": {"file_path": str(self.worktree / "a.txt")}})
+        self.assertIn(f"RAN-IN:{slashed(self.worktree)}", out)
+
+    def test_after_a_cd_to_a_sibling_overlap_runs_in_the_files_worktree(self):
+        out = self.gate({"cwd": str(self.sibling), "tool_input": {"file_path": str(self.worktree / "a.txt")}})
+        self.assertIn(f"RAN-IN:{slashed(self.worktree)}", out)
+
+    def test_after_a_cd_to_another_repository_overlap_runs_in_the_files_worktree(self):
+        out = self.gate({"cwd": str(self.other), "tool_input": {"file_path": str(self.worktree / "a.txt")}})
+        self.assertIn(f"RAN-IN:{slashed(self.worktree)}", out)
+
+    def test_a_relative_file_resolves_against_the_input_cwd(self):
         out = self.gate({"cwd": str(self.subdir), "tool_input": {"file_path": "a.txt"}})
         self.assertIn(f"RAN-IN:{slashed(self.worktree)}", out)
 
-    def test_without_a_cwd_overlap_runs_in_the_primary(self):
-        """The control. Here the session's own worktree would read as a peer's."""
+    def test_without_a_cwd_a_relative_file_runs_overlap_in_the_primary(self):
+        """The control: with nothing naming the worktree, the gate answers from where it started."""
         out = self.gate({"tool_input": {"file_path": "a.txt"}})
         self.assertIn(f"RAN-IN:{slashed(self.primary)}", out)
 
-    def test_a_missing_cwd_is_reported_as_unchecked(self):
-        out = self.gate({"cwd": str(self.missing), "tool_input": {"file_path": "a.txt"}})
-        ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("could NOT check this edit (cwd-unusable)", ctx)
-        self.assertNotIn("RAN-IN:", out)
+    def test_a_missing_cwd_still_runs_the_check(self):
+        """korus#223 review point 3: an unusable cwd gave one notice, then 30 silent minutes."""
+        for _ in range(2):
+            out = self.gate({"cwd": str(self.missing), "tool_input": {"file_path": str(self.worktree / "a.txt")}})
+            self.assertIn(f"RAN-IN:{slashed(self.worktree)}", out)
+            self.assertNotIn("could NOT check", out)
 
-    def test_two_sessions_with_unusable_cwds_each_get_the_notice(self):
-        """Both gates start in the primary. Keyed on that, the second session's notice was throttled."""
-        state = "gate-state-two"
-        first = self.gate({"cwd": str(self.base / "gone-1"), "tool_input": {"file_path": "a.txt"}}, state)
-        second = self.gate({"cwd": str(self.base / "gone-2"), "tool_input": {"file_path": "a.txt"}}, state)
-        self.assertIn("cwd-unusable", first)
-        self.assertIn("cwd-unusable", second, "one session's notice silenced another's")
+    def test_a_file_in_another_repository_keeps_the_old_run(self):
+        """The gate never starts an overlap walk in a repository it was not installed for."""
+        out = self.gate({"tool_input": {"file_path": str(self.other / "a.txt")}})
+        self.assertIn(f"RAN-IN:{slashed(self.primary)}", out)
+
+    def test_a_missing_input_reader_is_reported_as_unchecked(self):
+        scripts = self.stub_tree("tree-gate-no-helper")
+        (scripts / "hooks" / "_hookinput.ps1").unlink()
+        r = self.run_hook(
+            scripts / "hooks" / "collision_gate.ps1",
+            {"tool_input": {"file_path": str(self.worktree / "a.txt")}},
+            "-StateDir", str(self.base / "gate-state-nohelper"),
+        )
+        self.assertIn("input-reader-missing", r.stdout)
+
+
+class TheCollisionGateDeniesARealCollision(_Fixture):
+    """The REAL overlap.ps1, with a live peer dirty on the file. korus#223 review point 5.
+
+    A wrapper forwards the gate's call to the real script, adding only a fixture session registry, so
+    no session on this machine can appear in the answer. The peer's record carries this test's own
+    pid, which is alive; with no startedAt it reads UNVERIFIED, which counts as live.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.peer = self.base / "peer"
+        self.git(self.primary, "worktree", "add", "-q", str(self.peer), "-b", "peer-branch")
+        (self.peer / ".claude" / "keep.txt").write_text("peer edit", encoding="ascii")
+        self.roots = self.base / "roots"
+        (self.roots / "sessions").mkdir(parents=True)
+        (self.roots / "sessions" / "peer.json").write_text(
+            json.dumps({"sessionId": "peer-session", "pid": os.getpid(), "cwd": str(self.peer)}), encoding="utf-8"
+        )
+        real = t.REPO_ROOT / "scripts" / "coord" / "overlap.ps1"
+        self.wrapper = self.base / "overlap-wrapper.ps1"
+
+        def q(p: Path) -> str:
+            return "'" + str(p).replace("'", "''") + "'"
+
+        self.wrapper.write_text(
+            "param([string]$File,[switch]$Json)\n"
+            f"& {q(real)} -File $File -Json -Refresh -ConfigRoot {q(self.roots)} -TasksDir {q(self.roots)}\n"
+            "exit $LASTEXITCODE\n",
+            encoding="utf-8",
+        )
+
+    def gate(self, payload) -> str:
+        r = self.run_hook(
+            COLLISION, payload, "-OverlapScript", str(self.wrapper), "-StateDir", str(self.base / "gate-real")
+        )
+        self.assertEqual(0, r.returncode, r.stderr)
+        return r.stdout
+
+    def assert_denied(self, out: str):
+        self.assertTrue(out.strip(), "the gate printed nothing for a real collision")
+        decision = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual("deny", decision.get("permissionDecision"), out)
+        self.assertIn("peer-branch", decision["permissionDecisionReason"])
+
+    def test_the_fixture_reproduces_a_collision(self):
+        """The positive control: a repo-relative path from the primary, the shape main always checked."""
+        self.assert_denied(self.gate({"tool_input": {"file_path": ".claude/keep.txt"}}))
+
+    def test_a_worktree_sessions_absolute_path_is_denied(self):
+        self.assert_denied(self.gate({"tool_input": {"file_path": str(self.worktree / ".claude" / "keep.txt")}}))
+
+    def test_after_a_cd_to_a_sibling_the_collision_is_still_denied(self):
+        """korus#223 review point 1: this printed nothing and exited 0."""
+        payload = {"cwd": str(self.sibling), "tool_input": {"file_path": str(self.worktree / ".claude" / "keep.txt")}}
+        self.assert_denied(self.gate(payload))
+
+    def test_after_a_cd_to_another_repository_the_collision_is_still_denied(self):
+        payload = {"cwd": str(self.other), "tool_input": {"file_path": str(self.worktree / ".claude" / "keep.txt")}}
+        self.assert_denied(self.gate(payload))
+
+    def test_a_file_nobody_else_is_changing_is_allowed_in_silence(self):
+        """The negative control: the deny above is about the collision, not about the payload shape."""
+        payload = {"cwd": str(self.sibling), "tool_input": {"file_path": str(self.worktree / "ccx.config.json")}}
+        self.assertEqual("", self.gate(payload).strip())
 
 
 class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
@@ -315,6 +477,26 @@ class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
         self.assertIn("the hook input names cwd", ctx)
         self.assertNotIn("PRIMARY-MAIL", ctx)
 
+    def pin(self):
+        """Pin the session to the worktree the way its startup would, through the session banner."""
+        payload = {"session_id": "sess-m", "cwd": str(self.worktree), "hook_event_name": "SessionStart", "source": "startup"}
+        r = self.run_hook(SESSION_CONTEXT, payload)
+        self.assertEqual(0, r.returncode, r.stderr)
+
+    def test_after_a_cd_to_a_sibling_it_reads_the_first_worktrees_box(self):
+        """korus#223 review point 4: the drain showed, and marked shown, the sibling's box."""
+        self.pin()
+        self.assertIn("MAIL-SENTINEL", self.drain({"cwd": str(self.sibling), "source": "compact"}))
+
+    def test_after_a_cd_to_another_repository_it_reads_the_first_worktrees_box(self):
+        """korus#223 review point 4: in another repository the drain said no mail while mail waited."""
+        self.pin()
+        self.assertIn("MAIL-SENTINEL", self.drain({"cwd": str(self.other), "source": "compact"}))
+
+    def test_with_no_pin_a_sibling_cwd_reads_the_siblings_box(self):
+        """The control: without the pin, the sibling's cwd is believed, and its box is empty."""
+        self.assertNotIn("MAIL-SENTINEL", self.drain({"cwd": str(self.sibling), "source": "compact"}))
+
 
 class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
     def plant(self, root: Path, text: str) -> Path:
@@ -348,10 +530,41 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
     def test_a_non_ascii_cwd_survives_the_read(self):
         """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""
         wt = self.base / ("caf" + chr(0xE9))
-        wt.mkdir()
-        (wt / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
+        self.git(self.primary, "worktree", "add", "-q", str(wt), "-b", "accent")
         self.plant(wt, "ACCENT-SENTINEL")
         self.assertIn("ACCENT-SENTINEL", self.steer({"cwd": str(wt)}))
+
+    def test_a_cwd_in_another_repository_is_not_read_or_deleted(self):
+        """korus#223 review point 2: the hook read another repository's note as typed text, then deleted it."""
+        note = self.plant(self.other, "OTHER-REPO-NOTE")
+        out = self.steer({"cwd": str(self.other)})
+        self.assertNotIn("OTHER-REPO-NOTE", out)
+        self.assertTrue(note.exists(), "the hook deleted a note in another repository")
+
+    def test_a_bare_git_file_is_not_a_checkout(self):
+        """korus#223 review point 2: a directory holding only an empty `.git` file passed as a worktree."""
+        fake = self.base / "fake"
+        fake.mkdir()
+        (fake / ".git").write_text("", encoding="ascii")
+        note = self.plant(fake, "FAKE-NOTE")
+        self.assertNotIn("FAKE-NOTE", self.steer({"cwd": str(fake)}))
+        self.assertTrue(note.exists())
+
+    def test_after_a_cd_to_a_sibling_the_siblings_note_is_left_alone(self):
+        """korus#223 review point 2: after a `cd` the hook took a sibling session's note."""
+        self.steer({"session_id": "steer-1", "cwd": str(self.worktree), "hook_event_name": "PreToolUse"})
+        theirs = self.plant(self.sibling, "SIBLING-NOTE")
+        mine = self.plant(self.worktree, "MY-NOTE")
+        out = self.steer({"session_id": "steer-1", "cwd": str(self.sibling), "hook_event_name": "PreToolUse"})
+        self.assertIn("MY-NOTE", out)
+        self.assertNotIn("SIBLING-NOTE", out)
+        self.assertTrue(theirs.exists(), "the hook deleted the sibling's note")
+        self.assertFalse(mine.exists())
+
+    def test_with_no_pin_a_sibling_cwd_reads_the_siblings_note(self):
+        """The control: a first sighting in the sibling is believed."""
+        self.plant(self.sibling, "SIBLING-NOTE")
+        self.assertIn("SIBLING-NOTE", self.steer({"session_id": "steer-2", "cwd": str(self.sibling)}))
 
 
 if __name__ == "__main__":

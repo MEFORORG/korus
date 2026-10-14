@@ -153,8 +153,14 @@ That count is `grep -rohE "This chat's worktree: [^ ]*"` over
 2026-10-12. Transcripts are machine-local, so no git ref can pin it.
 
 Since 2026-10-12, `role-card-inject.ps1`, `seat-declare.ps1`, `precompact-reprime.ps1` and the
-korus-card shim read the input's `cwd`. The other hooks here still resolve from their working
-directory. This session's own announce hook named `korus (main)` from a worktree on another branch.
+korus-card shim read the input's `cwd`. Since korus#223, so do the session banner, the announce
+hook, the mail drain and the steering hook. Before it, this session's own announce hook named
+`korus (main)` from a worktree on another branch.
+
+Those four accept a `cwd` only inside the clone they started in, and pin each session to the first
+worktree it is seen in. A session that moves into another worktree mid-session keeps answering for
+the first one until its next SessionStart. The collision gate reads no `cwd`: it runs in the
+worktree that holds the file being edited. `scripts/hooks/_hookinput.ps1` gives the reasons.
 
 ## What the collision gate does not see
 

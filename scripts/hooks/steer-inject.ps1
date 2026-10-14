@@ -25,6 +25,11 @@
 # names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
 # on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names none it can use.
 #
+# BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
+# text the user typed. The korus#223 review measured it reading and deleting steer.txt in another
+# repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 now
+# refuses a cwd outside CLAUDE_PROJECT_DIR's clone and pins each session to its first worktree.
+#
 # A FALLBACK IS SAID ONLY WITH A NOTE. This hook runs before every tool call, so a line on each one
 # would be noise. When it delivers a note from the fallback, the note says where it came from.
 
@@ -37,7 +42,8 @@ try {
         $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
         if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
         . $helper
-        $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput)
+        $startDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $PWD.Path }
+        $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput) -StartDir $startDir
         if ($wt.Root) { $root = $wt.Root } else { $cwdNote = $wt.Reason }
     } catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
     if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }

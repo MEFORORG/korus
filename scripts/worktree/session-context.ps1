@@ -34,7 +34,8 @@
     with its working directory and git's top-level answer both naming the PRIMARY. Only the `cwd` in
     the JSON on stdin names the worktree, so this banner named the primary for worktree sessions.
     The hook now moves into that `cwd` before its first git call. With no `cwd` in the input it
-    stays where it started. scripts/hooks/_hookinput.ps1 says what the `cwd` means.
+    stays where it started. A `cwd` in another clone is refused, and a session stays pinned to its
+    first worktree after a `cd`. scripts/hooks/_hookinput.ps1 says what the `cwd` means and why.
 
     See docs/WORKTREES.md and docs/COORDINATION.md.
 #>
