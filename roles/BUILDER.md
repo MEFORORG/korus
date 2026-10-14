@@ -625,22 +625,26 @@ none of them looks for a NEW correctness defect.
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
-**That example began `xhigh.` until 2026-10-13, and the period kept the level from parsing.** Four
-calls on a one-line diff, in this order. Pull request 2321 of
+**The review-standards example began `xhigh.` until 2026-10-13, and the period kept the level from
+parsing.** Four calls on a one-line diff, in this order. Pull request 2321 of
 `MEFORORG/MessageFoundry` records them, and they were not re-run here.
 
-| Arguments began | Level in the tag the skill printed |
+| Arguments began | The printed tag began |
 | --- | --- |
 | `low` | `low effort`. The control: a level that parses prints its own tag. |
 | `xhigh.` | `low effort`, the previous call's level. |
 | `xhigh` | `xhigh effort`. |
 | `xhigh.` | `xhigh effort`, the previous call's level again. |
 
-**So the period form can print `xhigh` by luck.** A second sign needs no earlier call: the skill
-strips a level that parses from its `Review target` line, and `xhigh.` stays in it.
+**So the period form can print `xhigh` by chance.** A second sign showed on both trials: the skill
+strips a level that parses from its `Review target` line, and `xhigh.` stayed in it.
 
-**Not measured: what a period-form call runs at when the session has no earlier call.** Two
-trials is the whole sample.
+**Not measured: what a period-form call runs at when the session has no earlier call.** Nor any
+other punctuation, nor any other level. That pull request names no CLI version. Two trials is the
+whole sample.
+
+**The trials did not test a call with no level at all.** So the row *Name the effort level* stands
+as written, and so does the 4e row that cites it.
 
 **Why two and not "until clean".** Adversarial repair is not monotonic. A second round can introduce
 what the first round accepted, so an unbounded loop oscillates instead of converging, and each lap
