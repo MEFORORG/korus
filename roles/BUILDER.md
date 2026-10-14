@@ -615,7 +615,7 @@ none of them looks for a NEW correctness defect.
 | --- | --- |
 | How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
 | Name the effort level | **`xhigh` unless your brief names another.** A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
-| Write the level as a bare first word | No punctuation after it. `xhigh.` does not parse, and in two trials the skill then ran at the previous call's level (measured 2026-10-13). |
+| Write the level as a bare first word | No punctuation after it. `xhigh.` does not parse. It ran at the previous call's level in two trials in one session, and at `high` in every subagent fork measured. |
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. MessageFoundry: `xhigh Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md and apply its rules.` A bare path makes the skill review that file instead. |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
@@ -639,9 +639,19 @@ parsing.** Four calls on a one-line diff, in this order. Pull request 2321 of
 **So the period form can print `xhigh` by chance.** A second sign showed on both trials: the skill
 strips a level that parses from its `Review target` line, and `xhigh.` stayed in it.
 
-**Not measured: what a period-form call runs at when the session has no earlier call.** Nor any
-other punctuation, nor any other level. That pull request names no CLI version. Two trials is the
-whole sample.
+**Not measured: what a period-form call runs at when a top-level session has no earlier call.**
+Nor any other punctuation, nor any other level. That pull request names no CLI version. Two trials
+is the whole sample.
+
+**NARROWED 2026-10-14: the previous call's level is not the only fallback.** In subagent forks,
+`xhigh.` ran at `high` on the first call, and again right after a bare `xhigh` call.
+
+A census on one account agrees: 173 forks called with `xhigh.`, and all 173 ran at `high`. A
+Manager read the level from the skill's own prompt in each fork's transcript.
+
+Comment 6159254999 on pull request 2302 of `MEFORORG/MessageFoundry` records it, and it was not
+re-run here. The row *Write the level as a bare first word* said only "the previous call's level"
+until then.
 
 **The trials did not test a call with no level at all.** So the row *Name the effort level* stands
 as written, and so does the 4e row that cites it.
