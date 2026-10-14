@@ -615,14 +615,32 @@ none of them looks for a NEW correctness defect.
 | --- | --- |
 | How to call it | The `Skill` tool, `skill: "code-review"`. It reports findings and edits nothing. |
 | Name the effort level | **`xhigh` unless your brief names another.** A bare call inherits the session's level, and `CLAUDE_CODE_EFFORT_LEVEL` overrides both. |
+| Write the level as a bare first word | No punctuation after it. `xhigh.` does not parse, and in two trials the skill then ran at the previous call's level (measured 2026-10-13). |
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
-| If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. MessageFoundry: `xhigh. Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md and apply its rules.` A bare path makes the skill review that file instead. |
+| If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. MessageFoundry: `xhigh Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md and apply its rules.` A bare path makes the skill review that file instead. |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
+
+**That example began `xhigh.` until 2026-10-13, and the period kept the level from parsing.** Four
+calls on a one-line diff, in this order. Pull request 2321 of
+`MEFORORG/MessageFoundry` records them, and they were not re-run here.
+
+| Arguments began | Level in the tag the skill printed |
+| --- | --- |
+| `low` | `low effort`. The control: a level that parses prints its own tag. |
+| `xhigh.` | `low effort`, the previous call's level. |
+| `xhigh` | `xhigh effort`. |
+| `xhigh.` | `xhigh effort`, the previous call's level again. |
+
+**So the period form can print `xhigh` by luck.** A second sign needs no earlier call: the skill
+strips a level that parses from its `Review target` line, and `xhigh.` stays in it.
+
+**Not measured: what a period-form call runs at when the session has no earlier call.** Two
+trials is the whole sample.
 
 **Why two and not "until clean".** Adversarial repair is not monotonic. A second round can introduce
 what the first round accepted, so an unbounded loop oscillates instead of converging, and each lap
