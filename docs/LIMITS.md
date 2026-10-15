@@ -158,12 +158,14 @@ steering hooks.
 
 Before it, this session's own announce hook named `korus (main)` from a worktree on another branch.
 
-Those four accept a `cwd` only in the clone they started in. Each session stays pinned to its
-first worktree until its next SessionStart, even if it moves on purpose.
+Which worktree those four answer for is set by the rules at the top of
+`scripts/hooks/_hookinput.ps1`.
+
+A session that moves worktree on purpose keeps its first one until its next startup or resume.
+After a /clear, a desktop-app worktree session has no worktree until then, and its hooks say so.
 
 The collision gate uses the `cwd` only to resolve a relative path. It runs in the worktree that
 holds the edited file.
-`scripts/hooks/_hookinput.ps1` gives the reasons.
 
 ## What the collision gate does not see
 

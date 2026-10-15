@@ -173,16 +173,12 @@ The command throws if none resolves to a directory. It also throws if that direc
 An earlier version used the working directory and created `.claude` when absent. It could
 report "queued" from the wrong directory even though no hook read that note.
 
-The hook reads only `<worktree>/.claude/steer.txt`. It finds the worktree by walking up from the
-`cwd` in its JSON input to the nearest `.git`. With no `cwd` in the input it falls back to
-`CLAUDE_PROJECT_DIR`, and with neither it exits 0 without searching.
+The hook reads only `<worktree>/.claude/steer.txt`, for the session's own worktree. With no `cwd` in
+its JSON input it falls back to `CLAUDE_PROJECT_DIR`, and with neither it exits 0 without searching.
 
-It accepts a `cwd` only in the clone `CLAUDE_PROJECT_DIR` names, because it deletes the note it
-delivers. A `.git` file that names no git directory is not a checkout.
-
-A refused `cwd`, or a missing helper, reads no note at all, and the refusal goes to stderr.
-
-The first worktree a session is seen in is pinned, so a `cd` into a sibling cannot take its note.
+Which `cwd` it accepts is set by the rules at the top of `scripts/hooks/_hookinput.ps1`, because it
+deletes the note it delivers. A refused `cwd`, or a missing helper, reads no note at all, and the
+refusal goes to stderr.
 
 **That paragraph read "The hook reads only `<project root>/.claude/steer.txt`" until 2026-10-13.**
 The project root was `CLAUDE_PROJECT_DIR`, which the desktop app sets to the PRIMARY checkout for a

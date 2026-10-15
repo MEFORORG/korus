@@ -51,7 +51,7 @@ $cwdNote = ''
 try {
     if (-not (Test-Path -LiteralPath $hookInput -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
     . $hookInput
-    $cwdNote = Enter-CcxHookCwd -Text (Read-CcxHookInput)
+    $cwdNote = (Enter-CcxHookSession -Text (Read-CcxHookInput)).Reason
 } catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
 if ($cwdNote) {
     $lines += "[session-context] $cwdNote, so this banner describes $($PWD.Path) instead."

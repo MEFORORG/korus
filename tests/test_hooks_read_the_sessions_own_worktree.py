@@ -13,9 +13,9 @@ The role-card, seat-declare and pre-compact hooks are fixed in korus#220, with t
 their own tests there.
 
 The korus#223 review found the `cwd` trusted too far: after a `cd` the hooks answered for a sibling
-worktree or another repository. So the cases also cover the two rules in `_hookinput.ps1`: a `cwd`
-outside the starting clone is refused, and a session stays pinned to its first worktree. The
-collision gate reads no `cwd` at all now; it runs in the worktree that holds the file.
+worktree or another repository, with or without a pin. So the cases also cover the rules at the top
+of `_hookinput.ps1`. The collision gate reads no `cwd` at all now; it runs in the worktree that holds
+the file.
 """
 
 import json
@@ -23,6 +23,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -136,6 +137,17 @@ class _Fixture(unittest.TestCase):
         r.stderr = r.stderr.decode("utf-8", "replace")
         return r
 
+    def launch(self, sid: str, cwd: Path, source: str = "startup") -> subprocess.CompletedProcess:
+        """A SessionStart through the session banner, which pins the session where it launched."""
+        payload = {"session_id": sid, "cwd": str(cwd), "hook_event_name": "SessionStart", "source": source}
+        r = self.run_hook(self.stub_tree() / "worktree" / "session-context.ps1", payload)
+        self.assertEqual(0, r.returncode, r.stderr)
+        return r
+
+    def pins(self) -> list:
+        d = self.primary / ".git" / "ccx-session-root"
+        return sorted(p.name for p in d.iterdir()) if d.is_dir() else []
+
     def stub_tree(self, name: str = "tree") -> Path:
         """A copy of `scripts/` whose presence and overlap are stubs that answer at once.
 
@@ -158,6 +170,7 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         return r.stdout
 
     def test_the_input_cwd_names_the_worktree(self):
+        self.launch("s", self.worktree)
         out = self.banner({"cwd": str(self.subdir), "session_id": "s"})
         self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
         self.assertNotIn("SHARED PRIMARY checkout", out)
@@ -175,7 +188,8 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
 
     def test_run_through_the_shim_it_still_reads_the_input(self):
         """The installed shim runs the hook in-process with `&`, so stdin is inherited, not piped."""
-        r = self.run_shim(self.stub_tree() / "worktree" / "session-context.ps1", {"cwd": str(self.worktree)})
+        payload = {"cwd": str(self.worktree), "session_id": "shim", "hook_event_name": "SessionStart", "source": "startup"}
+        r = self.run_shim(self.stub_tree() / "worktree" / "session-context.ps1", payload)
         self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", r.stdout, r.stderr)
 
     def test_a_missing_input_reader_is_said_aloud(self):
@@ -211,10 +225,59 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
         self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
 
-    def test_with_no_pin_a_sibling_cwd_is_followed(self):
-        """The control for the case above: without the startup pin, the sibling's cwd is believed."""
+    def test_with_no_pin_a_sibling_cwd_is_refused(self):
+        """The Lander's re-review of korus#223: without a pin the sibling's cwd was believed. Now the
+        banner names where the hook started and says why. The case above is its control."""
         out = self.start("pin-2", self.sibling, "compact")
-        self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+        self.assertIn(f"This chat's worktree: {slashed(self.primary)}", out)
+        self.assertIn("no pin records that this session started in", out)
+
+    def test_a_clear_with_a_new_session_id_never_pins_the_sibling(self):
+        """The Lander's HIGH finding: /clear mints a new session id, so its SessionStart finds no pin,
+        and the old rule pinned whatever sibling a `cd` had reached."""
+        self.start("before-clear", self.worktree, "startup")
+        self.start("after-clear", self.sibling, "clear")
+        out = self.banner({"cwd": str(self.sibling), "session_id": "after-clear"})
+        self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+        self.assertEqual(1, len(self.pins()), "a /clear wrote a pin")
+
+    def test_a_launch_pins_only_in_a_clone_that_opted_in(self):
+        """The opt-in gate. A user-scope hook writes no file in a clone with no ccx.config.json, and
+        still answers the launch itself, whose cwd is where the session started."""
+        (self.primary / "ccx.config.json").unlink()
+        out = self.start("gate", self.worktree, "startup")
+        self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
+        self.assertEqual([], self.pins())
+        # The control: the same launch, opted in, pins.
+        (self.primary / "ccx.config.json").write_text(FIXTURE_CONFIG, encoding="utf-8")
+        self.start("gate", self.worktree, "startup")
+        self.assertEqual(1, len(self.pins()))
+
+    def test_a_pin_write_prunes_stale_temp_files(self):
+        """A crashed writer's temp file was never removed. One an hour old goes; a fresh one stays."""
+        d = self.primary / ".git" / "ccx-session-root"
+        d.mkdir(parents=True)
+        stale, fresh = d / "x.1.dead.tmp", d / "x.2.live.tmp"
+        stale.write_text("x", encoding="ascii")
+        fresh.write_text("x", encoding="ascii")
+        old = time.time() - 3600
+        os.utime(stale, (old, old))
+        self.start("prune", self.worktree, "startup")
+        self.assertFalse(stale.exists())
+        self.assertTrue(fresh.exists())
+
+    def test_a_pin_that_cannot_be_replaced_is_not_kept(self):
+        """A failed swap kept the previous run's pin. A read-only pin makes the move fail on demand."""
+        self.start("swap", self.sibling, "startup")
+        pin = next((self.primary / ".git" / "ccx-session-root").iterdir())
+        os.chmod(pin, 0o444)
+        try:
+            self.start("swap", self.worktree, "resume")
+            out = self.banner({"cwd": str(self.sibling), "session_id": "swap"})
+            self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+        finally:
+            if pin.exists():
+                os.chmod(pin, 0o644)
 
     def test_a_resume_pins_again(self):
         """A resume's cwd is where the session was launched this time, so it replaces the old pin."""
@@ -232,14 +295,15 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         """korus#223 review round 1: a refused launch cwd left the old run's pin answering in silence."""
         self.start("pin-4", self.worktree, "startup")
         self.start("pin-4", self.missing, "resume")
-        out = self.banner({"cwd": str(self.sibling), "session_id": "pin-4", "hook_event_name": "SessionStart", "source": "compact"})
-        self.assertIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+        self.assertEqual([], self.pins())
+        out = self.banner({"cwd": str(self.worktree), "session_id": "pin-4", "hook_event_name": "SessionStart", "source": "compact"})
+        self.assertNotIn(f"This chat's worktree: {slashed(self.worktree)}", out)
 
     def test_a_cwd_in_another_repository_falls_back_and_says_so(self):
         """korus#223 review point 4: the banner answered for the other repository, or said nothing."""
         out = self.banner({"cwd": str(self.other), "session_id": "s"})
         self.assertIn(f"This chat's worktree: {slashed(self.primary)}", out)
-        self.assertIn("which is in a different repository", out)
+        self.assertIn("which is in another repository", out)
 
 
 class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
@@ -269,6 +333,7 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         return r.stdout
 
     def test_the_input_cwd_names_the_worktree(self):
+        self.launch("sess-a", self.worktree)
         out = self.announce({"session_id": "sess-a", "cwd": str(self.subdir)}, "a")
         self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
@@ -285,24 +350,40 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         self.assertIn("announced nothing", out)
 
     def test_run_through_the_shim_it_names_the_worktree(self):
+        self.launch("sess-d", self.worktree)
         out = self.announce({"session_id": "sess-d", "cwd": str(self.worktree)}, "d", shim=True)
         self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
     def test_after_a_cd_to_a_sibling_it_announces_the_first_worktree(self):
         """korus#223 review point 4: after a `cd` the session announced itself as the sibling."""
-        self.announce({"session_id": "sess-e", "cwd": str(self.worktree)}, "e1")
+        self.launch("sess-e", self.worktree)
         out = self.announce({"session_id": "sess-e", "cwd": str(self.sibling)}, "e2")
         self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
-    def test_with_no_pin_a_sibling_cwd_is_announced(self):
-        """The control: a first sighting in the sibling is believed."""
+    def test_with_no_pin_a_sibling_cwd_announces_nothing(self):
+        """The Lander's re-review of korus#223: with no pin the sibling was announced. The case above
+        is its control."""
         out = self.announce({"session_id": "sess-f", "cwd": str(self.sibling)}, "f")
-        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.sibling)} (sib-branch)", out)
+        self.assertNotIn("[SESSION-ANNOUNCE]", out)
+        self.assertIn("no pin records that this session started in", out)
+
+    def test_the_self_test_writes_no_pin(self):
+        """-SelfTest is a diagnostic: it reads a pin and never writes one, even at a launch."""
+        payload = {"session_id": "sess-st", "cwd": str(self.worktree), "hook_event_name": "SessionStart", "source": "startup"}
+        stub = self.base / "presence-stub.ps1"
+        stub.write_text("param([switch]$Json)\nWrite-Output '[]'\nexit 0\n", encoding="utf-8")
+        r = self.run_hook(ANNOUNCE, payload, "-PresenceScript", str(stub), "-StateDir", str(self.base / "st"),
+                          "-SelfTest", "-PayloadOverride", json.dumps(payload))
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual([], self.pins())
+        # The control: the same payload through the banner, which is not a diagnostic, pins.
+        self.launch("sess-st", self.worktree)
+        self.assertEqual(1, len(self.pins()))
 
     def test_a_cwd_in_another_repository_announces_nothing_and_says_so(self):
         out = self.announce({"session_id": "sess-g", "cwd": str(self.other)}, "g")
         self.assertNotIn("[SESSION-ANNOUNCE]", out)
-        self.assertIn("which is in a different repository", out)
+        self.assertIn("which is in another repository", out)
 
     def test_the_cannot_tell_line_obeys_the_kill_switch(self):
         """korus#223 review: the line ignored the OFF file."""
@@ -492,9 +573,7 @@ class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
 
     def pin(self):
         """Pin the session to the worktree the way its startup would, through the session banner."""
-        payload = {"session_id": "sess-m", "cwd": str(self.worktree), "hook_event_name": "SessionStart", "source": "startup"}
-        r = self.run_hook(SESSION_CONTEXT, payload)
-        self.assertEqual(0, r.returncode, r.stderr)
+        self.launch("sess-m", self.worktree)
 
     def test_after_a_cd_to_a_sibling_it_reads_the_first_worktrees_box(self):
         """korus#223 review point 4: the drain showed, and marked shown, the sibling's box."""
@@ -506,9 +585,11 @@ class TheMailDrainReadsTheSessionsOwnBox(_Fixture):
         self.pin()
         self.assertIn("MAIL-SENTINEL", self.drain({"cwd": str(self.other), "source": "compact"}))
 
-    def test_with_no_pin_a_sibling_cwd_reads_the_siblings_box(self):
-        """The control: without the pin, the sibling's cwd is believed, and its box is empty."""
-        self.assertNotIn("MAIL-SENTINEL", self.drain({"cwd": str(self.sibling), "source": "compact"}))
+    def test_with_no_pin_a_sibling_cwd_reads_no_box(self):
+        """Without the pin the sibling's cwd is refused, so no box is read and the drain says so."""
+        ctx = self.drain({"cwd": str(self.sibling), "source": "compact"})
+        self.assertNotIn("MAIL-SENTINEL", ctx)
+        self.assertIn("NO BOX", ctx)
 
 
 class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
@@ -525,7 +606,8 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
 
     def test_the_input_cwd_reads_the_worktrees_note(self):
         note = self.plant(self.worktree, "STEER-SENTINEL")
-        self.assertIn("STEER-SENTINEL", self.steer({"cwd": str(self.subdir)}))
+        self.launch("steer-0", self.worktree)
+        self.assertIn("STEER-SENTINEL", self.steer({"session_id": "steer-0", "cwd": str(self.subdir)}))
         self.assertFalse(note.exists(), "the note was delivered but not consumed")
 
     def test_without_a_cwd_it_reads_the_project_dir(self):
@@ -559,7 +641,8 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
         wt = self.base / ("caf" + chr(0xE9))
         self.git(self.primary, "worktree", "add", "-q", str(wt), "-b", "accent")
         self.plant(wt, "ACCENT-SENTINEL")
-        self.assertIn("ACCENT-SENTINEL", self.steer({"cwd": str(wt)}))
+        self.launch("steer-acc", wt)
+        self.assertIn("ACCENT-SENTINEL", self.steer({"session_id": "steer-acc", "cwd": str(wt)}))
 
     def test_a_cwd_in_another_repository_is_not_read_or_deleted(self):
         """korus#223 review point 2: the hook read another repository's note as typed text, then deleted it."""
@@ -579,7 +662,7 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
 
     def test_after_a_cd_to_a_sibling_the_siblings_note_is_left_alone(self):
         """korus#223 review point 2: after a `cd` the hook took a sibling session's note."""
-        self.steer({"session_id": "steer-1", "cwd": str(self.worktree), "hook_event_name": "PreToolUse"})
+        self.launch("steer-1", self.worktree)
         theirs = self.plant(self.sibling, "SIBLING-NOTE")
         mine = self.plant(self.worktree, "MY-NOTE")
         out = self.steer({"session_id": "steer-1", "cwd": str(self.sibling), "hook_event_name": "PreToolUse"})
@@ -588,10 +671,39 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
         self.assertTrue(theirs.exists(), "the hook deleted the sibling's note")
         self.assertFalse(mine.exists())
 
-    def test_with_no_pin_a_sibling_cwd_reads_the_siblings_note(self):
-        """The control: a first sighting in the sibling is believed."""
-        self.plant(self.sibling, "SIBLING-NOTE")
-        self.assertIn("SIBLING-NOTE", self.steer({"session_id": "steer-2", "cwd": str(self.sibling)}))
+    def test_with_no_pin_a_sibling_cwd_reads_no_note(self):
+        """The Lander's re-review of korus#223: this case read the sibling's note when there was no
+        pin. Now neither the sibling's note nor the primary's is read. The case above is its control."""
+        theirs = self.plant(self.sibling, "SIBLING-NOTE")
+        primary = self.plant(self.primary, "PRIMARY-NOTE")
+        r = self.run_hook(STEER, {"session_id": "steer-2", "cwd": str(self.sibling)},
+                          env={"CLAUDE_PROJECT_DIR": str(self.primary)})
+        self.assertNotIn("SIBLING-NOTE", r.stdout)
+        self.assertNotIn("PRIMARY-NOTE", r.stdout)
+        self.assertTrue(theirs.exists() and primary.exists(), "a note was deleted")
+        self.assertIn("no pin records", r.stderr)
+
+    def test_a_stdin_timeout_reads_no_note(self):
+        """The Lander's LOW finding: input still open when the read gave up fell back to
+        CLAUDE_PROJECT_DIR and took the primary's note. Stdin is held open here until the hook exits."""
+        primary = self.plant(self.primary, "PRIMARY-NOTE")
+        e = dict(os.environ)
+        for leak in ("CCX_CONFIG", "CCX_TRUNK", "CCX_SESSION_BANNER"):
+            e.pop(leak, None)
+        e["CLAUDE_PROJECT_DIR"] = str(self.primary)
+        p = subprocess.Popen([self.pwsh, "-NoProfile", "-File", str(STEER)], stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=e, cwd=str(self.primary))
+        try:
+            p.wait(timeout=TIMEOUT_SECONDS)
+            out, err = p.stdout.read(), p.stderr.read()
+        finally:
+            p.kill()
+            p.stdin.close()
+            p.stdout.close()
+            p.stderr.close()
+        self.assertNotIn(b"PRIMARY-NOTE", out)
+        self.assertTrue(primary.exists(), "the primary's note was taken on a timeout")
+        self.assertIn(b"still open", err)
 
 
 if __name__ == "__main__":

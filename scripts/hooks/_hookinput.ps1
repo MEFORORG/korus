@@ -1,54 +1,67 @@
 <#
 .SYNOPSIS
-    Shared by the harness hooks: read the hook input, and find the session's own directory in it.
+    Shared by the harness hooks: read the hook input, and find the session's own worktree in it.
 
 .DESCRIPTION
+    ONE DESIGN, TWO COPIES. korus and the MessageFoundry engine each ship this file. Below the license
+    lines the two copies are byte-identical; change both together.
+
     WHY THIS EXISTS. The desktop app starts a worktree session's CLI with
     `--project-config-root <primary checkout>`. Measured 2026-10-12 in a fixture launched with that
     flag (korus#220 records it): a hook runs with its working directory, `$env:CLAUDE_PROJECT_DIR`
     and `git rev-parse --show-toplevel` all naming the PRIMARY. Only the `cwd` field of the JSON on
     stdin names the worktree the session is in.
 
-    Seen live 2026-10-13: this repository's announce hook told a session in a worktree to announce
-    itself as "<primary> (main)". Every hook that asks git, `$PWD` or CLAUDE_PROJECT_DIR where it is
-    gets the same wrong answer.
+    THE CWD IS WHERE THE SESSION IS NOW, NOT WHERE IT STARTED. A session that runs `cd` moves its
+    `cwd`. A hook that followed it would read a sibling's steering note, show a sibling's mail, or
+    announce as the sibling. So this file is the ONE place the rule lives, and docs link here:
 
-    THE CWD IS WHERE THE SESSION IS NOW, NOT WHERE IT STARTED, SO IT IS CHECKED BEFORE IT IS USED.
-    A session that runs `cd` moves its `cwd`, and a hook that trusted it answered for wherever the
-    session went: a sibling's mail box and steering note, or another repository entirely. The korus#223
-    review measured each. So Resolve-CcxHookSession accepts the `cwd` only under two rules:
+      1. SAME REPOSITORY. A `cwd` is a candidate only when its worktree's git common dir is the one
+         of the checkout the hook started in (the START checkout). Another repository, no checkout,
+         or a `.git` that names no real git dir is refused.
+      2. A LAUNCH IS TRUSTED. A SessionStart from a startup or a resume (or with no source) fires
+         where the session was launched, so its candidate `cwd` is the session's worktree, and it
+         PINS it: <common dir>/ccx-session-root/<hash of the session id>.
+      3. LATER EVENTS ANSWER FOR THE PIN. A `cwd` inside the pinned worktree is used as it is. One
+         anywhere else is a `cd`, and the hook answers for the pinned worktree instead.
+      4. WITH NO PIN, ONLY THE START CHECKOUT. An unpinned session's `cwd` is used only when it sits
+         in the start checkout's own worktree. Anywhere else (a sibling, or the session's own linked
+         worktree under the desktop app) is refused with a Reason, and the hook stays in the start
+         checkout and says so. It never answers for a sibling it cannot tell from its own.
+      5. /CLEAR AND /COMPACT NEVER PIN. Their SessionStart fires wherever a `cd` left the shell, and
+         /clear mints a new session id (announce-session.ps1 records it), so a pin written there
+         could name a sibling. Such a session follows rule 4 until its next startup or resume. That
+         costs the desktop-app worktree session its own answers after a /clear, and it is the safe
+         side: loud and wrong-checkout-free, never quietly the sibling.
 
-      * SAME CLONE. The `cwd` must sit in a checkout whose git common directory is the one the hook
-        started in. A `cwd` in another repository, in no repository, or under a `.git` file that names
-        no real git directory is refused, and the hook stays where it started and says so.
-      * FIRST SEEN WINS. The first accepted `cwd` for a session id is pinned under the common
-        directory, in ccx-session-root/. Later events answer for the pinned worktree, so a `cd` to a
-        sibling does not move them. A SessionStart for a startup or a resume pins again, because its
-        `cwd` is where the session was launched. A compaction or a /clear does not: the shell may
-        still stand where a `cd` left it, which nobody has measured.
+    WHO MAY WRITE A PIN. Only a hook that is not -ReadOnly, and only in a clone that opted in: the
+    clone holds `ccx.config.json` at its primary checkout or at the start checkout, or this file
+    itself lives in a worktree of that clone (the repository ships the hook). So a user-scope copy
+    leaves no file in an unrelated repository. Reading a pin needs no opt-in.
 
-    Pins are written only in a clone that opted in with ccx.config.json, so a user-scope hook leaves
-    no file inside an unrelated repository. They sit beside the state root, not in it, because this
-    file reads no config and so cannot know the state root's prefix.
-
-    The cost of the pin: a session that moves into another worktree on purpose, mid-session, keeps
-    answering for the one it started in until its next SessionStart. docs/WORKTREES.md already says to
-    start a session in its worktree rather than move into one.
-
-    No git call is made. The common directory is read from `.git` and its `commondir` file, which is
-    what git itself reads, so the steering hook can afford this before every tool call.
-
-    So a hook reads its input with Read-CcxHookInput and then does ONE of two things:
-
-      * Enter-CcxHookCwd moves the hook into the session's directory, so every later git call, every
-        `$PWD` read and every child script answers for the session. Use it where the hook asks git.
-      * Get-CcxHookWorktree returns the worktree root. Use it where the hook only needs a path, such
-        as a file under `.claude/`.
+    A PIN IS REPLACED ATOMICALLY. It is written to a unique temp file beside it and moved over it
+    with [System.IO.File]::Move(..., $true), which replaces in one rename on the same volume, so a
+    reader sees the old pin or the new one and never none. Readers open it sharing delete, so a
+    reader never blocks the rename. A move that keeps failing deletes the old pin rather than keep
+    it, so the session falls to rule 4, never to the previous run's worktree. Temp files older than
+    ten minutes and pins older than thirty days are pruned at each pin write.
 
     NO CWD IS NOT A FAULT. A payload with no `cwd` (an older harness, a hand-run test) leaves the
-    hook where it started, which is the old behaviour. A payload that NAMES a cwd the hook cannot use
-    is a fault, and both functions return the reason so the caller can say it aloud. Falling back in
-    silence is the defect this file exists to fix.
+    hook where it started. Stdin still open at the read's bound IS one, because nothing says it
+    would have named no `cwd`. A refused `cwd` is a fault too, and both entry points return the
+    Reason so the caller can say it aloud. Falling back in silence is the defect this file exists
+    to fix.
+
+    A hook reads its input with Read-CcxHookInput and then does ONE of two things:
+
+      * Enter-CcxHookSession moves the hook into the session's directory, so every later git call,
+        every `$PWD` read and every child script answers for the session. Use it where the hook
+        asks git.
+      * Resolve-CcxHookSession returns the same answer without moving. Use it where the hook only
+        needs a path, such as a file under `.claude/`.
+
+    Neither spawns git. The common dir is read from the `.git` file and the git dir's `commondir`,
+    as git itself reads them, because steer-inject runs before every tool call.
 
     Dot-source it. It defines functions only and has no side effect on load.
 #>
@@ -67,15 +80,18 @@ function Read-CcxHookInput {
         AND BOUNDED IN TIME. IsInputRedirected is True from an agent shell with no pipe at all
         (announce-session.ps1 measured it), and a caller that leaves stdin open would hang an
         unbounded read. The harness writes its JSON and closes the pipe, so it never meets the bound.
-        A read that does meet it says so on stderr, so "no input" and "input still open" differ.
+        A read that does meet it says so on stderr and sets $script:CcxHookInputTimedOut, and
+        Resolve-CcxHookSession then reports a fault rather than "no cwd".
     #>
     param([int] $TimeoutMs = 2000)
+    $script:CcxHookInputTimedOut = $false
     try {
         if (-not [Console]::IsInputRedirected) { return '' }
         $reader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false))
         $read = $reader.ReadToEndAsync()
         if ($read.Wait($TimeoutMs)) { return $read.Result }
-        [Console]::Error.WriteLine("[hook-input] stdin was still open after $TimeoutMs ms, so the hook read no input and answers for $($PWD.Path).")
+        [Console]::Error.WriteLine("[hook-input] stdin was still open after $TimeoutMs ms, so the hook read no input.")
+        $script:CcxHookInputTimedOut = $true
         return ''
     }
     catch { return '' }
@@ -89,11 +105,16 @@ function Get-CcxHookPayloadCwd {
       .DESCRIPTION
         Named is $false when the input names no cwd at all, which is not a fault. Cwd is the resolved
         directory when it exists. Reason says why a named cwd could not be used.
+
+        -Payload takes input already parsed, so a caller holding one does not parse it twice.
     #>
-    param([string] $Text)
+    param([string] $Text, [object] $Payload)
     $out = [pscustomobject]@{ Named = $false; Cwd = $null; Reason = '' }
-    if ([string]::IsNullOrWhiteSpace($Text)) { return $out }
-    try { $payload = $Text | ConvertFrom-Json -ErrorAction Stop } catch { return $out }
+    $payload = $Payload
+    if ($null -eq $payload) {
+        if ([string]::IsNullOrWhiteSpace($Text)) { return $out }
+        try { $payload = $Text | ConvertFrom-Json -ErrorAction Stop } catch { return $out }
+    }
     if ($null -eq $payload -or $payload -isnot [pscustomobject] -or -not $payload.PSObject.Properties['cwd']) { return $out }
     $dir = [string]$payload.cwd
     if ([string]::IsNullOrWhiteSpace($dir)) { return $out }
@@ -109,66 +130,72 @@ function Get-CcxHookPayloadCwd {
     return $out
 }
 
-function ConvertTo-CcxHookPathKey {
-    # One spelling per directory, for comparing two paths. Case folds on Windows only.
-    param([string] $Path)
-    if (-not $Path) { return '' }
-    try { $full = [System.IO.Path]::GetFullPath($Path) } catch { return '' }
-    $k = ($full -replace '\\', '/').TrimEnd('/')
-    if ($IsWindows) { $k = $k.ToLowerInvariant() }
-    return $k
+function Get-CcxShortHash {
+    # The first $Bytes bytes of SHA-256 over UTF-8 text, as hex: a fixed-length file-name key.
+    param([string] $Text, [int] $Bytes = 4)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)) }
+    finally { $sha.Dispose() }
+    return -join ($hash[0..($Bytes - 1)] | ForEach-Object { $_.ToString('x2') })
 }
 
-function Get-CcxGitLocation {
+function Test-CcxSayOnce {
     <#
       .SYNOPSIS
-        The checkout a path sits in: Root and CommonDir, or $null when it is in none.
+        $true when a throttled notice should be said now, and stamps it. One stamp per $Key.
 
       .DESCRIPTION
-        Walks up from the nearest existing directory to the first `.git`. A DIRECTORY there is a
-        primary checkout, and it is its own common directory. A FILE is a linked worktree: its
-        `gitdir:` line names the worktree's git directory, and that directory's `commondir` file
-        names the shared one. A `.git` that names no real git directory (empty, or pointing at
-        nothing) answers $null rather than walking past it.
+        A stamp younger than $Minutes keeps the notice quiet. A stamp dated in the future does not,
+        or clock skew would silence it forever. A stamp that cannot be read or written answers $true:
+        noise is the safe failure of a silencer.
+    #>
+    param([string] $Key, [string] $Dir, [int] $Minutes = 30)
+    try {
+        $stamp = Join-Path $Dir "$(Get-CcxShortHash $Key).stamp"
+        $prev = Get-Item -LiteralPath $stamp -ErrorAction SilentlyContinue
+        if ($prev) {
+            $mins = ((Get-Date) - $prev.LastWriteTime).TotalMinutes
+            if ($mins -ge 0 -and $mins -lt $Minutes) { return $false }
+        }
+        New-Item -ItemType Directory -Force -Path $Dir -ErrorAction Stop | Out-Null
+        Set-Content -LiteralPath $stamp -Value ((Get-Date).ToString('o')) -Encoding ascii -ErrorAction Stop
+    } catch { }
+    return $true
+}
 
-        The path need not exist, so a file a Write is about to create still resolves.
+function ConvertTo-CcxNormPath {
+    # A full path with no trailing separator, so two spellings of one directory compare equal. A drive
+    # root keeps its separator, because `C:` alone means the current directory on C.
+    param([string] $Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return '' }
+    try { $full = [System.IO.Path]::GetFullPath($Path) } catch { return '' }
+    $trimmed = $full.TrimEnd('\', '/')
+    if (-not $trimmed -or $trimmed -match '^[A-Za-z]:$') { return $full }
+    return $trimmed
+}
+
+function Test-CcxSamePath {
+    param([string] $A, [string] $B)
+    $na = ConvertTo-CcxNormPath $A
+    $nb = ConvertTo-CcxNormPath $B
+    if (-not $na -or -not $nb) { return $false }
+    $mode = if ($IsWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    return [string]::Equals($na, $nb, $mode)
+}
+
+function Get-CcxWorktreeRoot {
+    <#
+      .SYNOPSIS
+        The first directory at or above $Path that holds `.git`, or $null. Calls no git.
+
+      .DESCRIPTION
+        `.git` is a FILE in a linked worktree and a DIRECTORY in a primary checkout. $Path need not
+        exist, so a file about to be created still finds the worktree it will land in.
     #>
     param([string] $Path)
-    if (-not $Path) { return $null }
-    try { $at = [System.IO.Path]::GetFullPath($Path) } catch { return $null }
-    while (-not (Test-Path -LiteralPath $at -PathType Container)) {
-        $parent = Split-Path -Parent $at
-        if (-not $parent -or $parent -eq $at) { return $null }
-        $at = $parent
-    }
+    $at = ConvertTo-CcxNormPath $Path
     while ($at) {
-        $dotgit = Join-Path $at '.git'
-        if (Test-Path -LiteralPath $dotgit -PathType Container) {
-            if (-not (Test-Path -LiteralPath (Join-Path $dotgit 'HEAD') -PathType Leaf)) { return $null }
-            return [pscustomobject]@{ Root = $at; CommonDir = (ConvertTo-CcxHookPathKey $dotgit) }
-        }
-        if (Test-Path -LiteralPath $dotgit -PathType Leaf) {
-            try {
-                $line = [string]@(Get-Content -LiteralPath $dotgit -TotalCount 1 -ErrorAction Stop)[0]
-                if ($line -notmatch '^gitdir:\s*(.+?)\s*$') { return $null }
-                $gd = $Matches[1]
-                if (-not [System.IO.Path]::IsPathRooted($gd)) { $gd = Join-Path $at $gd }
-                $gd = [System.IO.Path]::GetFullPath($gd)
-                if (-not (Test-Path -LiteralPath (Join-Path $gd 'HEAD') -PathType Leaf)) { return $null }
-                $common = $gd
-                $cf = Join-Path $gd 'commondir'
-                if (Test-Path -LiteralPath $cf -PathType Leaf) {
-                    $c = ([string](Get-Content -LiteralPath $cf -Raw -ErrorAction Stop)).Trim()
-                    if ($c) {
-                        if (-not [System.IO.Path]::IsPathRooted($c)) { $c = Join-Path $gd $c }
-                        $common = [System.IO.Path]::GetFullPath($c)
-                    }
-                }
-                if (-not (Test-Path -LiteralPath $common -PathType Container)) { return $null }
-                return [pscustomobject]@{ Root = $at; CommonDir = (ConvertTo-CcxHookPathKey $common) }
-            }
-            catch { return $null }
-        }
+        if (Test-Path -LiteralPath (Join-Path $at '.git')) { return $at }
         $parent = Split-Path -Parent $at
         if (-not $parent -or $parent -eq $at) { break }
         $at = $parent
@@ -176,138 +203,260 @@ function Get-CcxGitLocation {
     return $null
 }
 
+function Get-CcxGitCommonDir {
+    <#
+      .SYNOPSIS
+        The git common dir of the worktree rooted at $Root, or $null. Calls no git.
+
+      .DESCRIPTION
+        Read the way git reads it. `.git` is the git dir, or a file whose `gitdir:` line names it. The
+        git dir's `commondir` file, when present, names the common dir relative to the git dir. A git
+        dir with no HEAD is not one, so an empty `.git` file or a stray `.git` directory gives $null.
+    #>
+    param([string] $Root)
+    try {
+        if (-not $Root) { return $null }
+        $dotGit = Join-Path $Root '.git'
+        if (Test-Path -LiteralPath $dotGit -PathType Container) { $gitDir = $dotGit }
+        elseif (Test-Path -LiteralPath $dotGit -PathType Leaf) {
+            $line = [string](Get-Content -LiteralPath $dotGit -TotalCount 1 -ErrorAction Stop)
+            if ($line -notmatch '^gitdir:\s*(.+?)\s*$') { return $null }
+            $gitDir = $Matches[1]
+            if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $Root $gitDir }
+        }
+        else { return $null }
+        if (-not (Test-Path -LiteralPath (Join-Path $gitDir 'HEAD') -PathType Leaf)) { return $null }
+        $common = $gitDir
+        $pointer = Join-Path $gitDir 'commondir'
+        if (Test-Path -LiteralPath $pointer -PathType Leaf) {
+            $c = ([string](Get-Content -LiteralPath $pointer -TotalCount 1 -ErrorAction Stop)).Trim()
+            if ($c) {
+                if (-not [System.IO.Path]::IsPathRooted($c)) { $c = Join-Path $gitDir $c }
+                $common = $c
+            }
+        }
+        $norm = ConvertTo-CcxNormPath $common
+        if (-not $norm -or -not (Test-Path -LiteralPath $norm -PathType Container)) { return $null }
+        return $norm
+    }
+    catch { return $null }
+}
+
+function Read-CcxSessionPin {
+    # The first line of a pin, or $null. Opened sharing delete, so a writer's rename over it never
+    # waits on this reader.
+    param([string] $Path)
+    try {
+        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+        $fs = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+        try { return ([string][System.IO.StreamReader]::new($fs, [System.Text.UTF8Encoding]::new($false)).ReadLine()).Trim() }
+        finally { $fs.Dispose() }
+    }
+    catch { return $null }
+}
+
+function Write-CcxSessionPin {
+    <#
+      .SYNOPSIS
+        Replace the pin at $Path with $Root in one rename. Returns $true when the pin names $Root.
+
+      .DESCRIPTION
+        The header says why. A move that keeps failing removes the old pin, and a removal clears a
+        read-only bit, which is the one way a test can make the move fail on demand. The move is
+        tried once more after a removal, so a pin that only blocked the rename is still replaced.
+    #>
+    param([string] $Path, [string] $Root)
+    $dir = Split-Path -Parent $Path
+    $tmp = Join-Path $dir ('{0}.{1}.{2}.tmp' -f (Split-Path -Leaf $Path), $PID, [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $written = $false
+    try {
+        New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
+        [System.IO.File]::WriteAllText($tmp, $Root, [System.Text.UTF8Encoding]::new($false))
+        foreach ($attempt in 1..8) {
+            try { [System.IO.File]::Move($tmp, $Path, $true); $written = $true; break }
+            catch { Start-Sleep -Milliseconds 25 }
+        }
+        if (-not $written) {
+            Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+            try { [System.IO.File]::Move($tmp, $Path, $true); $written = $true } catch { $written = $false }
+        }
+        # Pruned here because a pin is written about once per session. A temp file ten minutes old
+        # belongs to no live writer; a pin thirty days old to no live session.
+        $now = Get-Date
+        Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+            Where-Object { ($_.Name -like '*.tmp' -and $_.LastWriteTime -lt $now.AddMinutes(-10)) -or
+                           ($_.Name -notlike '*.tmp' -and $_.LastWriteTime -lt $now.AddDays(-30)) } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    }
+    catch { $written = $false }
+    finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+    if (-not $written -and (Test-Path -LiteralPath $Path)) {
+        # Never keep the previous run's pin: with none, the session falls to rule 4 of the header.
+        Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    }
+    return $written
+}
+
+function Test-CcxPinOptIn {
+    # Whether a pin may be written in the clone whose start checkout is $StartRoot. See the header.
+    param([string] $StartRoot, [string] $StartCommon)
+    if (Test-Path -LiteralPath (Join-Path $StartRoot 'ccx.config.json') -PathType Leaf) { return $true }
+    if ((Split-Path -Leaf $StartCommon) -eq '.git' -and
+        (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $StartCommon) 'ccx.config.json') -PathType Leaf)) { return $true }
+    $own = Get-CcxGitCommonDir (Get-CcxWorktreeRoot $PSScriptRoot)
+    return [bool]($own -and (Test-CcxSamePath $own $StartCommon))
+}
+
 function Resolve-CcxHookSession {
     <#
       .SYNOPSIS
-        Where this session is: Named, Dir, Root, Source and Reason.
+        Which directory this hook should answer for. Moves nothing.
 
       .DESCRIPTION
-        Dir is the directory to stand in and Root the worktree it sits in. Both are $null when the
-        hook should stay where it started. Source is 'pin', 'cwd' or 'start'. Reason is set when the
-        input named a cwd this function refused, and says why. The file header gives the two rules.
+        Returns these, from ONE parse of the input. The header gives the rules.
 
-        StartDir is the directory the hook would answer for without its input: its working directory,
-        or CLAUDE_PROJECT_DIR for the steering hook. A StartDir in no checkout gives nothing to check
-        the cwd against, so the hook stays put in silence, as it did before it read any cwd. That is
-        the user-scope case: an unrelated project with no repository.
+          Dir        the directory to answer for, or $null to stay where the hook started.
+          Root       the worktree root Dir sits in; $null with Dir, or for a -AllowOutside answer.
+          Source     'cwd', 'pin', or 'start' when Dir is $null.
+          Reason     set when the input NAMED a cwd and this refused it: the fault to say aloud.
+          Note       set when Dir is the pinned worktree and not the `cwd`: why the `cwd` was not used.
+          Pinned     the worktree the pin records after this call, or $null.
+          StartRoot  the start checkout's worktree root, or $null when it is in no checkout.
+          Named, SessionId, Event, Payload  what the input said.
+
+        A hook started outside every checkout has no repository to check a `cwd` against and nowhere
+        to pin. It stays where it started, in silence, unless the `cwd` does not exist (a Reason) or
+        -AllowOutside takes a `cwd` that sits in no checkout.
     #>
-    param([string] $Text, [string] $StartDir = $PWD.Path, [switch] $NoPin)
-    $out = [pscustomobject]@{ Named = $false; Dir = $null; Root = $null; Source = 'start'; Reason = '' }
-    $p = Get-CcxHookPayloadCwd -Text $Text
+    param(
+        [string] $Text,
+        [string] $StartDir = (Get-Location).ProviderPath,
+        # Read the pin, never write it. For a hook that runs before every tool call, promises to write
+        # nowhere but its own store, or is a diagnostic run.
+        [switch] $ReadOnly,
+        # An unpinned session's `cwd` that sits in no checkout is answered for as it is, with no Root,
+        # rather than as a fault. For mail-drain, whose -AnchorRepo case is exactly that.
+        [switch] $AllowOutside
+    )
+    $out = [pscustomobject]@{
+        Named = $false; Dir = $null; Root = $null; Source = 'start'; Reason = ''; Note = ''
+        SessionId = ''; Event = ''; Payload = $null; Pinned = $null; StartRoot = $null
+    }
+    $timedOut = [bool](Get-Variable -Name CcxHookInputTimedOut -Scope Script -ValueOnly -ErrorAction Ignore)
+    if ([string]::IsNullOrWhiteSpace($Text) -and $timedOut) {
+        $out.Named = $true
+        $out.Reason = 'the hook input was still open when the hook stopped waiting for it, so it names no cwd'
+        return $out
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Text)) {
+        try { $out.Payload = $Text | ConvertFrom-Json -ErrorAction Stop } catch { $out.Payload = $null }
+    }
+    # Through PSObject.Properties, because a caller under Set-StrictMode throws on a missing member.
+    $source = ''
+    if ($out.Payload -is [pscustomobject]) {
+        $props = $out.Payload.PSObject.Properties
+        if ($props['session_id']) { $out.SessionId = [string]$props['session_id'].Value }
+        if ($props['hook_event_name']) { $out.Event = [string]$props['hook_event_name'].Value }
+        if ($props['source']) { $source = [string]$props['source'].Value }
+    }
+    $p = Get-CcxHookPayloadCwd -Payload $out.Payload
     $out.Named = $p.Named
-    $start = Get-CcxGitLocation -Path $StartDir
-    if (-not $start) { return $out }
 
-    $sid = ''; $hookEvent = ''; $source = ''
-    try {
-        $payload = $Text | ConvertFrom-Json -ErrorAction Stop
-        if ($payload -is [pscustomobject]) {
-            $sid = [string]$payload.session_id
-            $hookEvent = [string]$payload.hook_event_name
-            $source = [string]$payload.source
+    $startRoot = Get-CcxWorktreeRoot $StartDir
+    $startCommon = Get-CcxGitCommonDir $startRoot
+    if (-not $startCommon) {
+        # No repository to check against and nowhere to pin. A `cwd` in some checkout is not this
+        # session's own (it launched in none), so the hook stays put, in silence, as it did before
+        # it read any `cwd`. A missing `cwd` is still a fault, and -AllowOutside still takes one
+        # that sits in no checkout.
+        if ($p.Reason) { $out.Reason = $p.Reason }
+        elseif ($p.Cwd -and $AllowOutside -and -not (Get-CcxWorktreeRoot $p.Cwd)) { $out.Dir = $p.Cwd; $out.Source = 'cwd' }
+        return $out
+    }
+    $out.StartRoot = $startRoot
+
+    $launch = ($out.Event -eq 'SessionStart') -and ($source -notin @('clear', 'compact'))
+    $pinFile = ''
+    if ($out.SessionId) { $pinFile = Join-Path $startCommon "ccx-session-root/$(Get-CcxShortHash $out.SessionId -Bytes 8)" }
+
+    # The pin, read only where it decides: a launch replaces it below. A pin naming no worktree root
+    # of this repository (removed since, or forged to point elsewhere) is not this session's answer.
+    $pinned = $null
+    if ($pinFile -and -not $launch) {
+        $saved = Read-CcxSessionPin $pinFile
+        if ($saved -and (Test-CcxSamePath (Get-CcxWorktreeRoot $saved) $saved)) {
+            $savedCommon = Get-CcxGitCommonDir $saved
+            if ($savedCommon -and (Test-CcxSamePath $savedCommon $startCommon)) { $pinned = ConvertTo-CcxNormPath $saved }
         }
     }
-    catch { }
-    $pinFile = $null
-    if ($sid) {
-        $key = $sid -replace '[^A-Za-z0-9._-]', ''
-        if ($key.Length -gt 72) { $key = $key.Substring(0, 72) }
-        if ($key -ne $sid -or -not $key) {
-            # Two session ids must never share a pin.
-            $sha = [System.Security.Cryptography.SHA256]::Create()
-            $key += '-' + (-join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($sid))[0..3] | ForEach-Object { $_.ToString('x2') }))
-            $sha.Dispose()
+
+    # The candidate: the `cwd`, if it sits in a real worktree of this repository (rule 1).
+    $why = $p.Reason
+    $root = $null
+    $outside = $false
+    if ($p.Cwd) {
+        $root = Get-CcxWorktreeRoot $p.Cwd
+        if (-not $root) {
+            $outside = $true
+            $why = "the hook input names cwd $($p.Cwd), which is inside no checkout"
         }
-        $pinFile = Join-Path (Join-Path $start.CommonDir 'ccx-session-root') "$key.txt"
+        else {
+            $common = Get-CcxGitCommonDir $root
+            if (-not $common) { $why = "the hook input names cwd $($p.Cwd), whose .git names no git directory" }
+            elseif (-not (Test-CcxSamePath $common $startCommon)) { $why = "the hook input names cwd $($p.Cwd), which is in another repository" }
+        }
+        if ($why) { $root = $null }
     }
 
-    $repin = ($hookEvent -eq 'SessionStart' -and $source -notin @('compact', 'clear'))
-    # Opted in: ccx.config.json at the primary checkout (the common dir's parent) or this checkout.
-    $optedIn = (Test-Path -LiteralPath (Join-Path (Split-Path $start.CommonDir -Parent) 'ccx.config.json') -PathType Leaf) -or
-        (Test-Path -LiteralPath (Join-Path $start.Root 'ccx.config.json') -PathType Leaf)
-    $mayWrite = $pinFile -and $optedIn -and -not $NoPin
-    if ($pinFile -and -not $repin -and (Test-Path -LiteralPath $pinFile -PathType Leaf)) {
-        try {
-            $pinned = ([string](Get-Content -LiteralPath $pinFile -Raw -ErrorAction Stop)).Trim()
-            $loc = Get-CcxGitLocation -Path $pinned
-            if ($loc -and $loc.CommonDir -eq $start.CommonDir -and (ConvertTo-CcxHookPathKey $loc.Root) -eq (ConvertTo-CcxHookPathKey $pinned)) {
-                $out.Dir = $loc.Root; $out.Root = $loc.Root; $out.Source = 'pin'
-                return $out
-            }
-        }
-        catch { }   # an unreadable or stale pin is not this session's answer; the cwd decides below
+    # Rule 2. A launch whose `cwd` was refused, or not named, leaves no pin: the previous run's would
+    # otherwise answer, in silence, for every later event.
+    if ($launch -and $pinFile -and -not $ReadOnly -and (Test-CcxPinOptIn $startRoot $startCommon)) {
+        if ($root) { if (Write-CcxSessionPin -Path $pinFile -Root $root) { $pinned = $root } }
+        else { Remove-Item -LiteralPath $pinFile -Force -ErrorAction SilentlyContinue }
     }
-
-    # A launch whose cwd is refused leaves no pin behind. An older run's pin would otherwise answer, in
-    # silence, for every later event of this session.
-    # Removed only when the launch cwd is refused, so a hook reading in parallel never meets a gap
-    # between a removal and a rewrite.
-    $loc = $null
-    if ($p.Cwd) { $loc = Get-CcxGitLocation -Path $p.Cwd }
-    $accepted = $loc -and $loc.CommonDir -eq $start.CommonDir
-    if ($repin -and $mayWrite -and -not $accepted) { Remove-Item -LiteralPath $pinFile -Force -ErrorAction SilentlyContinue }
+    $out.Pinned = $pinned
 
     if (-not $p.Named) { return $out }
-    if (-not $p.Cwd) { $out.Reason = $p.Reason; return $out }
-    if (-not $loc) {
-        $out.Reason = "the hook input names cwd $($p.Cwd), which is inside no checkout"
+    $own = if ($pinned) { $pinned } else { $startRoot }
+    if ($root -and ($launch -or (Test-CcxSamePath $root $own))) {
+        $out.Dir = $p.Cwd; $out.Root = $root; $out.Source = 'cwd'
         return $out
     }
-    if (-not $accepted) {
-        $out.Reason = "the hook input names cwd $($p.Cwd), which is in a different repository from $StartDir"
+    if ($pinned) {
+        $out.Dir = $pinned; $out.Root = $pinned; $out.Source = 'pin'
+        $out.Note = if ($why) { "$why; this hook answers for $pinned, the worktree the session started in" }
+                    else { "the hook input names cwd $($p.Cwd), outside the worktree the session started in; this hook answers for $pinned" }
         return $out
     }
-    $out.Dir = $p.Cwd; $out.Root = $loc.Root; $out.Source = 'cwd'
-    if ($mayWrite) {
-        try {
-            $pinDir = Split-Path $pinFile
-            New-Item -ItemType Directory -Force -Path $pinDir -ErrorAction Stop | Out-Null
-            # Written whole and then renamed, so a reader never sees a half-written pin.
-            $tmp = "$pinFile.$PID.tmp"
-            Set-Content -LiteralPath $tmp -Value $loc.Root -Encoding UTF8 -ErrorAction Stop
-            Move-Item -LiteralPath $tmp -Destination $pinFile -Force -ErrorAction Stop
-            # A pin is written about once per session, so pruning here is rare. Thirty days is far
-            # past any session's life.
-            Get-ChildItem -LiteralPath $pinDir -Filter '*.txt' -File -ErrorAction SilentlyContinue |
-                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
-                Remove-Item -Force -ErrorAction SilentlyContinue
-        }
-        catch { }   # no pin means a later `cd` is followed, not that this answer is wrong
+    if ($outside -and $AllowOutside) {
+        $out.Dir = $p.Cwd; $out.Source = 'cwd'
+        return $out
     }
+    $out.Reason = if ($why) { $why }
+                  else { "no pin records that this session started in $root, so the hook stays in $startRoot rather than follow the hook input's cwd $($p.Cwd)" }
     return $out
 }
 
-function Get-CcxHookWorktree {
+function Enter-CcxHookSession {
     <#
       .SYNOPSIS
-        The worktree root the session is in: Named, Root and Reason. Root is $null to stay put.
-    #>
-    param([string] $Text, [string] $StartDir = $PWD.Path)
-    $r = Resolve-CcxHookSession -Text $Text -StartDir $StartDir
-    return [pscustomobject]@{ Named = $r.Named; Root = $r.Root; Reason = $r.Reason }
-}
-
-function Enter-CcxHookCwd {
-    <#
-      .SYNOPSIS
-        Move into the session's directory. Returns '' or the reason it could not.
+        Resolve-CcxHookSession, then move into its Dir. Returns the resolution.
 
       .DESCRIPTION
-        Moves into the `cwd` itself when the input's `cwd` decided, not a root walked up from it, so
-        git resolves the worktree exactly as it would in the session. Into the pinned root when the
-        pin decided. A hook that keys anything on `$PWD` then keys it on the session.
-
         PowerShell starts native children in the current location, so a git call or a child pwsh
-        launched after this answers for the session too.
-
-        '' means the hook is where it should be, or the input named no cwd and the hook stays put.
-
-        -NoPin reads a pin but never writes one, for a diagnostic run such as announce -SelfTest.
+        launched after this answers for the session too. A Dir it cannot enter becomes the Reason.
     #>
-    param([string] $Text, [string] $StartDir = $PWD.Path, [switch] $NoPin)
-    $r = Resolve-CcxHookSession -Text $Text -StartDir $StartDir -NoPin:$NoPin
-    if (-not $r.Dir) { return $r.Reason }
-    try { Set-Location -LiteralPath $r.Dir -ErrorAction Stop }
-    catch { return "the hook could not enter $($r.Dir) ($($_.Exception.Message))" }
-    return ''
+    param([string] $Text, [string] $StartDir = (Get-Location).ProviderPath, [switch] $ReadOnly)
+    $s = Resolve-CcxHookSession -Text $Text -StartDir $StartDir -ReadOnly:$ReadOnly
+    if ($s.Dir) {
+        try { Set-Location -LiteralPath $s.Dir -ErrorAction Stop }
+        catch {
+            $s.Reason = "the hook could not enter $($s.Dir) ($($_.Exception.Message))"
+            $s.Dir = $null
+            $s.Root = $null
+            $s.Source = 'start'
+            $s.Note = ''
+        }
+    }
+    return $s
 }

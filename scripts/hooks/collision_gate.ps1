@@ -192,10 +192,11 @@ try {
         $abs = Join-Path $base $abs
     }
     $abs = [System.IO.Path]::GetFullPath($abs)
-    $here = Get-CcxGitLocation -Path $PWD.Path
-    $there = Get-CcxGitLocation -Path $abs
-    if ($here -and $there -and $here.CommonDir -eq $there.CommonDir) {
-        Set-Location -LiteralPath $there.Root -ErrorAction Stop
+    $hereCommon = Get-CcxGitCommonDir (Get-CcxWorktreeRoot $PWD.Path)
+    $thereRoot = Get-CcxWorktreeRoot $abs
+    $thereCommon = Get-CcxGitCommonDir $thereRoot
+    if ($hereCommon -and $thereCommon -and (Test-CcxSamePath $hereCommon $thereCommon)) {
+        Set-Location -LiteralPath $thereRoot -ErrorAction Stop
         $target = $abs
     }
 } catch {

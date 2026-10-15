@@ -221,8 +221,7 @@ try {
     #
     # A cwd this hook cannot use, or a missing helper, sets $cwdNote, and step 9a then announces
     # nothing. Announcing the starting directory as this session's identity is the fault itself.
-    # _hookinput.ps1 refuses a cwd in another clone, and pins each session to its first worktree, so a
-    # `cd` into a sibling does not make this session announce as the sibling.
+    # _hookinput.ps1 holds the rules that keep a `cd` from making this session announce as a sibling.
     $haveInput = $false
     $cwdNote = ''
     $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
@@ -239,7 +238,8 @@ try {
     }
     $startedIn = $PWD.Path
     if ($raw -and $haveInput) {
-        try { $cwdNote = Enter-CcxHookCwd -Text $raw -NoPin:$SelfTest } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
+        # -SelfTest is a diagnostic, so it reads the session pin and never writes one.
+        try { $cwdNote = (Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest).Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
     }
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------

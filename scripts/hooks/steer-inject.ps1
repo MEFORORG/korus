@@ -27,11 +27,12 @@
 #
 # BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
 # text the user typed. The korus#223 review measured it reading and deleting steer.txt in another
-# repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 now
-# refuses a cwd outside CLAUDE_PROJECT_DIR's clone and pins each session to its first worktree.
+# repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 holds
+# the rules that now refuse each of those, with or without a pin.
 #
-# A REFUSAL READS NOTHING. A cwd the helper refuses, or a helper that is missing or throws, leaves the
-# hook unable to tell whose note is under CLAUDE_PROJECT_DIR: the primary's, under the desktop app.
+# A REFUSAL READS NOTHING. A cwd the helper refuses, input still open when the read gave up, or a
+# helper that is missing or throws, leaves the hook unable to tell whose note is under
+# CLAUDE_PROJECT_DIR: the primary's, under the desktop app.
 # Delivering and deleting it would hand one session another's note, so the hook reads none and says
 # why on stderr. That is not the chat, because this hook runs before every tool call.
 
@@ -44,7 +45,8 @@ try {
         if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
         . $helper
         $startDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $PWD.Path }
-        $wt = Get-CcxHookWorktree -Text (Read-CcxHookInput) -StartDir $startDir
+        # Read-only: this runs before every tool call; the SessionStart hooks write the pin.
+        $wt = Resolve-CcxHookSession -Text (Read-CcxHookInput) -StartDir $startDir -ReadOnly
         if ($wt.Root) { $root = $wt.Root }
         elseif ($wt.Reason) { throw $wt.Reason }
     } catch {
