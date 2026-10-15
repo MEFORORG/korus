@@ -253,6 +253,16 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         self.start("gate", self.worktree, "startup")
         self.assertEqual(1, len(self.pins()))
 
+    def test_a_launch_in_a_clone_no_longer_opted_in_removes_the_old_pin(self):
+        """The opt-in gate guarded the removal too, so a resume after the opt-in went away kept the
+        previous run's pin. Removing writes no new file, so it needs no opt-in."""
+        self.start("optout", self.sibling, "startup")
+        (self.primary / "ccx.config.json").unlink()
+        self.start("optout", self.worktree, "resume")
+        self.assertEqual([], self.pins())
+        out = self.banner({"cwd": str(self.sibling), "session_id": "optout"})
+        self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+
     def test_a_pin_write_prunes_stale_temp_files(self):
         """A crashed writer's temp file was never removed. One an hour old goes; a fresh one stays."""
         d = self.primary / ".git" / "ccx-session-root"
