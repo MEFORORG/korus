@@ -33,9 +33,8 @@
     worktree session's CLI with `--project-config-root <primary checkout>`, and this hook then runs
     with its working directory and git's top-level answer both naming the PRIMARY. Only the `cwd` in
     the JSON on stdin names the worktree, so this banner named the primary for worktree sessions.
-    The hook now moves into that `cwd` before its first git call. With no `cwd` in the input it
-    stays where it started. A `cwd` in another clone is refused, and a session stays pinned to its
-    first worktree after a `cd`. scripts/hooks/_hookinput.ps1 says what the `cwd` means and why.
+    The hook now moves into that `cwd` before its first git call. Which worktree it answers for,
+    with a `cwd`, without one, or after a `cd`, follows the rules in scripts/hooks/_hookinput.ps1.
 
     See docs/WORKTREES.md and docs/COORDINATION.md.
 #>

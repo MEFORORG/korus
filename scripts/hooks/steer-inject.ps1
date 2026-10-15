@@ -53,7 +53,8 @@ try {
         [Console]::Error.WriteLine("[steer-inject] $($_.Exception.Message), so no steering note was read.")
         exit 0
     }
-    # The input named no cwd at all: an older harness, or a hand run. The old behaviour stands.
+    # The input named no cwd and no pin answered: an older harness, or a hand run. The old
+    # behaviour stands.
     if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
     if (-not $root) { exit 0 }
 

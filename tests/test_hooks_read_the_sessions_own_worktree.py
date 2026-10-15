@@ -265,6 +265,13 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         out = self.banner({"cwd": str(self.sibling), "session_id": "optout"})
         self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
 
+    def test_a_pinned_session_with_no_cwd_names_its_pin_and_says_so(self):
+        """Rule 3 covers input with no cwd. Staying put there named the primary."""
+        self.start("nocwd", self.worktree, "startup")
+        out = self.banner({"session_id": "nocwd"})
+        self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
+        self.assertIn("the hook input names no cwd", out)
+
     def test_a_pin_write_prunes_stale_temp_files(self):
         """A crashed writer's temp file was never removed. One an hour old goes; a fresh one stays."""
         d = self.primary / ".git" / "ccx-session-root"
