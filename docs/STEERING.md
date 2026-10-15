@@ -160,8 +160,12 @@ scripts need no port, daemon, process identity, shared code, or interprocess com
 `Resolve-ProjectDir` in `bin/ccx-steer.ps1` resolves the target in this order:
 
 1. `-ProjectDir`, if given,
-2. `$env:CLAUDE_PROJECT_DIR`, if set,
-3. the enclosing worktree root, from `git rev-parse --show-toplevel`.
+2. the enclosing worktree root, from `git rev-parse --show-toplevel`,
+3. `$env:CLAUDE_PROJECT_DIR`, if set.
+
+**Steps 2 and 3 were the other way round until 2026-10-13.** Run from a desktop worktree session's
+own shell, `CLAUDE_PROJECT_DIR` names the primary, so the note went where that session's hook no
+longer looks.
 
 The command throws if none resolves to a directory. It also throws if that directory lacks
 `.claude`; it never falls back to the current directory.
@@ -169,8 +173,16 @@ The command throws if none resolves to a directory. It also throws if that direc
 An earlier version used the working directory and created `.claude` when absent. It could
 report "queued" from the wrong directory even though no hook read that note.
 
-The hook reads only `<project root>/.claude/steer.txt`. If `CLAUDE_PROJECT_DIR` is unset, it exits 0 immediately without
-searching.
+The hook reads only `<worktree>/.claude/steer.txt`, for the session's own worktree. With no `cwd` in
+its JSON input it falls back to `CLAUDE_PROJECT_DIR`, and with neither it exits 0 without searching.
+
+Which `cwd` it accepts is set by the rules at the top of `scripts/hooks/_hookinput.ps1`, because it
+deletes the note it delivers. A refused `cwd`, or a missing helper, reads no note at all, and the
+refusal goes to stderr.
+
+**That paragraph read "The hook reads only `<project root>/.claude/steer.txt`" until 2026-10-13.**
+The project root was `CLAUDE_PROJECT_DIR`, which the desktop app sets to the PRIMARY checkout for a
+worktree session. Measured 2026-10-12. So a note queued from the worktree was never read there.
 
 ## Encoding
 
@@ -201,7 +213,7 @@ Check the note file outside the hook:
 
 Run the hook to inspect its actual output.
 
-The hook reads its environment and note file, with no stdin. Drive it directly:
+Run from a terminal with no input, the hook falls back to `CLAUDE_PROJECT_DIR`. Drive it directly:
 
 ```powershell
 pwsh -NoProfile -File bin/ccx-steer.ps1 "throwaway probe, ignore"
@@ -216,9 +228,9 @@ Expect one compact JSON line containing your text, followed by the removal of `.
 
 Use these precautions:
 
-- **Unset `CLAUDE_PROJECT_DIR` afterwards.** It outranks the worktree root in `ccx-steer.ps1`'s own
-  resolution order. Left set, it silently aims every later `ccx-steer` run at the directory you
-  probed from -- including notes you meant for another worktree.
+- **Unset `CLAUDE_PROJECT_DIR` afterwards.** Outside a worktree, `ccx-steer.ps1` falls back to it.
+  Left set, it silently aims every later run from outside a checkout at the directory you probed
+  from -- including notes you meant for another worktree.
 - This consumes the note. Probe with a throwaway message, never with one you actually queued for a
   session.
 - Run the copy your settings name, not the repo copy, if the two differ. A control is enforced by

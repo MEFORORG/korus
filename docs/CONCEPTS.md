@@ -215,8 +215,11 @@ All cross-session coordination state uses this location:
     locks/              one file per held short-lived mutex
     announce/           per-session announce bookkeeping, and the OFF kill switch
     gate-unresolved/    receipts from a collision check that could not resolve
-    overlap-cache.json  the overlap detector's cache
+    overlap-cache/      the overlap detector's cache, one file per worktree root
 ```
+
+Session pins sit beside it, in `<git-common-dir>/ccx-session-root/`. `scripts/hooks/_hookinput.ps1`
+says why.
 
 `Get-CcxStateRoot` and Python `state_root()` in
 [`_ccxconfig.py`](https://claude-multisession.pages.dev/scripts/hooks/_ccxconfig.py) must return

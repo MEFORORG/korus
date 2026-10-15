@@ -187,8 +187,23 @@ function Invoke-ExclusiveClaim {
 try {
     # stdin is read but never trusted for identity beyond the session id.
     $sessionId = 'unknown-session'
+    $cwdNote = ''
     try {
-        $raw = [Console]::In.ReadToEnd()
+        # THE BOX IS THE SESSION'S OWN CWD, so the drain moves into the cwd the payload names before
+        # it keys anything on `$PWD`. Measured 2026-10-12: under the desktop app this process starts
+        # in the PRIMARY checkout, so a worktree session drained the primary's box and never its own.
+        # _hookinput.ps1 holds the rules that keep a `cd` into a sibling from showing (and marking
+        # shown) the sibling's mail.
+        $raw = ''
+        $haveInput = $false
+        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $haveInput = $true }
+        catch { $cwdNote = "the drain could not load its input reader ($($_.Exception.Message))" }
+        if ($haveInput) {
+            $raw = Read-CcxHookInput
+            try { $cwdNote = (Enter-CcxHookSession -Text $raw).Reason }
+            catch { $cwdNote = "the drain could not read its input's cwd ($($_.Exception.Message))" }
+        }
+        # No helper means NO BOX below, so stdin is not read: an unbounded read here could only hang.
         if ($raw) {
             $payload = $raw | ConvertFrom-Json
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {
@@ -201,6 +216,17 @@ try {
     }
     catch { }
     if (-not $Event) { $Event = 'SessionStart' }
+
+    if ($cwdNote) {
+        # NO FALLBACK BOX. The drain still stands where it started, the primary under the desktop app.
+        # Showing that box would write shown-markers for this session, and its Stop would then file
+        # the primary session's mail as seen. Reading nothing is safe; reading the wrong box loses mail.
+        Write-Drain (
+            "[session-mail] NO BOX. $cwdNote, so this drain cannot tell which box is this session's " +
+            "and NOTHING WAS READ. This is not an empty box. As of $(Get-CcxMailStamp)."
+        )
+        exit 0
+    }
 
     $mailRoot = Get-CcxMailRoot -Anchor $Anchor -NoCreate
     if (-not $mailRoot) {

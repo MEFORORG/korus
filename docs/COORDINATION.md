@@ -72,8 +72,11 @@ Follow [Quickstart](QUICKSTART.md) to install; [Install](INSTALL.md) explains fl
   locks/            short-lived operation mutexes
   announce/         announce markers, receipts, the OFF switch
   gate-unresolved/  collision-gate "could not check" throttle stamps
-  overlap-cache.json
+  overlap-cache/    one overlap cache per worktree root
 ```
+
+Session pins sit beside it, in `<git-common-dir>/ccx-session-root/`. `scripts/hooks/_hookinput.ps1`
+says why.
 
 That location provides three properties:
 

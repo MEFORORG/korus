@@ -29,11 +29,35 @@
     every sub-probe is individually try/caught. A probe that cannot answer prints nothing; it never
     prints a guess.
 
+    WHICH WORKTREE: THE ONE THE HOOK INPUT NAMES. Measured 2026-10-12: the desktop app starts a
+    worktree session's CLI with `--project-config-root <primary checkout>`, and this hook then runs
+    with its working directory and git's top-level answer both naming the PRIMARY. Only the `cwd` in
+    the JSON on stdin names the worktree, so this banner named the primary for worktree sessions.
+    The hook now moves into that `cwd` before its first git call. Which worktree it answers for,
+    with a `cwd`, without one, or after a `cd`, follows the rules in scripts/hooks/_hookinput.ps1.
+
     See docs/WORKTREES.md and docs/COORDINATION.md.
 #>
 $ErrorActionPreference = "SilentlyContinue"
 
 $lines = @()
+
+# --- (0) move into the session's own directory, before any git call -----------------------------
+# A cwd the input names but this hook cannot use goes in the banner. A banner that names the wrong
+# worktree in silence is the fault this read exists to fix.
+$hookInput = Join-Path $PSScriptRoot "../hooks/_hookinput.ps1"
+$cwdNote = ''
+try {
+    if (-not (Test-Path -LiteralPath $hookInput -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+    . $hookInput
+    $session = Enter-CcxHookSession -Text (Read-CcxHookInput)
+    $cwdNote = $session.Reason
+    # The pin answered instead of the cwd: say so, so the fallback is not silent.
+    if ($session.Note) { $lines += "[session-context] $($session.Note)." }
+} catch { $cwdNote = "the hook could not read its input ($($_.Exception.Message))" }
+if ($cwdNote) {
+    $lines += "[session-context] $cwdNote, so this banner describes $($PWD.Path) instead."
+}
 
 # --- (1) the project's own banner ----------------------------------------------------------------
 $bannerPath = $null
@@ -71,10 +95,12 @@ if ($root) {
 
     if ($wtPaths.Count -gt 1) {
         $branch = (& git branch --show-current 2>$null)
-        # Primary (trunk) checkout vs a linked worktree: a linked worktree's git-dir is under
-        # .git/worktrees/, the primary's is the .git directory itself.
-        $gitDir = (& git rev-parse --git-dir 2>$null)
-        $isPrimary = ($gitDir -notmatch 'worktrees')
+        # Primary (trunk) checkout vs a linked worktree: the primary's git dir IS the common dir, and
+        # a linked worktree's sits under it. Compared as paths, not matched for 'worktrees': from a
+        # subdirectory --git-dir is absolute, and a primary at D:/worktrees/app would then match.
+        $gitDir = (& git rev-parse --path-format=absolute --git-dir 2>$null)
+        $commonDir = (& git rev-parse --path-format=absolute --git-common-dir 2>$null)
+        $isPrimary = ($gitDir -and $commonDir -and ($gitDir.Trim().TrimEnd('/') -ieq $commonDir.Trim().TrimEnd('/')))
 
         $lines += ""
         $lines += "[PARALLEL SESSION ($($wtPaths.Count) worktrees active)]"

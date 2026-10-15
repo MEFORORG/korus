@@ -207,10 +207,50 @@ function Write-Receipt {
 # $script:MarkerKey and $script:SelfId are read defensively in Write-Receipt, so $null is fine.
 
 try {
+    # --- 0. THE SESSION'S OWN DIRECTORY, BEFORE ANY GIT CALL ---------------------------------------
+    # Measured 2026-10-12: the desktop app starts a worktree session's CLI with
+    # `--project-config-root <primary checkout>`, so this process starts in the PRIMARY and every
+    # bare git call below answered for it. The payload `cwd` is the only name for the worktree. On
+    # 2026-10-13 this hook told a session in a worktree to announce itself as
+    # "[SESSION-ANNOUNCE] <primary> (main)".
+    #
+    # The payload is read once, here, and parsed in step 5. '-not $SelfTest' is UNCONDITIONAL, not
+    # conditional on redirection: measured on the development host, [Console]::IsInputRedirected is
+    # True from an agent shell with NO pipe at all, so a read guarded only on redirection turns the
+    # diagnostic switch into a hang.
+    #
+    # A cwd this hook cannot use, or a missing helper, sets $cwdNote, and step 9a then announces
+    # nothing. Announcing the starting directory as this session's identity is the fault itself.
+    # _hookinput.ps1 holds the rules that keep a `cd` from making this session announce as a sibling.
+    $haveInput = $false
+    $cwdNote = ''
+    $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
+    try {
+        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+        . $helper
+        $haveInput = $true
+    } catch { $cwdNote = "the hook could not load its input reader ($($_.Exception.Message))" }
+    $raw = $PayloadOverride
+    if (-not $raw -and -not $SelfTest) {
+        # Without the helper the session id still matters, so the old read stands in for it.
+        if ($haveInput) { $raw = Read-CcxHookInput }
+        elseif ([Console]::IsInputRedirected) { try { $raw = [Console]::In.ReadToEnd() } catch { $raw = '' } }
+    }
+    $startedIn = $PWD.Path
+    if ($raw -and $haveInput) {
+        # -SelfTest is a diagnostic, so it reads the session pin and never writes one.
+        try { $cwdNote = (Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest).Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
+    }
+
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
     # MANDATORY inert-outside-a-repo guarantee: this entry is user-global and runs in every unrelated
-    # project on the machine.
+    # project on the machine. A payload `cwd` outside this clone is refused in step 0, so the hook is
+    # still where it started here.
+    #
+    # -CommonDir is the shim's answer, from where the shim started. Once the hook has moved, that
+    # answer is about somewhere else, so it is resolved again from here.
     $cd = $CommonDir
+    if ($PWD.Path -ne $startedIn) { $cd = '' }
     if (-not $cd) {
         $cd = (& git rev-parse --path-format=absolute --git-common-dir 2>$null)
         if ($LASTEXITCODE -ne 0 -or -not $cd) { exit 0 }
@@ -280,11 +320,7 @@ try {
     $script:StateDir = $StateDir
 
     # --- 5. PAYLOAD ----------------------------------------------------------------------------------
-    # '-not $SelfTest' is UNCONDITIONAL, not conditional on redirection: measured on the development
-    # host, [Console]::IsInputRedirected is True from an agent shell with NO pipe at all, so a read
-    # guarded only on redirection turns the diagnostic switch into a hang.
-    $raw = $PayloadOverride
-    if (-not $raw -and -not $SelfTest -and [Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
+    # Read in step 0, before the first git call, which says why it skips stdin under -SelfTest.
     $selfId = ''
     if ($raw) {
         try {
@@ -320,6 +356,11 @@ try {
     if (-not $substrate) {
         Write-Receipt 'ERROR' @{ note = 'scripts/coord/_common.ps1 did not load; standing down' }
         exit 0
+    }
+
+    # -SelfTest says it at once. A real run says it after the kill switch, in step 9a.
+    if ($cwdNote -and $SelfTest) {
+        Write-Output "[announce -SelfTest] $cwdNote; a real run would announce nothing."
     }
 
     if (-not $SelfTest) {
@@ -376,6 +417,31 @@ try {
                     $obj | Add-Member -NotePropertyName disabledAt -NotePropertyValue (Get-Date).ToString('o') -Force
                     $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $marker -Encoding ascii
                 } catch { }
+            }
+            exit 0
+        }
+
+        # --- 9a. NO SESSION DIRECTORY, NO ANNOUNCEMENT --------------------------------------------
+        # Step 0 could not find this session's own directory, so every answer below would describe
+        # where this hook started. Under the desktop app that is the primary, and peers told "a session
+        # works in the primary" would steer around a session that is not there.
+        #
+        # After the kill switch, so OFF silences it too. Said once an hour per session, not on every
+        # prompt: the korus#223 review found the earlier line unthrottled and deaf to the switch.
+        if ($cwdNote) {
+            $noteStamp = Join-Path $StateDir "$markerKey.cwd-note.stamp"
+            $recent = $false
+            if (Test-Path -LiteralPath $noteStamp) {
+                $age = ((Get-Date) - (Get-Item -LiteralPath $noteStamp).LastWriteTime).TotalHours
+                if ($age -ge 0 -and $age -lt 1) { $recent = $true }
+            }
+            if (-not $recent) {
+                try {
+                    if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }
+                    Set-Content -LiteralPath $noteStamp -Value (Get-Date).ToString('o') -Encoding ascii
+                } catch { }
+                Write-Output "[announce] $cwdNote, so this hook cannot tell which checkout this session is in and announced nothing."
+                Write-Receipt 'ERROR' @{ note = $cwdNote }
             }
             exit 0
         }

@@ -18,13 +18,47 @@
 #
 # ASCII-only on purpose (the note is written by another process and must not depend on console
 # encoding); run under pwsh 7 by the hook.
+#
+# WHICH WORKTREE: THE ONE THE HOOK INPUT NAMES. bin/ccx-steer.ps1, run from a terminal in the
+# session's worktree, writes <worktree>\.claude\steer.txt. Measured 2026-10-12: the desktop app starts
+# a worktree session's CLI with `--project-config-root <primary checkout>`, and CLAUDE_PROJECT_DIR then
+# names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
+# on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names no cwd at all.
+#
+# BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
+# text the user typed. The korus#223 review measured it reading and deleting steer.txt in another
+# repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 holds
+# the rules that now refuse each of those, with or without a pin.
+#
+# A REFUSAL READS NOTHING. A cwd the helper refuses, input still open when the read gave up, or a
+# helper that is missing or throws, leaves the hook unable to tell whose note is under
+# CLAUDE_PROJECT_DIR: the primary's, under the desktop app.
+# Delivering and deleting it would hand one session another's note, so the hook reads none and says
+# why on stderr. That is not the chat, because this hook runs before every tool call.
 
 $ErrorActionPreference = 'SilentlyContinue'
 
 try {
-    if (-not $env:CLAUDE_PROJECT_DIR) { exit 0 }
+    $root = ''
+    try {
+        $helper = Join-Path $PSScriptRoot '_hookinput.ps1'
+        if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) { throw "scripts/hooks/_hookinput.ps1 is missing" }
+        . $helper
+        $startDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $PWD.Path }
+        # Read-only: this runs before every tool call; the SessionStart hooks write the pin.
+        $wt = Resolve-CcxHookSession -Text (Read-CcxHookInput) -StartDir $startDir -ReadOnly
+        if ($wt.Root) { $root = $wt.Root }
+        elseif ($wt.Reason) { throw $wt.Reason }
+    } catch {
+        [Console]::Error.WriteLine("[steer-inject] $($_.Exception.Message), so no steering note was read.")
+        exit 0
+    }
+    # The input named no cwd and no pin answered: an older harness, or a hand run. The old
+    # behaviour stands.
+    if (-not $root) { $root = $env:CLAUDE_PROJECT_DIR }
+    if (-not $root) { exit 0 }
 
-    $noteFile = Join-Path $env:CLAUDE_PROJECT_DIR ".claude\steer.txt"
+    $noteFile = Join-Path $root ".claude\steer.txt"
     if (-not (Test-Path -LiteralPath $noteFile)) { exit 0 }
 
     $note = Get-Content -LiteralPath $noteFile -Raw
