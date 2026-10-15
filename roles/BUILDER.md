@@ -1219,6 +1219,52 @@ Expiry: this stands until those tests stop comparing whole sets, or the engine s
 outbound that fails at start. Check the files above and the `RegistryRunner` start path at engine
 `origin/main`.
 
+### 5l. Bring `main` into a PR branch when the gate refuses `git merge`
+
+**A subagent in a sibling worktree may be refused `git merge origin/main`.** The worktree gate
+reads it as moving a linked worktree's HEAD. Do not rebase, force-push, or relocate to get past it.
+Pick the route by whether the merge is clean.
+
+Check first: `git merge-tree --write-tree origin/main <head>`. Exit 0 is clean, exit 1 is a
+conflict.
+
+| Case | Route |
+| --- | --- |
+| Clean | Run `gh pr update-branch <N>`. The server makes the merge commit on the PR branch, and no worktree is involved. Fetch before you commit on that branch again. |
+| Conflicting | `update-branch` cannot resolve a conflict. Build the merge commit in the object store with the steps below. |
+
+The conflicting route, one action per step:
+
+1. Run `git merge-tree --write-tree origin/main <head>`. Exit 1 still prints a tree id on the
+   first line. That tree holds conflict markers in each conflicting file.
+2. For each conflicting path, write `git cat-file -p <tree>:<path>` to a file. Resolve it there,
+   and keep LF line endings.
+3. Store each resolved file with `git hash-object -w --no-filters <file>`. Without
+   `--no-filters`, attribute rules can rewrite the bytes and give a different blob.
+4. Set `GIT_INDEX_FILE` to a temporary path, then run `git read-tree <tree>`.
+5. For each path, run `git update-index --cacheinfo <mode>,<blob>,<path>` with the file's
+   existing mode.
+6. Run `git write-tree` against that temporary index.
+7. Run `git commit-tree <new tree> -p <head> -p origin/main -F <message file>`.
+8. Push the printed id with `git push origin <id>:refs/heads/<branch>`. It is a fast-forward,
+   because the old head is a parent.
+
+No commit hook runs on this route. Before you push, run pre-commit and the CI scripts by hand on
+a checkout of the new commit. Grep the new tree for leftover conflict markers.
+
+LANDER.md has the same plumbing for a commit made with no worktree. This section adds the merge
+and the conflict.
+
+| Wiki evidence | |
+| --- | --- |
+| The clean case | A subagent's merge was refused, and `gh pr update-branch` merged `main` server-side. Event `20261013T182138722Z-cxfvi1`. |
+| The conflicting case | The merge was built with `merge-tree`, `hash-object`, a temporary index and `commit-tree`, then pushed by id. Event `20261013T190716185Z-fhufif`. |
+| Added on review | The `write-tree` step, the mode in step 5, the marker grep and the fast-forward note. No event carries them. |
+
+Expiry: this stands until the gate lets a subagent run `git merge` in a sibling worktree, or
+`update-branch` gains a conflict route. Check by running `git merge origin/main` from such a
+subagent.
+
 ---
 
 ## 6. COMMON owns the handoff format; five things are builder-only
