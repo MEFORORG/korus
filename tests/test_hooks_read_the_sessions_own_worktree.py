@@ -224,6 +224,8 @@ class TheSessionBannerNamesTheSessionsWorktree(_Fixture):
         out = self.start("pin-1", self.sibling, "compact")
         self.assertIn(f"This chat's worktree: {slashed(self.worktree)}", out)
         self.assertNotIn(f"This chat's worktree: {slashed(self.sibling)}", out)
+        # Not in silence: the banner says the pin answered instead of the cwd.
+        self.assertIn("outside the worktree the session started in", out)
 
     def test_with_no_pin_a_sibling_cwd_is_refused(self):
         """The Lander's re-review of korus#223: without a pin the sibling's cwd was believed. Now the
