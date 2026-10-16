@@ -457,6 +457,10 @@ a seat that believes a lane is empty starts doing that lane's work.
 | Any claim about who can be MESSAGED | `list_sessions`, which is the other axis |
 | Either one, alone | Then say which axis you did not vary |
 
+**Run korus's `presence.ps1` by path for `-Fleet`.** The engine copy has no `-Fleet` and refuses
+it. Measured 2026-10-04 and 2026-10-12 (events `20261004T162651546Z-atc98r`,
+`20261012T152837537Z-l477qc`).
+
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
 
