@@ -170,8 +170,8 @@ your playbook. Never copy a literal path out of a document, because a stale path
 | The one claim you do NOT release yourself | **A Builder's claim on work that will merge.** Since 2026-09-18 the **Lander** releases it, in the same act as the ledger update. |
 | What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
 | `-Release` is worktree-scoped | It acts on the worktree your shell stands in. Releasing another worktree's claim needs `-Force`, and the script refuses first and probes the holder. Read the probe line; do not skip to `-Force`. |
-| Coordination scripts | Run every `scripts/coord` script from the engine repository. The vault holds no `fleet.ps1` or `mail.ps1`, and its `claim.ps1` is a stale copy. |
-| The one exception, added 2026-09-24 | `alloc.ps1 -Kind backlog` runs in a vault checkout, because the ledger lives there. The engine's `alloc.ps1` takes only `-Kind adr` and refuses `backlog` at parameter binding. `roles/LANDER.md`, *7. Ledger discipline*, names where each ledger command runs. |
+| Coordination scripts | Run `scripts/coord` scripts from the engine, except those living elsewhere (*The exceptions* names at least some; LANDER.md *7. Ledger discipline* covers ledger commands). The vault lacks `fleet.ps1` and `mail.ps1`; its `claim.ps1` is stale. |
+| The exceptions | At least: `alloc.ps1 -Kind backlog` in a vault checkout, since the engine's copy refuses it (`-Kind adr` stays in the engine); vault-only `usage-log.ps1`; `presence.ps1 -Fleet` by path from a korus checkout. The `alloc.ps1` entry was added 2026-09-24. |
 | Paths | List the directory. Never take a path out of a document. |
 | Relayed lists | Examine each open item before you relay a work list, and escalate when you are unsure. |
 | Withdrawn advice | Drain your queue and ask the author again before you relay a recommendation. |
@@ -456,6 +456,12 @@ a seat that believes a lane is empty starts doing that lane's work.
 | Any claim that a seat is absent | `presence.ps1 -Fleet`, and say so |
 | Any claim about who can be MESSAGED | `list_sessions`, which is the other axis |
 | Either one, alone | Then say which axis you did not vary |
+
+**Run korus's `presence.ps1` by path for `-Fleet`, from a korus checkout current with `origin/main`.** The engine copy has no `-Fleet` and refuses it at parameter binding (wiki key `coord/presence/fleet-flag`):
+
+    pwsh -NoProfile -File <korus checkout>/scripts/coord/presence.ps1 -Fleet
+
+A `-Fleet` roster without a seat does not prove the seat absent. The korus copy picks repositories from session cwds and skips a cwd that is gone or outside git (`presence.ps1` lines 191-193, korus `468b571`, read 2026-10-16). If no cwd is usable, it scans the caller's repository (line 199).
 
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
