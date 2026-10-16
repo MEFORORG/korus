@@ -1304,8 +1304,7 @@ has issued ADR numbers since vault #1600, from its own records. Its `claim.ps1` 
 from 2026-07-24; the engine's is 781 lines.
 
 Read 2026-09-24: `claim.ps1 -List` showed 46 claims in the engine clone and 13 in the vault clone,
-most of the vault's marked STALE. *Coordination scripts* in [COMMON.md](COMMON.md) routes every
-`scripts/coord` script to the engine, with the exceptions that row lists.
+most of the vault's marked STALE. *Coordination scripts* in [COMMON.md](COMMON.md) routes `scripts/coord` scripts to the engine, and the row after it, *The exceptions*, names those that run elsewhere.
 
 **CORRECTED 2026-09-24.** This read *"Run every ledger command in this section in a vault
 checkout."* That sent claims to the wrong registry. A claim taken or released in the vault does
