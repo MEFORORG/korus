@@ -1305,7 +1305,7 @@ from 2026-07-24; the engine's is 781 lines.
 
 Read 2026-09-24: `claim.ps1 -List` showed 46 claims in the engine clone and 13 in the vault clone,
 most of the vault's marked STALE. *Coordination scripts* in [COMMON.md](COMMON.md) routes every
-`scripts/coord` script to the engine, and backlog allocation is the one exception.
+`scripts/coord` script to the engine, with the exceptions that row lists.
 
 **CORRECTED 2026-09-24.** This read *"Run every ledger command in this section in a vault
 checkout."* That sent claims to the wrong registry. A claim taken or released in the vault does
