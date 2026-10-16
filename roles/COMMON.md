@@ -461,7 +461,7 @@ a seat that believes a lane is empty starts doing that lane's work.
 
     pwsh -NoProfile -File <korus checkout>/scripts/coord/presence.ps1 -Fleet
 
-A `-Fleet` roster without a seat does not prove it absent: the korus copy skips any session whose cwd is gone or outside a git repository (`presence.ps1` lines 191-193, korus `ad164b8`, read 2026-10-16). Say so beside the count.
+A `-Fleet` roster without a seat does not prove it absent. The korus copy drops from its scan the repository of any session whose cwd is gone or outside a git repository (`presence.ps1` lines 191-193, korus `ad164b8`, read 2026-10-16). Say so beside the count.
 
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
