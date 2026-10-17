@@ -335,6 +335,29 @@ class Evidence(_LintCase):
         doc = self.lint_json()
         self.assertEqual((1, 0, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
 
+    def test_a_comment_or_run_id_is_unchecked_not_a_dead_commit(self):
+        """Wiki event 20261017T191602866Z-e4idhk: comment and run ids read as dead commits."""
+        self.log(2, key="d/ids", evidence="ids 611792484, 6117924849 and 37118736851, see " + self.sha)
+        self.log(2, key="d/ref", evidence="run 37118736851:job.log")
+        doc = self.lint_json()
+        self.assertEqual([], doc["findings"])
+        self.assertEqual((1, 0, 4), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
+        self.assertEqual(3, sum(n for why, n in doc["evidence"]["unchecked_by_reason"].items() if "run id" in why))
+
+    def test_an_all_digit_name_that_resolves_is_still_resolved(self):
+        """The digits are still looked up: a name git resolves counts as resolved, not unchecked."""
+        w.git(self.repo, "tag", "123456789")
+        self.log(2, key="d/tag", evidence="see 123456789")
+        doc = self.lint_json()
+        self.assertEqual((1, 0, 0), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
+
+    def test_control_a_missing_short_hex_sha_and_eight_non_date_digits_are_still_dead(self):
+        e = self.log(2, key="d/hex", evidence=f"{MISSING_SHA[:9]} and 12345678")
+        doc = self.lint_json()
+        self.assertEqual(sorted([f"dead-evidence:{e['id']}:{MISSING_SHA[:9]}", f"dead-evidence:{e['id']}:12345678"]),
+                         sorted(f["id"] for f in doc["findings"]))
+        self.assertEqual(0, doc["evidence"]["unchecked"])
+
 
 class Online(_LintCase):
     """-Online asks `gh pr view`. A stand-in `gh` first on PATH answers CLOSED for 13, MERGED for
