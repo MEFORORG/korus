@@ -27,8 +27,9 @@
 
     EVIDENCE LINT CANNOT CHECK IS COUNTED AS UNCHECKED, never as passing and never as dead: an Owner
     ruling, a `memory:` source, any citation when no -EvidenceRepo is given, a pull request
-    without -Online, and an all-digit token of more than eight digits (a comment or run id). The
-    report prints the count, so a zero dead count over nothing checked cannot be read as clean.
+    without -Online, and an all-digit token of more than eight digits that resolves as no commit
+    (a comment or run id). The report prints the count, so a zero dead count over nothing checked
+    cannot be read as clean.
 
     PROMOTION IS LISTED, NEVER ACTED ON. Drafting the playbook pull request is the scheduled Claude
     Code job's work. It opens that pull request as a DRAFT titled `wiki promotion: <lesson>` from a
@@ -237,6 +238,10 @@ foreach ($k in $byKey.Keys) {
 
 # ------------------------------------------------------------------------------------ 2. dead evidence
 $shaRx = [regex]'\b(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}\b'
+# More than eight digits and no letter is a GitHub comment or Actions run id far more often than a
+# commit (wiki event 20261017T191602866Z-e4idhk). It is still looked up, so a real all-digit short
+# sha resolves; one that resolves nowhere is unchecked rather than dead.
+$digitIdRx = [regex]'^\d{9,}$'
 $refPathRx = [regex]'(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+):([A-Za-z0-9_-]*[/.][A-Za-z0-9_./-]*[A-Za-z0-9_])'
 # A `#N` after a word such as BACKLOG or ADR names a ledger row, not a pull request, and so does
 # every number in the run that follows it: `BACKLOG #1250, #1754`, `items #1089-#1093`. Looked up
@@ -290,9 +295,7 @@ function Get-LintCitation {
         if ($v -match '^\d{8}$' -and [datetime]::TryParseExact($v, 'yyyyMMdd', [cultureinfo]::InvariantCulture,
                 [System.Globalization.DateTimeStyles]::None, [ref]$d) -and $d.Year -ge 1990 -and $d.Year -le 2100) {
             & $take $m @{ Kind = 'ambiguous'; Text = $v }
-        } elseif ($v -match '^\d{9,}$') {
-            # More than eight digits and no letter is a GitHub comment or Actions run id far more often
-            # than a commit: 109 of 177 dead commit tokens in the 2026-10-17 report, none sampled a commit.
+        } elseif ($digitIdRx.IsMatch($v)) {
             & $take $m @{ Kind = 'digitid'; Text = $v }
         } else {
             & $take $m @{ Kind = 'commit'; Text = $v }
@@ -357,7 +360,7 @@ $found = [System.Collections.Generic.Dictionary[string, bool]]::new([System.Stri
 if ($repos.Count -gt 0) {
     $lines = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     foreach ($c in $cites) {
-        if ($c.Kind -eq 'commit') { [void]$lines.Add("$($c.Text)^{commit}") }
+        if ($c.Kind -in 'commit', 'digitid') { [void]$lines.Add("$($c.Text)^{commit}") }
         elseif ($c.Kind -eq 'refpath') {
             [void]$lines.Add("$($c.Ref)^{commit}")
             if (-not (Test-LeavesRepo $c.Path)) { [void]$lines.Add("$($c.Ref):$($c.Path)") }
@@ -408,7 +411,6 @@ foreach ($c in $cites) {
         'owner' { Add-Unchecked 'Owner ruling'; continue }
         'url' { Add-Unchecked 'URL that names no pull request or commit'; continue }
         'ambiguous' { Add-Unchecked 'eight digits that read as a date as well as a commit'; continue }
-        'digitid' { Add-Unchecked 'more than eight digits, read as a comment or run id rather than a commit'; continue }
         'ledger' { Add-Unchecked 'a ledger or ADR number, not a pull request'; continue }
         'unrecognised' { Add-Unchecked 'no citation lint can parse'; continue }
         'commit' {
@@ -416,18 +418,23 @@ foreach ($c in $cites) {
             if (Test-Found "$($c.Text)^{commit}") { $evResolved++; continue }
             $dead = "commit $($c.Text) resolves in none of $($repos.Count) evidence repo(s)"
         }
+        'digitid' {
+            if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
+            if (Test-Found "$($c.Text)^{commit}") { $evResolved++; continue }
+            Add-Unchecked 'more than eight digits that resolve as no commit, read as a comment or run id'; continue
+        }
         'refpath' {
             if ($repos.Count -eq 0) { Add-Unchecked 'no -EvidenceRepo given'; continue }
             if (Test-LeavesRepo $c.Path) {
                 # The path cannot be asked, but a sha ref can: a missing commit is dead either way.
-                if ($shaRx.Match($c.Ref).Value -ceq $c.Ref -and -not (Test-Found "$($c.Ref)^{commit}")) {
+                if ($shaRx.Match($c.Ref).Value -ceq $c.Ref -and -not $digitIdRx.IsMatch($c.Ref) -and -not (Test-Found "$($c.Ref)^{commit}")) {
                     $dead = "commit $($c.Ref) resolves in none of $($repos.Count) evidence repo(s)"
                 } else { Add-Unchecked 'a path that leaves the repository'; continue }
             }
             elseif (Test-Found "$($c.Ref):$($c.Path)") { $evResolved++; continue }
             elseif (Test-Found "$($c.Ref)^{commit}") {
                 $dead = "path '$($c.Path)' is not at '$($c.Ref)' in any of $($repos.Count) evidence repo(s) where that ref resolves"
-            } elseif ($shaRx.Match($c.Ref).Value -ceq $c.Ref) {
+            } elseif ($shaRx.Match($c.Ref).Value -ceq $c.Ref -and -not $digitIdRx.IsMatch($c.Ref)) {
                 $dead = "commit $($c.Ref) resolves in none of $($repos.Count) evidence repo(s)"
             } else { Add-Unchecked 'a ref that resolves in no evidence repo'; continue }
         }
