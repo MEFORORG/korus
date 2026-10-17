@@ -459,7 +459,7 @@ a seat that believes a lane is empty starts doing that lane's work.
 
 **Run the engine's `presence.ps1 -Fleet` from an engine worktree current with `origin/main`.** The engine copy gained `-Fleet` in MEFORORG/MessageFoundry PR 2355, merged as `45f0346d4`. An older worktree refuses the switch.
 
-    pwsh -NoProfile -File scripts\coord\presence.ps1 -Fleet
+    pwsh -NoProfile -File <engine worktree>\scripts\coord\presence.ps1 -Fleet
 
 Read at engine `origin/main` `064700f2d` on 2026-10-17. Do not use korus's own copy for this: it scans the caller's repository only when no record's cwd is usable.
 
@@ -471,11 +471,13 @@ A `-Fleet` roster without a seat still does not prove the seat absent. The engin
 | Its cwd is gone, with no checkout above it | Its cwd names no repository, and no scan can place it |
 | It runs on another machine | No form of the roster can see it |
 
-The caller's repository is scanned whenever git resolves the caller's cwd. Its fence then still reports two shapes: a gone sibling worktree named `<primary>-<slug>`, and a deregistered checkout still on disk.
+The caller's repository is scanned whenever git resolves the caller's cwd. Each scanned repository's fence still reports at least these shapes: a gone sibling worktree named `<primary>-<slug>`, and a deregistered checkout still on disk.
 
-Either shape makes the fence unavailable. A gone checkout of the caller's repository elsewhere fits neither shape and goes unreported.
+Each shape makes the fence unavailable. A gone checkout of a scanned repository elsewhere fits neither shape and goes unreported.
 
-The engine copy exits 0 even when the roster is incomplete. Read its `Roster UNAVAILABLE` or `Roster INCOMPLETE` line, or the `-Json` stderr receipt, never the exit code. Wiki key `coord/presence/fleet-flag` records this route.
+The engine copy exits 0 even when the roster is incomplete. Read its `Roster UNAVAILABLE` or `Roster INCOMPLETE` line, or `Not inside a git repository`, which also exits 0. Or read the `-Json` stderr receipt, never the exit code.
+
+Wiki key `coord/presence/fleet-flag` still names the korus route until a vault correction lands.
 
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
