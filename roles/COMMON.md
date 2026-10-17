@@ -171,7 +171,7 @@ your playbook. Never copy a literal path out of a document, because a stale path
 | What a Builder still releases | Its own claim on ALREADY-DONE, CONCLUDED-AS-RESEARCH and BLOCKED. None of the three opens a pull request, so nothing downstream ever fires. **This list is stated in three places; where they differ, this one governs.** |
 | `-Release` is worktree-scoped | It acts on the worktree your shell stands in. Releasing another worktree's claim needs `-Force`, and the script refuses first and probes the holder. Read the probe line; do not skip to `-Force`. |
 | Coordination scripts | Run `scripts/coord` scripts from the engine, except those living elsewhere (*The exceptions* names at least some; LANDER.md *7. Ledger discipline* covers ledger commands). The vault lacks `fleet.ps1` and `mail.ps1`; its `claim.ps1` is stale. |
-| The exceptions | At least: `alloc.ps1 -Kind backlog` in a vault checkout, since the engine's copy refuses it (`-Kind adr` stays in the engine); vault-only `usage-log.ps1`; `presence.ps1 -Fleet` by path from a korus checkout. The `alloc.ps1` entry was added 2026-09-24. |
+| The exceptions | At least: `alloc.ps1 -Kind backlog` in a vault checkout, since the engine's copy refuses it (`-Kind adr` stays in the engine); vault-only `usage-log.ps1`. The `alloc.ps1` entry was added 2026-09-24. |
 | Paths | List the directory. Never take a path out of a document. |
 | Relayed lists | Examine each open item before you relay a work list, and escalate when you are unsure. |
 | Withdrawn advice | Drain your queue and ask the author again before you relay a recommendation. |
@@ -432,7 +432,7 @@ the account boundary. This one is the other axis, and it is the one that produce
 | --- | --- | --- |
 | `list_sessions`, `ListAgents` | Your account, every repo | Every other account |
 | `presence.ps1` (default) | This repo, every account | Every other repo |
-| `presence.ps1 -Fleet` | Every repo, every account | Another machine |
+| `presence.ps1 -Fleet` | Your repo and every repo the records name, every account | Another machine, and at least the cwd shapes below |
 
 **Neither of the first two is a superset of the other.** A seat can be missing from one and present
 in the other, and both readings are correct.
@@ -440,7 +440,7 @@ in the other, and both readings are correct.
 **Measured 2026-09-19 on this machine.** From a korus worktree, `presence.ps1` listed 2 live sessions
 and no Lander, while a live Lander worked `MessageFoundry` that minute on `claude/lander-bbc430`.
 
-`presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
+Korus's `presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
 default run placed every record it read, so the 2 was a scope, not a failure.
 
 **So a repo-scoped roster cannot support a fleet-wide negative.** The roster answered the question it
@@ -457,11 +457,27 @@ a seat that believes a lane is empty starts doing that lane's work.
 | Any claim about who can be MESSAGED | `list_sessions`, which is the other axis |
 | Either one, alone | Then say which axis you did not vary |
 
-**Run korus's `presence.ps1` by path for `-Fleet`, from a korus checkout current with `origin/main`.** The engine copy has no `-Fleet` and refuses it at parameter binding (wiki key `coord/presence/fleet-flag`):
+**Run the engine's `presence.ps1 -Fleet` from an engine worktree current with `origin/main`.** The engine copy gained `-Fleet` in MEFORORG/MessageFoundry PR 2355, merged as `45f0346d4`. An older worktree refuses the switch.
 
-    pwsh -NoProfile -File <korus checkout>/scripts/coord/presence.ps1 -Fleet
+    pwsh -NoProfile -File <engine worktree>\scripts\coord\presence.ps1 -Fleet
 
-A `-Fleet` roster without a seat does not prove the seat absent. The korus copy picks repositories from session cwds and skips a cwd that is gone or outside git (`presence.ps1` lines 191-193, korus `468b571`, read 2026-10-16). If no cwd is usable, it scans the caller's repository (line 199).
+Read at engine `origin/main` `064700f2d` on 2026-10-17. Do not use korus's own copy for this: it scans the caller's repository only when no record's cwd is usable.
+
+A `-Fleet` roster without a seat still does not prove the seat absent. The engine copy scans every repository the session records name, plus the caller's own. Its help names three sessions it cannot list, and calls that list a floor.
+
+| Session | Why `-Fleet` misses it |
+| --- | --- |
+| Its cwd is outside git | It names no repository to scan |
+| Its cwd is gone, with no checkout above it | Its cwd names no repository, and no scan can place it |
+| It runs on another machine | No form of the roster can see it |
+
+The caller's repository is scanned whenever git resolves the caller's cwd. Each scanned repository's fence still reports at least these shapes: a gone sibling worktree named `<primary>-<slug>`, and a deregistered checkout still on disk.
+
+Each shape makes the fence unavailable. A gone checkout of a scanned repository elsewhere fits neither shape and goes unreported.
+
+The engine copy exits 0 even when the roster is incomplete. Read its `Roster UNAVAILABLE` or `Roster INCOMPLETE` line, or `Not inside a git repository`, which also exits 0. Or read the `-Json` stderr receipt, never the exit code.
+
+Wiki key `coord/presence/fleet-flag` still names the korus route until a vault correction lands.
 
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
