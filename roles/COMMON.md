@@ -432,7 +432,7 @@ the account boundary. This one is the other axis, and it is the one that produce
 | --- | --- | --- |
 | `list_sessions`, `ListAgents` | Your account, every repo | Every other account |
 | `presence.ps1` (default) | This repo, every account | Every other repo |
-| `presence.ps1 -Fleet` | Every repo the records name, every account | Another machine, and at least the cwd shapes below |
+| `presence.ps1 -Fleet` | Your repo and every repo the records name, every account | Another machine, and at least the cwd shapes below |
 
 **Neither of the first two is a superset of the other.** A seat can be missing from one and present
 in the other, and both readings are correct.
@@ -440,7 +440,7 @@ in the other, and both readings are correct.
 **Measured 2026-09-19 on this machine.** From a korus worktree, `presence.ps1` listed 2 live sessions
 and no Lander, while a live Lander worked `MessageFoundry` that minute on `claude/lander-bbc430`.
 
-`presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
+Korus's `presence.ps1 -Fleet` listed 8 sessions across 2 repositories, that Lander among them. Control: the
 default run placed every record it read, so the 2 was a scope, not a failure.
 
 **So a repo-scoped roster cannot support a fleet-wide negative.** The roster answered the question it
@@ -457,19 +457,25 @@ a seat that believes a lane is empty starts doing that lane's work.
 | Any claim about who can be MESSAGED | `list_sessions`, which is the other axis |
 | Either one, alone | Then say which axis you did not vary |
 
-**Run the engine's `presence.ps1 -Fleet` from an engine worktree.** The engine copy has taken `-Fleet` since MEFORORG/MessageFoundry PR 2355 (engine `origin/main` `064700f2d`, read 2026-10-17). Wiki key `coord/presence/fleet-flag`:
+**Run the engine's `presence.ps1 -Fleet` from an engine worktree current with `origin/main`.** The engine copy gained `-Fleet` in MEFORORG/MessageFoundry PR 2355, merged as `45f0346d4`. An older worktree refuses the switch.
 
     pwsh -NoProfile -File scripts\coord\presence.ps1 -Fleet
 
-A `-Fleet` roster without a seat still does not prove the seat absent. The engine copy scans every repository the session records name, plus the caller's own. Its help names at least three sessions it cannot list.
+Read at engine `origin/main` `064700f2d` on 2026-10-17. Do not use korus's own copy for this: it scans the caller's repository only when no record's cwd is usable.
+
+A `-Fleet` roster without a seat still does not prove the seat absent. The engine copy scans every repository the session records name, plus the caller's own. Its help names three sessions it cannot list, and calls that list a floor.
 
 | Session | Why `-Fleet` misses it |
 | --- | --- |
 | Its cwd is outside git | It names no repository to scan |
-| Its cwd is gone, with no checkout above it | Its repository is scanned only if something else names it |
+| Its cwd is gone, with no checkout above it | Its cwd names no repository, and no scan can place it |
 | It runs on another machine | No form of the roster can see it |
 
-The caller's repository is always scanned, so its fence still reports a gone sibling worktree named `<primary>-<slug>` and a deregistered checkout still on disk. Either makes the fence unavailable. A gone checkout of it elsewhere fits neither shape and goes unreported.
+The caller's repository is scanned whenever git resolves the caller's cwd. Its fence then still reports two shapes: a gone sibling worktree named `<primary>-<slug>`, and a deregistered checkout still on disk.
+
+Either shape makes the fence unavailable. A gone checkout of the caller's repository elsewhere fits neither shape and goes unreported.
+
+The engine copy exits 0 even when the roster is incomplete. Read its `Roster UNAVAILABLE` or `Roster INCOMPLETE` line, or the `-Json` stderr receipt, never the exit code. Wiki key `coord/presence/fleet-flag` records this route.
 
 **Say the scope beside the count.** "No Lander in this repo, at 17:30Z" is checkable. "There is no
 Lander" is a claim about a fleet you did not read.
