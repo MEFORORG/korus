@@ -26,9 +26,9 @@
     repository the evidence can cite: a citation from a repository left off the list reads dead.
 
     EVIDENCE LINT CANNOT CHECK IS COUNTED AS UNCHECKED, never as passing and never as dead: an Owner
-    ruling, a `memory:` source, any citation when no -EvidenceRepo is given, and a pull request
-    without -Online. The report prints the count, so a zero dead count over nothing checked cannot
-    be read as clean.
+    ruling, a `memory:` source, any citation when no -EvidenceRepo is given, a pull request
+    without -Online, and an all-digit token of more than eight digits (a comment or run id). The
+    report prints the count, so a zero dead count over nothing checked cannot be read as clean.
 
     PROMOTION IS LISTED, NEVER ACTED ON. Drafting the playbook pull request is the scheduled Claude
     Code job's work. It opens that pull request as a DRAFT titled `wiki promotion: <lesson>` from a
@@ -290,6 +290,10 @@ function Get-LintCitation {
         if ($v -match '^\d{8}$' -and [datetime]::TryParseExact($v, 'yyyyMMdd', [cultureinfo]::InvariantCulture,
                 [System.Globalization.DateTimeStyles]::None, [ref]$d) -and $d.Year -ge 1990 -and $d.Year -le 2100) {
             & $take $m @{ Kind = 'ambiguous'; Text = $v }
+        } elseif ($v -match '^\d{9,}$') {
+            # More than eight digits and no letter is a GitHub comment or Actions run id far more often
+            # than a commit: 109 of 177 dead commit tokens in the 2026-10-17 report, none sampled a commit.
+            & $take $m @{ Kind = 'digitid'; Text = $v }
         } else {
             & $take $m @{ Kind = 'commit'; Text = $v }
         }
@@ -404,6 +408,7 @@ foreach ($c in $cites) {
         'owner' { Add-Unchecked 'Owner ruling'; continue }
         'url' { Add-Unchecked 'URL that names no pull request or commit'; continue }
         'ambiguous' { Add-Unchecked 'eight digits that read as a date as well as a commit'; continue }
+        'digitid' { Add-Unchecked 'more than eight digits, read as a comment or run id rather than a commit'; continue }
         'ledger' { Add-Unchecked 'a ledger or ADR number, not a pull request'; continue }
         'unrecognised' { Add-Unchecked 'no citation lint can parse'; continue }
         'commit' {

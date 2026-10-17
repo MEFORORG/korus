@@ -335,6 +335,20 @@ class Evidence(_LintCase):
         doc = self.lint_json()
         self.assertEqual((1, 0, 1), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
 
+    def test_a_comment_or_run_id_is_unchecked_not_a_dead_commit(self):
+        """Measured 2026-10-17: 109 of 177 dead commit tokens were all digits, none a commit."""
+        self.log(2, key="d/ids", evidence="comment 6117924849, run 37118736851, see " + self.sha)
+        doc = self.lint_json()
+        self.assertEqual((1, 0, 2), (doc["evidence"]["resolved"], doc["evidence"]["dead"], doc["evidence"]["unchecked"]))
+        self.assertEqual(2, sum(n for why, n in doc["evidence"]["unchecked_by_reason"].items() if "run id" in why))
+
+    def test_control_a_missing_short_hex_sha_and_eight_non_date_digits_are_still_dead(self):
+        e = self.log(2, key="d/hex", evidence=f"{MISSING_SHA[:9]} and 12345678")
+        doc = self.lint_json()
+        self.assertEqual(sorted([f"dead-evidence:{e['id']}:{MISSING_SHA[:9]}", f"dead-evidence:{e['id']}:12345678"]),
+                         sorted(f["id"] for f in doc["findings"]))
+        self.assertEqual(0, doc["evidence"]["unchecked"])
+
 
 class Online(_LintCase):
     """-Online asks `gh pr view`. A stand-in `gh` first on PATH answers CLOSED for 13, MERGED for
