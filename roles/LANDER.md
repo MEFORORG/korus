@@ -1389,23 +1389,31 @@ routing consequence of both, and it is invisible until a worker hits it.
 | Why the lander can always write it | The banner edit is exempt from ownership whenever the heading is already on `origin/main`, which is exactly the closing case. |
 | When no worktree can be checked out | Build the commit with plumbing: `read-tree` into a temp index, `update-index`, `commit-tree`, push the resulting sha. It touches no working tree at all, so it cannot cause the collision the gate exists to prevent. |
 | The condition that keeps plumbing honest | State that you did so, and run by hand the checks pre-commit would have run. |
-| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. One exception: *a proven-equal merge commit on another seat's branch*. |
+| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. |
+| **WIDENED 2026-10-19, by an owner ruling of 2026-10-10.** The scope limit on that escape has an exception | A merge commit on another seat's branch, built with plumbing after the worktree gate refuses `git merge`, when proven equal. *Owner ruling anf3x2: a proven-equal plumbing merge* states its conditions. |
 | Then hand it over STATED, not executed | Name the conflicting file, name the resolution, and say a seat with a working tree is needed. |
 | **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4c-quinquies*. Hand over only where you genuinely cannot reach the branch. |
 | Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. That is a routing act, not a refusal. |
 
-**ADDED 2026-10-19: a proven-equal merge commit on another seat's branch.** This owner ruling is
-the one exception to *The scope limit on that escape*. The fleet wiki records it in these words:
+**Owner ruling anf3x2: a proven-equal plumbing merge.** Added 2026-10-19. Its record is wiki event
+`20261010T010851106Z-anf3x2`, key `coord/merge/plumbing-after-worktree-gate`, dated 2026-10-10.
 
-> *"Owner ruling 2026-10-10: a merge commit built with git plumbing (merge-tree, commit-tree) after the worktree gate refuses git merge is allowed on another seat's branch only when it is proven equal to a normal merge (same tree as an independent merge, remerge-diff and checks recorded on the PR)"*
+The record gives the owner's answer, in the Lander's chat, as *"go for both as recommended"*, to a
+question raised on vault PR 2314. The record itself is marked `trust: generated`. It is the
+Lander's note of the ruling, not the owner's text.
 
-| Item | Rule |
+The wiki rule keeps an event's text out of korus, so the conditions are listed here, not quoted.
+They follow the record's words and add none. *The content lives in the record repository, never in
+korus*, in [WIKI.md](WIKI.md), is that rule.
+
+| Condition | What the record requires |
 | --- | --- |
-| The ruling | OWNER RULING 2026-10-10, key `coord/merge/plumbing-after-worktree-gate`. |
-| Where the owner gave it | In the Lander's chat, in the words *"go for both as recommended"*, answering a question raised on vault PR 2314. |
-| Where to read it | Wiki event `20261010T010851106Z-anf3x2`, at `wiki/events/2026/10/20261010T010851106Z-anf3x2.json` on vault `main`. |
-| Its reach | Every condition in the quoted text binds. Anything it does not cover stays under *The scope limit on that escape*. |
-| A Builder | It grants a Builder nothing. A Builder that a gate refuses stops, under [BUILDER.md](BUILDER.md) *1b. Acts that no condition makes correct*. |
+| What may be built | A merge commit, built with git plumbing: `merge-tree`, then `commit-tree`. |
+| When | Only after the worktree gate refuses `git merge`. |
+| Where | On another seat's branch. |
+| The proof | Proven equal to a normal merge: the same tree as an independent merge, with the remerge-diff and the checks recorded on the PR. |
+| Anything these rows do not cover | It stays under *The scope limit on that escape*. |
+| Who it reaches | This playbook records it for the Lander and grants no other seat anything. Whether it reaches a Builder is open, and this playbook does not settle it. |
 
 ### 7c. The BACKLOG tail is a serialization point, and so is the ADR index
 
