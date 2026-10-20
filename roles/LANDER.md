@@ -1389,18 +1389,18 @@ routing consequence of both, and it is invisible until a worker hits it.
 | Why the lander can always write it | The banner edit is exempt from ownership whenever the heading is already on `origin/main`, which is exactly the closing case. |
 | When no worktree can be checked out | Build the commit with plumbing: `read-tree` into a temp index, `update-index`, `commit-tree`, push the resulting sha. It touches no working tree at all, so it cannot cause the collision the gate exists to prevent. |
 | The condition that keeps plumbing honest | State that you did so, and run by hand the checks pre-commit would have run. |
-| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. |
+| The scope limit on that escape | **It is sanctioned only while the content is YOURS.** On another seat's branch you cannot run their gates for them, and the same commands there become routing around a control. **WIDENED 2026-10-20, by owner rulings:** see the last row. |
 | Then hand it over STATED, not executed | Name the conflicting file, name the resolution, and say a seat with a working tree is needed. |
 | **NARROWED 2026-09-21.** That row is the last resort, not the first move | A CONTENT conflict is yours: cut a worktree and resolve it. Section *4c-quinquies*. Hand over only where you genuinely cannot reach the branch. |
 | Measured 2026-08-22 | A lander blocked by the worktree gate on two peer branches left a two-minute keep-both-sides resolution written out for whoever could reach the branch. That is a routing act, not a refusal. |
-| **WIDENED 2026-10-20, by owner rulings of 2026-10-10 and 2026-10-20.** One exception, executed rather than stated | A proven-equal plumbing merge commit on another seat's branch. *Owner ruling anf3x2*, below, holds its scope and its proof. Every other case is still handed over stated. |
+| The exception to the scope limit above, by *Owner ruling anf3x2* | A plumbing merge commit on another seat's branch. The block below holds its scope and its proof. Any other plumbing on another seat's branch is still handed over stated. |
 
 **Owner ruling anf3x2.** Owner ruling 2026-10-10 (anf3x2), confirmed and its proof set by owner
 ruling 2026-10-20. The record is wiki event `20261010T010851106Z-anf3x2`, key
 `coord/merge/plumbing-after-worktree-gate`, on vault `main`.
 
-After the worktree gate refuses `git merge`, a merge commit built with `merge-tree` then
-`commit-tree` is allowed on another seat's branch only when proven equal to a normal merge.
+Where the worktree gate refuses `git merge` on another seat's branch, the merge commit may be built
+with `merge-tree` then `commit-tree` instead. It stands only if proven equal to a normal merge.
 
 The proof has three parts, and each is required:
 
