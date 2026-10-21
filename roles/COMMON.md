@@ -768,6 +768,32 @@ uv_spawn`. A plain `echo` from the same session spawned fine between them.
 An alert names the command line it blocked. Read it before you call it a false positive. A
 hardening probe or a note about one is. Anything else goes to the Owner.
 
+## A command bound to one machine carries a circuit breaker
+
+**A command or script that would do harm on the wrong machine stops itself there.** Owner ruling
+2026-10-21, in session. It covers at least a command handed to the owner and a script written into a
+file. A `hostname;` prefix alone does not count: it shows the mistake only after the command ran.
+
+Read the host from `[Environment]::MachineName`, not `$env:COMPUTERNAME`. `<HOST>` is the name it
+prints on the target machine. Neither form below uses `exit` or `return`. A pasted command puts its
+whole body in an `else` that runs nothing elsewhere:
+
+    if ([Environment]::MachineName -ne '<HOST>') { Write-Host "STOP     this must run on <HOST>, but this is $([Environment]::MachineName); nothing ran" } else { ... }
+
+A script checks its host right after `param()`. A script with pipeline blocks checks inside
+`begin {}`, added if it has none. Never wrap a script's body in an `else`: a `param()` block inside
+one is not parsed as one. The scoped `Stop` makes the throw hold even when the caller silences
+errors:
+
+    if ([Environment]::MachineName -ne '<HOST>') { & { $ErrorActionPreference = 'Stop'; throw "STOP     this must run on <HOST>, but this is $([Environment]::MachineName); nothing ran" } }
+
+The check does not stop code that runs before it, such as a `param()` default expression. Nor does
+it stop a `clean {}` block, which runs after the throw. Keep machine-bound work out of both.
+
+The `MachineName` read, the ban on `exit` and `return`, and the scoped-`Stop` script form are
+Manager decisions of 2026-10-21, from measurements on engine PR 2469. That PR carries the
+measurements and the reasons.
+
 ## Query the fleet wiki before you act, write after
 
 Before you act on a fact you remember or were told, query the fleet wiki for its subject. After a
