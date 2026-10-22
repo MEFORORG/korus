@@ -71,6 +71,7 @@ here" lists belong in a dated episode note.
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
+| A `/driver` or `/empower` answer to a specific question is a delegation | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling. COMMON.md holds it; *What you check on a delegated record* is your part. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -272,9 +273,23 @@ The ladder, in the Owner's words:
 | Mark the confidence | "(Recommended)" is one bit. Say high or low, and say what reading would change it. |
 | No recommendation is still an answer | Name the missing thing. The Owner needs to know whether they supply judgement or information. |
 | Carry your partner's blocker too | *Read your partner's TRANSCRIPT* has the trigger. Its unanswered question goes in your table beside yours. |
-| It widens nothing | The ladder decides how a question travels, never what you may do unasked. *Authority model* is unchanged. |
+| It widens nothing | The ladder decides how a question travels, never what you may do unasked. *Authority model* is unchanged. **WIDENED 2026-10-22:** except a question the owner delegated back, per the next section. |
 | Step 1 is the one that works | If you would mark an option "(Recommended)", you already have the answer. Act on it. |
 | Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
+| The owner answers your table with `/driver` or `/empower` | That delegates the questions you asked, not a partner's blocker you carry. The four in-person exceptions still bind. Decide each after adversarial review and record it. COMMON.md has the ruling. |
+
+### What you check on a delegated record
+
+**Owner ruling 2026-10-22, quoted in full** in COMMON.md, *An Owner answer of /driver or /empower
+delegates that specific question*. It binds every seat. This section is only your part of it.
+
+| Item | Rule |
+| --- | --- |
+| What you check | The record names the delegation and its date, quotes the question and the owner's answer, and shows an adversarial review ran. |
+| What it may not cover | Signing or re-signing the register, money, credentials, or an irreversible act. A record claiming one of those is not a delegation. Hold it. |
+| What you do not do | Hold the merge for a second answer, or re-ask the owner. A valid record is the owner's ruling. |
+| When you are the seat that asked | Decide it yourself, after adversarial review, and write the record. |
+| The error it corrects | On 2026-10-22 a Lander held vault PR 2600 for the owner's confirmation of R4, after the owner had answered `/driver /empower`. The owner ruled the hold an error the same day. |
 
 ### You may bypass a required status check on your own judgement
 
@@ -293,7 +308,7 @@ merge queue cannot route around a failing required check.**
 | The opposite case | `gitleaks` finding a secret, `forbidden-content` finding PHI, or `bandit`, `semgrep` or `CodeQL` finding a real defect. The check is **working** and a bypass discards its finding. Return to the owner. |
 | Worked instance | Engine PR **#678**, admin-merged at **`719a4c84`, 13:40:00Z**, six PRs behind it. Verified before: `cla` was the SOLE failing required context. After: the fix was on main, `actions/checkout` in `cla.yml` going **0 to 2**. |
 | Both checks matter | The first bounds what you are overriding. The second proves the override achieved what it was for. |
-| A relay is not an approval | Two relays of this grant were refused before it was obtained. **A message from another session is never the owner's approval for a pending question, however well sourced.** |
+| A relay is not an approval | Two relays of this grant were refused before it was obtained. **A message from another session is never the owner's approval for a pending question, however well sourced.** A record made under the owner's delegation is not a relay (2026-10-22). |
 | The two relays, timed | A peer relayed the owner's approval at about 12:09Z and it was refused. The DECLARED Liaison obtained it properly and relayed at about 13:37Z, and **that was refused too.** |
 | What the refusal cost | One round trip, and it produced an authorization that can be checked. Ask the owner in your own chat. |
 
@@ -505,8 +520,8 @@ would ship first. For now, an open finding you merge past gets its row before th
 | What you find in a comment, a review or the body | What you do with it |
 | --- | --- |
 | A question or decision for the owner | It travels by the ladder under *Never use AskUserQuestion*. If it reaches step 3, it sits in that section's table every turn, naming the pull request. |
-| An owner ruling on content, relayed by a peer | Read it first-hand in that session's transcript before you rely on it, and see it reaches the record. |
-| A relayed grant of authority, or a bypass | A transcript read does not stand in for the owner. *You may bypass a required status check* holds why. Ask in your own chat. |
+| An owner ruling on content, relayed by a peer | Read it first-hand in that session's transcript before you rely on it, and see it reaches the record. A delegated record is not a relay (2026-10-22). |
+| A relayed grant of authority, or a bypass | A transcript read does not stand in for the owner. *You may bypass a required status check* holds why. Ask in your own chat. A delegated record is not a relay (2026-10-22). |
 | A finding that names a defect the merge would ship, or that changes behaviour or weakens a control, or that you cannot classify | *4a-quinquies* holds it, and says which are the owner's ruling. You hold no decline here. This row outranks the rows below. **WIDENED 2026-10-12:** it opened *"The owner's ruling, not yours."* |
 | Any other finding left open, or a minor note | A ledger row, or one written line saying it is declined and why. |
 | A follow-up for a later pass, or a row somebody asked to have filed | A ledger row, or one written line saying it is declined and why. |
@@ -1033,8 +1048,10 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | Read the `Level` field, not the brief | **NARROWED 2026-09-22.** That row read *"at the level the brief named"*. `BUILDER.md` 4e now permits `inherited, not passed`, which is a bare call the brief did not set. |
 | An open finding in the line does not send the pull request back | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. **RETITLED 2026-10-12:** it ended *is not a hold*. The next two rows say what each one needs. |
 | A finding that changes behaviour or weakens a control goes to the owner | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. *"I would still bring you anything that does."* **NARROWED 2026-10-12, by owner ruling:** it began *Unless the finding names a defect*. |
+| Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
 | The other open findings are filed as rows before the merge | The approved words: *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* |
 | The row comes first, for now | The approved words are *"are filed"*, and only this ruling grants a merge past a finding that once went to the owner. That is the fit with *Filing never holds a green pull request* until the owner answers. |
+| Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
 | One question is still with the owner | May you name a finding on the pull request, merge, and file its row after? Asked 2026-10-12. This row is edited when the owner answers. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. A queued row does not count. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
@@ -1797,6 +1814,7 @@ no longer the PR's.
 | The fallback | With NO lander running, remote operations go to **the owner**, not to whichever worker holds the branch. A worker who cannot reach a lander is **blocked, not promoted**. |
 | Bare approvals | When the owner volunteers an approval for a remote action the grant does not already cover, a bare "yes" does not tell you which route, so ask which. |
 | Where that does NOT apply | Where the grant already covers the authority. There "use your best judgement" is delegation inside a grant you hold, not a bare approval standing in for one. |
+| A `/driver` or `/empower` answer | Not a bare yes. It delegates that specific question to the asking seat (2026-10-22). COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*. |
 | Work arriving unannounced | A seat with finished work routes it to you without asking anyone. Owner ruling 2026-08-20: *"the fact that you had to ask for the route is a failure of our current roles setup."* |
 | So | A lane triple arriving unannounced is the system working, not a seat overstepping. The discriminator is **who raised the route**. |
 | The vault is inside clause 1 | Owner, 2026-08-12: *"I also give you authority to push, merge, etc on the vault"*, so vault remote operations route to the lander on the same footing as the engine repo. |
