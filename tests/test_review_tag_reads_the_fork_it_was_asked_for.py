@@ -1285,16 +1285,43 @@ class TheVault4044Edges(Fixture):
         self._write("bare", f"Review target: \n{self.NONCE} Review x\nYou are reading.\n")
         self._refused(*self._run()[:2])
 
-    def test_a_target_line_without_the_nonce_refuses_when_a_later_line_carries_it(self):
+    def test_a_level_or_flag_alone_on_the_target_line_looks_to_the_next(self):
         # Round one: only an empty target line looked further, so these read as exit 3.
-        for first in ("xhigh", "--comment", "please", "`xhigh`"):
+        for first in ("xhigh", "--comment", "`xhigh`", "xhigh --max-findings=all"):
             with self.subTest(first=first):
                 self._write("word", f"Review target: {first}\n{self.NONCE} Review x\n\n`{TAG_XHIGH}`\n")
                 self._refused(*self._run()[:2])
 
-    def test_the_nonce_on_line_three_still_keeps_the_fork(self):
-        self._write("three", f"Review target: \nReview x\n{self.NONCE}\n`{TAG_XHIGH}`\n")
+    def test_a_level_leading_the_next_line_is_stripped_before_the_nonce(self):
+        self._write("lvl", f"Review target: \nxhigh {self.NONCE} Review x\n`{TAG_XHIGH}`\n")
         self._refused(*self._run()[:2])
+
+    # Round two: a nonce that does not lead the arguments is a mention, maybe of a peer's round.
+
+    def test_a_peer_mentioning_the_nonce_below_its_words_does_not_block_the_callers_own(self):
+        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        self._write("peer", f"Review target: Re-check the Builder branch\nits QA line cited "
+                            f"{self.NONCE}\n\n`{TAG_HIGH}`\n")
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+
+    def test_a_tagless_peer_quoting_the_nonce_in_its_body_does_not_block_it(self):
+        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        self._write("peer", f"Review target: \nReview y\n\nYou are reviewing ...\n"
+                            f"last round was {self.NONCE}\n")
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+
+    def test_control_a_nonce_not_leading_the_next_line_is_out_of_scope(self):
+        # The price of the rule above: a nonce below words, or not first on its line, is not kept.
+        for body in (f"Review target: please\n{self.NONCE} Review x\n`{TAG_XHIGH}`\n",
+                     f"Review target: \nReview x\n{self.NONCE}\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body.splitlines()[0]):
+                self._write("words", body)
+                code, out, _ = self._run()
+                self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_control_a_nonce_after_the_tag_is_not_the_forks_own(self):
         self._write("after", f"Review target: Review x\n`{TAG_XHIGH}`\n\nlast round {self.NONCE}\n")

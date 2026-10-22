@@ -44,9 +44,9 @@ WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the s
 that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
-the next line that is not blank. Where the first line leaves a backtick open, or carries no nonce
-while a later line before the tag does, or the next line is no tag and a later line is one, or two
-lines have a tag's shape, the arguments may span lines: the tool refuses (exit 13) rather than read
+the next line that is not blank. Where the first line leaves a backtick open, or holds no words while
+the next line leads with a nonce, or the next line is no tag and a later line is one, or two lines
+have a tag's shape, the arguments may span lines: the tool refuses (exit 13) rather than read
 a line of them as the tag, call the fork tagless, or call it absent. Keep the arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
@@ -188,10 +188,10 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: No tag after the target line, and the arguments may span lines.
+    #: The arguments may span lines, so no line can be read as the tag. `read_head` lists when.
     unsplit: bool = False
-    #: The fork's own nonce: the first in its target line, else the first on a later line before
-    #: its tag, where its arguments spilled. Used only to match, never printed.
+    #: The fork's own nonce: the first in its target line, else the one leading the next non-blank
+    #: line below a target line with no words. Used only to match, never printed.
     own_nonce: str = ""
 
     @property
@@ -314,13 +314,14 @@ def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
     never a tagless fork, where:
 
     - the target line leaves a backtick open;
-    - the target line carries no nonce, and a later line before the tag does;
+    - the target line holds no words once a level and flags are stripped, and the next non-blank
+      line leads with a nonce;
     - the next line is no tag, and a later line is one;
     - two lines have a tag's shape: the arguments' own second line can be tag-shaped, and every
       template read at CLI 2.1.308 carries exactly one (`roles/BUILDER.md` 4e names the command).
 
-    The own nonce is the first in the target line, else the first on a later line before the first
-    tag-shaped one. Only the target line, the tag and that nonce are kept; the rest is tested.
+    The own nonce is the first in the target line, else that leading nonce. A nonce anywhere else is
+    a mention, not the fork's own. Only the target line, the tag and the nonce are kept.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False, ""
@@ -328,16 +329,18 @@ def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
     target = unquote(first)
     rest = lines[1:]
     tags = [index for index, line in enumerate(rest) if is_tag(line)]
+    following = next((index for index, line in enumerate(rest) if line.strip()), None)
     found = NONCE_SHAPE.search(target)
-    if found:
-        own = found.group(0)
-    else:
-        spill = (NONCE_SHAPE.search(line) for line in rest[: tags[0] if tags else len(rest)])
-        own = next((match.group(0) for match in spill if match), "")
+    own = found.group(0) if found else ""
+    if not found and not strip_invocation(target) and following is not None:
+        # Nothing but a level or flags on the target line: the arguments began on the next line,
+        # and the nonce leads them. A nonce later in a line is a mention, maybe of a peer's round.
+        lead = (strip_invocation(unquote(rest[following])).split() or [""])[0]
+        match = NONCE_SHAPE.match(lead)
+        own = match.group(0) if match else ""
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
     # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
     unsplit = first.count("`") % 2 == 1 or len(tags) > 1 or bool(own and not found)
-    following = next((index for index, line in enumerate(rest) if line.strip()), None)
     if following is None:
         return True, target, "", unsplit, own
     if tags and tags[0] == following:
@@ -400,7 +403,7 @@ def target_matches(wanted: str, args: str) -> bool:
 
 
 def own_nonce_matches(wanted: str, args: str) -> bool:
-    """The first nonce in `wanted` is the fork's own: the first nonce in its target line."""
+    """The first nonce in `wanted` is the first in `args`: a target line, or a fork's own nonce."""
     wanted_nonces = NONCE_SHAPE.findall(wanted)
     own = NONCE_SHAPE.findall(args)
     return bool(wanted_nonces and own and own[0].casefold() == wanted_nonces[0].casefold())

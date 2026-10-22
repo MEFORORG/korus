@@ -854,6 +854,9 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
+The one exception is a target line holding nothing but a level or flags. Then the nonce leading
+the next non-blank line is the fork's own, and the tool refuses that fork with exit 13 below.
+
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
 newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
@@ -870,7 +873,7 @@ shape, and never kept or printed.
 arguments may span lines where:
 
 - that line leaves a backtick open;
-- that line carries no nonce, and a later line before the tag does;
+- that line holds nothing but a level or flags, and the next non-blank line leads with a nonce;
 - the next non-blank line is no tag, and a later line is one;
 - two lines have a tag's shape.
 
@@ -880,18 +883,31 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 `none returned`.
 
 **CHANGED 2026-10-22, vault #4044.** The list held the first and third rows alone. Under the
-second, a fork with its nonce below an empty or nonce-less target line exited 3, `no fork found`.
+second, a fork with its nonce leading line 2 exited 3, `no fork found`.
 Under the fourth, a tag-shaped second line of unquoted arguments was quoted as the tag, exit 0.
 
 **The fourth row rests on one tag per template.** Read 2026-10-22 against the CLI 2.1.308 binary:
 
 ```bash
-grep -a -o '.\{6\}[a-z${}]* effort \\u2192' <cli binary> | sed 's/[a-z${}]* effort.*//' | sort | uniq -c
+B=$(readlink -f "$(command -v claude)")    # /opt/claude-code/bin/claude in this cloud session
+P=$'.\\{6\\}[A-Za-z0-9_.${}]* effort \\(\\\\u2192\\|->\\|\xe2\x86\x92\\)'    # $'' decodes the glyph
+grep -a -o "$P" "$B" | sed 's/[A-Za-z0-9_.${}]* effort.*//' | sort | uniq -c
+grep -a -o "$P" roles/BUILDER.md | wc -l    # control: this file's own tags
 ```
 
-It returns 12 matches under four prefixes, and each opens a template literal or a `tag:` argument.
-None sits inside a template's body. This branch's own xhigh fork, at 2.1.308, held 1 tag-shaped
-line in 151, read with the tool's `is_tag`. The other levels' forks and `--fix` were not run.
+It returns 12 matches under four prefixes. Ten open a template literal or a `tag:` argument, and
+two open the double-quoted first argument of a template helper. None sits inside a template's body.
+
+The control returns 8 at this branch's head. A planted line holding the glyph itself returns 1.
+
+**One fork was read, and nothing else.** This branch's round-one xhigh fork, at 2.1.308, held 1
+tag-shaped line in 151. The other levels, `--fix` and `--comment` were not run as forks.
+
+```bash
+head -1 <fork transcript> | python3 -c 'import json,sys; sys.path.insert(0,"scripts/quality")
+import review_tag as r; ls=r.message_text(json.load(sys.stdin)).splitlines()
+print(len(ls), sum(map(r.is_tag, ls)))'
+```
 
 | Flag | What it does |
 | --- | --- |
