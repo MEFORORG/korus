@@ -488,9 +488,9 @@ check is the only reason the seat that hit this caught its own.**
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
 11. **Review the diff, and stop after two rounds.** Invoke the `Skill` tool with
-    `skill: "code-review"` at the level your brief names, `xhigh` by default. **After each
-    round, run `review_tag.py --target "<your args>"`.** Section 4c has the rest, and 4e says what
-    to quote.
+    `skill: "code-review"` at your brief's level, `xhigh` by default. **Take `$T` before each
+    round, then run `review_tag.py --since "$T" --target "<your args>"`.** 4c has the rest; 4e
+    says what to quote.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
     a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
@@ -624,7 +624,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
-| After each round | **Run `review_tag.py --target "<your args>"`.** It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
+| After each round | **Run `review_tag.py --since "$T" --target "<your args>"`**, with `$T` taken just before the round. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
 **The review-standards example began `xhigh.` until 2026-10-13, and the period kept the level from
@@ -831,51 +831,57 @@ printed no tag.
 is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
 line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
 
-**Run it after each round, from your worktree:**
+**Run it after each round, from your worktree, with the time you took just before the round:**
 
 ```bash
-python scripts/quality/review_tag.py --target "<your args>"
+T=$(date -u +%Y-%m-%dT%H:%M:%SZ)     # before you invoke the skill
+python scripts/quality/review_tag.py --since "$T" --target "<your args>"
 ```
 
+**It answers for exactly one fork, or refuses.** Exit 0 means one fork, and no other, could be the
+run asked for. It never picks the newest readable one. CHANGED 2026-10-22: it listed every match and
+quoted the newest, and the Lander showed four ways that quoted the wrong fork's tag.
+
 It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
-one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate forbids a home path in
-a QA line.
+one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
+forbids a home path in a QA line.
 
 | Flag | What it does |
 | --- | --- |
 | `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. A level alone leaves no words, and is refused with exit 9. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
-| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. Without one, forks from two sessions are refused, whatever `--target` says: Builders share the standard arguments. |
-| `--since`, `--latest` | Narrow further. `--since` needs an offset. Every match is listed oldest first, numbered as rounds. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
+| `--since` | Drops forks whose record 0 is older. It needs an offset. Set it just before the round, so your earlier rounds drop out. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
-Each row prints `placed by:`, naming which of the three placed it: the meta's path, record 0's
-`cwd`, or the session alone.
+The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any worktree`.
 
 | Exit | Message | The Tag field |
 | --- | --- | --- |
-| 0 | the `tag:` line of the newest fork | Quote it. |
+| 0 | the `tag:` line of the one fork | Quote it. |
 | 3 | `no fork found; inline shape or unpersisted transcript possible` | `none returned`, with the message, unless you know the shape was inline. |
-| 4 | `no projects dir could be read`, or `a projects root could not be read, and no fork matched in the rest` | `none returned`, with the message. |
-| 5 | `the newest matching fork carried no tag line` | `none returned`, with the message. Name the fork ids. |
-| 6 | `<n> fork(s) found with no recorded worktree; pass --session to match them` | Not a result yet. Pass `--session` and run it again. |
-| 7 | `forks from more than one session match; pass --session, or --since before your round` | Not a result yet. It prints the sessions and no tag. |
+| 4 | `no projects dir could be read`, or `a projects root could not be read; a fork there could be the one asked for` | `none returned`, with the message. |
+| 5 | `the one matching fork carried no tag line` | `none returned`, with the message. Name the fork id. |
+| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Not a result yet. Narrow with `--since`; `--any-worktree` includes them. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. Narrow with `--since`, `--target` or `--worktree`. |
 | 8 | `no git toplevel here; pass --worktree, or --any-worktree to widen` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target holds only a level or flags; ...`, or `no filter selects a fork; ...` | Not a result yet. Pass the words of your arguments. |
+| 10 | `<n> fork transcript(s) in scope could not be read, so any could be the one asked for` | Not a result yet. A fork still being written reads this way; run it again once the round ends. |
 
-**No refusal prints a `tag:` line.** Exits 6 and 7 decide before any row is rendered, so a run
-that refuses cannot hand you a tag to quote.
+**No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
+not a readable fork also matched.
 
-**No line it prints carries the word the QA line may not, except `target:`.** That line echoes your
-own arguments, and the header does not. The tool's file name carries the word, so the QA line names
-the fork, not the tool.
+**No stdout line carries the word the QA line may not, except `target:`.** That line echoes your own
+arguments. Lines on stderr begin with the tool's name, which carries the word, so quote stdout only,
+and name the fork in the QA line, not the tool.
 
 **The session default keeps another session's fork out.** It is set in the cloud session measured
 here, where it named the directory the fork landed under. Whether a local Windows session sets it is
-not measured; where it is unset, pass `--session` or `--since`.
+not measured.
 
-**A Builder subagent shares its Manager's session and may share its worktree.** Neither filter can
-tell their forks apart then. `--target` and `--since` can, so pass both there.
+**Builder subagents of one Manager share its session, and may share a worktree.** Then only
+`--since` and `--target` can separate their forks. Where two still match, the tool refuses with
+exit 7, and that refusal is the reading.
 
 **Where korus is not checked out, fetch the tool pinned to a commit SHA, never `main`.** A Builder
 in the cloud, or in another repository, runs this. Every step stops the chain, and the directory is
@@ -888,7 +894,7 @@ test -n "$sha" &&
 curl -fsSL -o "$d/review_tag.py" \
   "https://raw.githubusercontent.com/MEFORORG/korus/$sha/scripts/quality/review_tag.py" &&
 echo "review_tag.py at $sha" &&
-python "$d/review_tag.py" --target "<your args>"
+python "$d/review_tag.py" --since "$T" --target "<your args>"
 ```
 
 **Name the SHA in your report under 4d,** so the tool that read the tag is a fixed file. Where a

@@ -29,6 +29,8 @@ import json
 import os
 import subprocess
 import sys
+import contextlib
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -143,7 +145,7 @@ class TheRecordedCloudShapeIsRead(Fixture):
                    cwd="/home/user/korus/.claude/worktrees/other", timestamp="2026-10-22T05:00:00Z")
         write_fork(self.projects, "s1", "sibling", "Review x", TAG_HIGH, shape=CLOUD,
                    cwd="/home/user/korus-other", timestamp="2026-10-22T06:00:00Z")
-        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--latest")
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus")
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent here", out)
         self.assertNotIn("nested", out)
@@ -264,12 +266,12 @@ class AForkInTheWorktreeIsFoundAndOneElsewhereIsNot(Fixture):
         self.assertEqual(code, review_tag.EXIT_FOUND, out + err)
         self.assertIn("agent aaa111", out)
         self.assertIn("tag: " + TAG_XHIGH, out)
-        self.assertIn("round 1 of 1", out)
+        self.assertIn("fork | 2026-10-22T09:00:00Z | agent aaa111", out)
         self.assertIn("placed by: inheritedWorktreePath", out)
 
     def test_a_fork_in_another_worktree_does_not_match(self):
         _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD,
-                        "--target", "Review this branch's diff", "--latest")
+                        "--target", "Review this branch's diff")
         self.assertNotIn("bbb222", out, "a fork from another worktree was quoted as this one's")
         self.assertNotIn("high effort \u2192 8", out)
 
@@ -297,7 +299,7 @@ class TheSessionFilterKeepsAnotherSessionsTagOut(Fixture):
                    cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
 
     def test_the_session_defaults_from_the_environment(self):
-        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--latest",
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus",
                            env_extra={review_tag.SESSION_ENV: "mine"})
         self.assertEqual(code, review_tag.EXIT_FOUND)
         self.assertIn("agent m1", out)
@@ -309,7 +311,8 @@ class TheSessionFilterKeepsAnotherSessionsTagOut(Fixture):
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
                            env_extra={review_tag.SESSION_ENV: "mine"})
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
-        self.assertIn("sessions: mine, peer", out)
+        self.assertIn("agent m1 | session mine", out)
+        self.assertIn("agent p1 | session peer", out)
         self.assertNotIn("tag:", out)
 
 
@@ -340,11 +343,12 @@ class TargetTellsTwoRoundsApart(Fixture):
         write_fork(self.projects, "s1", "r2bbbb", "Review round two, after the fixes", TAG_HIGH,
                    worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T11:00:00Z")
 
-    def test_both_rounds_list_oldest_first(self):
+    def test_two_rounds_with_nothing_to_tell_them_apart_refuse(self):
+        # Never the newest readable one: two candidates is a refusal that names both, oldest first.
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD)
-        self.assertEqual(code, review_tag.EXIT_FOUND)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
         self.assertLess(out.index("r1aaaa"), out.index("r2bbbb"))
-        self.assertIn("round 2 of 2", out)
+        self.assertNotIn("tag:", out)
 
     def test_target_picks_one_round(self):
         _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "round two")
@@ -362,10 +366,10 @@ class TargetTellsTwoRoundsApart(Fixture):
                 self.assertIn("r1aaaa", out)
                 self.assertNotIn("r2bbbb", out)
 
-    def test_latest_prints_the_newest_round_only(self):
-        _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--latest")
-        self.assertIn("round 2 of 2", out)
-        self.assertNotIn("r1aaaa", out)
+    def test_latest_is_gone(self):
+        # It picked the newest readable fork, which is the choice the tool now refuses to make.
+        code, _, err = run(self.projects, "--worktree", WORKTREE_FORWARD, "--latest")
+        self.assertEqual(code, 2, err)
 
     def test_since_drops_the_earlier_round(self):
         _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD,
@@ -440,7 +444,7 @@ class OnlyRecordZeroIsRead(Fixture):
 
 
 class AForkWithNowhereRecorded(Fixture):
-    """Neither `inheritedWorktreePath` nor `cwd`: only a session filter can place it."""
+    """Neither `inheritedWorktreePath` nor `cwd`: nothing places it but `--any-worktree`."""
 
     def setUp(self):
         super().setUp()
@@ -466,11 +470,18 @@ class AForkWithNowhereRecorded(Fixture):
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "elsewhere")
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
-    def test_a_session_places_it_and_says_so(self):
+    def test_a_session_does_not_place_it(self):
+        # The Lander's case 2: every subagent Builder shares its Manager's session, so a session
+        # says nothing about which worktree, or which Builder, a fork belongs to.
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--session", "top1")
-        self.assertEqual(code, review_tag.EXIT_FOUND)
+        self.assertEqual(code, review_tag.EXIT_UNPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_any_worktree_includes_it_and_says_so(self):
+        code, out, _ = run(self.projects, "--any-worktree", "--session", "top1")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("ccc333", out)
-        self.assertIn("placed by: session only", out)
+        self.assertIn("placed by: any worktree", out)
 
 
 class EveryMissIsLoudAndDistinct(Fixture):
@@ -515,9 +526,7 @@ class EveryMissIsLoudAndDistinct(Fixture):
         self.assertEqual(result.unreadable_roots, [other])
         self.assertEqual(result.forks, [])
 
-    def test_the_newest_round_without_a_tag_exits_no_tag_despite_an_older_one(self):
-        write_fork(self.projects, "s1", "old111", "Review this diff", TAG_XHIGH,
-                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+    def test_one_fork_without_a_tag_exits_no_tag(self):
         write_fork(self.projects, "s1", "new222", "Review this diff", "Some other second line",
                    worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T10:00:00Z")
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD)
@@ -528,8 +537,108 @@ class EveryMissIsLoudAndDistinct(Fixture):
     def test_the_codes_are_distinct(self):
         codes = {review_tag.EXIT_FOUND, review_tag.EXIT_NO_FORK, review_tag.EXIT_NO_ROOT,
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
-                 review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, 1, 2}
-        self.assertEqual(len(codes), 10, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
+                 1, 2}
+        self.assertEqual(len(codes), 11, "an exit code collides with another, or with 1 or 2")
+
+
+class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
+    """Each case exited 0 with the WRONG fork's tag. The rule now: refuse whenever more than one
+    candidate fork, or any unread fork or root, could be the run asked for. Each refusal sits
+    beside a control showing the right fork is findable once the doubt is gone."""
+
+    STD = "Review this branch's diff against origin/main"
+
+    def test_1_two_builders_under_one_manager_session_refuse(self):
+        # The Manager's documented call: --session plus --any-worktree. Both Builders' forks share
+        # the Manager's session, and the run quoted Builder B's tag for Builder A.
+        write_fork(self.projects, "mgr", "builderA", self.STD, TAG_XHIGH,
+                   worktree="D:\\Code\\wt-a", timestamp="2026-10-22T09:00:00Z")
+        write_fork(self.projects, "mgr", "builderB", self.STD, TAG_HIGH,
+                   worktree="D:\\Code\\wt-b", timestamp="2026-10-22T09:05:00Z")
+        code, out, _ = run(self.projects, "--session", "mgr", "--any-worktree",
+                           "--target", "xhigh " + self.STD)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("tag:", out)
+        code, out, _ = run(self.projects, "--session", "mgr", "--worktree", "D:/Code/wt-a",
+                           "--target", "xhigh " + self.STD)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent builderA", out)
+        self.assertNotIn("builderB", out)
+
+    def test_2_two_forks_in_one_session_and_worktree_refuse(self):
+        write_fork(self.projects, "mgr", "first", self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        write_fork(self.projects, "mgr", "second", self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:30:00Z")
+        code, out, _ = run(self.projects, "--session", "mgr", "--worktree", WORKTREE_FORWARD,
+                           "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("tag:", out)
+        code, out, _ = run(self.projects, "--session", "mgr", "--worktree", WORKTREE_FORWARD,
+                           "--target", self.STD, "--since", "2026-10-22T09:15:00Z")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent second", out)
+
+    def _unread(self, agent, content, worktree=WORKTREE_WINDOWS):
+        sub = self.projects / "D--Code-korus" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        meta = {"agentType": "general-purpose"}
+        if worktree is not None:
+            meta["inheritedWorktreePath"] = worktree
+        (sub / f"agent-{agent}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        (sub / f"agent-{agent}.jsonl").write_text(content, encoding="utf-8")
+
+    def test_3_an_unread_fork_refuses_rather_than_let_an_older_one_win(self):
+        write_fork(self.projects, "s1", "older", self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        for name, content in (("empty", ""), ("truncated", '{"type": "user", "mess')):
+            with self.subTest(record0=name):
+                self._unread("writing", content)
+                code, out, _ = run(self.projects, "--session", "s1", "--worktree",
+                                   WORKTREE_FORWARD, "--target", self.STD)
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_MESSAGE, out)
+                self.assertNotIn("tag:", out, "the older fork's tag was quoted over an unread one")
+
+    def test_3_control_an_unread_fork_recorded_elsewhere_is_ruled_out(self):
+        write_fork(self.projects, "s1", "older", self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        self._unread("writing", "", worktree=WORKTREE_OTHER)
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
+                           "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent older", out)
+
+    def _main(self, roots, *args):
+        out = io.StringIO()
+        argv = [a for root in roots for a in ("--projects-dir", str(root))] + list(args)
+        with contextlib.redirect_stdout(out):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def test_4_an_unreadable_root_refuses_even_when_another_matched(self):
+        write_fork(self.projects, "s1", "elsewhere", self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        other = Path(self._tmp.name) / "other-projects"
+        other.mkdir()
+        real_listdir = os.listdir
+
+        def refuse(path):
+            if Path(path) == other:
+                raise PermissionError(path)
+            return real_listdir(path)
+
+        args = ("--session", "s1", "--worktree", WORKTREE_FORWARD, "--target", self.STD)
+        with mock.patch.object(review_tag.os, "listdir", side_effect=refuse):
+            code, out = self._main([self.projects, other], *args)
+        self.assertEqual(code, review_tag.EXIT_NO_ROOT, out)
+        self.assertIn(review_tag.PARTIAL_ROOT_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+        # The control: the same call with both roots readable quotes the fork.
+        code, out = self._main([self.projects, other], *args)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent elsewhere", out)
 
 
 class ConfigDirNamesTheRoot(Fixture):

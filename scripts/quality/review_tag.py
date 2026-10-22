@@ -17,14 +17,17 @@ as "line 2". A message that does not START with the target line is not a review 
 
 WHERE THE FORK RAN. The meta file may carry `inheritedWorktreePath` (the relayed Windows sample,
 Builder subagents at spawn depth 2). The cloud sample's meta did not; its record 0 carried `cwd`.
-The tool uses the first of the two it finds, says which on every row, and matches a fork that has
-neither only when a session filter already placed it.
+The tool uses the first of the two it finds and says which on the row. A fork with neither is
+never placed by its session alone: every subagent Builder shares its Manager's session.
+
+IT ANSWERS FOR EXACTLY ONE FORK, OR REFUSES. It exits 0 only when one fork, and no other, could be
+the run asked for. More than one candidate refuses, in one session or several; so does any fork in
+scope it could not read, any root it could not read, and any fork it cannot place. It never picks
+the newest readable one. Narrow with `--since` set just before the round, and `--target`.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
-failed `git rev-parse` refuses rather than searching every worktree. Forks from more than one session
-are refused as ambiguous, and so is a fork it cannot place, unless a session filter is in force:
-target words cannot tell two Builders apart, because the standard arguments are shared. A refusal
-prints no `tag:` line. Widening takes an explicit flag.
+failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
+line. Widening takes an explicit flag.
 
 `cwd` placement is EXACT. A fork whose `cwd` is below the worktree -- a harness worktree nested at
 `.claude/worktrees/<name>` among them -- ran somewhere else.
@@ -42,21 +45,22 @@ NOT MEASURED, so it says so rather than guessing. The inline shape (`Agent tool 
 single-pass inline`) has no fork: its prompt lands in the caller's own transcript, which this tool
 does not read. A miss therefore names that possibility instead of printing a blank.
 
-    python scripts/quality/review_tag.py --target "Review this branch's diff"
-    python scripts/quality/review_tag.py --latest --ascii
+    python scripts/quality/review_tag.py --since 2026-10-22T09:00:00Z --target "Review this diff"
+    python scripts/quality/review_tag.py --since 2026-10-22T09:00:00Z --target "..." --ascii
     python scripts/quality/review_tag.py --worktree . --since 2026-10-22T09:00:00Z --verbose
 
 Exit codes. Each failure has its own, so a caller can tell them apart without parsing text:
 
-    0  the newest matching fork carried a tag
+    0  exactly one fork could be the run asked for, and it carried a tag
     2  usage error (argparse)
     3  no fork found; inline shape or unpersisted transcript possible
-    4  no projects dir could be read, or a root could not be read and nothing matched in the rest
-    5  matching forks were found, and the newest carried no tag line
-    6  forks were found with no recorded worktree and no session filter to place them
-    7  ambiguous: forks from more than one session match, and no session filter is in force
+    4  a projects root could not be read, whether or not a fork matched elsewhere
+    5  exactly one fork matched, and it carried no tag line
+    6  a fork in scope records no worktree, so it could be the run asked for
+    7  ambiguous: more than one fork could be the run asked for
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
     9  nothing selects a fork: no filter at all, or a --target holding only a level or flags
+   10  a fork transcript in scope could not be read, so it could be the run asked for
 """
 
 from __future__ import annotations
@@ -79,18 +83,26 @@ EXIT_UNPLACED = 6
 EXIT_AMBIGUOUS = 7
 EXIT_NO_TOPLEVEL = 8
 EXIT_NO_SELECTOR = 9
+EXIT_UNREAD = 10
 
 # Every stdout line a Builder may quote is one of these or a `tag:` line. None carries the word the
 # QA line may not; `tests/test_review_tag_reads_the_fork_it_was_asked_for.py` holds that.
 NO_FORK_MESSAGE = "no fork found; inline shape or unpersisted transcript possible"
 NO_ROOT_MESSAGE = "no projects dir could be read"
-PARTIAL_ROOT_MESSAGE = "a projects root could not be read, and no fork matched in the rest"
-NO_TAG_MESSAGE = "the newest matching fork carried no tag line"
-UNPLACED_MESSAGE = "fork(s) found with no recorded worktree; pass --session to match them"
+PARTIAL_ROOT_MESSAGE = "a projects root could not be read; a fork there could be the one asked for"
+NO_TAG_MESSAGE = "the one matching fork carried no tag line"
+UNPLACED_MESSAGE = (
+    "fork(s) in scope record no worktree, so any could be the one asked for;"
+    " --any-worktree includes them"
+)
+UNREAD_MESSAGE = (
+    "fork transcript(s) in scope could not be read, so any could be the one asked for"
+)
 NO_SELECTOR_MESSAGE = "no filter selects a fork; pass --target words, --session, or a worktree"
 NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
 AMBIGUOUS_MESSAGE = (
-    "forks from more than one session match; pass --session, or --since before your round"
+    "more than one fork could be the one asked for; narrow with --since set before the round,"
+    " --target or --session"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; pass --worktree, or --any-worktree to widen"
 
@@ -296,8 +308,11 @@ class Scan:
     unplaced: int = 0
 
 
-def place(fork: Fork, want: str | None, session_given: bool) -> bool | None:
-    """True if the fork ran in `want`, False if elsewhere, None if it records nowhere to place it."""
+def place(fork: Fork, want: str | None) -> bool | None:
+    """True if the fork ran in `want`, False if elsewhere, None if it records nowhere to place it.
+
+    A session never places a fork: every subagent Builder shares its Manager's session.
+    """
     if want is None:
         fork.placed_by = "any worktree"
         return True
@@ -307,9 +322,6 @@ def place(fork: Fork, want: str | None, session_given: bool) -> bool | None:
     if fork.cwd:
         fork.placed_by = "record 0 cwd (no inheritedWorktreePath)"
         return normalize_path(fork.cwd) == want
-    if session_given:
-        fork.placed_by = "session only (no worktree or cwd recorded)"
-        return True
     return None
 
 
@@ -338,9 +350,22 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             try:
                 record, head = read_record_zero(transcript)
             except OSError:
-                result.unreadable_files += 1
-                continue
+                record, head = None, []
             if record is None:
+                # Unread is not absent: a fork still being written could be the very run asked
+                # for. Only what proves it is elsewhere rules it out -- a recorded worktree that
+                # differs, or a file last written before --since.
+                if want is not None and fork.worktree and normalize_path(fork.worktree) != want:
+                    continue
+                if filters.since:
+                    try:
+                        written = dt.datetime.fromtimestamp(
+                            transcript.stat().st_mtime, tz=dt.timezone.utc
+                        )
+                    except OSError:
+                        written = None
+                    if written is not None and written < filters.since:
+                        continue
                 result.unreadable_files += 1
                 continue
             is_review, fork.target, fork.tag = read_head(head)
@@ -361,7 +386,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 continue
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
-            placed = place(fork, want, bool(filters.session))
+            placed = place(fork, want)
             if placed is None:
                 result.unplaced += 1
                 continue
@@ -399,10 +424,10 @@ def stamp(value: dt.datetime | None) -> str:
     return value.strftime("%Y-%m-%dT%H:%M:%SZ") if value else "time unknown"
 
 
-def render(forks: list[Fork], total: int, offset: int, ascii_only: bool, verbose: bool) -> list[str]:
+def render(forks: list[Fork], ascii_only: bool, verbose: bool) -> list[str]:
     out: list[str] = []
-    for index, fork in enumerate(forks, start=offset + 1):
-        out.append(f"round {index} of {total} | {stamp(fork.time)} | agent {fork.agent_id}")
+    for fork in forks:
+        out.append(f"fork | {stamp(fork.time)} | agent {fork.agent_id}")
         out.append(f"  target: {spell(fork.target, ascii_only) or '(none)'}")
         out.append(f"  tag: {spell(fork.tag, ascii_only) if fork.tag else 'NONE IN RECORD 0'}")
         out.append(f"  placed by: {fork.placed_by}")
@@ -439,7 +464,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--since", help="only forks whose record 0 is at or after this ISO time, with an offset"
     )
-    parser.add_argument("--latest", action="store_true", help="print only the newest matching round")
     parser.add_argument("--ascii", action="store_true", help="print -> and <= instead of the glyphs")
     parser.add_argument("--verbose", action="store_true", help="add session, meta and path columns")
     parser.add_argument(
@@ -503,46 +527,42 @@ def main(argv: list[str] | None = None) -> int:
     result = scan(roots, Filters(worktree, args.target, session, since))
     print(f"matched {len(result.forks)} fork(s) ({'; '.join(described)})")
 
-    for root in result.unreadable_roots:
-        print(f"review_tag: could not read a projects root{f': {root}' if args.verbose else ''}",
-              file=sys.stderr)
-    if result.unreadable_files:
-        print(f"review_tag: {result.unreadable_files} fork transcript(s) could not be read",
-              file=sys.stderr)
+    if args.verbose:
+        for root in result.unreadable_roots:
+            print(f"review_tag: could not read {root}", file=sys.stderr)
 
+    # Every refusal comes BEFORE any row is rendered, so a refused run prints no quotable tag. Each
+    # one fires whether or not a readable fork also matched: whatever could not be read, placed or
+    # told apart could be the run asked for, and the newest readable fork is not a stand-in for it.
+    readable = [r for r in roots if r not in result.missing_roots + result.unreadable_roots]
+    if not readable:
+        print(NO_ROOT_MESSAGE)
+        return EXIT_NO_ROOT
+    if result.unreadable_roots:
+        print(PARTIAL_ROOT_MESSAGE)
+        return EXIT_NO_ROOT
+    if result.unreadable_files:
+        print(f"{result.unreadable_files} {UNREAD_MESSAGE}")
+        return EXIT_UNREAD
+    if result.unplaced:
+        print(f"{result.unplaced} {UNPLACED_MESSAGE}")
+        return EXIT_UNPLACED
     if not result.forks:
-        readable = [r for r in roots if r not in result.missing_roots + result.unreadable_roots]
-        if not readable:
-            print(NO_ROOT_MESSAGE)
-            return EXIT_NO_ROOT
-        if result.unreadable_roots:
-            print(PARTIAL_ROOT_MESSAGE)
-            return EXIT_NO_ROOT
-        if result.unplaced:
-            print(f"{result.unplaced} {UNPLACED_MESSAGE}")
-            return EXIT_UNPLACED
         print(NO_FORK_MESSAGE)
         if session_from_env:
             print(f"review_tag: the session filter came from ${SESSION_ENV}; "
                   "--any-session widens it", file=sys.stderr)
         return EXIT_NO_FORK
-
-    # Both refusals come BEFORE any row is rendered, so a refused run prints no quotable tag.
-    if result.unplaced and not session:
-        print(f"{result.unplaced} {UNPLACED_MESSAGE}")
-        return EXIT_UNPLACED
-    sessions = sorted({f.session_id for f in result.forks})
-    if not session and len(sessions) > 1:
+    if len(result.forks) > 1:
         print(AMBIGUOUS_MESSAGE)
-        print(f"sessions: {', '.join(sessions)}")
+        for fork in result.forks:
+            print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
         return EXIT_AMBIGUOUS
 
-    total = len(result.forks)
-    shown = result.forks[-1:] if args.latest else result.forks
-    for line in render(shown, total, total - len(shown), args.ascii, args.verbose):
+    for line in render(result.forks, args.ascii, args.verbose):
         print(line)
 
-    if not result.forks[-1].tag:
+    if not result.forks[0].tag:
         print(NO_TAG_MESSAGE)
         return EXIT_NO_TAG
     return EXIT_FOUND
