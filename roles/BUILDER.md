@@ -854,9 +854,9 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
-The one exception is a target line with no nonce. Then any nonce on a later line, above the last
-tag-shaped one, may be the fork's own. The tool cannot tell it from a mention, so it refuses that
-fork with exit 13 below, never reads it as absent.
+The one exception is a target line with no nonce. Then a nonce on a later line, above the last
+tag-shaped one or anywhere in a tagless fork, may be the fork's own or a mention. *Keep your
+arguments on one line* below says when that refuses.
 
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
@@ -874,7 +874,8 @@ shape, and never kept or printed.
 arguments may span lines where:
 
 - that line leaves a backtick open;
-- that line carries no nonce, and a later line above the last tag-shaped one does;
+- that line carries no nonce, and a later line above the last tag-shaped one does, or any line
+  of a tagless fork;
 - the next non-blank line is no tag, and a later line is one;
 - two lines have a tag's shape.
 
@@ -887,12 +888,20 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 second, a fork with its nonce below the target line exited 3, `no fork found`.
 Under the fourth, a tag-shaped second line of unquoted arguments was quoted as the tag, exit 0.
 
-**The second row costs one residual, kept on purpose.** A peer fork in your session and worktree
-that cites your nonce below its own target line refuses your run too. Reading every such fork as
-absent was the alternative, and it published `none returned` over a fork that existed.
+**A fork kept only under the second row may be a mention, so it counts in three cases:**
 
-The Lander held this pull request on that at `5db01b5`, which had narrowed the row to a nonce
-leading line 2 below a level or flags.
+| Where that fork ran | Another fork carries the nonce on its target line | Exit |
+| --- | --- | --- |
+| Your worktree | No | 13, naming it on a `candidate` line |
+| Your worktree | Yes | It stands aside: a nonce is fresh each round |
+| Another worktree, or none recorded | Either | It is out of scope: never 12, never placed by the nonce |
+
+**The first row is a residual, kept on purpose.** Where your round left no fork, a peer that cites
+your nonce refuses your run. Reading it as absent was the alternative, and it would also read your
+own split fork as absent, publishing `none returned` over a fork that existed.
+
+The Lander held PR 240 on that at `5db01b5`, which narrowed the row to a nonce leading line 2 below
+a level or flags. `ca0304b` widened it back and refused every mention; the table above replaced it.
 
 **The fourth row rests on one tag per template.** Read 2026-10-22 against the CLI 2.1.308 binary:
 
@@ -906,10 +915,11 @@ grep -a -o "$P" roles/BUILDER.md | wc -l    # control: this file's own tags
 It returns 12 matches under four prefixes. Ten open a template literal or a `tag:` argument, and
 two open the double-quoted first argument of a template helper. None sits inside a template's body.
 
-The control returns 8 at this branch's head. A planted line holding the glyph itself returns 1.
+The control returns 8 at `5db01b5`. A planted line holding the glyph itself returns 1.
 
-**One fork was read, and nothing else.** This branch's round-one xhigh fork, at 2.1.308, held 1
-tag-shaped line in 151. The other levels, `--fix` and `--comment` were not run as forks.
+**One fork was read, and nothing else.** Fork `aedb754d8bfd0d839`, an xhigh round on PR 240 at
+CLI 2.1.308, held 1 tag-shaped line in 151. The other levels, `--fix` and `--comment` were not run
+as forks.
 
 ```bash
 head -1 <fork transcript> | python3 -c 'import json,sys; sys.path.insert(0,"scripts/quality")
@@ -942,7 +952,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
-| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...`, then one `candidate` line each | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

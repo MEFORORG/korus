@@ -1307,27 +1307,61 @@ class TheVault4044Edges(Fixture):
                 self._write("words", body)
                 self._refused(*self._run()[:2])
 
-    def test_a_peer_mentioning_the_nonce_refuses_rather_than_vouch_for_either(self):
-        # The residual, pinned: the mention cannot be told from the peer's own split arguments.
-        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
-        for agent, body in (("peer", f"Review target: Re-check the Builder branch\nits QA line "
-                                     f"cited {self.NONCE}\n\n`{TAG_HIGH}`\n"),
-                            ("tagless", f"Review target: \nReview y\n\nYou are reviewing ...\n"
-                                        f"last round was {self.NONCE}\n"),
-                            ("second", f"Review target: please\nround-0000000000, then "
-                                       f"{self.NONCE}\n\n`{TAG_HIGH}`\n")):
-            with self.subTest(peer=agent):
-                self._write(agent, body)
-                self._refused(*self._run()[:2])
-                (self.projects / "D--Code-korus" / "s1" / "subagents" / f"agent-{agent}.jsonl").unlink()
+    PEERS = {
+        "peer": "Review target: Re-check the Builder branch\nits QA line cited {n}\n\n`{t}`\n",
+        "tagless": "Review target: \nReview y\n\nYou are reviewing ...\nlast round was {n}\n",
+        "second": "Review target: please\nround-0000000000, then {n}\n\n`{t}`\n",
+    }
 
-    def test_control_without_the_peer_the_callers_own_is_read(self):
+    def _peer(self, name, cwd="/home/user/korus"):
+        write_fork(self.projects, "s1", name, "", "", shape=CLOUD, cwd=cwd,
+                   timestamp="2026-10-22T09:00:00Z",
+                   body=self.PEERS[name].format(n=self.NONCE, t=TAG_HIGH))
+
+    # Round three: a fork kept only by a nonce below its target line is a mention where another
+    # fork carries the nonce on its target line, so it no longer blocks the caller's own.
+
+    def _assert_mine_is_read(self, name):
         self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
-        self._write("peer", f"Review target: Re-check the Builder branch\nits QA line cited "
-                            f"round-0000000000\n\n`{TAG_HIGH}`\n")
+        self._peer(name)
         code, out, _ = self._run()
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent mine", out)
+
+    def test_a_peer_citing_the_nonce_below_its_words_does_not_block_the_callers_own(self):
+        self._assert_mine_is_read("peer")
+
+    def test_a_tagless_peer_quoting_the_nonce_does_not_block_the_callers_own(self):
+        self._assert_mine_is_read("tagless")
+
+    def test_a_peer_citing_two_nonces_does_not_block_the_callers_own(self):
+        self._assert_mine_is_read("second")
+
+    def test_with_no_fork_of_its_own_a_mention_in_the_worktree_refuses_and_names_it(self):
+        # The residual, pinned: it cannot be told from the caller's own split arguments.
+        self._peer("second")
+        code, out, _ = self._run()
+        self._refused(code, out)
+        self.assertIn("candidate | 2026-10-22T09:00:00Z | agent second | session s1", out)
+
+    def test_a_mention_in_another_worktree_is_not_your_fork_found_elsewhere(self):
+        self._peer("peer", cwd="/home/user/other")
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_control_a_split_fork_with_the_nonce_on_its_target_line_elsewhere_is_found(self):
+        # Its target line names the round, so it is the caller's own, not a mention: exit 12.
+        write_fork(self.projects, "s1", "own", "", "", shape=CLOUD, cwd="/home/user/other",
+                   timestamp="2026-10-22T09:00:00Z",
+                   body=f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run(f"xhigh {self.NONCE} Review x\nand y")
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    def test_a_mention_placed_nowhere_is_not_placed_by_the_nonce(self):
+        write_fork(self.projects, "s1", "bare", "", "", shape=CLOUD, timestamp="2026-10-22T09:00:00Z",
+                   body=self.PEERS["peer"].format(n=self.NONCE, t=TAG_HIGH))
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_control_a_nonce_after_the_tag_is_not_the_forks_own(self):
         self._write("after", f"Review target: Review x\n`{TAG_XHIGH}`\n\nlast round {self.NONCE}\n")

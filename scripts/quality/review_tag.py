@@ -45,10 +45,12 @@ that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
 the next line that is not blank. Where the first line leaves a backtick open, or carries no nonce
-while a later line before the tag does, or the next line is no tag and a later line is one, or two
-lines have a tag's shape, the arguments may span lines: the tool refuses (exit 13) rather than read
-a line of them as the tag, call the fork tagless, or call it absent. A peer fork that only mentions
-the round's nonce below its own target line refuses the same way. Keep the arguments on one line.
+while a later line above the last tag-shaped one does (any line, in a tagless fork), or the next line
+is no tag and a later line is one, or two lines have a tag's shape, the arguments may span lines: the
+tool refuses (exit 13) rather than read a line of them as the tag, call the fork tagless, or call it
+absent. A fork kept only by a nonce below its target line is a mention where another fork carries
+the nonce on its target line, and is out of scope outside the caller's worktree. Keep the arguments
+on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -192,7 +194,7 @@ class Fork:
     #: The arguments may span lines, so no line can be read as the tag. `read_head` lists when.
     unsplit: bool = False
     #: The nonces that may be the fork's own: the first in its target line, else every nonce on a
-    #: later line before its last tag-shaped one. Used only to match, never printed.
+    #: later line above its last tag-shaped one, or on any line where none is. Used only to match.
     own_nonces: tuple[str, ...] = ()
 
     @property
@@ -456,7 +458,11 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
-    unsplit: int = 0
+    #: Forks whose arguments may span lines, kept by their target line.
+    unsplit: list[Fork] = field(default_factory=list)
+    #: Forks kept only by a nonce below their target line: the fork's own, or a mention of it.
+    #: They refuse only where no fork matched on its target line, since a nonce is fresh each round.
+    mentioned: list[Fork] = field(default_factory=list)
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -526,11 +532,14 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
+            mentioned = False
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
+                # An unsplit fork's arguments are known only in part, so a nonce below its target
+                # line keeps it. That nonce may be the fork's own or a mention of the caller's.
                 if not (fork.unsplit and any(own_nonce_matches(filters.target, nonce)
                                              for nonce in fork.own_nonces)):
                     continue
+                mentioned = not NONCE_SHAPE.search(fork.target)
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
                 try:
@@ -544,6 +553,12 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
+            if mentioned:
+                # Only a fork in the caller's own worktree can stand in for the caller's round. A
+                # mention elsewhere, or in a fork placed nowhere, says nothing about this round.
+                if placed:
+                    result.mentioned.append(fork)
+                continue
             if placed is None and nonced:
                 # The target filter already ran, so this fork carries the caller's own nonce: the
                 # nonce places it, where a worktree cannot.
@@ -553,7 +568,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 result.unplaced += 1
                 continue
             if placed and fork.unsplit:
-                result.unsplit += 1
+                result.unsplit.append(fork)
             elif placed:
                 result.forks.append(fork)
             elif nonced:
@@ -741,8 +756,13 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
-    if result.unsplit:
-        print(f"{result.unsplit} {UNSPLIT_MESSAGE}")
+    # A fork kept only by a nonce below its target line stands aside when one matched on its
+    # target line: the nonce is fresh each round, so that one is the round's, and this a mention.
+    split = result.unsplit + ([] if result.forks or result.unsplit else result.mentioned)
+    if split:
+        print(f"{len(split)} {UNSPLIT_MESSAGE}")
+        for fork in split:
+            print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
         return EXIT_UNSPLIT
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
