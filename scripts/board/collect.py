@@ -157,11 +157,13 @@ def read_scheduled_runs(full, since_day):
     return RunRead(pages, seen, by_flow)
 
 
-def run_read_state(read):
-    """`whole`, `zero`, `short`, `cap` or `none` for one read, judged against its FIRST page's total.
+def run_read_state(read, bar=0):
+    """`whole`, `zero`, `short`, `cap` or `none` for one read, judged against its FIRST page's total
+    and against `bar`, the highest first-page total any read of this window has reported.
 
     A later page may report more (a run created mid-read) but never fewer: a lower total, a zero
-    among them included, is the shape a failed page takes, so that read is short."""
+    among them included, is the shape a failed page takes, so that read is short. For the same
+    reason a read reporting fewer runs than an earlier read did is short."""
     if not read.pages:
         return "none"
     first = read.pages[0]
@@ -169,9 +171,9 @@ def run_read_state(read):
         return "cap"
     if min(read.pages) < first:
         return "short"
-    if first == 0:
+    if max(read.pages) == 0 and not bar:
         return "zero" if not read.seen else "short"
-    return "whole" if len(read.seen) >= first else "short"
+    return "whole" if first >= bar and len(read.seen) >= max(first, 1) else "short"
 
 
 def chosen_run_read(reads, active):
@@ -179,7 +181,8 @@ def chosen_run_read(reads, active):
 
     A whole read wins. A page saying the window holds no run is believed at once only when no
     workflow is active; otherwise only when every one of RUNS_READ_ATTEMPTS reads says so."""
-    states = [run_read_state(r) for r in reads]
+    bar = max([r.pages[0] for r in reads if r.pages] or [0])
+    states = [run_read_state(r, bar) for r in reads]
     for read, state in zip(reads, states):
         if state == "whole":
             return read

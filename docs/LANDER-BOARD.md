@@ -325,7 +325,8 @@ paginated read stopped at a page boundary with no error on most collects that da
 read was whole.
 
 Each page prints its own total, and a read is judged against its first page's total. It is whole
-only when every later page reports at least that total and the rows reach it.
+only when every later page reports at least that total, no earlier read reported more, and the
+rows reach it.
 
 A page saying the window holds no run is believed at once when no workflow is active. Otherwise
 it is believed only when all three reads say so. Any other mix refuses.

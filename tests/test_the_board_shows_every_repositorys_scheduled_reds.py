@@ -359,6 +359,19 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
                 read_in_turn(list(answers))
             self.assertIn("held no run on only some", str(cm.exception.code))
 
+    def test_a_later_read_reporting_fewer_runs_than_an_earlier_one_refuses(self):
+        # A wrong-low total on a later read is not believed over an earlier, higher one.
+        short = lines(greens(1, 100), total=365)
+        low = lines(greens(1, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([short, low, low])
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_zero_first_page_with_a_later_page_saying_runs_exist_is_not_a_zero(self):
+        read = lines([], total=0) + lines([], total=365)
+        with self.assertRaises(SystemExit):
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+
     def test_two_pages_read_whole_are_read_once(self):
         answers = [lines(greens(1, 100), total=150) + lines(greens(101, 50), total=150), "unused"]
         got = read_in_turn(answers)
