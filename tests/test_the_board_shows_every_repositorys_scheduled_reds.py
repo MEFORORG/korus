@@ -34,6 +34,7 @@ SPEC = importlib.util.spec_from_file_location("board_collect_scheduled",
 collect = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = collect
 SPEC.loader.exec_module(collect)
+collect.RUNS_RETRY_WAIT_S = 0  # the retry's wait is real time; these reads are not
 
 VAULT = "MEFORORG/MessageFoundry-vault"
 SCHEDULED_YAML = "on:\n  schedule:\n    - cron: '17 6 * * *'\n  workflow_dispatch:\n"
@@ -228,7 +229,7 @@ class TheCollectorReadsEachWorkflowsLatestVerdict(unittest.TestCase):
         self.assertEqual(got["reds"][0]["streak"], 1)
 
     def test_the_read_asks_for_scheduled_runs_in_the_window_and_every_page(self):
-        _, calls = read([flow(1, "CI")], [])
+        _, calls = read([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")])
         [runs] = [a for a in calls if any("actions/runs" in x for x in a)]
         for want in ("event=schedule", "created=>=2026-08-27", "--paginate"):
             self.assertIn(want, runs)
@@ -290,7 +291,30 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
         with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
             got = collect.scheduled_reds(VAULT, "2026-08-27")
         self.assertEqual(answers, [])
-        self.assertEqual((got["read"], got["reds"][0]["streak"]), (1, 1))
+        red = got["reds"][0]
+        # The short read held only the failure; only the whole read knows the green before it.
+        self.assertEqual((got["read"], red["streak"], red["floor"], red["last_green"]),
+                         (1, 1, False, "2026-09-30T00:00:00Z"))
+
+    def test_an_empty_read_is_read_again(self):
+        answers = ["", lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")])]
+        _, patch = fake([flow(1, "CI")], [])
+        other = patch.new.run
+
+        def run_(args, **kw):
+            if any("actions/runs" in x for x in args):
+                return done(answers.pop(0))
+            return other(args, **kw)
+        with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
+            got = collect.scheduled_reds(VAULT, "2026-08-27")
+        self.assertEqual((answers, len(got["reds"])), ([], 1))
+
+    def test_a_window_past_the_cap_is_read_once(self):
+        calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
+                            total=collect.RUNS_API_CAP + 1)
+        with patch, self.assertRaises(SystemExit):
+            collect.scheduled_reds(VAULT, "2026-08-27")
+        self.assertEqual(len([a for a in calls if any("actions/runs" in x for x in a)]), 1)
 
     def test_a_window_past_the_api_cap_refuses_and_says_to_narrow_it(self):
         # The completeness check would also refuse here, so the message is what tells them apart.

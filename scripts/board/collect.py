@@ -123,10 +123,12 @@ RUNS_API_CAP = 1000
 # 200 or 300 of 365 engine runs on most collects that day, and the next read was whole. A short
 # read is read again; one still short after the last attempt refuses, as before.
 RUNS_READ_ATTEMPTS = 3
+RUNS_RETRY_WAIT_S = 2
 
 
 def read_scheduled_runs(full, since_day):
-    """One whole read of the scheduled run list: (run ids seen, total_counts, verdicts by flow)."""
+    """One read of the scheduled run list, possibly short: (run ids seen, total_counts, verdicts
+    by flow). The caller compares the ids seen against the totals."""
     runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
                          "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
                          "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
@@ -237,9 +239,14 @@ def scheduled_reds(full, since_day):
             active[f[0]] = {"path": f[2], "name": f[3]}
         if f[1] == "disabled_inactivity":
             stopped.append(f[3])
-    for _ in range(RUNS_READ_ATTEMPTS):
+    for attempt in range(RUNS_READ_ATTEMPTS):
+        if attempt:
+            time.sleep(RUNS_RETRY_WAIT_S)
         seen, totals, by_flow = read_scheduled_runs(full, since_day)
-        if not totals or len(seen) >= min(totals):
+        # An empty read is read again too: one measured that day came back with no rows and no
+        # error. Past the cap no read can be whole, so it stops and refuses below.
+        if (totals and (len(seen) >= min(totals) or max(totals) > RUNS_API_CAP)) \
+                or (not totals and not active):
             break
     if totals and max(totals) > RUNS_API_CAP:
         refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
