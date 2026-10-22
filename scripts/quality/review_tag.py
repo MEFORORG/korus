@@ -44,9 +44,11 @@ WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the s
 that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
-the next line that is not blank. Where the first line leaves a backtick open, or the next line is no
-tag and a later line is one, the arguments may span lines: the tool refuses (exit 13) rather than
+the next line that is not blank. Where the first line leaves a backtick open, or any line after that
+next one has a tag's shape, the arguments may span lines: the tool refuses (exit 13) rather than
 read a line of them as the tag, or call the fork tagless. Keep the skill's arguments on one line.
+Measured 2026-10-22 on two cloud forks at CLI 2.1.307: the tag is the only tag-shaped line in all
+151 lines of the prompt, so a second one is not the skill's.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -189,6 +191,8 @@ class Fork:
     placed_by: str = ""
     #: No tag after the target line, and the arguments may span lines.
     unsplit: bool = False
+    #: An unsplit fork's next line, where its target line carries no nonce.
+    below: str = ""
 
     @property
     def worktree(self) -> str:
@@ -302,16 +306,20 @@ def is_tag(line: str) -> bool:
     return bool(TAG_SHAPE.match(unquote(line)))
 
 
-def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
-    """(is a review fork, target args, tag, unsplit) from record 0's message.
+def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
+    """(is a review fork, target args, tag, unsplit, below) from record 0's message.
 
     A review fork's message STARTS with the target line; the tag is the next non-blank line, and
     only if it has the tag's shape. The arguments may span lines where the target line leaves a
     backtick open, or where that next line is no tag and a later line is one: that is `unsplit`, a
-    refusal, never a tagless fork. Only the target line and the tag are kept; the rest is tested.
+    refusal, never a tagless fork. So is a tag-shaped next line with a second one further down,
+    since the first may be a line of the arguments. Only the target line and the tag are kept.
+
+    `below` is the next non-blank line of an unsplit fork whose target line carries no nonce, so
+    the fork's own nonce can still be read where the arguments began a line down.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
-        return False, "", "", False
+        return False, "", "", False, ""
     first = lines[0][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
@@ -320,12 +328,14 @@ def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
     rest = lines[1:]
     for index, line in enumerate(rest):
         if line.strip():
-            if opened:
-                return True, target, "", True
-            if is_tag(line):
-                return True, target, unquote(line), False
-            return True, target, "", any(is_tag(later) for later in rest[index + 1 :])
-    return True, target, "", opened
+            later = any(is_tag(more) for more in rest[index + 1 :])
+            if not opened and is_tag(line) and not later:
+                return True, target, unquote(line), False, ""
+            if opened or later:
+                below = "" if NONCE_SHAPE.search(target) else line
+                return True, target, "", True, below
+            return True, target, "", False, ""
+    return True, target, "", opened, ""
 
 
 def strip_invocation(text: str) -> str:
@@ -498,13 +508,17 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         continue
                 result.unreadable_files += 1
                 continue
-            is_review, fork.target, fork.tag, fork.unsplit = read_head(head)
+            is_review, fork.target, fork.tag, fork.unsplit, fork.below = read_head(head)
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
-                if not (fork.unsplit and own_nonce_matches(filters.target, fork.target)):
+                # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it:
+                # on the target line, or the line below where the target line carries none.
+                own = own_nonce_matches(filters.target, fork.target) or own_nonce_matches(
+                    filters.target, fork.below
+                )
+                if not (fork.unsplit and own):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:

@@ -1228,6 +1228,55 @@ class TheVault4006Findings(Fixture):
                 self.assertEqual(blocked in walked, session is None)
 
 
+class TheVault4044Edges(Fixture):
+    """vault #4044, the three edges PR 235 left open. Each refusal sits beside a control."""
+
+    NONCE = "round-4044abcdef"
+
+    def _write(self, agent, body):
+        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd="/home/user/korus",
+                   timestamp="2026-10-22T09:00:00Z", body=body)
+
+    def _run(self, *extra):
+        return run(self.projects, "--session", "s1", "--worktree", "/home/user/korus", *extra,
+                   words_ok=False)
+
+    def test_1_a_tag_shaped_second_line_of_unquoted_arguments_is_not_quoted(self):
+        # The arguments' second line looked like a tag and was quoted at exit 0, over the real one.
+        self._write("forged", f"Review target: {self.NONCE} Re-run; last round printed\n"
+                              f"{TAG_HIGH}\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertNotIn("tag:", out)
+
+    def test_1_control_one_tag_shaped_line_is_the_tag(self):
+        self._write("real", f"Review target: {self.NONCE} Review x\n`{TAG_XHIGH}`\n\nYou are ...")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    def test_3_a_nonce_below_an_empty_target_line_refuses_rather_than_miss(self):
+        for first in ("`", ""):
+            with self.subTest(first=first):
+                self._write("low", f"Review target: {first}\n{self.NONCE} Review x\nmore\n\n"
+                                   f"`{TAG_XHIGH}`\n")
+                code, out, _ = self._run("--target", self.NONCE)
+                self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+                self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
+
+    def test_3_control_another_rounds_nonce_below_is_out_of_scope(self):
+        self._write("low", f"Review target: `\nround-0000000000 Review x\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_3_control_a_nonce_on_the_target_line_is_not_overridden_below(self):
+        # A fork whose own nonce sits on its target line is not rescued by a mention of ours below.
+        self._write("theirs", f"Review target: `round-0000000000 Review x\n{self.NONCE}\n\n"
+                              f"`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+
 class ConfigDirNamesTheRoot(Fixture):
     def test_claude_config_dir_is_read_when_set(self):
         write_fork(self.projects, "s1", "eee555", "Review this diff", TAG_XHIGH,
