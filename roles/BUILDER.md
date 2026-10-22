@@ -858,13 +858,22 @@ where the skill leaves it. A later mention of an earlier round's nonce is not th
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
 newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
 
-It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
-one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
+It reads the meta file, then record 0 alone, and prints of that only the target and the tag line.
+No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
 forbids a home path in a QA line.
+
+**A target may span lines.** One that opens a backtick runs to the line that closes it, and the tag
+is the next non-blank line.
+
+Where that line is no tag but a later one is, the tool cannot tell your arguments from the tag, and
+it refuses with exit 13. A backtick that never closes refuses the same way.
+
+**CHANGED 2026-10-22, vault #4006.** That paragraph read *"of that only the target line and the next
+non-blank one"*. A target spanning lines was cut to its first, so its tag read as none, exit 5.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | REQUIRED. The round's nonce, or your arguments carrying it, level and skill flags stripped. A level alone is refused, exit 9, and so is a target with no well-formed nonce, unless `--no-nonce`, which no QA line may use. |
+| `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
@@ -887,6 +896,11 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
+| 13 | `<n> fork(s) in scope have a target spanning lines, and the tag could not be told apart from it` | A refusal; running it again does not clear it. See the refusal row above. |
+
+**CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
+and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.
+Exit 13 is new.
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.

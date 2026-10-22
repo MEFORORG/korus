@@ -580,8 +580,9 @@ class EveryMissIsLoudAndDistinct(Fixture):
         codes = {review_tag.EXIT_FOUND, review_tag.EXIT_NO_FORK, review_tag.EXIT_NO_ROOT,
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
-                 review_tag.EXIT_NOT_ATTRIBUTABLE, 1, 2}
-        self.assertEqual(len(codes), 12, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
+                 review_tag.EXIT_UNSPLIT, 1, 2}
+        self.assertEqual(len(codes), 14, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1050,6 +1051,141 @@ class ANonceDoesNotPlaceAForkRecordedElsewhere(Fixture):
         code, out, _ = run(self.projects, "--session", "s1", "--worktree", "D:/Code/korus-wt-b",
                            "--target", "round-0123456789", words_ok=False)
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+
+class TheVault4006Findings(Fixture):
+    """vault #4006, the round-two findings PR 233 left open. Each case pairs a refusal or a match
+    with the control that shows the fixture would read the other way without the fix."""
+
+    NONCE = "round-4006abcdef"
+    STD = "Review this branch's diff against origin/main"
+
+    def _write(self, agent, body, *, session="s1", cwd="/home/user/korus"):
+        sub = self.projects / "D--Code-korus" / session / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        record = {"type": "user", "timestamp": "2026-10-22T09:00:00Z", "sessionId": session,
+                  "cwd": cwd, "message": {"role": "user", "content": body}}
+        (sub / f"agent-{agent}.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    def _run(self, *extra):
+        return run(self.projects, "--session", "s1", "--worktree", "/home/user/korus", *extra,
+                   words_ok=False)
+
+    # Finding 7: a multi-line target.
+
+    def test_a_quoted_target_spanning_lines_is_read_whole(self):
+        # Cut to its first line, the tag sat on what was the target's second line: exit 5.
+        args = f"{self.NONCE} Review the diff,\nthen the docs,\nthen the tests"
+        self._write("multi", f"Review target: `{args}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run("--target", f"xhigh {args}")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertIn("target: " + args.replace("\n", " ") + "\n", out, "the target was cut")
+        self.assertEqual(out.count("\n  "), 3, "a target line printed as more than one line")
+
+    def test_twenty_target_lines_still_find_the_tag(self):
+        # The old head cut at a fixed line count would have pushed the tag out of reach.
+        args = self.NONCE + "\n" + "\n".join(f"line {n}" for n in range(20))
+        self._write("long", f"Review target: `{args}`\n\n`{TAG_HIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_HIGH, out)
+
+    def test_an_unquoted_target_spanning_lines_refuses_rather_than_read_tagless(self):
+        # Nothing marks where an unquoted target ends, so the tag cannot be told from the words.
+        self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertIn(review_tag.UNSPLIT_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+        self.assertNotIn(review_tag.NO_TAG_MESSAGE, out, "a fork with a tag was called tagless")
+
+    def test_a_backtick_that_never_closes_refuses(self):
+        self._write("open", f"Review target: `{self.NONCE} Review x\n\n{TAG_XHIGH}\n")
+        code, out, _ = self._run("--target", f"{self.NONCE} Review x and more words")
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertNotIn("tag:", out)
+
+    def test_control_a_tagless_fork_with_no_later_tag_is_still_exit_5(self):
+        self._write("none", f"Review target: {self.NONCE} Review x\nprose\n\nmore prose\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
+
+    def test_an_unsplit_fork_of_another_round_is_out_of_scope(self):
+        self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", "round-0000000000")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    # Finding 8: flags in the equals form, and flags after the words.
+
+    def test_flags_are_stripped_wherever_they_sit(self):
+        write_fork(self.projects, "s1", "flags", f"{self.NONCE} {self.STD}", TAG_XHIGH,
+                   shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        for wanted in (f"xhigh --max-findings=all {self.NONCE} {self.STD}",
+                       f"xhigh {self.NONCE} {self.STD} --max-findings all",
+                       f"xhigh {self.NONCE} {self.STD} --comment --max-findings=5",
+                       f"xhigh {self.NONCE} Review this --fix branch's diff against origin/main"):
+            with self.subTest(target=wanted):
+                code, out, _ = self._run("--target", wanted)
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_a_flag_the_skill_kept_in_its_target_still_matches(self):
+        # Mid-string, so neither side is a substring of the other until both are stripped.
+        write_fork(self.projects, "s1", "kept", f"{self.NONCE} Review --comment this diff",
+                   TAG_XHIGH, shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = self._run("--target", f"xhigh {self.NONCE} Review this diff --max-findings=all")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_the_equals_form_alone_selects_nothing(self):
+        code, out, _ = self._run("--target", "xhigh --max-findings=all")
+        self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
+        self.assertIn(review_tag.NO_WORDS_MESSAGE, out)
+
+    def test_control_other_words_still_miss(self):
+        write_fork(self.projects, "s1", "flags", f"{self.NONCE} {self.STD}", TAG_XHIGH,
+                   shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = self._run("--target", f"{self.NONCE} {self.STD} and the vault")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    # Finding 6: --since, like --target, runs before a fork is counted unplaced.
+
+    def test_a_fork_before_since_is_not_counted_unplaced(self):
+        write_fork(self.projects, "s1", "old", "Review the top-level diff", TAG_XHIGH,
+                   timestamp="2026-10-22T08:00:00Z")
+        code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "top-level",
+                           "--since", "2026-10-22T09:00:00Z")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "top-level",
+                           "--since", "2026-10-22T07:00:00Z")
+        self.assertEqual(code, review_tag.EXIT_UNPLACED, out)
+
+    # Finding 11: the walk honours the session filter.
+
+    def test_another_sessions_unreadable_directory_is_not_walked(self):
+        write_fork(self.projects, "s1", "mine", f"{self.NONCE} {self.STD}", TAG_XHIGH,
+                   shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        blocked = self.projects / "D--Code-korus" / "s2"
+        (blocked / "subagents").mkdir(parents=True)
+        real_scandir = os.scandir
+        walked = []
+
+        def refuse(path="."):
+            walked.append(Path(path))
+            if Path(path) == blocked:
+                raise PermissionError(13, "denied", str(blocked))
+            return real_scandir(path)
+
+        args = ["--projects-dir", str(self.projects), "--worktree", "/home/user/korus",
+                "--target", self.NONCE]
+        for session, expected in (("s1", review_tag.EXIT_FOUND), (None, review_tag.EXIT_NO_ROOT)):
+            with self.subTest(session=session):
+                walked.clear()
+                argv = args + (["--session", session] if session else ["--any-session"])
+                with mock.patch.object(review_tag.os, "scandir", side_effect=refuse):
+                    with contextlib.redirect_stdout(io.StringIO()) as out:
+                        code = review_tag.main(argv)
+                self.assertEqual(code, expected, out.getvalue())
+                self.assertEqual(blocked in walked, session is None)
 
 
 class ConfigDirNamesTheRoot(Fixture):

@@ -43,11 +43,16 @@ line. Widening takes an explicit flag.
 WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the skill selected, not
 that the fork obeyed it.
 
-IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. Per fork it reads the meta file, applies the
-session filter, and only then reads record 0 -- one line of the transcript -- and from that only the
-target line and the next line that is not blank. No later record is read or printed. Path columns are printed
-only under `--verbose`, because the leak gate forbids a user-home path in published text and a QA
-line is published text.
+A TARGET MAY SPAN LINES. A target that opens a backtick runs to the line that closes it, and the
+tag is the next line that is not blank. Where that line is not a tag but a later line of the message
+is one, the tool cannot tell the arguments from the tag, and it refuses (exit 13) rather than call
+the fork tagless. A backtick that never closes refuses the same way.
+
+IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter it walks only that
+session's directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
+and prints from that only the target and the tag line. No later record is read or printed. Path
+columns are printed only under `--verbose`, because the leak gate forbids a user-home path in
+published text and a QA line is published text.
 
 NOT MEASURED, so it says so rather than guessing. The inline shape (`Agent tool unavailable ->
 single-pass inline`) has no fork: its prompt lands in the caller's own transcript, which this tool
@@ -74,6 +79,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
+   13  a fork in scope has a target that spans lines, and its tag cannot be told apart from it
 """
 
 from __future__ import annotations
@@ -100,6 +106,7 @@ EXIT_NO_SELECTOR = 9
 EXIT_UNREAD = 10
 EXIT_NOT_ATTRIBUTABLE = 11
 EXIT_ELSEWHERE = 12
+EXIT_UNSPLIT = 13
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -126,6 +133,9 @@ UNREAD_MESSAGE = (
     "fork(s) in scope could not be read, so any could be the one asked for;"
     " if a round is still running, run this again when it ends"
 )
+UNSPLIT_MESSAGE = (
+    "fork(s) in scope have a target spanning lines, and the tag could not be told apart from it"
+)
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
     "--target carries no round nonce (round- and 8 or more hex digits);"
@@ -146,8 +156,8 @@ TARGET_PREFIX = "Review target:"
 NONCE_SHAPE = re.compile(r"(?<![0-9A-Za-z-])round-[0-9a-f]{8,}(?![0-9A-Za-z-])", re.IGNORECASE)
 
 #: The levels the skill parses, and the flags its description advertises. The `Review target` line
-#: drops a level that parsed, and probably the flags too (not traced), so a caller's own argument
-#: string is matched with any of these stripped from its front.
+#: drops a level that parsed, and probably the flags too (not traced), so a level is stripped from
+#: the front of an argument string, and a flag wherever it sits, `--max-findings=<n>` among them.
 LEVELS = ("low", "medium", "high", "xhigh", "max")
 VALUE_FLAGS = ("--max-findings",)
 BARE_FLAGS = ("--comment", "--fix")
@@ -173,6 +183,8 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
+    #: The target spans lines and the tag could not be told apart from it.
+    unsplit: bool = False
 
     @property
     def worktree(self) -> str:
@@ -266,7 +278,7 @@ def read_meta(transcript: Path) -> tuple[dict, bool]:
 
 
 def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
-    """Record 0 only, and of its message only up to its second non-blank line. Never a later record."""
+    """Record 0 only, and its message's lines. Never a later record."""
     with transcript.open(encoding="utf-8", errors="replace") as fh:
         first = fh.readline()
     try:
@@ -275,47 +287,66 @@ def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
         return None, []
     if not isinstance(record, dict):
         return None, []
-    head: list[str] = []
-    for line in message_text(record).splitlines():
-        head.append(line)
-        if sum(1 for kept in head if kept.strip()) == 2:
-            break
-    return record, head
+    return record, message_text(record).splitlines()
 
 
 def unquote(text: str) -> str:
     return text.strip().strip("`").strip()
 
 
-def read_head(lines: list[str]) -> tuple[bool, str, str]:
-    """(is a review fork, target args, tag) from the head of record 0's message.
+def is_tag(line: str) -> bool:
+    return bool(TAG_SHAPE.match(unquote(line)))
 
-    A review fork's message STARTS with the target line; the tag is the next non-blank line, and
-    only if it has the tag's shape. Anything else is refused, never guessed at.
+
+def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
+    """(is a review fork, target args, tag, unsplit) from record 0's message.
+
+    A review fork's message STARTS with the target line. A target that opens a backtick runs to the
+    line that closes it. The tag is the next non-blank line, and only if it has the tag's shape.
+    Where it does not, and a later line does, the target may span lines the tool cannot see the end
+    of: that is `unsplit`, a refusal, never a tagless fork. So is a backtick that never closes.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
-        return False, "", ""
-    target = unquote(lines[0][len(TARGET_PREFIX) :])
-    tag = ""
-    for line in lines[1:]:
+        return False, "", "", False
+    first = lines[0][len(TARGET_PREFIX) :].strip()
+    rest = lines[1:]
+    taken = [first]
+    if first.startswith("`") and (first == "`" or not first.endswith("`")):
+        for index, line in enumerate(rest):
+            taken.append(line)
+            if line.rstrip().endswith("`"):
+                rest = rest[index + 1 :]
+                break
+        else:
+            return True, unquote(first), "", True
+    target = unquote("\n".join(taken))
+    for index, line in enumerate(rest):
         if line.strip():
-            candidate = unquote(line)
-            tag = candidate if TAG_SHAPE.match(candidate) else ""
-            break
-    return True, target, tag
+            if is_tag(line):
+                return True, target, unquote(line), False
+            return True, target, "", any(is_tag(later) for later in rest[index + 1 :])
+    return True, target, "", False
 
 
 def strip_invocation(text: str) -> str:
-    """Drop the level and the flags the skill consumes from the front of an argument string."""
+    """Drop a level from the front of an argument string, and the skill's flags wherever they sit."""
     words = text.split()
-    while words:
-        if words[0].casefold() in LEVELS or words[0] in BARE_FLAGS:
-            words.pop(0)
-        elif words[0] in VALUE_FLAGS:
-            del words[:2]
+    kept: list[str] = []
+    leading = True
+    index = 0
+    while index < len(words):
+        word = words[index]
+        if word in BARE_FLAGS or any(word.startswith(flag + "=") for flag in VALUE_FLAGS):
+            index += 1
+        elif word in VALUE_FLAGS:
+            index += 2
+        elif leading and word.casefold() in LEVELS:
+            index += 1
         else:
-            break
-    return " ".join(words)
+            leading = False
+            kept.append(word)
+            index += 1
+    return " ".join(kept)
 
 
 def squash(text: str) -> str:
@@ -334,7 +365,8 @@ def target_matches(wanted: str, args: str) -> bool:
     because an empty string is a substring of everything: that is how a bare level once matched
     every fork.
     """
-    have = squash(args)
+    # The fork's own target is stripped the same way, so a flag the skill kept matches one it dropped.
+    have = squash(strip_invocation(unquote(args)))
     words = target_words(wanted)
     if not words:
         return have == ""
@@ -342,19 +374,25 @@ def target_matches(wanted: str, args: str) -> bool:
     # whose nonce is round-7f3a9c21e4.
     # And only as the fork's OWN nonce: the first one in its target line, where the skill leaves it
     # after dropping the level. A later mention of an earlier round's nonce is not that round.
-    wanted_nonces = NONCE_SHAPE.findall(wanted)
-    if wanted_nonces:
-        own = NONCE_SHAPE.findall(args)
-        if not own or own[0].casefold() != wanted_nonces[0].casefold():
-            return False
+    if NONCE_SHAPE.search(wanted) and not own_nonce_matches(wanted, args):
+        return False
     return squash(wanted) in have or words in have
 
 
-def fork_files(root: Path, unreadable: list[Path]) -> list[Path]:
+def own_nonce_matches(wanted: str, args: str) -> bool:
+    """The first nonce in `wanted` is the fork's own: the first nonce in its target line."""
+    wanted_nonces = NONCE_SHAPE.findall(wanted)
+    own = NONCE_SHAPE.findall(args)
+    return bool(wanted_nonces and own and own[0].casefold() == wanted_nonces[0].casefold())
+
+
+def fork_files(root: Path, unreadable: list[Path], session: str | None = None) -> list[Path]:
     """Every `agent-*.jsonl` under a `subagents` directory of a session, at any depth below it.
 
     A walk, not a glob: glob skips a directory it cannot read without a word, and a fork in that
     directory could be the one asked for. Every directory that could not be read is recorded.
+    With a session filter, only that session's directory is walked: another session's forks are
+    out of scope, and so is a directory of theirs that could not be read.
     """
 
     def failed(err: OSError) -> None:
@@ -363,6 +401,8 @@ def fork_files(root: Path, unreadable: list[Path]) -> list[Path]:
     found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root, onerror=failed):
         depth = len(Path(dirpath).relative_to(root).parts)
+        if depth == 1 and session:
+            dirnames[:] = [d for d in dirnames if d == session]
         if depth == 2:
             # <project>/<session>: only its subagents directory can hold a fork.
             dirnames[:] = [d for d in dirnames if d == "subagents"]
@@ -391,6 +431,7 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
+    unsplit: int = 0
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -425,7 +466,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
         except OSError:
             result.unreadable_roots.append(root)
             continue
-        files = fork_files(root, result.unreadable_roots)
+        files = fork_files(root, result.unreadable_roots, filters.session)
         for transcript in files:
             parts = transcript.relative_to(root).parts
             session_id = parts[1] if len(parts) > 1 else ""
@@ -455,12 +496,14 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         continue
                 result.unreadable_files += 1
                 continue
-            is_review, fork.target, fork.tag = read_head(head)
+            is_review, fork.target, fork.tag, fork.unsplit = read_head(head)
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                continue
+                # An unsplit target is known only in part, so its own nonce alone keeps it in.
+                if not (fork.unsplit and own_nonce_matches(filters.target, fork.target)):
+                    continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
                 try:
@@ -482,7 +525,9 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if placed is None:
                 result.unplaced += 1
                 continue
-            if placed:
+            if placed and fork.unsplit:
+                result.unsplit += 1
+            elif placed:
                 result.forks.append(fork)
             elif filters.target and NONCE_SHAPE.search(filters.target):
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
@@ -525,7 +570,9 @@ def render(
     out: list[str] = []
     for fork in forks:
         out.append(f"fork | {stamp(fork.time)} | agent {fork.agent_id}")
-        out.append(f"  target: {spell(fork.target, ascii_only) or '(none)'}")
+        # One line, so a target spanning lines cannot print a line that reads like a `tag:` line.
+        target = " ".join(fork.target.splitlines())
+        out.append(f"  target: {spell(target, ascii_only) or '(none)'}")
         # No placeholder on a `tag:` line: what follows `tag:` is quoted as the tag.
         if fork.tag:
             # Without a nonce, another Builder's fork with the same arguments can be the one match,
@@ -669,6 +716,9 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
+    if result.unsplit:
+        print(f"{result.unsplit} {UNSPLIT_MESSAGE}")
+        return EXIT_UNSPLIT
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE
