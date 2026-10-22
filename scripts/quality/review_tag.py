@@ -44,12 +44,12 @@ WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the s
 that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
-the next line that is not blank. Where that line is no tag, and either a later line is one or the
-first line opens a backtick it never closes, the arguments may span lines: the tool refuses (exit 13)
-rather than call the fork tagless, and the remedy is a round with its arguments on one line.
+the next line that is not blank. Where the first line leaves a backtick open, or the next line is no
+tag and a later line is one, the arguments may span lines: the tool refuses (exit 13) rather than
+read a line of them as the tag, or call the fork tagless. Keep the skill's arguments on one line.
 
-IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter it walks only that
-session's directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
+IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
+session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
 and prints from that only the target and the tag line. No later record is read or printed. Path
 columns are printed only under `--verbose`, because the leak gate forbids a user-home path in
 published text and a QA line is published text.
@@ -79,7 +79,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
-   13  a fork in scope has no tag after its target line, but its arguments may span lines
+   13  a fork in scope may have arguments spanning lines, so no line can be read as its tag
 """
 
 from __future__ import annotations
@@ -134,8 +134,8 @@ UNREAD_MESSAGE = (
     " if a round is still running, run this again when it ends"
 )
 UNSPLIT_MESSAGE = (
-    "fork(s) in scope have no tag after the target line, but may have arguments spanning lines;"
-    " run the round again with its arguments on one line"
+    "fork(s) in scope may have arguments spanning lines, so no line can be read as the tag;"
+    " keep the skill's arguments on one line"
 )
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
@@ -306,21 +306,25 @@ def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
     """(is a review fork, target args, tag, unsplit) from record 0's message.
 
     A review fork's message STARTS with the target line; the tag is the next non-blank line, and
-    only if it has the tag's shape. Where it has not, the arguments may span lines when a later line
-    is a tag or the target opens a backtick it never closes: that is `unsplit`, a refusal, never a
-    tagless fork. Only the target line and the tag are kept; the later lines are only tested.
+    only if it has the tag's shape. The arguments may span lines where the target line leaves a
+    backtick open, or where that next line is no tag and a later line is one: that is `unsplit`, a
+    refusal, never a tagless fork. Only the target line and the tag are kept; the rest is tested.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False
     first = lines[0][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
-    opened = first.startswith("`") and (first == "`" or not first.endswith("`"))
+    # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
+    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
+    opened = first.count("`") % 2 == 1
     rest = lines[1:]
     for index, line in enumerate(rest):
         if line.strip():
+            if opened:
+                return True, target, "", True
             if is_tag(line):
                 return True, target, unquote(line), False
-            return True, target, "", opened or any(is_tag(later) for later in rest[index + 1 :])
+            return True, target, "", any(is_tag(later) for later in rest[index + 1 :])
     return True, target, "", opened
 
 
@@ -451,6 +455,8 @@ def place(fork: Fork, want: str | None) -> bool | None:
 def scan(roots: list[Path], filters: Filters) -> Scan:
     result = Scan()
     want = normalize_path(filters.worktree) if filters.worktree else None
+    # With a nonce in the target, every fork past the target filter carries the caller's own.
+    nonced = bool(filters.target and NONCE_SHAPE.search(filters.target))
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -497,13 +503,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit fork's arguments are known only in part: its own nonce keeps it in, and
-                # so does a target line with no nonce at all, since the nonce may sit further down.
-                keep = fork.unsplit and (
-                    own_nonce_matches(filters.target, fork.target)
-                    or not NONCE_SHAPE.search(fork.target)
-                )
-                if not keep:
+                # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
+                if not (fork.unsplit and own_nonce_matches(filters.target, fork.target)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
@@ -518,7 +519,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
-            if placed is None and filters.target and NONCE_SHAPE.search(filters.target):
+            if placed is None and nonced:
                 # The target filter already ran, so this fork carries the caller's own nonce: the
                 # nonce places it, where a worktree cannot.
                 fork.placed_by = "the round nonce (no worktree or cwd recorded)"
@@ -530,7 +531,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 result.unsplit += 1
             elif placed:
                 result.forks.append(fork)
-            elif filters.target and NONCE_SHAPE.search(filters.target):
+            elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)

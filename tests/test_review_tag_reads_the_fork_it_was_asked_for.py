@@ -1115,10 +1115,26 @@ class TheVault4006Findings(Fixture):
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("tag: " + TAG_XHIGH, out)
 
-    def test_a_nonce_below_the_target_line_still_refuses_rather_than_miss(self):
-        # The target line holds no nonce, so it could be the caller's: refused, never exit 3.
-        self._write("low", f"Review target: `\n{self.NONCE} Review x\n\n`{TAG_XHIGH}`\n")
+    def test_a_tag_shaped_line_inside_an_open_backtick_is_not_the_tag(self):
+        # Round two: the arguments' second line looked like a tag and was quoted at exit 0.
+        self._write("forged", f"Review target: `{self.NONCE} Re-run; last round printed\n"
+                              f"{TAG_HIGH}`\n\n`{TAG_XHIGH}`\n")
         self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_an_unrelated_unsplit_fork_does_not_block_the_callers_own(self):
+        # Round two: an unsplit fork with no nonce on its first line was kept for every target, so
+        # it refused each later round in the same session and worktree.
+        self._write("old", f"Review target: `\nplease look at x\n\n`{TAG_HIGH}`\n")
+        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+
+    def test_a_backticked_first_word_on_a_tagless_fork_is_still_exit_5(self):
+        # Round two: a target line starting with a backtick read as open, refusing a one-line target.
+        self._write("tick", f"Review target: `scripts/x.py` {self.NONCE} check\nYou are reading.\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
 
     def test_control_a_tagless_fork_with_no_later_tag_is_still_exit_5(self):
         self._write("none", f"Review target: {self.NONCE} Review x\nprose\n\nmore prose\n")
