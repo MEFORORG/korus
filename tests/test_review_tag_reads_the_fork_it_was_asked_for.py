@@ -1229,7 +1229,9 @@ class TheVault4006Findings(Fixture):
 
 
 class TheVault4044Edges(Fixture):
-    """vault #4044, the three edges PR 235 left open. Each refusal sits beside a control."""
+    """vault #4044, the three edges PR 235 left open. Each case sits beside a control. Edge 2 is
+    the prompt body: past the blank line under the tag, it is never tested, so a tag-shaped line
+    there neither refuses a tagged fork nor turns a tagless one into exit 13."""
 
     NONCE = "round-4044abcdef"
 
@@ -1263,6 +1265,25 @@ class TheVault4044Edges(Fixture):
                 code, out, _ = self._run("--target", self.NONCE)
                 self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
                 self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
+
+    def test_3_a_nonce_two_lines_below_is_still_read(self):
+        # Round one: only the single next line was read, so this exited 3.
+        self._write("two", f"Review target: `\nReview the\n{self.NONCE} branch`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    def test_2_a_tag_shaped_line_in_the_prompt_body_does_not_refuse_a_tagged_fork(self):
+        self._write("body", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n\n"
+                            f"You are reviewing ...\n{TAG_HIGH}\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    def test_2_a_tagless_fork_with_one_in_its_body_is_exit_5_not_13(self):
+        self._write("body", f"Review target: `{self.NONCE} Review x`\n\nYou are reviewing ...\n\n"
+                            f"`{TAG_HIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
 
     def test_3_control_another_rounds_nonce_below_is_out_of_scope(self):
         self._write("low", f"Review target: `\nround-0000000000 Review x\n\n`{TAG_XHIGH}`\n")

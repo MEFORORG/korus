@@ -866,9 +866,9 @@ forbids a home path in a QA line.
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
 
-**Keep your arguments on one line.** The target is the first line of the fork's message. Where
-that line leaves a backtick open, or any line after the next non-blank one has a tag's shape, your
-arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
+**Keep your arguments on one line.** The target is the fork's first line. Where it is empty or
+leaves a backtick open, or the block under it has a tag-shaped line past its first, it refuses: 13.
+The block ends at the first blank line, so the prompt body is never tested.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
@@ -876,9 +876,10 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 **CHANGED 2026-10-22, vault #4044.** The rule read *"or the next non-blank line is no tag and a later
 line is one"*. So a tag-shaped second line of your arguments was quoted as the tag, at exit 0.
 
-A second tag-shaped line now refuses. Two cloud forks at CLI 2.1.307 each held exactly one in 151
-lines. Where the target line holds no nonce, the line below it is read for one, so the round refuses
-rather than miss.
+A tag-shaped line past the block's first now refuses. Both recorded shapes put a blank line under the
+tag, as did this branch's three forks: CLI 2.1.307, all `xhigh`, no skill flags.
+
+An empty target line refuses too, and its nonce is read from the lines under it, so it is no miss.
 
 | Flag | What it does |
 | --- | --- |
