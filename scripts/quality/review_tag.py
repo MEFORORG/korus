@@ -48,9 +48,10 @@ the next line that is not blank. Where the first line leaves a backtick open, or
 tag and a later line is one, the arguments may span lines: the tool refuses (exit 13) rather than
 read a line of them as the tag, or call the fork tagless. Keep the skill's arguments on one line.
 Two more shapes refuse the same way. A second tag-shaped line anywhere in the message: every tag
-in CLI 2.1.309 opens its template, one per prompt, so a second one came from the arguments. And a
-first line holding no words, whose arguments start on the next line; the fork's own nonce is read
-there, so the round refuses rather than reading as no fork at all.
+in CLI 2.1.309 opens its template, one per prompt, so one of the two came from the arguments. And a
+first line holding no words, or a level or flags alone, whose arguments start on the next line.
+Where the arguments span lines, the fork's own nonce is the first one on any of them, so the round
+refuses rather than reading as no fork at all.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -193,9 +194,8 @@ class Fork:
     placed_by: str = ""
     #: No tag after the target line, and the arguments may span lines.
     unsplit: bool = False
-    #: Where the fork's own nonce is read: the target, or the next line when the target has no
-    #: words. Matched, never printed.
-    nonce_text: str = ""
+    #: The first nonce in the fork's arguments, on any of their lines. Matched, never printed.
+    own_nonce: str = ""
 
     @property
     def worktree(self) -> str:
@@ -310,13 +310,16 @@ def is_tag(line: str) -> bool:
 
 
 def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
-    """(is a review fork, target args, tag, unsplit, nonce text) from record 0's message.
+    """(is a review fork, target args, tag, unsplit, own nonce) from record 0's message.
 
     A review fork's message STARTS with the target line; the tag is the next non-blank line, and
     only if it has the tag's shape. The arguments may span lines where the target line leaves a
     backtick open, where it holds no words, where that next line is no tag and a later line is one,
     or where a second tag-shaped line follows the tag: that is `unsplit`, a refusal, never a tagless
     fork or a quoted tag. Only the target line and the tag are kept; the rest is tested.
+
+    The own nonce is the first one in the arguments: the target line, and for an unsplit fork every
+    line after it up to the first tag-shaped one. It is matched, never printed.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False, ""
@@ -326,22 +329,30 @@ def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
     # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
     opened = first.count("`") % 2 == 1
     rest = lines[1:]
+    tag, unsplit = "", opened
     for index, line in enumerate(rest):
         if line.strip():
-            tagged_later = any(is_tag(later) for later in rest[index + 1 :])
-            # A target line with no words -- empty, or a lone backtick -- leaves the arguments, and
-            # the nonce with them, on this line.
-            own = target or unquote(line)
             if opened:
-                return True, target, "", True, own
+                break
+            later = rest[index + 1 :]
             if is_tag(line):
-                # Each template opens with its one tag, so a second tag-shaped line means the
-                # arguments carried one, and either could be the line the skill wrote.
-                if tagged_later:
-                    return True, target, "", True, own
-                return True, target, unquote(line), False, own
-            return True, target, "", not target or tagged_later, own
-    return True, target, "", opened, target
+                # Each template opens with its one tag, so with two tag-shaped lines one came from
+                # the arguments, and either could be the line the skill wrote.
+                unsplit = any(is_tag(other) for other in later)
+                tag = "" if unsplit else unquote(line)
+            else:
+                # A target line with no words, a level or flags alone among them, puts the
+                # arguments on the lines below it.
+                unsplit = not target_words(target) or any(is_tag(other) for other in later)
+            break
+    args = [first]
+    if unsplit:
+        for line in rest:
+            if is_tag(line):
+                break
+            args.append(line)
+    own = NONCE_SHAPE.search("\n".join(args))
+    return True, target, tag, unsplit, own.group(0) if own else ""
 
 
 def strip_invocation(text: str) -> str:
@@ -514,13 +525,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         continue
                 result.unreadable_files += 1
                 continue
-            is_review, fork.target, fork.tag, fork.unsplit, fork.nonce_text = read_head(head)
+            is_review, fork.target, fork.tag, fork.unsplit, fork.own_nonce = read_head(head)
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
-                if not (fork.unsplit and own_nonce_matches(filters.target, fork.nonce_text)):
+                if not (fork.unsplit and own_nonce_matches(filters.target, fork.own_nonce)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:

@@ -874,9 +874,22 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 `none returned`.
 
 **CHANGED 2026-10-22, edges PR 235 left open.** Two shapes now exit 13. Two tag-shaped lines
-read as exit 0, quoting the first. A target line with no words, nonce on line 2, read as exit 3.
+read as exit 0, quoting the first. A target line with no words, nonce below it, read as exit 3.
 
-Each template in CLI 2.1.309 opens with its one tag, so neither shape is the skill's own.
+Where the arguments span lines, the fork's own nonce is now the first one on any of them, up to the
+first tag-shaped line. Before, only the target line was read, so such a round read as exit 3.
+
+Measured on CLI 2.1.309, in this branch's cloud session:
+
+```bash
+B=/opt/claude-code/bin/claude
+grep -aoE '(low|medium|high|xhigh|max|\$\{[a-z]\}) effort (\\u2192|->)' "$B" | wc -l
+```
+
+It returns 12, and read one by one, each opens a template string or a `tag:` field. No template
+body carries a second one. The same binary showed the target always in backticks.
+
+Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 under the new code.
 
 | Flag | What it does |
 | --- | --- |
@@ -903,7 +916,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
-| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...`, also where two lines are tag-shaped or the target line holds no words | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

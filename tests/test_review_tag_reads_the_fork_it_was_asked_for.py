@@ -1176,6 +1176,28 @@ class TheVault4006Findings(Fixture):
         self._write("bare", f"Review target: \n{self.NONCE} Review x\n\nYou are reading.\n")
         self._refused(*self._run("--target", self.NONCE)[:2])
 
+    # Round one of this change: the nonce was sought on one line only, so these read as exit 3.
+
+    def test_the_nonce_on_line_two_below_words_refuses(self):
+        self._write("words", f"Review target: `Review this branch\n{self.NONCE} diff`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_the_nonce_on_line_three_below_an_open_backtick_refuses(self):
+        self._write("deep", f"Review target: `\nReview this\n{self.NONCE} diff`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_level_alone_on_the_first_line_refuses(self):
+        for first in ("xhigh", "--comment"):
+            with self.subTest(first=first):
+                self._write("lvl", f"Review target: {first}\n{self.NONCE} Review x\n\nprose\n")
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_control_a_nonce_below_the_tag_is_not_the_forks_own(self):
+        # The arguments end at the first tag-shaped line; a nonce in the prompt below is not theirs.
+        self._write("below", f"Review target: `Review x\nand y`\n\n`{TAG_XHIGH}`\n\n{self.NONCE}\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
     def test_control_another_rounds_nonce_below_an_empty_line_is_out_of_scope(self):
         self._write("tick", f"Review target: `\nround-0000000000 Review x`\n\n`{TAG_XHIGH}`\n")
         code, out, _ = self._run("--target", self.NONCE)
