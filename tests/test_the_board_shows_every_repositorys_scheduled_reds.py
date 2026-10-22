@@ -34,6 +34,7 @@ SPEC = importlib.util.spec_from_file_location("board_collect_scheduled",
 collect = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = collect
 SPEC.loader.exec_module(collect)
+collect.RUNS_RETRY_WAIT_S = 0  # the retry's wait is real time; these reads are not
 
 VAULT = "MEFORORG/MessageFoundry-vault"
 SCHEDULED_YAML = "on:\n  schedule:\n    - cron: '17 6 * * *'\n  workflow_dispatch:\n"
@@ -60,9 +61,28 @@ def run(rid, wid, conclusion, created, status="completed", total=None):
 
 
 def lines(rows, total=None):
-    """Runs in the shape the collector's own `--jq` program prints: one JSON array per line."""
+    """Runs in the shape the collector's own `--jq` program prints: one JSON array per line, after
+    the page's own `[total_count]` line. A single page, so a window with no run still prints one."""
     total = len(rows) if total is None else total
-    return "\n".join(json.dumps([total] + r[1:]) for r in rows) + "\n"
+    return json.dumps([total]) + "\n" + "".join(json.dumps(r[1:]) + "\n" for r in rows)
+
+
+def greens(first, count):
+    """`count` distinct green scheduled runs of workflow 1, ids from `first`."""
+    return [run(i, 1, "success", "2026-10-01T00:00:00Z") for i in range(first, first + count)]
+
+
+def read_in_turn(answers, flows=None):
+    """`scheduled_reds` over a run list that answers each read with the next of `answers`."""
+    _, patch = fake([flow(1, "CI")] if flows is None else flows, [])
+    other = patch.new.run
+
+    def run_(args, **kw):
+        if any("actions/runs" in x for x in args):
+            return done(answers.pop(0))
+        return other(args, **kw)
+    with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
+        return collect.scheduled_reds(VAULT, "2026-08-27")
 
 
 def contents(yaml, encoding="base64"):
@@ -228,7 +248,7 @@ class TheCollectorReadsEachWorkflowsLatestVerdict(unittest.TestCase):
         self.assertEqual(got["reds"][0]["streak"], 1)
 
     def test_the_read_asks_for_scheduled_runs_in_the_window_and_every_page(self):
-        _, calls = read([flow(1, "CI")], [])
+        _, calls = read([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")])
         [runs] = [a for a in calls if any("actions/runs" in x for x in a)]
         for want in ("event=schedule", "created=>=2026-08-27", "--paginate"):
             self.assertIn(want, runs)
@@ -266,6 +286,162 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
     def test_fewer_runs_than_the_api_reports_refuses(self):
         self.assertRefuses([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
                            total=2)
+
+    def test_a_short_read_is_read_again_before_it_refuses(self):
+        calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
+                            total=2)
+        with patch, self.assertRaises(SystemExit):
+            collect.scheduled_reds(VAULT, "2026-08-27")
+        runs = [a for a in calls if any("actions/runs" in x for x in a)]
+        self.assertEqual(len(runs), collect.RUNS_READ_ATTEMPTS)
+
+    def test_a_short_read_then_a_whole_one_uses_the_whole_one(self):
+        # The collect.py refusals of 2026-10-22, RUNS_READ_ATTEMPTS' comment: a page-boundary stop.
+        whole = [run(1, 1, "failure", "2026-10-01T00:00:00Z"),
+                 run(2, 1, "success", "2026-09-30T00:00:00Z")]
+        answers = [lines(whole[:1], total=2), lines(whole)]
+        got = read_in_turn(answers)
+        self.assertEqual(answers, [])
+        red = got["reds"][0]
+        # The short read held only the failure; only the whole read knows the green before it.
+        self.assertEqual((got["read"], red["streak"], red["floor"], red["last_green"]),
+                         (1, 1, False, "2026-09-30T00:00:00Z"))
+
+    def test_a_read_with_no_page_is_read_again(self):
+        # Measured 2026-10-22 by the Watchdog: `gh api -X GET repos/MEFORORG/MessageFoundry/
+        # actions/runs -f event=schedule -f created=>=2026-09-17 -f per_page=100 --paginate` printed
+        # no row with exit 0, then 365 rows on the next read.
+        answers = ["", lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")])]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, len(got["reds"])), ([], 1))
+
+    def test_a_short_read_then_reads_with_no_page_refuses(self):
+        # The fail-open the delta review found: keeping the LAST read let two empty reads after a
+        # short one print a clear headline.
+        short = lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")], total=365)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([short, "", ""])
+        self.assertIn("365 scheduled runs in the window but 1 were read", str(cm.exception.code))
+
+    def test_no_page_in_every_read_refuses(self):
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn(["", "", ""])
+        self.assertIn("returned no page", str(cm.exception.code))
+
+    def test_a_page_saying_the_window_is_empty_is_a_zero_only_after_every_attempt(self):
+        answers = [lines([])] * collect.RUNS_READ_ATTEMPTS
+        got = read_in_turn(answers)
+        self.assertEqual((answers, got["read"], got["reds"]), ([], 0, []))
+
+    def test_a_page_saying_empty_then_a_whole_read_uses_the_whole_one(self):
+        answers = [lines([]), lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")])]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, len(got["reds"])), ([], 1))
+
+    def test_a_page_saying_zero_after_a_full_page_refuses(self):
+        # Lander review of dc92f8e, finding 1: page 1 says 101 and holds 100, page 2 says 0.
+        read = lines(greens(1, 100), total=101) + lines([], total=0)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("101 scheduled runs in the window but 100 were read",
+                      str(cm.exception.code))
+
+    def test_a_later_page_reporting_fewer_runs_refuses(self):
+        # Lander review of dc92f8e, finding 4: pages saying 365 then 100, 100 rows read.
+        read = lines(greens(1, 100), total=365) + lines([], total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_later_page_reporting_more_runs_than_the_rows_refuses(self):
+        # Lander review of 39010fc, finding 1: pages saying 100 then 365, 100 rows read.
+        read = lines(greens(1, 100), total=100) + lines([], total=365)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_later_page_past_the_cap_refuses(self):
+        # Lander review of 39010fc, finding 2: the cap applies to every page, not only the first.
+        read = lines(greens(1, 100), total=999) + lines([], total=collect.RUNS_API_CAP + 1)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("narrow SCHEDULE_WINDOW_DAYS", str(cm.exception.code))
+
+    def test_more_distinct_rows_than_any_total_refuses(self):
+        # Lander review of 39010fc, finding 3: two pages saying 100 that hold 200 distinct runs.
+        read = lines(greens(1, 100), total=100) + lines(greens(101, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("read 200 distinct scheduled runs, more than the 100 any page reported",
+                      str(cm.exception.code))
+
+    def test_a_zero_then_reads_with_no_page_refuses(self):
+        # Lander review of dc92f8e, finding 2: two failed reads are not agreement.
+        for answers in (["[0]\n", "", ""], ["[0]\n", "[0]\n", ""], ["", "[0]\n", "[0]\n"]):
+            with self.subTest(answers=answers), self.assertRaises(SystemExit) as cm:
+                read_in_turn(list(answers))
+            self.assertIn("held no run on only some", str(cm.exception.code))
+
+    def test_a_later_read_reporting_fewer_runs_than_an_earlier_one_refuses(self):
+        # A wrong-low total on a later read is not believed over an earlier, higher one.
+        short = lines(greens(1, 100), total=365)
+        low = lines(greens(1, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([short, low, low])
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_zero_first_page_with_a_later_page_saying_runs_exist_is_not_a_zero(self):
+        read = lines([], total=0) + lines([], total=365)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 0 were read", str(cm.exception.code))
+
+    def test_two_pages_read_whole_are_read_once(self):
+        answers = [lines(greens(1, 100), total=150) + lines(greens(101, 50), total=150), "unused"]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, got["read"]), (["unused"], 1))
+
+    def test_runs_seen_across_reads_past_the_total_refuse_a_later_whole_looking_read(self):
+        # Lander probe of 96848f9: read 1 proves the total low (200 runs under a total of 100), so
+        # read 2's 100 runs under that total must not be believed. A red at id 150 is hidden.
+        over = lines(greens(1, 100), total=100) + lines(
+            greens(101, 49) + [run(150, 1, "failure", "2026-10-02T00:00:00Z")] + greens(151, 50),
+            total=100)
+        looks_whole = lines(greens(1, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([over, looks_whole, looks_whole])
+        self.assertIn("read 200 distinct scheduled runs, more than the 100 any page reported",
+                      str(cm.exception.code))
+
+    def test_a_total_at_the_cap_refuses(self):
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([lines(greens(1, 100), total=collect.RUNS_API_CAP)])
+        self.assertIn("narrow SCHEDULE_WINDOW_DAYS", str(cm.exception.code))
+
+    def test_a_run_created_mid_read_is_short_and_the_next_read_settles_it(self):
+        # The new run shifts page 2 down one, so page 2 repeats a row and the new run is unread.
+        grown = lines(greens(1, 100), total=150) + lines(greens(100, 51), total=151)
+        settled = lines(greens(1, 100), total=151) + lines(greens(101, 51), total=151)
+        answers = [grown, settled, "unused"]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, got["read"]), (["unused"], 1))
+
+    def test_a_whole_first_read_is_read_once(self):
+        answers = [lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")]), "unused"]
+        read_in_turn(answers)
+        self.assertEqual(answers, ["unused"])
+
+    def test_no_active_workflow_takes_an_empty_page_at_once(self):
+        answers = [lines([]), "unused"]
+        read_in_turn(answers, flows=[flow(1, "CI", state="disabled_manually")])
+        self.assertEqual(answers, ["unused"])
+
+    def test_a_window_past_the_cap_is_read_once(self):
+        calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
+                            total=collect.RUNS_API_CAP + 1)
+        with patch, self.assertRaises(SystemExit):
+            collect.scheduled_reds(VAULT, "2026-08-27")
+        self.assertEqual(len([a for a in calls if any("actions/runs" in x for x in a)]), 1)
 
     def test_a_window_past_the_api_cap_refuses_and_says_to_narrow_it(self):
         # The completeness check would also refuse here, so the message is what tells them apart.
