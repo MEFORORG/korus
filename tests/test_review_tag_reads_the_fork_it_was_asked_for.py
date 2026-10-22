@@ -89,7 +89,7 @@ def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED,
             fh.write(json.dumps(item) + "\n")
 
 
-def run(projects, *args, env_extra=None):
+def run(projects, *args, env_extra=None, cwd=None):
     env = dict(os.environ)
     # Both are set in a live session, and either would point the tool away from the fixture.
     env.pop("CLAUDE_CONFIG_DIR", None)
@@ -103,6 +103,7 @@ def run(projects, *args, env_extra=None):
         capture_output=True,
         timeout=TIMEOUT_SECONDS,
         env=env,
+        cwd=cwd,
     )
     return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
 
@@ -138,13 +139,97 @@ class TheRecordedCloudShapeIsRead(Fixture):
         self.assertIn("agent inside", out)
         self.assertNotIn("sibling", out)
 
-    def test_a_note_before_the_target_line_does_not_hide_the_fork(self):
+    def test_a_message_not_starting_with_the_target_line_is_not_a_fork(self):
+        # Fail closed: a guess at where a review prompt begins could take ordinary prose for one.
         write_fork(self.projects, "s1", "a1", "Review this diff", TAG_XHIGH, shape=CLOUD,
                    cwd="/home/user/korus", timestamp="2026-10-22T04:00:00Z",
                    prefix="Note: findings are capped as you asked last time.")
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("tag: " + TAG_XHIGH, out)
+
+
+class OnlyALevelPipelineIsATag(Fixture):
+    """Round two found any `<word> effort` line taken as a tag, and a tag line alone taken as a
+    review fork. Both failed open: an Explore fork's prose was quoted as a level."""
+
+    def test_prose_that_says_effort_is_not_a_fork(self):
+        write_fork(self.projects, "s1", "explore", "ignored", "x", shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z",
+                   prefix="Explore the tree.\nminimal effort is fine here")
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--session", "s1")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("minimal effort", out)
+
+    def test_a_review_fork_with_a_non_level_effort_line_has_no_tag(self):
+        write_fork(self.projects, "s1", "rv", "Review this diff", "minimal effort is fine here",
+                   shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--session", "s1")
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
+        self.assertIn("NONE IN RECORD 0", out)
+
+    def test_the_ascii_spelling_of_the_pipeline_is_a_tag(self):
+        # The control: the shape is the level and the arrow, in either spelling, not one byte.
+        ascii_tag = "high effort -> 8 inline angles -> dedup (no verify) -> <=10 findings"
+        write_fork(self.projects, "s1", "rv", "Review this diff", ascii_tag, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--session", "s1")
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertIn("tag: " + ascii_tag, out)
+
+
+class NothingWidensOnItsOwn(Fixture):
+    """The three fail-open paths round two found, each refused with its own exit code."""
+
+    def setUp(self):
+        super().setUp()
+        write_fork(self.projects, "s1", "one", "Review the ledger change", TAG_XHIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T04:00:00Z")
+        write_fork(self.projects, "s2", "two", "Review something unrelated", TAG_HIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
+
+    def test_a_bare_level_selects_no_fork(self):
+        for wanted in ("xhigh", "xhigh --fix", "--max-findings all high"):
+            with self.subTest(target=wanted):
+                code, out, _ = run(self.projects, "--worktree", "/home/user/korus",
+                                   "--any-session", "--target", wanted)
+                self.assertNotEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertNotIn("agent one", out)
+                self.assertNotIn("agent two", out)
+
+    def test_two_sessions_with_no_target_words_are_ambiguous(self):
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session")
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertIn(review_tag.AMBIGUOUS_MESSAGE, out)
+
+    def test_target_words_resolve_the_ambiguity(self):
+        # The control for the two above: the same tree selects one fork once words are given.
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
+                           "--target", "xhigh Review the ledger change")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent one", out)
+        self.assertNotIn("agent two", out)
+
+    def test_no_filter_at_all_is_refused(self):
+        code, out, _ = run(self.projects, "--any-worktree", "--any-session", "--target", "xhigh")
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertIn(review_tag.NO_SELECTOR_MESSAGE, out)
+
+    def test_no_git_toplevel_refuses_rather_than_widens(self):
+        outside = tempfile.mkdtemp(dir=self._tmp.name)
+        code, out, _ = run(self.projects, "--session", "s1", cwd=outside,
+                           env_extra={"GIT_CEILING_DIRECTORIES": self._tmp.name})
+        self.assertEqual(code, review_tag.EXIT_NO_TOPLEVEL, out)
+        self.assertIn(review_tag.NO_TOPLEVEL_MESSAGE, out)
+        self.assertNotIn("agent one", out)
+
+    def test_any_worktree_is_the_explicit_widening(self):
+        # The control: from the same directory, the explicit flag finds the fork.
+        outside = tempfile.mkdtemp(dir=self._tmp.name)
+        code, out, _ = run(self.projects, "--any-worktree", "--session", "s1", cwd=outside,
+                           env_extra={"GIT_CEILING_DIRECTORIES": self._tmp.name})
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent one", out)
 
 
 class AForkInTheWorktreeIsFoundAndOneElsewhereIsNot(Fixture):
@@ -200,10 +285,12 @@ class TheSessionFilterKeepsAnotherSessionsTagOut(Fixture):
         self.assertNotIn("p1", out, "a peer session's newer fork was quoted as this session's")
 
     def test_any_session_widens_it(self):
-        # The control: the peer's fork is there to be found, so the test above is the filter.
-        _, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
-                        env_extra={review_tag.SESSION_ENV: "mine"})
+        # The control: the peer's fork is there to be found, so the test above is the filter. Two
+        # sessions and no target words are ambiguous, so the rows print and the exit refuses.
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
+                           env_extra={review_tag.SESSION_ENV: "mine"})
         self.assertIn("agent p1", out)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
 
 
 class BackslashesAndForwardSlashesNameOneWorktree(unittest.TestCase):
@@ -359,7 +446,7 @@ class EveryMissIsLoudAndDistinct(Fixture):
         session = self.projects / "D--Code-korus"
         session.mkdir()
         (session / "s1.jsonl").write_text('{"type": "user"}\n', encoding="utf-8")
-        code, out, _ = run(self.projects, "--any-worktree")
+        code, out, _ = run(self.projects, "--any-worktree", "--session", "s1")
         self.assertEqual(code, review_tag.EXIT_NO_FORK)
         self.assertIn(review_tag.NO_FORK_MESSAGE, out)
 
@@ -371,7 +458,7 @@ class EveryMissIsLoudAndDistinct(Fixture):
             + "\n",
             encoding="utf-8",
         )
-        code, _, _ = run(self.projects, "--any-worktree")
+        code, _, _ = run(self.projects, "--any-worktree", "--session", "s1")
         self.assertEqual(code, review_tag.EXIT_NO_FORK)
 
     def test_no_projects_dir_exits_no_root(self):
@@ -407,8 +494,9 @@ class EveryMissIsLoudAndDistinct(Fixture):
 
     def test_the_codes_are_distinct(self):
         codes = {review_tag.EXIT_FOUND, review_tag.EXIT_NO_FORK, review_tag.EXIT_NO_ROOT,
-                 review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, 1, 2}
-        self.assertEqual(len(codes), 7, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
+                 review_tag.EXIT_NO_TOPLEVEL, 1, 2}
+        self.assertEqual(len(codes), 9, "an exit code collides with another, or with 1 or 2")
 
 
 class ConfigDirNamesTheRoot(Fixture):

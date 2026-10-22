@@ -1048,7 +1048,8 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | Name the repository's review standards | If the repository has a review-standards file, the subagent names it in the skill's arguments. `BUILDER.md` 4c holds how to name it. |
 | Invoking the skill is not the same act | It can run inline in your own context instead. `BUILDER.md` 4c holds the shapes, and a tag names the one that ran where the skill returns one. |
 | So make the subagent report its tag | An inline tag means the skill did not fan out inside your subagent. It is not evidence your dispatch failed; the tag is self-reported, so the commit stays the evidence (*Name the exposure, because it is real*). |
-| Expect NO tag at all | Measured 2026-09-22 in `BUILDER.md` 4e: both QA lines on one pull request had none. Read an absence as unknown, never as inline, and read the commit. |
+| Expect the tag, read off the fork | `BUILDER.md` 4e has the Builder quote `review_tag.py`'s output and the fork id. `none returned` comes with the tool's refusal message. Bare, read it as unknown, never as inline, and read the commit. |
+| **CHANGED 2026-10-22** | The row above read *"Expect NO tag at all"*, from the 2026-09-22 measurement of two QA lines with none. That predates the tool, which reads the tag where the skill does not print it. |
 | Fixes it raises go to a SUBAGENT too | Owner ruling 2026-09-21. Your own turn, your own dispatch. |
 | How that sits with the spawn rule | *Prefer a SPAWNED SESSION over a subagent* governs a repair you ROUTE AWAY, and a red check still goes that way. This one you took on yourself. |
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |

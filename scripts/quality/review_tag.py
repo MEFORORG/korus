@@ -9,22 +9,27 @@ the PROMPT the skill feeds its reviewer fork, and that prompt is record 0 of the
     <projects dir>/<project>/<session id>/subagents/agent-<id>.jsonl
     <projects dir>/<project>/<session id>/subagents/agent-<id>.meta.json
 
-Record 0's user message opens with a `Review target: <args>` line, and the tag is a line of its own
-shortly after it, inside backticks. Measured in one cloud session at CLI 2.1.307, the target was
+Record 0's user message opens with a `Review target: <args>` line, and the tag is the next line
+that is not blank, inside backticks. Measured in one cloud session at CLI 2.1.307, the target was
 itself in backticks, line 2 was blank and the tag was line 3. A Windows sample at 2.1.301 was relayed
-as "line 2". So the tag is the first line of the head that has the tag's shape, not a fixed index.
+as "line 2". A message that does not START with the target line is not a review fork, and only a
+`<level> effort -> ...` pipeline counts as a tag. Both refusals fail closed: a miss, never a match.
 
 WHERE THE FORK RAN. The meta file may carry `inheritedWorktreePath` (the relayed Windows sample,
 Builder subagents at spawn depth 2). The cloud sample's meta did not; its record 0 carried `cwd`.
 The tool uses the first of the two it finds, says which on every row, and matches a fork that has
 neither only when a session filter already placed it.
 
+IT NEVER WIDENS ON ITS OWN. A level alone selects no fork. A failed `git rev-parse` refuses rather
+than searching every worktree. Forks from more than one session, with no `--target` words to tell
+them apart, are refused as ambiguous. Widening takes an explicit flag.
+
 WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the skill selected, not
 that the fork obeyed it.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. Per fork it reads the meta file, applies the
 session filter, and only then reads record 0 -- one line of the transcript -- and from that only the
-first HEAD_LINES lines of the message. No later record is read or printed. Path columns are printed
+target line and the next line that is not blank. No later record is read or printed. Path columns are printed
 only under `--verbose`, because the leak gate forbids a user-home path in published text and a QA
 line is published text.
 
@@ -44,6 +49,9 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     4  no projects dir could be read, or a root could not be read and nothing matched in the rest
     5  matching forks were found, and the newest carried no tag line
     6  forks were found with no recorded worktree and no session filter to place them
+    7  ambiguous: no filter selects a fork, or forks from more than one session match and no
+       --target words tell them apart
+    8  no git toplevel here, and neither --worktree nor --any-worktree was given
 """
 
 from __future__ import annotations
@@ -63,6 +71,8 @@ EXIT_NO_FORK = 3
 EXIT_NO_ROOT = 4
 EXIT_NO_TAG = 5
 EXIT_UNPLACED = 6
+EXIT_AMBIGUOUS = 7
+EXIT_NO_TOPLEVEL = 8
 
 # Every stdout line a Builder may quote is one of these or a `tag:` line. None carries the word the
 # QA line may not; `tests/test_review_tag_reads_the_fork_it_was_asked_for.py` holds that.
@@ -71,12 +81,14 @@ NO_ROOT_MESSAGE = "no projects dir could be read"
 PARTIAL_ROOT_MESSAGE = "a projects root could not be read, and no fork matched in the rest"
 NO_TAG_MESSAGE = "the newest matching fork carried no tag line"
 UNPLACED_MESSAGE = "fork(s) found with no recorded worktree; pass --session to match them"
+NO_SELECTOR_MESSAGE = "no filter selects a fork; pass --target words, --session, or a worktree"
+AMBIGUOUS_MESSAGE = (
+    "forks from more than one session match, and no --target words tell them apart;"
+    " pass --target or --session"
+)
+NO_TOPLEVEL_MESSAGE = "no git toplevel here; pass --worktree, or --any-worktree to widen"
 
 TARGET_PREFIX = "Review target:"
-
-#: How many lines of record 0's message are read. The tag sat on line 3 in the cloud sample; the CLI
-#: may put a note before the target line (inferred from the bundle, not traced), so this leaves room.
-HEAD_LINES = 12
 
 #: The levels the skill parses, and the flags its description advertises. The `Review target` line
 #: drops a level that parsed, and probably the flags too (not traced), so a caller's own argument
@@ -85,8 +97,9 @@ LEVELS = ("low", "medium", "high", "xhigh", "max")
 VALUE_FLAGS = ("--max-findings",)
 BARE_FLAGS = ("--comment", "--fix")
 
-#: A tag line starts `<level> effort` -- measured at CLI 2.1.278, 2.1.301 (relayed) and 2.1.307.
-TAG_SHAPE = re.compile(r"^[a-z]+ effort\b")
+#: A tag is a level, `effort`, then the arrow pipeline, in either spelling -- measured at CLI 2.1.278,
+#: 2.1.301 (relayed) and 2.1.307. Any other `<word> effort` line is ordinary prose, not a tag.
+TAG_SHAPE = re.compile(r"^(?:low|medium|high|xhigh|max) effort (?:\u2192|->) ")
 
 #: The glyphs the tag is known to carry, and their ASCII spellings under `--ascii`.
 ASCII_SPELLINGS = {"\u2192": "->", "\u2264": "<=", "\u2265": ">="}
@@ -185,7 +198,7 @@ def read_meta(transcript: Path) -> dict:
 
 
 def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
-    """Record 0 only, and of its message only the first HEAD_LINES lines. Never a later record."""
+    """Record 0 only, and of its message only up to its second non-blank line. Never a later record."""
     with transcript.open(encoding="utf-8", errors="replace") as fh:
         first = fh.readline()
     try:
@@ -194,7 +207,12 @@ def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
         return None, []
     if not isinstance(record, dict):
         return None, []
-    return record, message_text(record).splitlines()[:HEAD_LINES]
+    head: list[str] = []
+    for line in message_text(record).splitlines():
+        head.append(line)
+        if sum(1 for kept in head if kept.strip()) == 2:
+            break
+    return record, head
 
 
 def unquote(text: str) -> str:
@@ -202,15 +220,21 @@ def unquote(text: str) -> str:
 
 
 def read_head(lines: list[str]) -> tuple[bool, str, str]:
-    """(is a review fork, target args, tag) from the head of record 0's message."""
-    target = None
+    """(is a review fork, target args, tag) from the head of record 0's message.
+
+    A review fork's message STARTS with the target line; the tag is the next non-blank line, and
+    only if it has the tag's shape. Anything else is refused, never guessed at.
+    """
+    if not lines or not lines[0].startswith(TARGET_PREFIX):
+        return False, "", ""
+    target = unquote(lines[0][len(TARGET_PREFIX) :])
     tag = ""
-    for line in lines:
-        if target is None and line.startswith(TARGET_PREFIX):
-            target = unquote(line[len(TARGET_PREFIX) :])
-        elif not tag and TAG_SHAPE.match(unquote(line)):
-            tag = unquote(line)
-    return target is not None or bool(tag), target or "", tag
+    for line in lines[1:]:
+        if line.strip():
+            candidate = unquote(line)
+            tag = candidate if TAG_SHAPE.match(candidate) else ""
+            break
+    return True, target, tag
 
 
 def strip_invocation(text: str) -> str:
@@ -226,15 +250,26 @@ def strip_invocation(text: str) -> str:
     return " ".join(words)
 
 
+def squash(text: str) -> str:
+    return " ".join(unquote(text).split()).casefold()
+
+
+def target_words(wanted: str | None) -> str:
+    """What is left of `--target` once the level and the skill's flags are stripped."""
+    return squash(strip_invocation(unquote(wanted))) if wanted else ""
+
+
 def target_matches(wanted: str, args: str) -> bool:
-    """Substring match, whitespace-normalized and case-folded, after the invocation is stripped."""
+    """Substring match, whitespace-normalized and case-folded, after the invocation is stripped.
 
-    def squash(text: str) -> str:
-        return " ".join(unquote(text).split()).casefold()
-
+    A level alone leaves no words, and no words select only a fork whose target is empty too:
+    an empty string is a substring of everything, which is how a bare level once matched every fork.
+    """
     have = squash(args)
-    want = squash(wanted)
-    return want in have or squash(strip_invocation(unquote(wanted))) in have
+    words = target_words(wanted)
+    if not words:
+        return have == ""
+    return squash(wanted) in have or words in have
 
 
 def fork_files(root: Path) -> list[Path]:
@@ -425,7 +460,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     worktree = None
-    described = ["any worktree"]
+    described = ["any worktree, by --any-worktree"]
     if not args.any_worktree:
         if args.worktree:
             # A drive-letter or rooted spelling is taken as given, so a Windows path names the same
@@ -436,9 +471,11 @@ def main(argv: list[str] | None = None) -> int:
             described = ["worktree from --worktree"]
         else:
             worktree = git_toplevel()
-            described = [
-                "worktree = current git toplevel" if worktree else "any worktree (no git toplevel)"
-            ]
+            if worktree is None:
+                # Refuse rather than widen: an unfiltered search would quote another worktree's tag.
+                print(NO_TOPLEVEL_MESSAGE)
+                return EXIT_NO_TOPLEVEL
+            described = ["worktree = current git toplevel"]
 
     session = args.session
     session_from_env = False
@@ -452,6 +489,10 @@ def main(argv: list[str] | None = None) -> int:
         described.append("--target given")
     if since:
         described.append(f"since {stamp(since)}")
+
+    if worktree is None and not session and not target_words(args.target):
+        print(NO_SELECTOR_MESSAGE)
+        return EXIT_AMBIGUOUS
 
     roots = projects_roots(args.projects_dir)
     result = scan(roots, Filters(worktree, args.target, session, since))
@@ -486,6 +527,9 @@ def main(argv: list[str] | None = None) -> int:
     for line in render(shown, total, total - len(shown), args.ascii, args.verbose):
         print(line)
 
+    if not target_words(args.target) and len({f.session_id for f in result.forks}) > 1:
+        print(AMBIGUOUS_MESSAGE)
+        return EXIT_AMBIGUOUS
     if not result.forks[-1].tag:
         print(NO_TAG_MESSAGE)
         return EXIT_NO_TAG

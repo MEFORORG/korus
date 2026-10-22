@@ -824,8 +824,12 @@ head -1 ~/.claude/projects/*/<session id>/subagents/agent-<id>.jsonl \
 ```
 
 **So the tag's line number is not fixed, and the tool does not assume one.** It takes the first
-line of record 0's head that has the `<level> effort` shape. Its first draft read line 2 alone,
-and on the real fork it printed no tag.
+non-blank line after `Review target:`. Its first draft read line 2 alone, and on the real fork it
+printed no tag.
+
+**It refuses anything else rather than guess.** A message that does not START with the target line
+is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
+line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
 
 **Run it after each round, from your worktree:**
 
@@ -833,14 +837,14 @@ and on the real fork it printed no tag.
 python scripts/quality/review_tag.py --target "<your args>"
 ```
 
-It reads the meta file, then record 0 alone, and of that only the first 12 lines. No later record is
-read or printed. Paths appear only under `--verbose`, because the leak gate forbids a home path in
+It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
+one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate forbids a home path in
 a QA line.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. |
-| `--worktree` | Defaults to the current git toplevel. Matched against `inheritedWorktreePath`, else record 0's `cwd`. Separators normalized, case folded on Windows. |
+| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. A level alone leaves no words, and selects no fork. |
+| `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched against `inheritedWorktreePath`, else record 0's `cwd`. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. |
 | `--since`, `--latest` | Narrow further. `--since` needs an offset. Every match is listed oldest first, numbered as rounds. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
@@ -855,6 +859,8 @@ Each row prints `placed by:`, naming which of the three placed it: the meta's pa
 | 4 | `no projects dir could be read`, or `a projects root could not be read, and no fork matched in the rest` | `none returned`, with the message. |
 | 5 | `the newest matching fork carried no tag line` | `none returned`, with the message. Name the fork ids. |
 | 6 | `<n> fork(s) found with no recorded worktree; pass --session to match them` | Not a result yet. Pass `--session` and run it again. |
+| 7 | `no filter selects a fork; ...`, or `forks from more than one session match, and no --target words tell them apart; ...` | Not a result yet. Pass `--target` with words, or `--session`. |
+| 8 | `no git toplevel here; pass --worktree, or --any-worktree to widen` | Not a result yet. Run it from your worktree, or name it. |
 
 **No line it prints carries the word the QA line may not, except `target:`.** That line echoes your
 own arguments, and the header does not. The tool's file name carries the word, so the QA line names
