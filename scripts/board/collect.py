@@ -121,21 +121,27 @@ RUN_NO_VERDICT = {"cancelled"}
 RUNS_API_CAP = 1000
 # A paginated run read can stop at a page boundary with no error. Measured 2026-10-22: it read 100,
 # 200 or 300 of 365 engine runs on most collects that day, and the next read was whole. A short
-# read is read again; one still short after the last attempt refuses, as before.
+# read is read again, and the most complete read is kept; one still short after the last attempt
+# refuses, as before. Each page prints its total_count on a line of its own, so a read that returned
+# no page at all is told apart from a window that holds no run: the first has no total to compare.
 RUNS_READ_ATTEMPTS = 3
 RUNS_RETRY_WAIT_S = 2
 
 
 def read_scheduled_runs(full, since_day):
     """One read of the scheduled run list, possibly short: (run ids seen, total_counts, verdicts
-    by flow). The caller compares the ids seen against the totals."""
+    by flow). `totals` is empty when no page came back. The caller judges completeness."""
     runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
                          "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
-                         "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
-                         " .status, .conclusion, .created_at, .html_url] | @json"],
+                         "--jq", ".total_count as $t | ([$t] | @json), (.workflow_runs[] | [$t,"
+                         " .id, .workflow_id, .status, .conclusion, .created_at, .html_url]"
+                         " | @json)"],
                         "scheduled run list for %s" % full)
     seen, totals, by_flow = set(), set(), {}
     for r in runs:
+        if isinstance(r, list) and len(r) == 1 and is_int(r[0]):
+            totals.add(r[0])  # one page's total_count
+            continue
         if not (isinstance(r, list) and len(r) == 7 and all(is_int(x) for x in r[:3])
                 and isinstance(r[3], str) and (r[4] is None or isinstance(r[4], str))
                 and aware_instant(r[5]) and isinstance(r[6], str)):
@@ -239,19 +245,27 @@ def scheduled_reds(full, since_day):
             active[f[0]] = {"path": f[2], "name": f[3]}
         if f[1] == "disabled_inactivity":
             stopped.append(f[3])
+    best = None
     for attempt in range(RUNS_READ_ATTEMPTS):
         if attempt:
             time.sleep(RUNS_RETRY_WAIT_S)
-        seen, totals, by_flow = read_scheduled_runs(full, since_day)
-        # An empty read is read again too: one measured that day came back with no rows and no
-        # error. Past the cap no read can be whole, so it stops and refuses below.
-        if (totals and (len(seen) >= min(totals) or max(totals) > RUNS_API_CAP)) \
-                or (not totals and not active):
+        got = read_scheduled_runs(full, since_day)
+        # Keep the most complete read, never merely the last: a short read followed by one that
+        # returned no page must refuse on the short one, not pass on the empty one.
+        if best is None or (bool(got[1]), len(got[0])) > (bool(best[1]), len(best[0])):
+            best = got
+        seen, totals, _ = best
+        # Past the cap no read can be whole, so it stops and refuses below.
+        if totals and (len(seen) >= min(totals) or max(totals) > RUNS_API_CAP):
             break
-    if totals and max(totals) > RUNS_API_CAP:
+    seen, totals, by_flow = best
+    if not totals:
+        refuse("The scheduled run list for %s returned no page in %d reads."
+               % (full, RUNS_READ_ATTEMPTS))
+    if max(totals) > RUNS_API_CAP:
         refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
                "SCHEDULE_WINDOW_DAYS." % (full, max(totals), SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
-    if totals and len(seen) < min(totals):
+    if len(seen) < min(totals):
         refuse("%s reports %d scheduled runs in the window but %d were read."
                % (full, min(totals), len(seen)))
     reds, unscheduled, read = [], [], 0

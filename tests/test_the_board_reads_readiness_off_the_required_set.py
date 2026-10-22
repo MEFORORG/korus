@@ -300,7 +300,8 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
                  (done(json.dumps({"data": None, "errors": [{"message": "x"}]})), True)]
         for queue, expect_exit in cases:
             head = [done("CI gate\ntest (ubuntu-latest)\n"), page([pr(GREEN)]), queue]
-            replies = iter(head + [done("")] * 4)
+            # The closed pulls, the workflow list, one page of no scheduled run, the issues.
+            replies = iter(head + [done(""), done(""), done("[0]\n"), done("")])
             with self.subTest(expect_exit=expect_exit), tempfile.TemporaryDirectory() as tmp:
                 with mock.patch.object(collect, "OUT", tmp), \
                         mock.patch.object(collect, "REPOS", [("o/r", "r")]), \
@@ -322,8 +323,8 @@ class TheMergeWindowNeverComesFromTheSearchApi(unittest.TestCase):
         replies = iter([done("CI gate\ntest (ubuntu-latest)\n"),
                         page([dict(pr(GREEN), createdAt=stamp)]),
                         done(json.dumps({"data": {"repository": {"mergeQueue": None}}})),
-                        # The closed pulls page, then the workflow list and the scheduled runs.
-                        done(""), done(""), done("")])
+                        # The closed pulls, the workflow list, one page of no scheduled run.
+                        done(""), done(""), done("[0]\n")])
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.object(collect, "OUT", tmp), \
                     mock.patch.object(collect, "REPOS", [("o/r", "r")]), \

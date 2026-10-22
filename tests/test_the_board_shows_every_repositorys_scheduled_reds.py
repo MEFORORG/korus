@@ -61,9 +61,23 @@ def run(rid, wid, conclusion, created, status="completed", total=None):
 
 
 def lines(rows, total=None):
-    """Runs in the shape the collector's own `--jq` program prints: one JSON array per line."""
+    """Runs in the shape the collector's own `--jq` program prints: one JSON array per line, after
+    the page's own `[total_count]` line. A single page, so a window with no run still prints one."""
     total = len(rows) if total is None else total
-    return "\n".join(json.dumps([total] + r[1:]) for r in rows) + "\n"
+    return json.dumps([total]) + "\n" + "".join(json.dumps([total] + r[1:]) + "\n" for r in rows)
+
+
+def read_in_turn(answers, flows=None):
+    """`scheduled_reds` over a run list that answers each read with the next of `answers`."""
+    _, patch = fake(flows or [flow(1, "CI")], [])
+    other = patch.new.run
+
+    def run_(args, **kw):
+        if any("actions/runs" in x for x in args):
+            return done(answers.pop(0))
+        return other(args, **kw)
+    with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
+        return collect.scheduled_reds(VAULT, "2026-08-27")
 
 
 def contents(yaml, encoding="base64"):
@@ -281,33 +295,35 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
         whole = [run(1, 1, "failure", "2026-10-01T00:00:00Z"),
                  run(2, 1, "success", "2026-09-30T00:00:00Z")]
         answers = [lines(whole[:1], total=2), lines(whole)]
-        _, patch = fake([flow(1, "CI")], whole)
-        other = patch.new.run
-
-        def run_(args, **kw):
-            if any("actions/runs" in x for x in args):
-                return done(answers.pop(0))
-            return other(args, **kw)
-        with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
-            got = collect.scheduled_reds(VAULT, "2026-08-27")
+        got = read_in_turn(answers)
         self.assertEqual(answers, [])
         red = got["reds"][0]
         # The short read held only the failure; only the whole read knows the green before it.
         self.assertEqual((got["read"], red["streak"], red["floor"], red["last_green"]),
                          (1, 1, False, "2026-09-30T00:00:00Z"))
 
-    def test_an_empty_read_is_read_again(self):
+    def test_a_read_with_no_page_is_read_again(self):
+        # Measured 2026-10-22: one paginated read came back with no rows and no error.
         answers = ["", lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")])]
-        _, patch = fake([flow(1, "CI")], [])
-        other = patch.new.run
-
-        def run_(args, **kw):
-            if any("actions/runs" in x for x in args):
-                return done(answers.pop(0))
-            return other(args, **kw)
-        with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
-            got = collect.scheduled_reds(VAULT, "2026-08-27")
+        got = read_in_turn(answers)
         self.assertEqual((answers, len(got["reds"])), ([], 1))
+
+    def test_a_short_read_then_reads_with_no_page_refuses(self):
+        # The fail-open the delta review found: keeping the LAST read let two empty reads after a
+        # short one print a clear headline.
+        short = lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")], total=365)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([short, "", ""])
+        self.assertIn("365 scheduled runs in the window but 1 were read", str(cm.exception.code))
+
+    def test_no_page_in_every_read_refuses(self):
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn(["", "", ""])
+        self.assertIn("returned no page", str(cm.exception.code))
+
+    def test_a_page_saying_the_window_is_empty_is_a_zero(self):
+        got = read_in_turn([lines([])])
+        self.assertEqual((got["read"], got["reds"]), (0, []))
 
     def test_a_window_past_the_cap_is_read_once(self):
         calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
