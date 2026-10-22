@@ -99,7 +99,10 @@ def as_attributable(code, out):
     names; `TheNoNonceAnswerIsNeverAReading` tests the raw behaviour with no mapping.
     """
     if code == review_tag.EXIT_NOT_ATTRIBUTABLE:
-        code = review_tag.EXIT_FOUND
+        tagless = "no tag line in record 0" in out
+        code = review_tag.EXIT_NO_TAG if tagless else review_tag.EXIT_FOUND
+        closing = review_tag.NO_TAG_MESSAGE if tagless else ""
+        out = out.replace(review_tag.NOT_ATTRIBUTABLE_MESSAGE, closing)
     return code, out.replace(review_tag.NOT_ATTRIBUTABLE_PREFIX, "  tag: ")
 
 
@@ -444,11 +447,21 @@ class NothingAQaLineQuotesSaysTheBannedWord(Fixture):
                    worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
 
     def test_the_quotable_lines_never_carry_it(self):
-        _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "Review this")
+        _, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--session", "s1",
+                        "--target", "Review this")
         quotable = [line for line in out.splitlines() if not line.strip().startswith("target:")]
         self.assertGreaterEqual(len(quotable), 3)
         for line in quotable:
             self.assertNotIn("review", line.lower(), line)
+        # The attributable path, with a nonce, as the playbook documents it.
+        write_fork(self.projects, "s1", "nonced", "round-1234abcd99 Review this diff", TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:30:00Z")
+        _, nonced, _ = run(self.projects, "--worktree", WORKTREE_FORWARD,
+                           "--target", "round-1234abcd99", words_ok=False)
+        for line in nonced.splitlines():
+            if not line.strip().startswith("target:"):
+                self.assertNotIn("review", line.lower(), line)
+        self.assertNotIn("review", review_tag.NOT_ATTRIBUTABLE_PREFIX.lower())
         for name in dir(review_tag):
             if name.endswith("_MESSAGE"):
                 message = getattr(review_tag, name)
@@ -782,6 +795,15 @@ class ARoundNonceMakesTheOneMatchTheCallersOwn(Fixture):
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
         self.assertNotIn("tag:", out)
 
+    def test_a_later_mention_of_a_nonce_is_not_that_rounds_fork(self):
+        # Round six: round two's arguments mentioned round one's nonce, and round one -- which ran
+        # inline and left no fork -- was answered with round two's tag.
+        write_fork(self.projects, "mgr", "round2", "round-bbbbbbbbbb Recheck from round-aaaaaaaaaa",
+                   TAG_HIGH, worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:30:00Z")
+        code, out, _ = self._run("--target", "round-aaaaaaaaaa")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("tag:", out)
+
     def test_a_nonce_matches_only_as_a_whole_token(self):
         code, out, _ = self._run("--target", "round-1111aaaa")
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
@@ -923,9 +945,11 @@ class AnUnreadableConfigDirRefuses(unittest.TestCase):
             return real_stat(path, *a, **k)
 
         def is_dir(path, *a, **k):
-            # F1a: on Windows, Path.is_dir answers through nt._path_isdir and never reaches the
-            # patched os.stat, so a mutant that went back to is_dir() would survive there. A
-            # failed stat makes is_dir answer False, which is the behaviour patched here.
+            # F1a: from Python 3.14, Path.is_dir answers False on a failed stat, and on Windows it
+            # answers through nt._path_isdir without reaching the patched os.stat, so a mutant that
+            # went back to is_dir() could survive there. On 3.12 and 3.13 is_dir re-raises a
+            # denied stat, so the mutant dies by an error instead. Patching is_dir to answer False
+            # kills it by a failure on every version.
             if deny and Path(path) == self.bad:
                 return False
             return real_is_dir(path, *a, **k)
@@ -975,6 +999,24 @@ class TheNoNonceAnswerIsNeverAReading(Fixture):
         self.assertIn(review_tag.NOT_ATTRIBUTABLE_PREFIX.strip(), out)
         self.assertIn("NOT ATTRIBUTABLE", out.splitlines()[0])
 
+    def test_a_tagless_match_is_not_attributable_either(self):
+        # Round six: a tagless match under --no-nonce exited 5, whose row has a Builder write
+        # `none returned` naming a fork that may be a peer's.
+        write_fork(self.projects, "s2", "tagless", "Review this branch's diff", "plain prose",
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = run(self.projects, "--session", "s2", "--worktree", WORKTREE_FORWARD,
+                           "--target", "Review this branch's diff", "--no-nonce", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_NOT_ATTRIBUTABLE, out)
+        self.assertNotIn(review_tag.NO_TAG_MESSAGE, out)
+
+    def test_no_nonce_beside_a_real_nonce_changes_nothing(self):
+        write_fork(self.projects, "s1", "mine", "round-abcdef0123 Review this branch's diff",
+                   TAG_XHIGH, worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:10:00Z")
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
+                           "--target", "round-abcdef0123", "--no-nonce", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
     def test_the_same_fork_with_its_nonce_is_a_reading(self):
         # The control: the attributable path still prints `tag:` and exits 0.
         write_fork(self.projects, "s1", "mine", "round-abcdef0123 Review this branch's diff",
@@ -991,11 +1033,15 @@ class ANonceDoesNotPlaceAForkRecordedElsewhere(Fixture):
     placed` let it also place a fork recorded in ANOTHER worktree, and no case caught that."""
 
     def test_a_nonce_fork_in_another_worktree_does_not_match(self):
+        # Round six: exit 3 said "no fork found" for a fork that carries the nonce; it is found,
+        # and ran elsewhere, which is its own exit.
         write_fork(self.projects, "s1", "elsewhere", "round-0123456789 Review x", TAG_HIGH,
                    worktree=WORKTREE_OTHER, timestamp="2026-10-22T09:00:00Z")
         code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
                            "--target", "round-0123456789", words_ok=False)
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+        self.assertIn(review_tag.ELSEWHERE_MESSAGE, out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
         self.assertNotIn("tag:", out)
 
     def test_the_same_fork_is_found_from_its_own_worktree(self):

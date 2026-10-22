@@ -849,7 +849,10 @@ This branch's last round ran with `xhigh round-<hex> ...` and its fork carried t
 
 **`--target` is required, and the nonce makes the one match yours.** Builders share the standard
 arguments, so a round that left no fork could find a peer's fork as its one match. With a nonce, an
-inline, misplaced or unpersisted round exits 3, never 0. It matches only as a whole token.
+inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never 0.
+
+**A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
+where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
@@ -865,7 +868,7 @@ forbids a home path in a QA line.
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
-| `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: it exits 11, and prints the tag on a `NOT-ATTRIBUTABLE` line, never on a `tag:` line. |
+| `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
 The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any worktree`.
@@ -882,7 +885,8 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
-| 11 | a `NOT-ATTRIBUTABLE (--no-nonce, ...)` line in place of `tag:` | Never quoted. Run it again with the round's nonce. |
+| 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
+| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.

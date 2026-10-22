@@ -70,8 +70,10 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     9  nothing selects a fork: no --target, a --target holding only a level or flags, or one with
        no round nonce (unless --no-nonce, whose answer is not attributable)
    10  a fork transcript in scope could not be read, so it could be the run asked for
-   11  --no-nonce: exactly one fork matched, but the answer is not attributable; its tag prints
-       on a NOT-ATTRIBUTABLE line, never on a `tag:` line, so it cannot be pasted as a QA reading
+   11  --no-nonce with a target that carries no nonce: exactly one fork matched, tag or none,
+       but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
+       `tag:` line, so it cannot be pasted as a QA reading
+   12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
 """
 
 from __future__ import annotations
@@ -97,6 +99,7 @@ EXIT_NO_TOPLEVEL = 8
 EXIT_NO_SELECTOR = 9
 EXIT_UNREAD = 10
 EXIT_NOT_ATTRIBUTABLE = 11
+EXIT_ELSEWHERE = 12
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -109,6 +112,12 @@ PARTIAL_ROOT_MESSAGE = (
     "a projects directory could not be read; a fork there could be the one asked for"
 )
 NO_TAG_MESSAGE = "the one matching fork carried no tag line"
+NOT_ATTRIBUTABLE_MESSAGE = (
+    "not attributable: the target carries no round nonce; never quote this; run again with the nonce"
+)
+ELSEWHERE_MESSAGE = (
+    "fork(s) carry the round's nonce but ran in another worktree; pass that worktree with --worktree"
+)
 UNPLACED_MESSAGE = (
     "fork(s) in scope record no worktree, so any could be the one asked for;"
     " narrow with --since set before the round"
@@ -331,9 +340,13 @@ def target_matches(wanted: str, args: str) -> bool:
         return have == ""
     # A nonce matches only as a whole token: as a substring, round-7f3a9c21 would match a fork
     # whose nonce is round-7f3a9c21e4.
-    wanted_nonces = {n.casefold() for n in NONCE_SHAPE.findall(wanted)}
-    if wanted_nonces and not wanted_nonces <= {n.casefold() for n in NONCE_SHAPE.findall(args)}:
-        return False
+    # And only as the fork's OWN nonce: the first one in its target line, where the skill leaves it
+    # after dropping the level. A later mention of an earlier round's nonce is not that round.
+    wanted_nonces = NONCE_SHAPE.findall(wanted)
+    if wanted_nonces:
+        own = NONCE_SHAPE.findall(args)
+        if not own or own[0].casefold() != wanted_nonces[0].casefold():
+            return False
     return squash(wanted) in have or words in have
 
 
@@ -377,6 +390,7 @@ class Scan:
     missing_roots: list[Path] = field(default_factory=list)
     unreadable_files: int = 0
     unplaced: int = 0
+    elsewhere: int = 0
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -470,6 +484,9 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 continue
             if placed:
                 result.forks.append(fork)
+            elif filters.target and NONCE_SHAPE.search(filters.target):
+                # It carries the caller's nonce and ran elsewhere: found, not absent.
+                result.elsewhere += 1
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result
@@ -609,7 +626,9 @@ def main(argv: list[str] | None = None) -> int:
         described.append("--target given")
     if since:
         described.append(f"since {stamp(since)}")
-    if args.no_nonce:
+    # The nonce, not the flag, decides: --no-nonce beside a real nonce changes nothing.
+    attributable = bool(args.target and NONCE_SHAPE.search(args.target))
+    if not attributable and args.no_nonce:
         described.append("--no-nonce: NOT ATTRIBUTABLE")
 
     if args.target and not target_words(args.target):
@@ -650,6 +669,9 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
+    if not result.forks and result.elsewhere:
+        print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
+        return EXIT_ELSEWHERE
     if not result.forks:
         print(NO_FORK_MESSAGE)
         if session_from_env:
@@ -662,14 +684,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
         return EXIT_AMBIGUOUS
 
-    attributable = not args.no_nonce
     for line in render(result.forks, args.ascii, args.verbose, attributable):
         print(line)
 
+    if not attributable:
+        # Tag or none: a no-nonce answer is never a reading, so it never takes exit 0 or 5.
+        print(NOT_ATTRIBUTABLE_MESSAGE)
+        return EXIT_NOT_ATTRIBUTABLE
     if not result.forks[0].tag:
         print(NO_TAG_MESSAGE)
         return EXIT_NO_TAG
-    return EXIT_FOUND if attributable else EXIT_NOT_ATTRIBUTABLE
+    return EXIT_FOUND
 
 
 if __name__ == "__main__":
