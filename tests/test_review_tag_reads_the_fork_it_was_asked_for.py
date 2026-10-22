@@ -485,6 +485,55 @@ class OnlyRecordZeroIsRead(Fixture):
         self.assertNotIn("You are reviewing", out + err, "prose past the tag was printed")
 
 
+class AttachmentRecordsAheadOfThePromptAreSkipped(Fixture):
+    """Measured 2026-10-22 on CLI 2.1.309: a real cloud review fork opened with six `attachment`
+    records and its prompt seventh, so a read of the first line alone found no fork, exit 3."""
+
+    NONCE = "round-a6e98d9c5c"
+
+    def _plant(self, records):
+        sub = self.projects / "D--Code-korus" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        with (sub / "agent-att.jsonl").open("w", encoding="utf-8") as fh:
+            for item in records:
+                fh.write(json.dumps(item) + "\n")
+
+    def _attachments(self):
+        return [{"type": "attachment", "attachment": {"type": kind}, "cwd": "/home/user/korus",
+                 "timestamp": "2026-10-22T09:00:00Z"}
+                for kind in ("instructions", "session_context", "date", "credential_org",
+                             "remote_session_change", "prompt_snapshot")]
+
+    def _prompt(self):
+        text = f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ..."
+        return {"type": "user", "isMeta": True, "cwd": "/home/user/korus",
+                "timestamp": "2026-10-22T09:00:01Z",
+                "message": {"role": "user", "content": [{"type": "text", "text": text}]}}
+
+    def _run(self):
+        return run(self.projects, "--session", "s1", "--worktree", "/home/user/korus",
+                   "--target", self.NONCE, words_ok=False)
+
+    def test_the_prompt_after_six_attachments_is_read(self):
+        self._plant(self._attachments() + [self._prompt(),
+                    {"type": "assistant", "message": {"content": "PLANTED-LATER-RECORD"}}])
+        code, out, err = self._run()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertNotIn("PLANTED-LATER-RECORD", out + err)
+
+    def test_only_attachments_so_far_is_unread_not_absent(self):
+        self._plant(self._attachments())
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+
+    def test_control_a_non_attachment_record_first_is_still_record_zero(self):
+        # An assistant record first ends the search: the fork is not a review fork.
+        self._plant([{"type": "assistant", "message": {"content": "x"}}, self._prompt()])
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+
 class AForkWithNowhereRecorded(Fixture):
     """Neither `inheritedWorktreePath` nor `cwd`: nothing places it but `--any-worktree`."""
 

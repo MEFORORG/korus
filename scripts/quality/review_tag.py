@@ -4,7 +4,8 @@
 WHY THIS EXISTS. The `code-review` skill is built into the Claude Code CLI. It does not print its
 level tag back to its caller, so a QA line could name the level a Builder PASSED and not prove which
 level and shape RAN. `roles/BUILDER.md` section 4e records where the tag does land: near the top of
-the PROMPT the skill feeds its reviewer fork, and that prompt is record 0 of the fork's transcript.
+the PROMPT the skill feeds its reviewer fork, and that prompt is record 0 of the fork's transcript:
+the first record that is not an `attachment`, which a CLI may write ahead of it.
 
     <projects dir>/<project>/<session id>/subagents/agent-<id>.jsonl
     <projects dir>/<project>/<session id>/subagents/agent-<id>.meta.json
@@ -50,8 +51,9 @@ Two, or one further down, refuse (exit 13): the arguments may span lines, and a 
 be quoted as the tag. Keep the skill's arguments on one line. The prompt body is never tested.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
-session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
-and prints from that only the target and the tag line. No later record is read or printed. Path
+session's directory inside each project directory. Per fork it reads the meta file, then record
+0 -- the first record that is not an attachment -- and prints from that only the target and the
+tag line. No later record is read or printed. Path
 columns are printed only under `--verbose`, because the leak gate forbids a user-home path in
 published text and a QA line is published text.
 
@@ -151,6 +153,8 @@ AMBIGUOUS_MESSAGE = (
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
 TARGET_PREFIX = "Review target:"
+#: The record type the CLI may write ahead of a fork's prompt; record 0 is the first of another.
+ATTACHMENT_TYPE = "attachment"
 #: The prompt body's first words. Measured on this repository's three cloud review forks at CLI
 #: 2.1.308 and 2.1.309, all `xhigh`: the target line, a blank, the tag, a blank, then this.
 BODY_OPENER = "You are reviewing"
@@ -288,16 +292,24 @@ def read_meta(transcript: Path) -> tuple[dict, bool]:
 
 
 def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
-    """Record 0 only, and its message's lines. Never a later record."""
+    """Record 0 only, and its message's lines. Never a later record.
+
+    Record 0 is the first record that is not an `attachment`. Measured 2026-10-22 on CLI 2.1.309:
+    one cloud review fork opened with six attachment records (instructions, session context and
+    the like) and its prompt in the seventh; three others, on 2.1.308 and 2.1.309, opened with it.
+    A file that holds only attachments so far is unread, not empty: it may be a round being written.
+    """
     with transcript.open(encoding="utf-8", errors="replace") as fh:
-        first = fh.readline()
-    try:
-        record = json.loads(first)
-    except ValueError:
-        return None, []
-    if not isinstance(record, dict):
-        return None, []
-    return record, message_text(record).splitlines()
+        for line in fh:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                return None, []
+            if not isinstance(record, dict):
+                return None, []
+            if record.get("type") != ATTACHMENT_TYPE:
+                return record, message_text(record).splitlines()
+    return None, []
 
 
 def unquote(text: str) -> str:

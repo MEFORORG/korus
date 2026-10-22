@@ -865,6 +865,10 @@ It reads the meta file, then record 0 alone, and prints of that only the target 
 No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
 forbids a home path in a QA line.
 
+**Record 0 is the first record that is not an `attachment`.** CHANGED 2026-10-22, vault #4044: it
+was the first line. A real fork on CLI 2.1.309 opened with six attachments, and read as exit 3.
+Attachments alone are unread, exit 10.
+
 **CHANGED 2026-10-22, vault #4006.** The paragraph beginning *It reads the meta file* read *"of
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
