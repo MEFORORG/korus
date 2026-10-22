@@ -320,6 +320,7 @@ The ladder, in the Owner's words:
 | --- | --- |
 | The table repeats | Every turn, not once. A blocker raised once and dropped reads as withdrawn. |
 | A recommendation is not a verdict | Section 1a still binds. You may recommend to the Owner. You may not rule, and you may not attribute a red. |
+| The Owner answers your own question with `/driver` or `/empower` | Owner ruling 2026-10-22, in COMMON.md: it delegates that question to you. Never delegated: draining the queue, taking the claim, driving the lane, attributing a red, or the four acts the Owner keeps in person. |
 | Mark the confidence | Your errors carry the authority the role lends them, so an unmarked guess costs more from this seat. |
 | Carry the Lander's blocker too | Section 0c. Its unanswered question goes in your table, marked as the Lander's rather than yours. |
 | It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. |
