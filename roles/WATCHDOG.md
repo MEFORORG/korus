@@ -321,13 +321,12 @@ The ladder, in the Owner's words:
 | The table repeats | Every turn, not once. A blocker raised once and dropped reads as withdrawn. |
 | A recommendation is not a verdict | Section 1a still binds. You may recommend to the Owner. You may not rule, and you may not attribute a red. |
 | The Owner answers a specific question you asked with `/driver` or `/empower` | Lander decision 2026-10-22, under the Owner's "add it other places as you judge helpful": COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*, reaches you. A Lander blocker you carry is not yours. |
-| What you do with it | Decide it after adversarial review. Write the record where you asked the question and on any pull request it rests on, quoting the question and the Owner's answer. |
-| What a delegated question still cannot reach | The Lander's reading, at least: acting on the watched seat (draining the queue, taking the claim, driving the lane; section 2), attributing a red (section 1a), and the four acts in the row below. |
+| What you do with it | Decide it after adversarial review. Write "decided under the owner's delegation of <date>", naming the review and quoting the question and the Owner's answer, where you asked and on any pull request that rests on it. |
 | The four acts the Owner keeps in person | Signing or re-signing the register, money, credentials, and irreversible acts. No answer delegates them. |
-| Older lines that say you decide nothing | They do not reach a question the Owner delegated back to you (2026-10-22). The limits in the two rows above still bind. |
+| Older lines that say you decide nothing | They do not reach a question the Owner delegated back to you (2026-10-22). The row above still binds. |
 | Mark the confidence | Your errors carry the authority the role lends them, so an unmarked guess costs more from this seat. |
 | Carry the Lander's blocker too | Section 0c. Its unanswered question goes in your table, marked as the Lander's rather than yours. |
-| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. WIDENED 2026-10-22: a question the Owner delegates back is the exception (rows above). |
+| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. WIDENED 2026-10-22: a question the Owner delegates back is the exception to this row (rows above). |
 | Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
 
 ### 0e. Your own standing loop, with the drain as its goal
