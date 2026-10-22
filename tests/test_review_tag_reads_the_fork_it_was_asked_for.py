@@ -1192,6 +1192,14 @@ class TheVault4006Findings(Fixture):
                 self._write("lvl", f"Review target: {first}\n{self.NONCE} Review x\n\nprose\n")
                 self._refused(*self._run("--target", self.NONCE)[:2])
 
+    def test_a_tag_shaped_argument_line_above_the_nonce_refuses_rather_than_miss(self):
+        # Round two: the arguments were cut at the FIRST tag-shaped line, so this read as exit 3.
+        for body in (f"Review target: `xhigh\n{TAG_HIGH}\n{self.NONCE} Review`\n\n`{TAG_XHIGH}`\n",
+                     f"Review target: `Review x\n\n`{TAG_HIGH}`\n\n{self.NONCE}`\n\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body[:40]):
+                self._write("above", body)
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
     def test_control_a_nonce_below_the_tag_is_not_the_forks_own(self):
         # The arguments end at the first tag-shaped line; a nonce in the prompt below is not theirs.
         self._write("below", f"Review target: `Review x\nand y`\n\n`{TAG_XHIGH}`\n\n{self.NONCE}\n")
