@@ -82,8 +82,8 @@ or it may say nothing about the run. `roles/BUILDER.md` 4e holds what was measur
 That paragraph read "Keep the skill's FIRST LINE. It names the shape the run took" until
 2026-09-22. The tag is the first line of the skill's own prompt, not of its report.
 
-The QA line further down carries the level you PASSED. Take `$T` before each round, then run
-`review_tag.py --since "$T" --target "<your args>"`: it reads the tag from the fork's transcript,
+The QA line further down carries the level you PASSED. Give each round a fresh nonce after the
+level, `xhigh round-<hex> ...`, then run `review_tag.py --target <nonce>`: it reads that fork's tag,
 or refuses. Never infer a shape, and never paste a prose opener into that line.
 
 The Tag field held "a tag only if one came back" until 2026-10-22. None ever came back, so the field

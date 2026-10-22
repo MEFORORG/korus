@@ -22,10 +22,14 @@ never placed by its session alone: every subagent Builder shares its Manager's s
 
 IT ANSWERS FOR EXACTLY ONE FORK, OR REFUSES. It exits 0 only when exactly one fork matches the
 filters. More than one candidate refuses, in one session or several; so does any fork in scope it
-could not read (transcript or meta), any directory it could not read, and any fork it cannot place.
-It never picks the newest readable one. Narrow with `--since` set just before the round, and
-`--target`. What exit 0 cannot rule out: a run that left NO fork (the inline shape) while another
-Builder's fork matched the same filters. Only the caller knows its round forked.
+could not read (transcript or meta), any directory it could not read -- a `~/.claude*` whose stat
+fails among them -- and any fork it cannot place. It never picks the newest readable one.
+
+A ROUND NONCE MAKES THE ONE MATCH THE CALLER'S OWN. Arguments alone cannot: Builders share the
+standard ones, so a round that left no fork (the inline shape) could find another Builder's fork as
+its one match. So a Builder puts a fresh nonce in its arguments right after the level --
+`xhigh round-7f3a9c21e4 Review ...` -- and `--target` is REQUIRED: pass the nonce. With it, only the
+Builder's own fork can match, and an inline, misplaced or unpersisted round exits 3, never 0.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -47,9 +51,8 @@ NOT MEASURED, so it says so rather than guessing. The inline shape (`Agent tool 
 single-pass inline`) has no fork: its prompt lands in the caller's own transcript, which this tool
 does not read. A miss therefore names that possibility instead of printing a blank.
 
-    python scripts/quality/review_tag.py --since 2026-10-22T09:00:00Z --target "Review this diff"
-    python scripts/quality/review_tag.py --since 2026-10-22T09:00:00Z --target "..." --ascii
-    python scripts/quality/review_tag.py --worktree . --since 2026-10-22T09:00:00Z --verbose
+    python scripts/quality/review_tag.py --target round-7f3a9c21e4 --since 2026-10-22T09:00:00Z
+    python scripts/quality/review_tag.py --target round-7f3a9c21e4 --since ... --ascii --verbose
 
 Exit codes. Each failure has its own, so a caller can tell them apart without parsing text:
 
@@ -62,7 +65,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     6  a fork in scope records no worktree, so it could be the run asked for
     7  ambiguous: more than one fork could be the run asked for
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
-    9  nothing selects a fork: no filter at all, or a --target holding only a level or flags
+    9  nothing selects a fork: no --target, or a --target holding only a level or flags
    10  a fork transcript in scope could not be read, so it could be the run asked for
 """
 
@@ -73,6 +76,7 @@ import datetime as dt
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -104,7 +108,7 @@ UNREAD_MESSAGE = (
     "fork(s) in scope could not be read, so any could be the one asked for;"
     " if a round is still running, run this again when it ends"
 )
-NO_SELECTOR_MESSAGE = "no filter selects a fork; pass --target words, --session, or a worktree"
+NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
 AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; narrow with --since set before the round,"
@@ -113,6 +117,9 @@ AMBIGUOUS_MESSAGE = (
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
 TARGET_PREFIX = "Review target:"
+
+#: A round nonce: 8 or more hex digits, fresh each round, after `round-`.
+NONCE_SHAPE = re.compile(r"\bround-[0-9a-f]{8,}\b", re.IGNORECASE)
 
 #: The levels the skill parses, and the flags its description advertises. The `Review target` line
 #: drops a level that parsed, and probably the flags too (not traced), so a caller's own argument
@@ -170,7 +177,21 @@ def projects_roots(explicit: list[str] | None = None) -> list[Path]:
         candidates = sorted(Path.home().glob(".claude*"))
     except OSError:
         return []
-    return [c / "projects" for c in candidates if c.is_dir()]
+    roots = []
+    for candidate in candidates:
+        # Not is_dir(): it answers False when the stat fails, which dropped an unreadable
+        # ~/.claude-X as if it did not exist, and a fork there could be the one asked for. A
+        # candidate that cannot be stat'ed stays in, so scan() reads it as unreadable and refuses.
+        try:
+            mode = os.stat(candidate).st_mode
+        except FileNotFoundError:
+            continue
+        except OSError:
+            roots.append(candidate / "projects")
+            continue
+        if stat.S_ISDIR(mode):
+            roots.append(candidate / "projects")
+    return roots
 
 
 def parse_time(text: str, require_offset: bool = False) -> dt.datetime | None:
@@ -293,6 +314,11 @@ def target_matches(wanted: str, args: str) -> bool:
     words = target_words(wanted)
     if not words:
         return have == ""
+    # A nonce matches only as a whole token: as a substring, round-7f3a9c21 would match a fork
+    # whose nonce is round-7f3a9c21e4.
+    for nonce in NONCE_SHAPE.findall(wanted):
+        if not re.search(r"(?<![0-9a-z-])" + re.escape(nonce.casefold()) + r"(?![0-9a-z])", have):
+            return False
     return squash(wanted) in have or words in have
 
 
@@ -490,7 +516,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--any-worktree", action="store_true", help="do not filter on the worktree at all"
     )
-    parser.add_argument("--target", help="the arguments the skill was called with, or a substring")
+    parser.add_argument(
+        "--target", help="REQUIRED: the round's nonce (round-<hex>), or the arguments that carry it"
+    )
     parser.add_argument(
         "--session", help=f"the session id the fork ran under (default: ${SESSION_ENV}, if set)"
     )
@@ -555,9 +583,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.target and not target_words(args.target):
         print(NO_WORDS_MESSAGE)
         return EXIT_NO_SELECTOR
-    if worktree is None and not session and not args.target:
+    if not args.target:
+        # Required: without the round's nonce, another Builder's fork with the same arguments can be
+        # the one match while the caller's own round left no fork at all.
         print(NO_SELECTOR_MESSAGE)
         return EXIT_NO_SELECTOR
+    if not NONCE_SHAPE.search(args.target):
+        print("review_tag: --target carries no round nonce (round-<8+ hex>); a peer's fork with the"
+              " same arguments could be the one match", file=sys.stderr)
 
     roots = projects_roots(args.projects_dir)
     result = scan(roots, Filters(worktree, args.target, session, since))

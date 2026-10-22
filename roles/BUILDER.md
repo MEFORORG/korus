@@ -488,9 +488,9 @@ check is the only reason the seat that hit this caught its own.**
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
 11. **Review the diff, and stop after two rounds.** Invoke the `Skill` tool with
-    `skill: "code-review"` at your brief's level, `xhigh` by default. **Take `$T` before each
-    round, then run `review_tag.py --since "$T" --target "<your args>"`.** 4c has the rest; 4e
-    says what to quote.
+    `skill: "code-review"` at your brief's level, `xhigh` by default, a fresh nonce after the
+    level. **Then run `review_tag.py --target <nonce> --since "$T"`.** 4c has the rest; 4e says
+    how, and what to quote.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
     a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
@@ -624,7 +624,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
-| After each round | **Run `review_tag.py --since "$T" --target "<your args>"`**, with `$T` taken just before the round. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
+| After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
 **The review-standards example began `xhigh.` until 2026-10-13, and the period kept the level from
@@ -768,7 +768,7 @@ pull request could not tell a diff that had been worked from one that had not.
 
 ```
 QA -- korus roles/BUILDER.md step 11
-Level: xhigh, from the brief. Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings (forks a1b2c3d4, e5f6a7b8; ascii spelling).
+Level: xhigh, from the brief. Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings (forks a1b2c3d4 round-7f3a9c21e4, e5f6a7b8 round-0b1c2d3e4f; ascii spelling).
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
@@ -777,7 +777,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
 | Level | The level you PASSED, and where it came from: `from the brief`, or `4c default`. Read it off your own invocation. |
 | Level, where you passed none | `inherited, not passed`. 4c says a bare call takes the session's level and `CLAUDE_CODE_EFFORT_LEVEL` beats both, so name the override where one is set. |
-| Tag | What follows `tag:` in `review_tag.py`'s output, quoted verbatim, then a note naming the fork agent id it printed: `(fork <id>)`. Never reconstruct one, and never paste the skill's prose opener here. |
+| Tag | What follows `tag:` in `review_tag.py`'s output, quoted verbatim, then a note naming the fork agent id it printed and the round's nonce: `(fork <id> round-<hex>)`. Never reconstruct one, and never paste the skill's prose opener here. |
 | Tag, over two rounds | One tag, and both fork ids, where both rounds printed the same tag: `(forks <id1>, <id2>)`. Where they differ, quote both, round one first. |
 | Tag, verbatim | Both spellings count: the glyph form, and the `--ascii` form with `->` and `<=`. **The `--ascii` form must say so** in the note, as `ascii spelling`, because it is not the text the fork holds. |
 | Tag, where the tool found none | `none returned`, and beside it the tool's own refusal message in quotes. Bare `none returned` is not a reading any more: it cannot tell a miss from a search that never ran. |
@@ -832,20 +832,26 @@ printed no tag.
 is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
 line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
 
-**Run it after each round, from your worktree, with the time you took just before the round:**
+**Give each round a fresh nonce, right after the level, and run the tool on that nonce:**
 
 ```bash
-T=$(date -u +%Y-%m-%dT%H:%M:%SZ)     # before you invoke the skill
-python scripts/quality/review_tag.py --since "$T" --target "<your args>"
+N=round-$(python3 -c 'import secrets; print(secrets.token_hex(5))')   # fresh each round
+T=$(date -u +%Y-%m-%dT%H:%M:%SZ)                                         # just before the round
+# Skill args: "xhigh $N Review this branch's diff against origin/main"
+python scripts/quality/review_tag.py --target "$N" --since "$T"
 ```
 
-**It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched your
-filters. It never picks the newest readable one. CHANGED 2026-10-22: it listed every match and
-quoted the newest, and the Lander showed four ways that quoted the wrong fork's tag.
+**The nonce goes after the level, never before it.** 4c says the level must be the bare first
+word to parse; the skill drops it from its `Review target` line, which then starts with the nonce.
+This branch's last round ran with `xhigh round-<hex> ...` and its fork carried the `xhigh` tag.
 
-**Exit 0 cannot rule out a round that left no fork.** If your round ran inline while another
-Builder's fork matched your filters, that fork is the one match. Only you know your round forked,
-so check the agent id against what your Agent call reported where you can.
+**`--target` is required, and the nonce makes the one match yours.** Builders share the standard
+arguments, so a round that left no fork could find a peer's fork as its one match. With a nonce, an
+inline, misplaced or unpersisted round exits 3, never 0. It matches only as a whole token.
+
+**It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
+picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
+newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
 
 It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
 one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
@@ -853,10 +859,10 @@ forbids a home path in a QA line.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. A level alone leaves no words, and is refused with exit 9. |
+| `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and the skill's flags are stripped first. A level alone is refused, exit 9; a target with no nonce warns on stderr. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
-| `--since` | Drops forks whose record 0 is older. It needs an offset. Set it just before the round, so your earlier rounds drop out. |
+| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
 The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any worktree`.
@@ -864,14 +870,14 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | Exit | Message | The Tag field |
 | --- | --- | --- |
 | 0 | the `tag:` line of the one fork that matched | Quote it. |
-| 3 | `no fork found; inline shape or unpersisted transcript possible` | `none returned`, with the message, unless you know the shape was inline. |
+| 3 | `no fork found; inline shape or unpersisted transcript possible` | If your round ran inline, quote the tag from your own context with `(inline, no fork)`. Otherwise `none returned`, with the message. |
 | 4 | `no projects dir could be read` | `none returned`, with the message. |
 | 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
 | 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
 | 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Not a result yet. Narrow with `--since`. Never widen with `--any-worktree` to clear it: that lets another worktree's fork in. |
-| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. Narrow with `--since`, `--target` or `--worktree`. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a fresh nonce this means the nonce was reused. |
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
-| 9 | `--target holds only a level or flags; ...`, or `no filter selects a fork; ...` | Not a result yet. Pass the words of your arguments. |
+| 9 | `--target is required; ...`, or `--target holds only a level or flags; ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
@@ -883,11 +889,10 @@ and name the fork in the QA line, not the tool.
 
 **The session default keeps another session's fork out.** It is set in the cloud session measured
 here, where it named the directory the fork landed under. Whether a local Windows session sets it is
-not measured.
+not measured; the nonce does not depend on it.
 
-**Builder subagents of one Manager share its session, and may share a worktree.** Then only
-`--since` and `--target` can separate their forks. Where two still match, the tool refuses with
-exit 7, and that refusal is the reading.
+**A Manager checks a QA line's round by its nonce.** The note carries it, so the Manager runs the
+tool with that nonce and its own `--session`, and expects the same fork id.
 
 **Where korus is not checked out, fetch the tool pinned to a commit SHA, never `main`.** A Builder
 in the cloud, or in another repository, runs this. Every step stops the chain, and the directory is
@@ -900,7 +905,7 @@ test -n "$sha" &&
 curl -fsSL -o "$d/review_tag.py" \
   "https://raw.githubusercontent.com/MEFORORG/korus/$sha/scripts/quality/review_tag.py" &&
 echo "review_tag.py at $sha" &&
-python "$d/review_tag.py" --since "$T" --target "<your args>"
+python "$d/review_tag.py" --target "$N" --since "$T"
 ```
 
 **Name the SHA in your report under 4d,** so the tool that read the tag is a fixed file. Where a

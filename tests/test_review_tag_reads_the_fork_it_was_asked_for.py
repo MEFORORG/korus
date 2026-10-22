@@ -91,7 +91,7 @@ def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED,
             fh.write(json.dumps(item) + "\n")
 
 
-def run(projects, *args, env_extra=None, cwd=None):
+def run(projects, *args, env_extra=None, cwd=None, default_target=True):
     env = dict(os.environ)
     # Both are set in a live session, and either would point the tool away from the fixture.
     env.pop("CLAUDE_CONFIG_DIR", None)
@@ -100,6 +100,10 @@ def run(projects, *args, env_extra=None, cwd=None):
     cmd = [sys.executable, str(SCRIPT)]
     if projects is not None:
         cmd += ["--projects-dir", str(projects)]
+    # --target is required. A case that is not about the target gets one every fixture matches,
+    # so it still tests what it names; the cases about the requirement opt out.
+    if default_target and "--target" not in args:
+        args = args + ("--target", "Review")
     proc = subprocess.run(
         cmd + list(args),
         capture_output=True,
@@ -232,8 +236,8 @@ class NothingWidensOnItsOwn(Fixture):
         self.assertIn("agent one", out)
         self.assertNotIn("agent two", out)
 
-    def test_no_filter_at_all_is_refused(self):
-        code, out, _ = run(self.projects, "--any-worktree", "--any-session")
+    def test_no_target_is_refused_because_target_is_required(self):
+        code, out, _ = run(self.projects, "--any-worktree", "--any-session", default_target=False)
         self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
         self.assertIn(review_tag.NO_SELECTOR_MESSAGE, out)
 
@@ -716,6 +720,179 @@ class TheFinalRoundsFailOpens(Fixture):
     def test_no_refusal_offers_the_widening_that_would_let_a_peer_in(self):
         for name in ("UNPLACED_MESSAGE", "NO_TOPLEVEL_MESSAGE", "UNREAD_MESSAGE"):
             self.assertNotIn("--any-worktree", getattr(review_tag, name), name)
+
+
+class ARoundNonceMakesTheOneMatchTheCallersOwn(Fixture):
+    """F2. Builders share the standard arguments, so without a nonce a round that left no fork could
+    find another Builder's fork as its one match. The nonce sits after the level, so the level stays
+    the bare first word the skill parses: `xhigh round-<hex> Review ...`."""
+
+    STD = "Review this branch's diff against origin/main"
+
+    def setUp(self):
+        super().setUp()
+        # The skill drops the parsed level, so the target line starts with the nonce.
+        write_fork(self.projects, "mgr", "builderA", "round-1111aaaa22 " + self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        write_fork(self.projects, "mgr", "builderB", "round-3333bbbb44 " + self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:05:00Z")
+
+    def _run(self, *extra):
+        return run(self.projects, "--session", "mgr", "--worktree", WORKTREE_FORWARD, *extra)
+
+    def test_the_nonce_selects_the_callers_fork_among_shared_arguments(self):
+        code, out, _ = self._run("--target", "round-1111aaaa22")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent builderA", out)
+        self.assertNotIn("builderB", out)
+
+    def test_the_full_arguments_with_level_and_nonce_select_it_too(self):
+        code, out, _ = self._run("--target", "xhigh round-3333bbbb44 " + self.STD)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent builderB", out)
+
+    def test_an_inline_round_exits_no_fork_never_a_peers_tag(self):
+        # The caller's round left no fork. Its nonce matches nothing, so no peer's tag is quoted.
+        code, out, _ = self._run("--target", "round-5555cccc66")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("tag:", out)
+
+    def test_a_nonce_matches_only_as_a_whole_token(self):
+        code, out, _ = self._run("--target", "round-1111aaaa")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_without_a_nonce_the_shared_arguments_stay_ambiguous(self):
+        # The control: the same tree, the arguments alone, two candidates and a refusal.
+        code, out, err = self._run("--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertIn("no round nonce", err)
+
+
+class TheSurvivingMutantsAreKilled(Fixture):
+    """The Lander's mutation run on 5e77d46 left five mutants alive. Each case below fails on its
+    mutant, beside the behaviour it pins."""
+
+    STD = "Review this branch's diff"
+
+    def _main(self, *args):
+        out = io.StringIO()
+        argv = ["--projects-dir", str(self.projects), "--session", "s1"] + list(args)
+        with contextlib.redirect_stdout(out):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def test_m21_an_oserror_opening_the_transcript_is_unread_not_skipped(self):
+        write_fork(self.projects, "s1", "older", self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T08:00:00Z")
+        write_fork(self.projects, "s1", "locked", self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        real = review_tag.read_record_zero
+
+        def deny(transcript):
+            if transcript.name == "agent-locked.jsonl":
+                raise PermissionError(13, "denied", str(transcript))
+            return real(transcript)
+
+        with mock.patch.object(review_tag, "read_record_zero", side_effect=deny):
+            code, out = self._main("--worktree", WORKTREE_FORWARD, "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertNotIn("tag:", out)
+
+    def test_m26_inherited_worktree_path_is_matched_exactly_not_by_prefix(self):
+        for elsewhere in (WORKTREE_WINDOWS + "-other", WORKTREE_WINDOWS + "\\.claude\\worktrees\\x"):
+            with self.subTest(worktree=elsewhere):
+                write_fork(self.projects, "s1", "peer", self.STD, TAG_HIGH,
+                           worktree=elsewhere, timestamp="2026-10-22T09:00:00Z")
+                code, out = self._main("--worktree", WORKTREE_FORWARD, "--target", self.STD)
+                self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_m15_a_meta_that_is_not_an_object_is_unread(self):
+        write_fork(self.projects, "s1", "listmeta", self.STD, TAG_XHIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        meta = self.projects / "D--Code-korus" / "s1" / "subagents" / "agent-listmeta.meta.json"
+        meta.write_text("[]", encoding="utf-8")
+        code, out = self._main("--worktree", "/home/user/korus", "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+
+    def test_m19_an_unread_fork_whose_stat_fails_is_not_ruled_out_by_since(self):
+        write_fork(self.projects, "s1", "fresh", self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:30:00Z")
+        sub = self.projects / "D--Code-korus" / "s1" / "subagents"
+        (sub / "agent-nostat.jsonl").write_text("", encoding="utf-8")
+        real_stat = Path.stat
+
+        def deny(path, *a, **k):
+            if path.name == "agent-nostat.jsonl":
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *a, **k)
+
+        with mock.patch.object(review_tag.Path, "stat", autospec=True, side_effect=deny):
+            code, out = self._main("--worktree", WORKTREE_FORWARD, "--target", self.STD,
+                                   "--since", "2026-10-22T09:00:00Z")
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+
+    def test_m37_a_fork_nested_deeper_than_subagents_is_found(self):
+        sub = self.projects / "D--Code-korus" / "s1" / "subagents"
+        write_fork(self.projects, "s1", "deep", self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        nested = sub / "nested" / "deeper"
+        nested.mkdir(parents=True)
+        for name in ("agent-deep.jsonl", "agent-deep.meta.json"):
+            (sub / name).rename(nested / name)
+        code, out = self._main("--worktree", WORKTREE_FORWARD, "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent deep", out)
+
+
+class AnUnreadableConfigDirRefuses(unittest.TestCase):
+    """F1. With CLAUDE_CONFIG_DIR unset, a ~/.claude-X whose stat failed was dropped as absent,
+    because is_dir() answers False, and another root's fork was quoted with exit 0."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self._tmp.name)
+        self.good = self.home / ".claude"
+        self.bad = self.home / ".claude-locked"
+        write_fork(self.good / "projects", "s1", "seen", "Review this diff", TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        (self.bad / "projects").mkdir(parents=True)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _main(self, deny):
+        real_stat, real_listdir = os.stat, os.listdir
+
+        def stat(path, *a, **k):
+            if deny and Path(path) == self.bad:
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *a, **k)
+
+        def listdir(path="."):
+            if deny and Path(path) == self.bad / "projects":
+                raise PermissionError(13, "denied", str(path))
+            return real_listdir(path)
+
+        env = {"HOME": str(self.home), "USERPROFILE": str(self.home)}
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(review_tag.os, "stat", side_effect=stat), \
+                mock.patch.object(review_tag.os, "listdir", side_effect=listdir), \
+                contextlib.redirect_stdout(out):
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+            code = review_tag.main(["--session", "s1", "--worktree", WORKTREE_FORWARD,
+                                    "--target", "Review this diff"])
+        return code, out.getvalue()
+
+    def test_an_unstatable_claude_dir_refuses(self):
+        code, out = self._main(deny=True)
+        self.assertEqual(code, review_tag.EXIT_NO_ROOT, out)
+        self.assertNotIn("tag:", out)
+
+    def test_the_control_finds_the_fork_when_both_are_readable(self):
+        code, out = self._main(deny=False)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent seen", out)
 
 
 class ConfigDirNamesTheRoot(Fixture):
