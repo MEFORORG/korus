@@ -27,7 +27,7 @@ not the shared inbox. So pass every path yourself:
 | Placeholder | What it names |
 | --- | --- |
 | `<korus>` | A korus checkout at `origin/main`. |
-| `<coord>` | `<engine clone>/.git/mefor-coord` on the reference fleet: the engine clone's coordination directory, which holds the one inbox every account shares. In any engine worktree, `git rev-parse --path-format=absolute --git-common-dir` prints the `.git` part. |
+| `<coord>` | The engine's SHARED coordination root on the reference fleet, which holds the one inbox every account on every machine shares. In any engine worktree, `. scripts/coord/coord-root.ps1; (Get-CoordSharedRoot).Path` prints it. Until a machine's `root.toml` names a shared root, that is `<engine clone>/.git/mefor-coord`. Never build it from `--git-common-dir` by hand: after the move, that path is an inbox the other machine never reads. |
 | `<vault>` | A checkout of the record repository at `origin/main`, `MessageFoundry-vault` on the reference fleet. A query reads the compiled log from it; a write does not use it. |
 
 ```powershell
@@ -39,7 +39,8 @@ pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordR
 ```
 
 Each clone has its own coordination directory, so its own inbox. `Get-CcxStateRoot` in
-`scripts/coord/_common.ps1` says why.
+`scripts/coord/_common.ps1` says why. The engine shares one root across machines, as its
+`docs/COORD-SHARED-ROOT.md` says, so name `<coord>` through its resolver.
 
 **If a script is missing from your korus checkout, carry on without it and say so in your report.** A memory
 that cannot be reached never blocks work.
@@ -78,8 +79,18 @@ session: *"I always want the lander to handle all three repos."*
 200, 203 and 206. Before the ruling, the compile paragraph above ended *"A playbook change the
 promotion step drafts merges only with the Owner, so the Lander does not land it."*
 
-Register the cycle once per machine with `scripts/wiki/register-cycle-task.ps1`. Pass `-WhatIf`
-first: it prints exactly what it would register. `-Status` shows the task and the last log line.
+Register the cycle on ONE machine with `scripts/wiki/register-cycle-task.ps1`, with `-StateRoot`
+the shared root. Pass `-WhatIf` first: it prints exactly what it would register. `-Status` shows
+the task and the last log line.
+
+**Two cycles over one inbox fight.** `compile.ps1` rebuilds its one standing branch from the inbox
+it reads, so a second compile job drops the first one's events from the open pull request. Two
+machines also give the same memory store the same label, so their imports overwrite each other's
+notes. A task registered before the shared root existed names the local root. The cycle refuses
+that root once its `root.toml` names the shared one, and says which root to register.
+
+**CORRECTED 2026-10-22.** This paragraph read *"Register the cycle once per machine"* until
+the engine moved its coordination state to a root two machines share.
 
 **Register an old task again.** The first registrar left priority 7 and a one-hour limit; this one
 sets 4 and two hours. `-Status` says OUT OF DATE until you do.

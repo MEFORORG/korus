@@ -87,6 +87,16 @@
     when the run started. The run then moves that checkout, so the wiki scripts are current at once
     and a change to this file takes effect on the next run.
 
+    A STATE ROOT THAT HAS MOVED IS REFUSED. The engine can move its coordination state to a root
+    that two machines share (engine docs/COORD-SHARED-ROOT.md). It records the move as
+    `shared_root = '<path>'` in `<local root>/root.toml`. From then on seats write the inbox under
+    the shared root, so a task still registered with the local root would compile an inbox nobody
+    writes. So a -StateRoot holding a root.toml that names another directory, or that names none,
+    exits 2 and says which root to register. `MEFOR_COORD_ROOT`, when set to this same directory,
+    overrides it, as it overrides root.toml for the engine. Register the task again with the shared
+    root, on ONE machine: two cycles over one inbox import each machine's stores, which share
+    labels, and compile.ps1 asks for one compile job.
+
     IT NEVER MERGES, AND IT PUSHES ONLY THROUGH compile.ps1. It writes only under -StateRoot and
     -LintOut, and moves only the two checkouts named above.
 
@@ -99,7 +109,7 @@
         0  every step ran, whatever it found
         1  a step returned an error, timed out, or could not start or finish. The other steps
            still ran.
-        2  the cycle could not run: a bad or missing argument, a missing state root, record
+        2  the cycle could not run: a bad or missing argument, a missing or moved state root, record
            repository or checkout, a checkout on a branch or with local changes, a fetch or checkout
            that failed, a missing wiki script, or the lock held by a live cycle
 
@@ -167,6 +177,41 @@ function Resolve-CycleDir {
     $root = [System.IO.Path]::GetPathRoot($full)
     if ($full.Length -gt $root.Length) { $full = $full.TrimEnd('\', '/') }
     return $full
+}
+
+function Get-MovedStateRoot {
+    <#
+    .SYNOPSIS
+        Why this state root is not the one seats write to, or $null when it is.
+    .DESCRIPTION
+        The header's A STATE ROOT THAT HAS MOVED says why. root.toml is read the way the engine's
+        resolver reads it: every line blank, a comment, or `shared_root = '<path>'` in single quotes,
+        named once. Anything else is a problem too, because the engine refuses it as well, so seats
+        write nowhere the cycle can name.
+    #>
+    param([string] $Root)
+    $file = Join-Path $Root 'root.toml'
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $envRoot = ([string]$env:MEFOR_COORD_ROOT).Trim()
+    if ($envRoot) {
+        try { if ((Resolve-CycleDir $envRoot) -ieq $Root) { return $null } } catch { $null = $_ }
+    }
+    try { $lines = [System.IO.File]::ReadAllLines($file) }
+    catch { return "'$file' could not be read ($($_.Exception.Message)), so the root seats write to is unknown." }
+    $found = @()
+    foreach ($line in $lines) {
+        $t = $line.Trim()
+        if (-not $t -or $t.StartsWith('#')) { continue }
+        $m = [regex]::Match($t, "\Ashared_root\s*=\s*'([^']*)'\s*(#.*)?\z")
+        if (-not $m.Success) { return "'$file' has a line that is not shared_root = '<path>', so the root seats write to is unknown." }
+        $found += $m.Groups[1].Value
+    }
+    if ($found.Count -ne 1) { return "'$file' must name shared_root exactly once, so the root seats write to is unknown." }
+    $shared = $found[0].Trim()
+    try { $sharedFull = Resolve-CycleDir $shared } catch { $sharedFull = $shared }
+    if ($sharedFull -ieq $Root) { return $null }
+    return ("state root '$Root' has moved: its root.toml names the shared root '$shared', where seats now write the " +
+        "inbox. Register the cycle again with -StateRoot '$shared', on one machine only.")
 }
 
 function Split-DirList {
@@ -590,6 +635,9 @@ function Invoke-WikiCycle {
     if (-not (Test-Path -LiteralPath $script:StateRoot -PathType Container)) { Stop-Cycle "state root '$($script:StateRoot)' does not exist." }
     $script:logDir = Join-Path $script:StateRoot 'wiki-cycle'
     $script:lockPath = Join-Path $script:logDir 'lock'
+    # After logDir is set, so the refusal is logged where -Status reads this task's log.
+    $moved = Get-MovedStateRoot $script:StateRoot
+    if ($moved) { Stop-Cycle $moved }
 
     if ($Import -and $NoImport) { Stop-Cycle '-Import and -NoImport cannot both be given.' }
     $day = ConvertTo-ImportDay $ImportDay
