@@ -43,11 +43,11 @@ line. Widening takes an explicit flag.
 WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the skill selected, not
 that the fork obeyed it.
 
-ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
-the next line that is not blank. Where the first line leaves a backtick open, or a later line of the
-same block (up to the next blank line) has a tag's shape, the arguments may span lines: the tool
-refuses (exit 13) rather than read a line of them as the tag, or call the fork tagless. Keep the
-skill's arguments on one line. The prompt body, past that blank line, is never tested.
+ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line. The head runs
+from there to the prompt body's opener, `You are reviewing`, or to the end where there is none. The
+tag is the head's ONE tag-shaped line, and only as its first non-blank line; none is a tagless fork.
+Two, or one further down, refuse (exit 13): the arguments may span lines, and a line of them could
+be quoted as the tag. Keep the skill's arguments on one line. The prompt body is never tested.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -151,6 +151,9 @@ AMBIGUOUS_MESSAGE = (
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
 TARGET_PREFIX = "Review target:"
+#: The prompt body's first words. Measured on this repository's three cloud review forks at CLI
+#: 2.1.308 and 2.1.309, all `xhigh`: the target line, a blank, the tag, a blank, then this.
+BODY_OPENER = "You are reviewing"
 
 #: A round nonce: 8 or more hex digits, fresh each round, after `round-`, as a whole token. One
 #: pattern both finds a nonce in --target and matches it in a fork's target, so the two cannot
@@ -308,46 +311,32 @@ def is_tag(line: str) -> bool:
 def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
     """(is a review fork, target args, tag, unsplit, own nonce) from record 0's message.
 
-    A review fork's message STARTS with the target line; the tag is the next non-blank line, and
-    only if it has the tag's shape. The block is that line and the non-blank lines straight after
-    it; both recorded shapes end it with a blank line under the tag, so the prompt body is never
-    tested. The arguments may span lines where the target line is empty or leaves a backtick open,
-    or where any later line of the block has a tag's shape: that is `unsplit`, a refusal, never a tagless
-    fork, and never a line of the arguments quoted as the tag.
+    A review fork's message STARTS with the target line. The head is what lies between it and the
+    prompt body's opener, `You are reviewing`; with no opener, the head is the whole message. The
+    tag is the head's one tag-shaped line, and only where it is the head's first non-blank line.
+    No tag-shaped line in the head is a tagless fork. Any other count or place is `unsplit`, a
+    refusal: the arguments may span lines, and a line of them could be quoted as the tag.
 
-    The own nonce is the first on the target line, or for an unsplit fork whose target line has
-    none, the first in the non-blank lines right under it. Only the nonce is kept, never the text.
+    The own nonce is the first on the target line, or where that line has none, the first in the
+    head above its first tag-shaped line. Only the nonce is kept, never the text.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False, ""
-    first = lines[0][len(TARGET_PREFIX) :].strip()
-    target = unquote(first)
-    own = NONCE_SHAPE.findall(target)
-    # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
-    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
-    opened = first.count("`") % 2 == 1
+    target = unquote(lines[0][len(TARGET_PREFIX) :])
     rest = lines[1:]
-    start = next((i for i, line in enumerate(rest) if line.strip()), None)
-    if start is None:
-        return True, target, "", opened, own[0] if own else ""
-    block = [rest[start]]
-    for line in rest[start + 1 :]:
-        if not line.strip():
-            break
-        block.append(line)
-    # An empty target line puts the arguments below it, so they span lines too.
-    unsplit = opened or not first or any(is_tag(line) for line in block[1:])
-    if not unsplit:
-        tag = unquote(block[0]) if is_tag(block[0]) else ""
-        return True, target, tag, False, own[0] if own else ""
+    end = next((i for i, line in enumerate(rest) if line.startswith(BODY_OPENER)), len(rest))
+    head = rest[:end]
+    tags = [i for i, line in enumerate(head) if is_tag(line)]
+    first = next((i for i, line in enumerate(head) if line.strip()), None)
+    own = NONCE_SHAPE.findall(target)
     if not own:
-        under = []
-        for line in rest:
-            if not line.strip():
-                break
-            under.append(line)
-        own = NONCE_SHAPE.findall("\n".join(under))
-    return True, target, "", True, own[0] if own else ""
+        own = NONCE_SHAPE.findall("\n".join(head[: tags[0] if tags else len(head)]))
+    nonce = own[0] if own else ""
+    if not tags:
+        return True, target, "", False, nonce
+    if tags == [first]:
+        return True, target, unquote(head[first]), False, nonce
+    return True, target, "", True, nonce
 
 
 def strip_invocation(text: str) -> str:

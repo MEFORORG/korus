@@ -854,6 +854,9 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
+Where the target line holds none, the fork's own is the first above its first tag-shaped line.
+CHANGED 2026-10-22, vault #4044: that clause is new, so a nonce one line down is not a miss.
+
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
 newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
@@ -866,20 +869,20 @@ forbids a home path in a QA line.
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
 
-**Keep your arguments on one line.** The target is the fork's first line. Where it is empty or
-leaves a backtick open, or the block under it has a tag-shaped line past its first, it refuses: 13.
-The block ends at the first blank line, so the prompt body is never tested.
+**Keep your arguments on one line.** The target is the fork's first line, and the head runs from it
+to the body's opener, `You are reviewing`. The tag is the head's one tag-shaped line, as its first
+non-blank line. None is exit 5; two, or one lower down, refuse with 13. The body is never tested.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
 
-**CHANGED 2026-10-22, vault #4044.** The rule read *"or the next non-blank line is no tag and a later
-line is one"*. So a tag-shaped second line of your arguments was quoted as the tag, at exit 0.
+**CHANGED 2026-10-22, vault #4044.** The rule read *"Where that line leaves a backtick open, or the
+next non-blank line is no tag and a later line is one"*. It took the first non-blank line as the tag
+when it had the shape, so a tag-shaped line of your arguments was quoted, exit 0.
 
-A tag-shaped line past the block's first now refuses. Both recorded shapes put a blank line under the
-tag, as did this branch's three forks: CLI 2.1.307, all `xhigh`, no skill flags.
-
-An empty target line refuses too, and its nonce is read from the lines under it, so it is no miss.
+The opener bounds the head. Record 0 of each of this repository's three cloud review forks, read
+with the `head -1` command above at `f0c6795`, put it at line 4. CLI 2.1.308 and 2.1.309, all
+`xhigh` with no skill flags; no other level, flag or the Windows shape was read.
 
 | Flag | What it does |
 | --- | --- |

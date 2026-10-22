@@ -1104,9 +1104,16 @@ class TheVault4006Findings(Fixture):
         self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
         self._refused(*self._run("--target", f"xhigh {self.NONCE} Review x\nand y")[:2])
 
-    def test_a_backtick_that_never_closes_refuses(self):
-        self._write("open", f"Review target: `{self.NONCE} Review x\nand more\n\nprose\n")
+    def test_a_backtick_that_never_closes_with_a_tag_below_refuses(self):
+        self._write("open", f"Review target: `{self.NONCE} Review x\nand more\n\n`{TAG_XHIGH}`\n")
         self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_control_a_head_with_no_tag_shaped_line_is_tagless_not_refused(self):
+        # vault #4044 round two: with the head bounded by the body opener, no tag in it is exit 5,
+        # whatever the backticks do. Finding 7 was a fork that HELD a tag reading as none.
+        self._write("open", f"Review target: `{self.NONCE} Review x\nand more\n\nprose\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
 
     def test_a_target_opening_with_a_backticked_word_still_reads_its_tag(self):
         # Round one: closing the target on the next line ending in a backtick swallowed the tag.
@@ -1230,10 +1237,12 @@ class TheVault4006Findings(Fixture):
 
 class TheVault4044Edges(Fixture):
     """vault #4044, the three edges PR 235 left open. Each case sits beside a control. Edge 2 is
-    the prompt body: past the blank line under the tag, it is never tested, so a tag-shaped line
-    there neither refuses a tagged fork nor turns a tagless one into exit 13."""
+    the prompt body: from its opener, `You are reviewing`, on, it is never tested, so a tag-shaped
+    line there neither refuses a tagged fork nor turns a tagless one into exit 13."""
 
     NONCE = "round-4044abcdef"
+
+    _refused = TheVault4006Findings._refused
 
     def _write(self, agent, body):
         write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd="/home/user/korus",
@@ -1284,6 +1293,49 @@ class TheVault4044Edges(Fixture):
                             f"`{TAG_HIGH}`\n")
         code, out, _ = self._run("--target", self.NONCE)
         self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
+
+    def test_round_two_blank_separated_arguments_refuse_not_read_tagless(self):
+        # Round two: bounding by the first blank line read these as exit 5 over a held tag.
+        for body in (f"Review target: {self.NONCE} A\nmore text\n\n`{TAG_XHIGH}`\n",
+                     f"Review target: {self.NONCE} A\nB\n\nC\n`{TAG_XHIGH}`\n",
+                     f"Review target: `{self.NONCE} Review `foo\nbar` now`\n\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body):
+                self._write("multi", body)
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_round_two_a_forged_line_across_a_blank_is_not_quoted(self):
+        for body in (f"Review target: `{self.NONCE} Re-run `x\n{TAG_HIGH}`\n\n`{TAG_XHIGH}`\n",
+                     f"Review target: {self.NONCE} A\n{TAG_HIGH}\n\nmore\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body):
+                self._write("forged", body)
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_round_two_the_body_opener_bounds_the_head_without_a_blank(self):
+        # The relayed shape may put the body straight under the tag.
+        self._write("tight", f"Review target: {self.NONCE} A\n`{TAG_XHIGH}`\nYou are reviewing\n"
+                             f"`{TAG_HIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    def test_round_two_a_nonce_under_a_leading_blank_or_bare_backticks_is_read(self):
+        for first in ("`\n", "``"):
+            with self.subTest(first=first):
+                self._write("low", f"Review target: {first}\n{self.NONCE} Review x`\n\n"
+                                   f"`{TAG_XHIGH}`\n")
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_round_two_a_nonce_below_the_tag_is_not_the_forks_own(self):
+        # Only the head above the first tag-shaped line holds the arguments' nonce.
+        self._write("late", f"Review target: `\nReview x`\n`{TAG_XHIGH}`\n{self.NONCE} later\n"
+                            "You are reviewing\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_round_two_an_odd_backtick_on_one_line_reads_its_tag(self):
+        self._write("odd", f"Review target: `{self.NONCE} check the ` key`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
 
     def test_3_control_another_rounds_nonce_below_is_out_of_scope(self):
         self._write("low", f"Review target: `\nround-0000000000 Review x\n\n`{TAG_XHIGH}`\n")
