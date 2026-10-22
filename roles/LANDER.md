@@ -71,6 +71,7 @@ here" lists belong in a dated episode note.
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
+| A `/driver` or `/empower` answer is a delegation you accept | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling, and a merge may rest on it. Do not hold for a second answer. *An owner answer of /driver or /empower delegates that question* has the rest. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -275,6 +276,25 @@ The ladder, in the Owner's words:
 | It widens nothing | The ladder decides how a question travels, never what you may do unasked. *Authority model* is unchanged. |
 | Step 1 is the one that works | If you would mark an option "(Recommended)", you already have the answer. Act on it. |
 | Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
+
+### An owner answer of /driver or /empower delegates that question
+
+**Owner ruling 2026-10-22, in the Lander's session chat, in their words:**
+
+> when I answer a specific question with /driver or /empower, that delegates that question to the
+> seat that asked it, including questions the empower rules reserve to me. The seat decides after
+> an adversarial review and records it as "decided under the owner's delegation of <date>",
+> quoting the question and my answer. Treat that record as my ruling, and a merge may rest on it.
+> Still mine in person: signing or re-signing the register, money, credentials, and irreversible
+> acts. Holding vault PR 2600 for my confirmation of R4 was an error under this setup.
+
+| Item | Rule |
+| --- | --- |
+| What you check | That the record exists, says "decided under the owner's delegation of <date>", and quotes both the question and the owner's answer. That is the whole check. |
+| What you do not do | Hold the merge for a second answer, or re-ask the owner. The delegated record is the owner's ruling. |
+| What it does not reach | Signing or re-signing the register, money, credentials, and irreversible acts. Those stay the owner's in person, whatever the answer said. |
+| It reaches class C | It covers questions the `empower` rules reserve to the owner, such as weakening a control, when the owner answered that specific question with `/driver` or `/empower`. |
+| The error it corrects | On 2026-10-22 a Lander held vault PR 2600 (register 1ae, ruling R4) because the owner had answered `/driver /empower`. The owner ruled that hold an error, the same day. |
 
 ### You may bypass a required status check on your own judgement
 

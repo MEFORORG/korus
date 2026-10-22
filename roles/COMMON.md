@@ -704,6 +704,7 @@ The steps are restated here because they must be in front of you at the moment y
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
 | A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
+| The Owner answers `/driver` or `/empower` | That delegates the question to you, the asking seat, class C included. Decide after adversarial review; your record is the Owner's ruling. Owner ruling 2026-10-22. [LANDER.md](LANDER.md) quotes it under *An owner answer of /driver or /empower delegates that question*. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
 cost only they can accept. "Is this consequential?" is the wrong test.
