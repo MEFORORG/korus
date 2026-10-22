@@ -320,6 +320,16 @@ truncated list as complete.
 the fail-closed rule. A refused collect leaves the last good board and its old stamp, which a
 reader can see.
 
+**A short read is read again, up to three times, before it refuses.** Measured 2026-10-22: the
+paginated read stopped at a page boundary with no error on most collects that day, and the next
+read was whole.
+
+Each page prints its own total, and a read is judged against its first page's total. It is whole
+only when every later page reports at least that total and the rows reach it.
+
+A page saying the window holds no run is believed at once when no workflow is active. Otherwise
+it is believed only when all three reads say so. Any other mix refuses.
+
 Each row shows the repository, the workflow linked to its latest run, and the result. It also
 shows when the red streak started, how long it has been red as of the board's stamp, the failed
 runs in a row, and the last green run.
