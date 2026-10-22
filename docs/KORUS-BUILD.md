@@ -252,7 +252,8 @@ End the report with the QA line your manager posts for you, in this shape:
 "4c default", or "inherited, not passed" if you made a bare call. `Tag` is the
 tag line korus scripts/quality/review_tag.py printed after the round. Give
 each round a fresh nonce right after the level, "xhigh round-<10 hex> ...",
-and run review_tag.py --target <nonce> --since <a time just before the round>.
+all on one line, and run review_tag.py --target <nonce> --since <a time just
+before the round>.
 Note the fork id and the nonce: the line names the fork, never the tool. On
 exit 3 after an inline round, quote the tag from your own context and write
 "(inline, no fork)". Otherwise, where it
