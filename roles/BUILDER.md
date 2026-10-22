@@ -866,12 +866,24 @@ forbids a home path in a QA line.
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
 
-**Keep your arguments on one line.** The target is the first line of the fork's message. Where
-that line leaves a backtick open, or the next non-blank line is no tag and a later line is one, your
-arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
+**Keep your arguments on one line.** The target is the first line of the fork's message. Your
+arguments may span lines where:
+
+- that line leaves a backtick open;
+- that line is empty, or a lone backtick, and the next non-blank line is no tag;
+- the next non-blank line is no tag, and a later line is one;
+- two lines have a tag's shape.
+
+The tool refuses with exit 13, rather than quote a line of them as a tag.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
+
+**CHANGED 2026-10-22, vault #4044.** The list held the first and third rows alone. Under the
+second, a fork with its nonce on line 2 exited 3, `no fork found`. Under the fourth, a tag-shaped
+second line of unquoted arguments was quoted as the tag, exit 0.
+
+Every template read at CLI 2.1.308 carries exactly one tag-shaped line.
 
 | Flag | What it does |
 | --- | --- |

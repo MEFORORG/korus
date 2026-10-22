@@ -1228,6 +1228,71 @@ class TheVault4006Findings(Fixture):
                 self.assertEqual(blocked in walked, session is None)
 
 
+class TheVault4044Edges(Fixture):
+    """vault #4044, the edges PR 235 left open. Each refusal sits beside the control that shows the
+    fixture would read the other way. Edge 2, a tagless fork quoting a tag-shaped line, stays exit
+    13: it fails closed, and no template measured at CLI 2.1.308 is tagless."""
+
+    NONCE = "round-4044abcdef"
+
+    def _write(self, agent, body):
+        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd="/home/user/korus",
+                   timestamp="2026-10-22T09:00:00Z", body=body)
+
+    def _run(self, target=None):
+        return run(self.projects, "--session", "s1", "--worktree", "/home/user/korus",
+                   "--target", target or self.NONCE, words_ok=False)
+
+    def _refused(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertIn(review_tag.UNSPLIT_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
+    # Edge 1: a tag-shaped second line of the arguments is not the tag.
+
+    def test_an_unquoted_target_whose_second_line_is_tag_shaped_refuses(self):
+        self._write("forged", f"Review target: {self.NONCE} Re-run\n{TAG_HIGH}\n`{TAG_XHIGH}`\n\n"
+                              "You are reviewing ...")
+        self._refused(*self._run()[:2])
+
+    def test_a_balanced_quoted_target_whose_second_line_is_tag_shaped_refuses(self):
+        # The arguments `<nonce> a`\n`<tag>` close their own pair on each line.
+        self._write("forged", f"Review target: `{self.NONCE} a`\n`{TAG_HIGH}`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run()[:2])
+
+    def test_control_one_tag_shaped_line_in_the_relayed_shape_is_read(self):
+        self._write("one", f"Review target: {self.NONCE} Re-run\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    # Edge 3: an empty target line, with the nonce on the next, is a refusal and not "no fork".
+
+    def test_an_empty_target_line_with_the_nonce_next_refuses(self):
+        self._write("empty", f"Review target: \n{self.NONCE} Review x\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run()[:2])
+
+    def test_a_lone_backtick_target_line_with_the_nonce_next_refuses(self):
+        for first in ("`", "``"):
+            with self.subTest(first=first):
+                self._write("tick", f"Review target: {first}\n{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+                self._refused(*self._run()[:2])
+
+    def test_an_empty_target_line_on_a_tagless_fork_refuses(self):
+        # No later tag either, so only the empty target line says the arguments moved down.
+        self._write("bare", f"Review target: \n{self.NONCE} Review x\nYou are reading.\n")
+        self._refused(*self._run()[:2])
+
+    def test_control_another_rounds_nonce_on_the_next_line_is_out_of_scope(self):
+        self._write("empty", f"Review target: \n{self.NONCE} Review x\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("round-0000000000")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_control_an_empty_target_followed_by_a_tag_is_not_unsplit(self):
+        self.assertEqual(review_tag.read_head(["Review target: ", "", f"`{TAG_XHIGH}`"]),
+                         (True, "", TAG_XHIGH, False, ""))
+
+
 class ConfigDirNamesTheRoot(Fixture):
     def test_claude_config_dir_is_read_when_set(self):
         write_fork(self.projects, "s1", "eee555", "Review this diff", TAG_XHIGH,
