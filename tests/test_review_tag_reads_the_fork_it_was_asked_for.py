@@ -130,13 +130,19 @@ class TheRecordedCloudShapeIsRead(Fixture):
         self.assertIn("target: Review this branch's diff\n", out, "the target kept its backticks")
         self.assertIn("placed by: record 0 cwd", out)
 
-    def test_a_cwd_below_the_worktree_is_in_it_and_a_sibling_is_not(self):
-        write_fork(self.projects, "s1", "inside", "Review x", TAG_XHIGH, shape=CLOUD,
-                   cwd="/home/user/korus/tests", timestamp="2026-10-22T04:00:00Z")
+    def test_cwd_placement_is_exact(self):
+        # Round three found containment matching a harness worktree nested in the checkout, so a
+        # session in the primary quoted the nested one's tag. Exact, like inheritedWorktreePath.
+        write_fork(self.projects, "s1", "here", "Review x", TAG_XHIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T04:00:00Z")
+        write_fork(self.projects, "s1", "nested", "Review x", TAG_HIGH, shape=CLOUD,
+                   cwd="/home/user/korus/.claude/worktrees/other", timestamp="2026-10-22T05:00:00Z")
         write_fork(self.projects, "s1", "sibling", "Review x", TAG_HIGH, shape=CLOUD,
-                   cwd="/home/user/korus-other", timestamp="2026-10-22T05:00:00Z")
-        _, out, _ = run(self.projects, "--worktree", "/home/user/korus")
-        self.assertIn("agent inside", out)
+                   cwd="/home/user/korus-other", timestamp="2026-10-22T06:00:00Z")
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--latest")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent here", out)
+        self.assertNotIn("nested", out)
         self.assertNotIn("sibling", out)
 
     def test_a_message_not_starting_with_the_target_line_is_not_a_fork(self):
@@ -188,31 +194,40 @@ class NothingWidensOnItsOwn(Fixture):
         write_fork(self.projects, "s2", "two", "Review something unrelated", TAG_HIGH, shape=CLOUD,
                    cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
 
-    def test_a_bare_level_selects_no_fork(self):
+    def test_a_bare_level_is_refused_as_selecting_nothing(self):
         for wanted in ("xhigh", "xhigh --fix", "--max-findings all high"):
             with self.subTest(target=wanted):
                 code, out, _ = run(self.projects, "--worktree", "/home/user/korus",
-                                   "--any-session", "--target", wanted)
-                self.assertNotEqual(code, review_tag.EXIT_FOUND, out)
-                self.assertNotIn("agent one", out)
-                self.assertNotIn("agent two", out)
+                                   "--session", "s1", "--target", wanted)
+                self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
+                self.assertIn(review_tag.NO_WORDS_MESSAGE, out)
+                self.assertNotIn("tag:", out)
 
-    def test_two_sessions_with_no_target_words_are_ambiguous(self):
+    def test_two_sessions_are_ambiguous_and_print_no_tag(self):
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session")
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
         self.assertIn(review_tag.AMBIGUOUS_MESSAGE, out)
+        self.assertNotIn("tag:", out, "a refused run printed a quotable tag")
 
-    def test_target_words_resolve_the_ambiguity(self):
-        # The control for the two above: the same tree selects one fork once words are given.
+    def test_target_words_shared_by_two_sessions_stay_ambiguous(self):
+        # Round three: the standard arguments are shared by every Builder, so words matching both
+        # sessions quoted the newer one's tag with exit 0.
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
+                           "--target", "Review")
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("tag:", out)
+
+    def test_a_session_resolves_the_ambiguity(self):
+        # The control for the three above: the same tree selects one fork once a session is given.
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--session", "s1",
                            "--target", "xhigh Review the ledger change")
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent one", out)
         self.assertNotIn("agent two", out)
 
     def test_no_filter_at_all_is_refused(self):
-        code, out, _ = run(self.projects, "--any-worktree", "--any-session", "--target", "xhigh")
-        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        code, out, _ = run(self.projects, "--any-worktree", "--any-session")
+        self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
         self.assertIn(review_tag.NO_SELECTOR_MESSAGE, out)
 
     def test_no_git_toplevel_refuses_rather_than_widens(self):
@@ -286,11 +301,12 @@ class TheSessionFilterKeepsAnotherSessionsTagOut(Fixture):
 
     def test_any_session_widens_it(self):
         # The control: the peer's fork is there to be found, so the test above is the filter. Two
-        # sessions and no target words are ambiguous, so the rows print and the exit refuses.
+        # sessions are ambiguous, so the run names both and prints no tag.
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
                            env_extra={review_tag.SESSION_ENV: "mine"})
-        self.assertIn("agent p1", out)
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertIn("sessions: mine, peer", out)
+        self.assertNotIn("tag:", out)
 
 
 class BackslashesAndForwardSlashesNameOneWorktree(unittest.TestCase):
@@ -433,6 +449,19 @@ class AForkWithNowhereRecorded(Fixture):
         self.assertIn(review_tag.UNPLACED_MESSAGE, out)
         self.assertNotIn(review_tag.NO_FORK_MESSAGE, out, "a found fork was reported as none")
 
+    def test_an_unplaced_newer_fork_refuses_rather_than_quote_an_older_one(self):
+        # Round three: the newest real round was dropped silently while an older placed fork's
+        # tag was quoted with exit 0.
+        write_fork(self.projects, "top1", "older", "Review the top-level diff", TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T08:00:00Z")
+        code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "top-level")
+        self.assertEqual(code, review_tag.EXIT_UNPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_a_fork_the_target_excludes_is_not_counted_unplaced(self):
+        code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--target", "elsewhere")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
     def test_a_session_places_it_and_says_so(self):
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD, "--session", "top1")
         self.assertEqual(code, review_tag.EXIT_FOUND)
@@ -495,8 +524,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
     def test_the_codes_are_distinct(self):
         codes = {review_tag.EXIT_FOUND, review_tag.EXIT_NO_FORK, review_tag.EXIT_NO_ROOT,
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
-                 review_tag.EXIT_NO_TOPLEVEL, 1, 2}
-        self.assertEqual(len(codes), 9, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, 1, 2}
+        self.assertEqual(len(codes), 10, "an exit code collides with another, or with 1 or 2")
 
 
 class ConfigDirNamesTheRoot(Fixture):

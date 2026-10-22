@@ -843,9 +843,9 @@ a QA line.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. A level alone leaves no words, and selects no fork. |
-| `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched against `inheritedWorktreePath`, else record 0's `cwd`. `--any-worktree` is the only widening. |
-| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. |
+| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. A level alone leaves no words, and is refused with exit 9. |
+| `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. Without one, forks from two sessions are refused, whatever `--target` says: Builders share the standard arguments. |
 | `--since`, `--latest` | Narrow further. `--since` needs an offset. Every match is listed oldest first, numbered as rounds. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
@@ -859,8 +859,12 @@ Each row prints `placed by:`, naming which of the three placed it: the meta's pa
 | 4 | `no projects dir could be read`, or `a projects root could not be read, and no fork matched in the rest` | `none returned`, with the message. |
 | 5 | `the newest matching fork carried no tag line` | `none returned`, with the message. Name the fork ids. |
 | 6 | `<n> fork(s) found with no recorded worktree; pass --session to match them` | Not a result yet. Pass `--session` and run it again. |
-| 7 | `no filter selects a fork; ...`, or `forks from more than one session match, and no --target words tell them apart; ...` | Not a result yet. Pass `--target` with words, or `--session`. |
+| 7 | `forks from more than one session match; pass --session, or --since before your round` | Not a result yet. It prints the sessions and no tag. |
 | 8 | `no git toplevel here; pass --worktree, or --any-worktree to widen` | Not a result yet. Run it from your worktree, or name it. |
+| 9 | `--target holds only a level or flags; ...`, or `no filter selects a fork; ...` | Not a result yet. Pass the words of your arguments. |
+
+**No refusal prints a `tag:` line.** Exits 6 and 7 decide before any row is rendered, so a run
+that refuses cannot hand you a tag to quote.
 
 **No line it prints carries the word the QA line may not, except `target:`.** That line echoes your
 own arguments, and the header does not. The tool's file name carries the word, so the QA line names

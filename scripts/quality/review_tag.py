@@ -20,9 +20,14 @@ Builder subagents at spawn depth 2). The cloud sample's meta did not; its record
 The tool uses the first of the two it finds, says which on every row, and matches a fork that has
 neither only when a session filter already placed it.
 
-IT NEVER WIDENS ON ITS OWN. A level alone selects no fork. A failed `git rev-parse` refuses rather
-than searching every worktree. Forks from more than one session, with no `--target` words to tell
-them apart, are refused as ambiguous. Widening takes an explicit flag.
+IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
+failed `git rev-parse` refuses rather than searching every worktree. Forks from more than one session
+are refused as ambiguous, and so is a fork it cannot place, unless a session filter is in force:
+target words cannot tell two Builders apart, because the standard arguments are shared. A refusal
+prints no `tag:` line. Widening takes an explicit flag.
+
+`cwd` placement is EXACT. A fork whose `cwd` is below the worktree -- a harness worktree nested at
+`.claude/worktrees/<name>` among them -- ran somewhere else.
 
 WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the skill selected, not
 that the fork obeyed it.
@@ -49,9 +54,9 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     4  no projects dir could be read, or a root could not be read and nothing matched in the rest
     5  matching forks were found, and the newest carried no tag line
     6  forks were found with no recorded worktree and no session filter to place them
-    7  ambiguous: no filter selects a fork, or forks from more than one session match and no
-       --target words tell them apart
+    7  ambiguous: forks from more than one session match, and no session filter is in force
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
+    9  nothing selects a fork: no filter at all, or a --target holding only a level or flags
 """
 
 from __future__ import annotations
@@ -73,6 +78,7 @@ EXIT_NO_TAG = 5
 EXIT_UNPLACED = 6
 EXIT_AMBIGUOUS = 7
 EXIT_NO_TOPLEVEL = 8
+EXIT_NO_SELECTOR = 9
 
 # Every stdout line a Builder may quote is one of these or a `tag:` line. None carries the word the
 # QA line may not; `tests/test_review_tag_reads_the_fork_it_was_asked_for.py` holds that.
@@ -82,9 +88,9 @@ PARTIAL_ROOT_MESSAGE = "a projects root could not be read, and no fork matched i
 NO_TAG_MESSAGE = "the newest matching fork carried no tag line"
 UNPLACED_MESSAGE = "fork(s) found with no recorded worktree; pass --session to match them"
 NO_SELECTOR_MESSAGE = "no filter selects a fork; pass --target words, --session, or a worktree"
+NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
 AMBIGUOUS_MESSAGE = (
-    "forks from more than one session match, and no --target words tell them apart;"
-    " pass --target or --session"
+    "forks from more than one session match; pass --session, or --since before your round"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; pass --worktree, or --any-worktree to widen"
 
@@ -133,11 +139,6 @@ def normalize_path(path: str, fold_case: bool | None = None) -> str:
     if len(text) > 1:
         text = text.rstrip("/")
     return text.casefold() if fold_case else text
-
-
-def is_under(path: str, root: str) -> bool:
-    """Both already normalized. Equal, or below `root` at a separator."""
-    return path == root or path.startswith(root.rstrip("/") + "/")
 
 
 def projects_roots(explicit: list[str] | None = None) -> list[Path]:
@@ -262,8 +263,9 @@ def target_words(wanted: str | None) -> str:
 def target_matches(wanted: str, args: str) -> bool:
     """Substring match, whitespace-normalized and case-folded, after the invocation is stripped.
 
-    A level alone leaves no words, and no words select only a fork whose target is empty too:
-    an empty string is a substring of everything, which is how a bare level once matched every fork.
+    A level alone leaves no words, and `main` refuses that before any scan. The guard here stays,
+    because an empty string is a substring of everything: that is how a bare level once matched
+    every fork.
     """
     have = squash(args)
     words = target_words(wanted)
@@ -304,7 +306,7 @@ def place(fork: Fork, want: str | None, session_given: bool) -> bool | None:
         return normalize_path(fork.worktree) == want
     if fork.cwd:
         fork.placed_by = "record 0 cwd (no inheritedWorktreePath)"
-        return is_under(normalize_path(fork.cwd), want)
+        return normalize_path(fork.cwd) == want
     if session_given:
         fork.placed_by = "session only (no worktree or cwd recorded)"
         return True
@@ -344,14 +346,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             is_review, fork.target, fork.tag = read_head(head)
             if not is_review:
                 continue
-            cwd = record.get("cwd")
-            fork.cwd = cwd if isinstance(cwd, str) else ""
-            placed = place(fork, want, bool(filters.session))
-            if placed is None:
-                result.unplaced += 1
-                continue
-            if not placed:
-                continue
+            # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 continue
             fork.time = parse_time(record.get("timestamp", ""))
@@ -364,7 +359,14 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     pass
             if filters.since and (fork.time is None or fork.time < filters.since):
                 continue
-            result.forks.append(fork)
+            cwd = record.get("cwd")
+            fork.cwd = cwd if isinstance(cwd, str) else ""
+            placed = place(fork, want, bool(filters.session))
+            if placed is None:
+                result.unplaced += 1
+                continue
+            if placed:
+                result.forks.append(fork)
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result
@@ -490,9 +492,12 @@ def main(argv: list[str] | None = None) -> int:
     if since:
         described.append(f"since {stamp(since)}")
 
-    if worktree is None and not session and not target_words(args.target):
+    if args.target and not target_words(args.target):
+        print(NO_WORDS_MESSAGE)
+        return EXIT_NO_SELECTOR
+    if worktree is None and not session and not args.target:
         print(NO_SELECTOR_MESSAGE)
-        return EXIT_AMBIGUOUS
+        return EXIT_NO_SELECTOR
 
     roots = projects_roots(args.projects_dir)
     result = scan(roots, Filters(worktree, args.target, session, since))
@@ -522,14 +527,21 @@ def main(argv: list[str] | None = None) -> int:
                   "--any-session widens it", file=sys.stderr)
         return EXIT_NO_FORK
 
+    # Both refusals come BEFORE any row is rendered, so a refused run prints no quotable tag.
+    if result.unplaced and not session:
+        print(f"{result.unplaced} {UNPLACED_MESSAGE}")
+        return EXIT_UNPLACED
+    sessions = sorted({f.session_id for f in result.forks})
+    if not session and len(sessions) > 1:
+        print(AMBIGUOUS_MESSAGE)
+        print(f"sessions: {', '.join(sessions)}")
+        return EXIT_AMBIGUOUS
+
     total = len(result.forks)
     shown = result.forks[-1:] if args.latest else result.forks
     for line in render(shown, total, total - len(shown), args.ascii, args.verbose):
         print(line)
 
-    if not target_words(args.target) and len({f.session_id for f in result.forks}) > 1:
-        print(AMBIGUOUS_MESSAGE)
-        return EXIT_AMBIGUOUS
     if not result.forks[-1].tag:
         print(NO_TAG_MESSAGE)
         return EXIT_NO_TAG

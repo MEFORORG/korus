@@ -253,7 +253,8 @@ End the report with the QA line your manager posts for you, in this shape:
 tag line korus scripts/quality/review_tag.py printed after the round, run as
 review_tag.py --target "<your args>", with the fork id it named: the line
 names the fork, never the tool. Where it
-found none, write "none returned" and quote its message. korus
+exits 3, 4 or 5, write "none returned" and quote its message; on 6 to 9 it
+has refused, so re-run it as its message says. korus
 roles/BUILDER.md 4e says how to fetch it pinned to a commit.
 The QA line never uses the word "review", so the skill's own opener goes in the
 report above it. Then exit.
