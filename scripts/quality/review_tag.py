@@ -43,10 +43,10 @@ line. Widening takes an explicit flag.
 WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the skill selected, not
 that the fork obeyed it.
 
-A TARGET MAY SPAN LINES. A target that opens a backtick runs to the line that closes it, and the
-tag is the next line that is not blank. Where that line is not a tag but a later line of the message
-is one, the tool cannot tell the arguments from the tag, and it refuses (exit 13) rather than call
-the fork tagless. A backtick that never closes refuses the same way.
+ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
+the next line that is not blank. Where that line is no tag, and either a later line is one or the
+first line opens a backtick it never closes, the arguments may span lines: the tool refuses (exit 13)
+rather than call the fork tagless, and the remedy is a round with its arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter it walks only that
 session's directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -79,7 +79,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
-   13  a fork in scope has a target that spans lines, and its tag cannot be told apart from it
+   13  a fork in scope has no tag after its target line, but its arguments may span lines
 """
 
 from __future__ import annotations
@@ -134,7 +134,8 @@ UNREAD_MESSAGE = (
     " if a round is still running, run this again when it ends"
 )
 UNSPLIT_MESSAGE = (
-    "fork(s) in scope have a target spanning lines, and the tag could not be told apart from it"
+    "fork(s) in scope have no tag after the target line, but may have arguments spanning lines;"
+    " run the round again with its arguments on one line"
 )
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
@@ -158,6 +159,9 @@ NONCE_SHAPE = re.compile(r"(?<![0-9A-Za-z-])round-[0-9a-f]{8,}(?![0-9A-Za-z-])",
 #: The levels the skill parses, and the flags its description advertises. The `Review target` line
 #: drops a level that parsed, and probably the flags too (not traced), so a level is stripped from
 #: the front of an argument string, and a flag wherever it sits, `--max-findings=<n>` among them.
+#: A value flag takes the next word only when that word is a value: prose naming the flag keeps
+#: its next word, and so does a nonce.
+FLAG_VALUE = re.compile(r"^(?:\d+|all|default)$", re.IGNORECASE)
 LEVELS = ("low", "medium", "high", "xhigh", "max")
 VALUE_FLAGS = ("--max-findings",)
 BARE_FLAGS = ("--comment", "--fix")
@@ -183,7 +187,7 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: The target spans lines and the tag could not be told apart from it.
+    #: No tag after the target line, and the arguments may span lines.
     unsplit: bool = False
 
     @property
@@ -301,31 +305,23 @@ def is_tag(line: str) -> bool:
 def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
     """(is a review fork, target args, tag, unsplit) from record 0's message.
 
-    A review fork's message STARTS with the target line. A target that opens a backtick runs to the
-    line that closes it. The tag is the next non-blank line, and only if it has the tag's shape.
-    Where it does not, and a later line does, the target may span lines the tool cannot see the end
-    of: that is `unsplit`, a refusal, never a tagless fork. So is a backtick that never closes.
+    A review fork's message STARTS with the target line; the tag is the next non-blank line, and
+    only if it has the tag's shape. Where it has not, the arguments may span lines when a later line
+    is a tag or the target opens a backtick it never closes: that is `unsplit`, a refusal, never a
+    tagless fork. Only the target line and the tag are kept; the later lines are only tested.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False
     first = lines[0][len(TARGET_PREFIX) :].strip()
+    target = unquote(first)
+    opened = first.startswith("`") and (first == "`" or not first.endswith("`"))
     rest = lines[1:]
-    taken = [first]
-    if first.startswith("`") and (first == "`" or not first.endswith("`")):
-        for index, line in enumerate(rest):
-            taken.append(line)
-            if line.rstrip().endswith("`"):
-                rest = rest[index + 1 :]
-                break
-        else:
-            return True, unquote(first), "", True
-    target = unquote("\n".join(taken))
     for index, line in enumerate(rest):
         if line.strip():
             if is_tag(line):
                 return True, target, unquote(line), False
-            return True, target, "", any(is_tag(later) for later in rest[index + 1 :])
-    return True, target, "", False
+            return True, target, "", opened or any(is_tag(later) for later in rest[index + 1 :])
+    return True, target, "", opened
 
 
 def strip_invocation(text: str) -> str:
@@ -339,7 +335,8 @@ def strip_invocation(text: str) -> str:
         if word in BARE_FLAGS or any(word.startswith(flag + "=") for flag in VALUE_FLAGS):
             index += 1
         elif word in VALUE_FLAGS:
-            index += 2
+            follows = words[index + 1] if index + 1 < len(words) else ""
+            index += 2 if FLAG_VALUE.match(follows) else 1
         elif leading and word.casefold() in LEVELS:
             index += 1
         else:
@@ -469,9 +466,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
         files = fork_files(root, result.unreadable_roots, filters.session)
         for transcript in files:
             parts = transcript.relative_to(root).parts
+            # The walk already kept to the session filter's directory.
             session_id = parts[1] if len(parts) > 1 else ""
-            if filters.session and session_id != filters.session:
-                continue
             agent_id = transcript.name[len("agent-") : -len(".jsonl")]
             meta, meta_read = read_meta(transcript)
             fork = Fork(transcript, agent_id, session_id, meta)
@@ -501,8 +497,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit target is known only in part, so its own nonce alone keeps it in.
-                if not (fork.unsplit and own_nonce_matches(filters.target, fork.target)):
+                # An unsplit fork's arguments are known only in part: its own nonce keeps it in, and
+                # so does a target line with no nonce at all, since the nonce may sit further down.
+                keep = fork.unsplit and (
+                    own_nonce_matches(filters.target, fork.target)
+                    or not NONCE_SHAPE.search(fork.target)
+                )
+                if not keep:
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
@@ -570,9 +571,7 @@ def render(
     out: list[str] = []
     for fork in forks:
         out.append(f"fork | {stamp(fork.time)} | agent {fork.agent_id}")
-        # One line, so a target spanning lines cannot print a line that reads like a `tag:` line.
-        target = " ".join(fork.target.splitlines())
-        out.append(f"  target: {spell(target, ascii_only) or '(none)'}")
+        out.append(f"  target: {spell(fork.target, ascii_only) or '(none)'}")
         # No placeholder on a `tag:` line: what follows `tag:` is quoted as the tag.
         if fork.tag:
             # Without a nonce, another Builder's fork with the same arguments can be the one match,

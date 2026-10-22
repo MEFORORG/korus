@@ -64,7 +64,7 @@ def head(shape, args, tag):
 
 
 def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED, worktree=None,
-               cwd=None, later=None, prefix=None, project="D--Code-korus"):
+               cwd=None, later=None, prefix=None, project="D--Code-korus", body=None):
     sub = Path(projects) / project / session / "subagents"
     sub.mkdir(parents=True, exist_ok=True)
     meta = {"agentType": "general-purpose", "spawnDepth": 2 if shape == RELAYED else 1}
@@ -72,7 +72,8 @@ def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED,
         meta["inheritedWorktreePath"] = worktree
         meta["parentAgentId"] = "builder01"
     (sub / f"agent-{agent}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    body = head(shape, args, tag)
+    # `body` replaces the whole message, for heads neither recorded shape writes.
+    body = head(shape, args, tag) if body is None else body
     if prefix is not None:
         body = prefix + "\n" + body
     record = {
@@ -1054,57 +1055,70 @@ class ANonceDoesNotPlaceAForkRecordedElsewhere(Fixture):
 
 
 class TheVault4006Findings(Fixture):
-    """vault #4006, the round-two findings PR 233 left open. Each case pairs a refusal or a match
-    with the control that shows the fixture would read the other way without the fix."""
+    """vault #4006, the round-two findings PR 233 left open. Each refusal or match sits beside the
+    control that shows the fixture would read the other way."""
 
     NONCE = "round-4006abcdef"
     STD = "Review this branch's diff against origin/main"
 
-    def _write(self, agent, body, *, session="s1", cwd="/home/user/korus"):
-        sub = self.projects / "D--Code-korus" / session / "subagents"
-        sub.mkdir(parents=True, exist_ok=True)
-        record = {"type": "user", "timestamp": "2026-10-22T09:00:00Z", "sessionId": session,
-                  "cwd": cwd, "message": {"role": "user", "content": body}}
-        (sub / f"agent-{agent}.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+    def _write(self, agent, body):
+        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd="/home/user/korus",
+                   timestamp="2026-10-22T09:00:00Z", body=body)
 
     def _run(self, *extra):
         return run(self.projects, "--session", "s1", "--worktree", "/home/user/korus", *extra,
                    words_ok=False)
 
-    # Finding 7: a multi-line target.
-
-    def test_a_quoted_target_spanning_lines_is_read_whole(self):
-        # Cut to its first line, the tag sat on what was the target's second line: exit 5.
-        args = f"{self.NONCE} Review the diff,\nthen the docs,\nthen the tests"
-        self._write("multi", f"Review target: `{args}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
-        code, out, _ = self._run("--target", f"xhigh {args}")
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("tag: " + TAG_XHIGH, out)
-        self.assertIn("target: " + args.replace("\n", " ") + "\n", out, "the target was cut")
-        self.assertEqual(out.count("\n  "), 3, "a target line printed as more than one line")
-
-    def test_twenty_target_lines_still_find_the_tag(self):
-        # The old head cut at a fixed line count would have pushed the tag out of reach.
-        args = self.NONCE + "\n" + "\n".join(f"line {n}" for n in range(20))
-        self._write("long", f"Review target: `{args}`\n\n`{TAG_HIGH}`\n")
-        code, out, _ = self._run("--target", self.NONCE)
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("tag: " + TAG_HIGH, out)
-
-    def test_an_unquoted_target_spanning_lines_refuses_rather_than_read_tagless(self):
-        # Nothing marks where an unquoted target ends, so the tag cannot be told from the words.
-        self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
-        code, out, _ = self._run("--target", self.NONCE)
+    def _refused(self, code, out):
         self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
         self.assertIn(review_tag.UNSPLIT_MESSAGE, out)
         self.assertNotIn("tag:", out)
         self.assertNotIn(review_tag.NO_TAG_MESSAGE, out, "a fork with a tag was called tagless")
 
+    # Finding 7: arguments spanning lines refuse, rather than read as tagless (exit 5).
+
+    def test_a_quoted_target_spanning_lines_refuses(self):
+        args = f"{self.NONCE} Review the diff,\nthen the docs"
+        self._write("multi", f"Review target: `{args}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_control_the_same_arguments_on_one_line_read_the_tag(self):
+        args = f"{self.NONCE} Review the diff, then the docs"
+        self._write("one", f"Review target: `{args}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    def test_twenty_target_lines_refuse(self):
+        args = self.NONCE + "\n" + "\n".join(f"line {n}" for n in range(20))
+        self._write("long", f"Review target: `{args}`\n\n`{TAG_HIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_an_unquoted_target_spanning_lines_refuses(self):
+        self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_the_full_arguments_spanning_lines_refuse_rather_than_miss(self):
+        # Only the first line is the target, so the words past it match nothing: the nonce keeps
+        # the fork in scope, and the run refuses rather than exit 3.
+        self._write("bare", f"Review target: {self.NONCE} Review x\nand y\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", f"xhigh {self.NONCE} Review x\nand y")[:2])
+
     def test_a_backtick_that_never_closes_refuses(self):
-        self._write("open", f"Review target: `{self.NONCE} Review x\n\n{TAG_XHIGH}\n")
-        code, out, _ = self._run("--target", f"{self.NONCE} Review x and more words")
-        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
-        self.assertNotIn("tag:", out)
+        self._write("open", f"Review target: `{self.NONCE} Review x\nand more\n\nprose\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_target_opening_with_a_backticked_word_still_reads_its_tag(self):
+        # Round one: closing the target on the next line ending in a backtick swallowed the tag.
+        self._write("tick", f"Review target: `scripts/x.py` {self.NONCE} check\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+
+    def test_a_nonce_below_the_target_line_still_refuses_rather_than_miss(self):
+        # The target line holds no nonce, so it could be the caller's: refused, never exit 3.
+        self._write("low", f"Review target: `\n{self.NONCE} Review x\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
 
     def test_control_a_tagless_fork_with_no_later_tag_is_still_exit_5(self):
         self._write("none", f"Review target: {self.NONCE} Review x\nprose\n\nmore prose\n")
@@ -1135,6 +1149,16 @@ class TheVault4006Findings(Fixture):
                    TAG_XHIGH, shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
         code, out, _ = self._run("--target", f"xhigh {self.NONCE} Review this diff --max-findings=all")
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_a_value_flag_takes_only_a_value(self):
+        # Round one: prose naming the flag lost its next word, and so did a nonce.
+        write_fork(self.projects, "s1", "prose", f"{self.NONCE} the --max-findings handling",
+                   TAG_XHIGH, shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = self._run("--target", f"{self.NONCE} the --max-findings handling")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        code, out, _ = self._run("--target", f"--max-findings {self.NONCE}")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertEqual(review_tag.strip_invocation("a --max-findings 5 b"), "a b")
 
     def test_the_equals_form_alone_selects_nothing(self):
         code, out, _ = self._run("--target", "xhigh --max-findings=all")

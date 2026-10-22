@@ -862,20 +862,22 @@ It reads the meta file, then record 0 alone, and prints of that only the target 
 No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
 forbids a home path in a QA line.
 
-**A target may span lines.** One that opens a backtick runs to the line that closes it, and the tag
-is the next non-blank line.
+**CHANGED 2026-10-22, vault #4006.** The paragraph beginning *It reads the meta file* read *"of
+that only the target line and the next non-blank one"*. A later line is now tested for a tag's
+shape, and never kept or printed.
 
-Where that line is no tag but a later one is, the tool cannot tell your arguments from the tag, and
-it refuses with exit 13. A backtick that never closes refuses the same way.
+**Keep your arguments on one line.** The target is the first line of the fork's message. Where the
+next non-blank line is no tag, and a later line is one, or the target opens a backtick it never
+closes, your arguments may span lines. The tool refuses with exit 13.
 
-**CHANGED 2026-10-22, vault #4006.** That paragraph read *"of that only the target line and the next
-non-blank one"*. A target spanning lines was cut to its first, so its tag read as none, exit 5.
+That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
+`none returned`.
 
 | Flag | What it does |
 | --- | --- |
 | `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
-| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. Only its directory is walked. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
 | `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
@@ -896,11 +898,15 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
-| 13 | `<n> fork(s) in scope have a target spanning lines, and the tag could not be told apart from it` | A refusal; running it again does not clear it. See the refusal row above. |
+| 13 | `<n> fork(s) in scope have no tag after the target line, but may have arguments spanning lines; ...` | Not a result yet. Run the round again with its arguments on one line, a fresh nonce, and the tool on that nonce. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.
 Exit 13 is new.
+
+**NARROWED the same day: under `--session`, only that session's directory is walked.** So another
+session's unreadable directory no longer refuses with exit 4. The `--session` row ended at
+*"share their Manager's session"*.
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.
