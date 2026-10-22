@@ -1296,32 +1296,38 @@ class TheVault4044Edges(Fixture):
         self._write("lvl", f"Review target: \nxhigh {self.NONCE} Review x\n`{TAG_XHIGH}`\n")
         self._refused(*self._run()[:2])
 
-    # Round two: a nonce that does not lead the arguments is a mention, maybe of a peer's round.
+    # The Lander's hold on 5db01b5: a split fork carrying the nonce anywhere above its tag refuses,
+    # rather than read as absent (exit 3). A peer's mere mention refuses too; that fails closed.
 
-    def test_a_peer_mentioning_the_nonce_below_its_words_does_not_block_the_callers_own(self):
+    def test_a_nonce_below_words_or_not_leading_its_line_refuses(self):
+        for body in (f"Review target: please\n{self.NONCE} Review x\n`{TAG_XHIGH}`\n",
+                     f"Review target: \nReview x\n{self.NONCE}\n`{TAG_XHIGH}`\n",
+                     f"Review target: please\n{TAG_HIGH}\n{self.NONCE} more\n\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body.splitlines()[:2]):
+                self._write("words", body)
+                self._refused(*self._run()[:2])
+
+    def test_a_peer_mentioning_the_nonce_refuses_rather_than_vouch_for_either(self):
+        # The residual, pinned: the mention cannot be told from the peer's own split arguments.
+        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        for agent, body in (("peer", f"Review target: Re-check the Builder branch\nits QA line "
+                                     f"cited {self.NONCE}\n\n`{TAG_HIGH}`\n"),
+                            ("tagless", f"Review target: \nReview y\n\nYou are reviewing ...\n"
+                                        f"last round was {self.NONCE}\n"),
+                            ("second", f"Review target: please\nround-0000000000, then "
+                                       f"{self.NONCE}\n\n`{TAG_HIGH}`\n")):
+            with self.subTest(peer=agent):
+                self._write(agent, body)
+                self._refused(*self._run()[:2])
+                (self.projects / "D--Code-korus" / "s1" / "subagents" / f"agent-{agent}.jsonl").unlink()
+
+    def test_control_without_the_peer_the_callers_own_is_read(self):
         self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
         self._write("peer", f"Review target: Re-check the Builder branch\nits QA line cited "
-                            f"{self.NONCE}\n\n`{TAG_HIGH}`\n")
+                            f"round-0000000000\n\n`{TAG_HIGH}`\n")
         code, out, _ = self._run()
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent mine", out)
-
-    def test_a_tagless_peer_quoting_the_nonce_in_its_body_does_not_block_it(self):
-        self._write("mine", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
-        self._write("peer", f"Review target: \nReview y\n\nYou are reviewing ...\n"
-                            f"last round was {self.NONCE}\n")
-        code, out, _ = self._run()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("agent mine", out)
-
-    def test_control_a_nonce_not_leading_the_next_line_is_out_of_scope(self):
-        # The price of the rule above: a nonce below words, or not first on its line, is not kept.
-        for body in (f"Review target: please\n{self.NONCE} Review x\n`{TAG_XHIGH}`\n",
-                     f"Review target: \nReview x\n{self.NONCE}\n`{TAG_XHIGH}`\n"):
-            with self.subTest(body=body.splitlines()[0]):
-                self._write("words", body)
-                code, out, _ = self._run()
-                self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_control_a_nonce_after_the_tag_is_not_the_forks_own(self):
         self._write("after", f"Review target: Review x\n`{TAG_XHIGH}`\n\nlast round {self.NONCE}\n")
@@ -1335,7 +1341,7 @@ class TheVault4044Edges(Fixture):
 
     def test_control_an_empty_target_followed_by_a_tag_is_not_unsplit(self):
         self.assertEqual(review_tag.read_head(["Review target: ", "", f"`{TAG_XHIGH}`"]),
-                         (True, "", TAG_XHIGH, False, ""))
+                         (True, "", TAG_XHIGH, False, ()))
 
 
 class ConfigDirNamesTheRoot(Fixture):

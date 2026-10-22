@@ -854,8 +854,9 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
-The one exception is a target line holding nothing but a level or flags. Then the nonce leading
-the next non-blank line is the fork's own, and the tool refuses that fork with exit 13 below.
+The one exception is a target line with no nonce. Then any nonce on a later line, above the last
+tag-shaped one, may be the fork's own. The tool cannot tell it from a mention, so it refuses that
+fork with exit 13 below, never reads it as absent.
 
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
@@ -873,7 +874,7 @@ shape, and never kept or printed.
 arguments may span lines where:
 
 - that line leaves a backtick open;
-- that line holds nothing but a level or flags, and the next non-blank line leads with a nonce;
+- that line carries no nonce, and a later line above the last tag-shaped one does;
 - the next non-blank line is no tag, and a later line is one;
 - two lines have a tag's shape.
 
@@ -883,8 +884,15 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 `none returned`.
 
 **CHANGED 2026-10-22, vault #4044.** The list held the first and third rows alone. Under the
-second, a fork with its nonce leading line 2 exited 3, `no fork found`.
+second, a fork with its nonce below the target line exited 3, `no fork found`.
 Under the fourth, a tag-shaped second line of unquoted arguments was quoted as the tag, exit 0.
+
+**The second row costs one residual, kept on purpose.** A peer fork in your session and worktree
+that cites your nonce below its own target line refuses your run too. Reading every such fork as
+absent was the alternative, and it published `none returned` over a fork that existed.
+
+The Lander held this pull request on that at `5db01b5`, which had narrowed the row to a nonce
+leading line 2 below a level or flags.
 
 **The fourth row rests on one tag per template.** Read 2026-10-22 against the CLI 2.1.308 binary:
 
