@@ -119,6 +119,34 @@ RUN_NO_VERDICT = {"cancelled"}
 # The runs endpoint returns at most 1,000 results for a filtered query, so a window holding more
 # cannot be read whole. Measured 2026-10-01 over 35 days: engine 294, vault 133, korus 50.
 RUNS_API_CAP = 1000
+# A paginated run read can stop at a page boundary with no error. Measured 2026-10-22: it read 100,
+# 200 or 300 of 365 engine runs on most collects that day, and the next read was whole. A short
+# read is read again; one still short after the last attempt refuses, as before.
+RUNS_READ_ATTEMPTS = 3
+
+
+def read_scheduled_runs(full, since_day):
+    """One whole read of the scheduled run list: (run ids seen, total_counts, verdicts by flow)."""
+    runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
+                         "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
+                         "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
+                         " .status, .conclusion, .created_at, .html_url] | @json"],
+                        "scheduled run list for %s" % full)
+    seen, totals, by_flow = set(), set(), {}
+    for r in runs:
+        if not (isinstance(r, list) and len(r) == 7 and all(is_int(x) for x in r[:3])
+                and isinstance(r[3], str) and (r[4] is None or isinstance(r[4], str))
+                and aware_instant(r[5]) and isinstance(r[6], str)):
+            refuse("The scheduled run list for %s holds a row it cannot read: %r" % (full, r))
+        total, run_id, flow, status, conclusion, created, url = r
+        totals.add(total)
+        # A run created mid-read shifts the newest-first pages, so a row can arrive twice.
+        if run_id in seen:
+            continue
+        seen.add(run_id)
+        if status == "completed" and conclusion not in RUN_NO_VERDICT:
+            by_flow.setdefault(flow, []).append((P(created), conclusion, created, url))
+    return seen, totals, by_flow
 
 
 def gh_json_rows(args, what):
@@ -209,25 +237,10 @@ def scheduled_reds(full, since_day):
             active[f[0]] = {"path": f[2], "name": f[3]}
         if f[1] == "disabled_inactivity":
             stopped.append(f[3])
-    runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
-                         "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
-                         "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
-                         " .status, .conclusion, .created_at, .html_url] | @json"],
-                        "scheduled run list for %s" % full)
-    seen, totals, by_flow = set(), set(), {}
-    for r in runs:
-        if not (isinstance(r, list) and len(r) == 7 and all(is_int(x) for x in r[:3])
-                and isinstance(r[3], str) and (r[4] is None or isinstance(r[4], str))
-                and aware_instant(r[5]) and isinstance(r[6], str)):
-            refuse("The scheduled run list for %s holds a row it cannot read: %r" % (full, r))
-        total, run_id, flow, status, conclusion, created, url = r
-        totals.add(total)
-        # A run created mid-read shifts the newest-first pages, so a row can arrive twice.
-        if run_id in seen:
-            continue
-        seen.add(run_id)
-        if status == "completed" and conclusion not in RUN_NO_VERDICT:
-            by_flow.setdefault(flow, []).append((P(created), conclusion, created, url))
+    for _ in range(RUNS_READ_ATTEMPTS):
+        seen, totals, by_flow = read_scheduled_runs(full, since_day)
+        if not totals or len(seen) >= min(totals):
+            break
     if totals and max(totals) > RUNS_API_CAP:
         refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
                "SCHEDULE_WINDOW_DAYS." % (full, max(totals), SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))

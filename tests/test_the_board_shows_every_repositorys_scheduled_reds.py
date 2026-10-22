@@ -267,6 +267,31 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
         self.assertRefuses([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
                            total=2)
 
+    def test_a_short_read_is_read_again_before_it_refuses(self):
+        calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
+                            total=2)
+        with patch, self.assertRaises(SystemExit):
+            collect.scheduled_reds(VAULT, "2026-08-27")
+        runs = [a for a in calls if any("actions/runs" in x for x in a)]
+        self.assertEqual(len(runs), collect.RUNS_READ_ATTEMPTS)
+
+    def test_a_short_read_then_a_whole_one_uses_the_whole_one(self):
+        # Measured 2026-10-22: a paginated read stopped at a page boundary, then read whole.
+        whole = [run(1, 1, "failure", "2026-10-01T00:00:00Z"),
+                 run(2, 1, "success", "2026-09-30T00:00:00Z")]
+        answers = [lines(whole[:1], total=2), lines(whole)]
+        _, patch = fake([flow(1, "CI")], whole)
+        other = patch.new.run
+
+        def run_(args, **kw):
+            if any("actions/runs" in x for x in args):
+                return done(answers.pop(0))
+            return other(args, **kw)
+        with mock.patch.object(collect, "subprocess", types.SimpleNamespace(run=run_)):
+            got = collect.scheduled_reds(VAULT, "2026-08-27")
+        self.assertEqual(answers, [])
+        self.assertEqual((got["read"], got["reds"][0]["streak"]), (1, 1))
+
     def test_a_window_past_the_api_cap_refuses_and_says_to_narrow_it(self):
         # The completeness check would also refuse here, so the message is what tells them apart.
         with self.assertRaises(SystemExit) as cm:
