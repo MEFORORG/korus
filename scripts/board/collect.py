@@ -255,8 +255,11 @@ def scheduled_reds(full, since_day):
         if best is None or (bool(got[1]), len(got[0])) > (bool(best[1]), len(best[0])):
             best = got
         seen, totals, _ = best
-        # Past the cap no read can be whole, so it stops and refuses below.
-        if totals and (len(seen) >= min(totals) or max(totals) > RUNS_API_CAP):
+        # Past the cap no read can be whole, so it stops and refuses below. A page saying the
+        # window holds no run is believed only after every attempt says so while a workflow is
+        # active: an empty answer is the shape a failed read takes.
+        if totals and (max(totals) > RUNS_API_CAP
+                       or (len(seen) >= min(totals) and (min(totals) or not active))):
             break
     seen, totals, by_flow = best
     if not totals:

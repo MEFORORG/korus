@@ -321,9 +321,25 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
             read_in_turn(["", "", ""])
         self.assertIn("returned no page", str(cm.exception.code))
 
-    def test_a_page_saying_the_window_is_empty_is_a_zero(self):
-        got = read_in_turn([lines([])])
-        self.assertEqual((got["read"], got["reds"]), (0, []))
+    def test_a_page_saying_the_window_is_empty_is_a_zero_only_after_every_attempt(self):
+        answers = [lines([])] * collect.RUNS_READ_ATTEMPTS
+        got = read_in_turn(answers)
+        self.assertEqual((answers, got["read"], got["reds"]), ([], 0, []))
+
+    def test_a_page_saying_empty_then_a_whole_read_uses_the_whole_one(self):
+        answers = [lines([]), lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")])]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, len(got["reds"])), ([], 1))
+
+    def test_a_whole_first_read_is_read_once(self):
+        answers = [lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")]), "unused"]
+        read_in_turn(answers)
+        self.assertEqual(answers, ["unused"])
+
+    def test_no_active_workflow_takes_an_empty_page_at_once(self):
+        answers = [lines([]), "unused"]
+        read_in_turn(answers, flows=[flow(1, "CI", state="disabled_manually")])
+        self.assertEqual(answers, ["unused"])
 
     def test_a_window_past_the_cap_is_read_once(self):
         calls, patch = fake([flow(1, "CI")], [run(1, 1, "success", "2026-10-01T00:00:00Z")],
