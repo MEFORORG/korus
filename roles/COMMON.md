@@ -704,19 +704,41 @@ The steps are restated here because they must be in front of you at the moment y
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
 | A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
-| The Owner answers `/driver` or `/empower` | That delegates the question to you, the asking seat, class C included. Decide after adversarial review; your record is the Owner's ruling. Owner ruling 2026-10-22. [LANDER.md](LANDER.md) quotes it under *An owner answer of /driver or /empower delegates that question*. |
+| The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
 cost only they can accept. "Is this consequential?" is the wrong test.
 
 **The rules widen no permission.** They decide how a question travels, never what you may do
 unasked. The merge is still the Lander's, and a gap in a Builder's brief still goes to the seat
-that briefed it.
+that briefed it. **WIDENED 2026-10-22:** the subsection below is the exception.
 
 That paragraph is the drafting session's reading of [LANDER.md](LANDER.md), *It widens nothing*,
 applied to every seat. It is not the Owner's wording.
 
 **Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
+
+### An Owner answer of /driver or /empower delegates that specific question
+
+**Owner ruling 2026-10-22, given in the Lander's session chat, in their words:**
+
+> when I answer a specific question with /driver or /empower, that delegates that question to the
+> seat that asked it, including questions the empower rules reserve to me. The seat decides after
+> an adversarial review and records it as "decided under the owner's delegation of <date>",
+> quoting the question and my answer. Treat that record as my ruling, and a merge may rest on it.
+> Still mine in person: signing or re-signing the register, money, credentials, and irreversible
+> acts. Holding vault PR 2600 for my confirmation of R4 was an error under this setup.
+
+| Item | Rule |
+| --- | --- |
+| It is per question | Only a specific question the Owner answered that way. Starting a session with `/driver` or `/empower` delegates no open question. |
+| It reaches class C | The `empower` skill's Owner-reserved class, such as weakening a control, is included for that question. |
+| Four things stay the Owner's in person | Signing or re-signing the register, money, credentials, and irreversible acts. No answer delegates these. |
+| What the asking seat does | Run an adversarial review, decide, and write the record where the question was asked. |
+| What the record says | "decided under the owner's delegation of <date>", or the `empower` skill's "decided by <seat> under the Owner's delegation of <date>". It quotes the question and the Owner's answer. |
+| It is not a relay | The record is the asking seat's own account of the Owner's answer in its own chat. A peer relaying an approval is still not one. |
+| Every seat accepts it | It is the Owner's ruling, and a merge may rest on it. Do not hold for a second answer. |
+| Earlier delegations | A record from before 2026-10-22 that calls itself a seat decision under owner delegation is not re-graded by this ruling. |
 
 **The skill is not in this tree.** It lives in the Owner's own skill directory. A session that
 cannot load it still holds the rules, through this section and that file.
