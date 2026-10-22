@@ -70,6 +70,8 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     9  nothing selects a fork: no --target, a --target holding only a level or flags, or one with
        no round nonce (unless --no-nonce, whose answer is not attributable)
    10  a fork transcript in scope could not be read, so it could be the run asked for
+   11  --no-nonce: exactly one fork matched, but the answer is not attributable; its tag prints
+       on a NOT-ATTRIBUTABLE line, never on a `tag:` line, so it cannot be pasted as a QA reading
 """
 
 from __future__ import annotations
@@ -94,6 +96,10 @@ EXIT_AMBIGUOUS = 7
 EXIT_NO_TOPLEVEL = 8
 EXIT_NO_SELECTOR = 9
 EXIT_UNREAD = 10
+EXIT_NOT_ATTRIBUTABLE = 11
+
+#: Where --no-nonce prints the tag instead of on a `tag:` line.
+NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
 
 # Every stdout line a Builder may quote is one of these or a `tag:` line. None carries the word the
 # QA line may not; `tests/test_review_tag_reads_the_fork_it_was_asked_for.py` holds that.
@@ -496,14 +502,19 @@ def stamp(value: dt.datetime | None) -> str:
     return value.strftime("%Y-%m-%dT%H:%M:%SZ") if value else "time unknown"
 
 
-def render(forks: list[Fork], ascii_only: bool, verbose: bool) -> list[str]:
+def render(
+    forks: list[Fork], ascii_only: bool, verbose: bool, attributable: bool = True
+) -> list[str]:
     out: list[str] = []
     for fork in forks:
         out.append(f"fork | {stamp(fork.time)} | agent {fork.agent_id}")
         out.append(f"  target: {spell(fork.target, ascii_only) or '(none)'}")
         # No placeholder on a `tag:` line: what follows `tag:` is quoted as the tag.
         if fork.tag:
-            out.append(f"  tag: {spell(fork.tag, ascii_only)}")
+            # Without a nonce, another Builder's fork with the same arguments can be the one match,
+            # so the tag never lands on a `tag:` line a QA line would quote.
+            label = "  tag: " if attributable else NOT_ATTRIBUTABLE_PREFIX
+            out.append(f"{label}{spell(fork.tag, ascii_only)}")
         else:
             out.append("  no tag line in record 0")
         out.append(f"  placed by: {fork.placed_by}")
@@ -598,6 +609,8 @@ def main(argv: list[str] | None = None) -> int:
         described.append("--target given")
     if since:
         described.append(f"since {stamp(since)}")
+    if args.no_nonce:
+        described.append("--no-nonce: NOT ATTRIBUTABLE")
 
     if args.target and not target_words(args.target):
         print(NO_WORDS_MESSAGE)
@@ -649,13 +662,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
         return EXIT_AMBIGUOUS
 
-    for line in render(result.forks, args.ascii, args.verbose):
+    attributable = not args.no_nonce
+    for line in render(result.forks, args.ascii, args.verbose, attributable):
         print(line)
 
     if not result.forks[0].tag:
         print(NO_TAG_MESSAGE)
         return EXIT_NO_TAG
-    return EXIT_FOUND
+    return EXIT_FOUND if attributable else EXIT_NOT_ATTRIBUTABLE
 
 
 if __name__ == "__main__":

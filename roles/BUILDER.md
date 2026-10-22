@@ -865,6 +865,7 @@ forbids a home path in a QA line.
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
+| `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: it exits 11, and prints the tag on a `NOT-ATTRIBUTABLE` line, never on a `tag:` line. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
 The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any worktree`.
@@ -877,10 +878,11 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
 | 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
 | 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Only under `--no-nonce`: with a nonce, the nonce places the fork. Never widen with `--any-worktree` to clear it. |
-| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a fresh nonce this means the nonce was reused. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, at least two candidate forks carry it: a reuse, or the same fork under two roots. |
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
+| 11 | a `NOT-ATTRIBUTABLE (--no-nonce, ...)` line in place of `tag:` | Never quoted. Run it again with the round's nonce. |
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.

@@ -91,6 +91,18 @@ def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED,
             fh.write(json.dumps(item) + "\n")
 
 
+def as_attributable(code, out):
+    """Read a --no-nonce answer the way the case would read an attributable one.
+
+    The cases not about the nonce run with --no-nonce, which now exits 11 and prints its tag on a
+    NOT-ATTRIBUTABLE line. Mapping that back here, in one place, keeps each case testing what it
+    names; `TheNoNonceAnswerIsNeverAReading` tests the raw behaviour with no mapping.
+    """
+    if code == review_tag.EXIT_NOT_ATTRIBUTABLE:
+        code = review_tag.EXIT_FOUND
+    return code, out.replace(review_tag.NOT_ATTRIBUTABLE_PREFIX, "  tag: ")
+
+
 def run(projects, *args, env_extra=None, cwd=None, default_target=True, words_ok=True):
     env = dict(os.environ)
     # Both are set in a live session, and either would point the tool away from the fixture.
@@ -107,7 +119,8 @@ def run(projects, *args, env_extra=None, cwd=None, default_target=True, words_ok
     # Most fixtures carry no nonce, and a target without one is refused. Cases not about the nonce
     # say --no-nonce, so they test what they name; the nonce cases opt out with words_ok=False.
     target = args[args.index("--target") + 1] if "--target" in args else ""
-    if words_ok and target and not review_tag.NONCE_SHAPE.search(target):
+    injected = words_ok and target and not review_tag.NONCE_SHAPE.search(target)
+    if injected:
         args = args + ("--no-nonce",)
     proc = subprocess.run(
         cmd + list(args),
@@ -120,7 +133,10 @@ def run(projects, *args, env_extra=None, cwd=None, default_target=True, words_ok
     # windows-latest leg only (run 39725164513). Normalize here, so every case reads one spelling.
     out = proc.stdout.decode("utf-8").replace("\r\n", "\n")
     err = proc.stderr.decode("utf-8").replace("\r\n", "\n")
-    return proc.returncode, out, err
+    code = proc.returncode
+    if injected:
+        code, out = as_attributable(code, out)
+    return code, out, err
 
 
 class Fixture(unittest.TestCase):
@@ -551,8 +567,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
         codes = {review_tag.EXIT_FOUND, review_tag.EXIT_NO_FORK, review_tag.EXIT_NO_ROOT,
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
-                 1, 2}
-        self.assertEqual(len(codes), 11, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_NOT_ATTRIBUTABLE, 1, 2}
+        self.assertEqual(len(codes), 12, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -629,7 +645,7 @@ class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
         argv.append("--no-nonce")
         with contextlib.redirect_stdout(out):
             code = review_tag.main(argv)
-        return code, out.getvalue()
+        return as_attributable(code, out.getvalue())
 
     def test_4_an_unreadable_root_refuses_even_when_another_matched(self):
         write_fork(self.projects, "s1", "elsewhere", self.STD, TAG_HIGH,
@@ -685,7 +701,8 @@ class TheFinalRoundsFailOpens(Fixture):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             code = review_tag.main(args)
-        self.assertEqual(code, review_tag.EXIT_FOUND, out.getvalue())
+        code, text = as_attributable(code, out.getvalue())
+        self.assertEqual(code, review_tag.EXIT_FOUND, text)
 
     def test_a_meta_file_that_cannot_be_parsed_makes_the_fork_unread(self):
         # The meta may hold the inheritedWorktreePath that puts the fork elsewhere; without it the
@@ -816,7 +833,7 @@ class TheSurvivingMutantsAreKilled(Fixture):
         argv = ["--projects-dir", str(self.projects), "--session", "s1", "--no-nonce"] + list(args)
         with contextlib.redirect_stdout(out):
             code = review_tag.main(argv)
-        return code, out.getvalue()
+        return as_attributable(code, out.getvalue())
 
     def test_m21_an_oserror_opening_the_transcript_is_unread_not_skipped(self):
         write_fork(self.projects, "s1", "older", self.STD, TAG_HIGH,
@@ -898,12 +915,20 @@ class AnUnreadableConfigDirRefuses(unittest.TestCase):
         self._tmp.cleanup()
 
     def _main(self, deny):
-        real_stat, real_listdir = os.stat, os.listdir
+        real_stat, real_listdir, real_is_dir = os.stat, os.listdir, Path.is_dir
 
         def stat(path, *a, **k):
             if deny and Path(path) == self.bad:
                 raise PermissionError(13, "denied", str(path))
             return real_stat(path, *a, **k)
+
+        def is_dir(path, *a, **k):
+            # F1a: on Windows, Path.is_dir answers through nt._path_isdir and never reaches the
+            # patched os.stat, so a mutant that went back to is_dir() would survive there. A
+            # failed stat makes is_dir answer False, which is the behaviour patched here.
+            if deny and Path(path) == self.bad:
+                return False
+            return real_is_dir(path, *a, **k)
 
         def listdir(path="."):
             if deny and Path(path) == self.bad / "projects":
@@ -915,11 +940,12 @@ class AnUnreadableConfigDirRefuses(unittest.TestCase):
         with mock.patch.dict(os.environ, env), \
                 mock.patch.object(review_tag.os, "stat", side_effect=stat), \
                 mock.patch.object(review_tag.os, "listdir", side_effect=listdir), \
+                mock.patch.object(review_tag.Path, "is_dir", autospec=True, side_effect=is_dir), \
                 contextlib.redirect_stdout(out):
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
             code = review_tag.main(["--session", "s1", "--worktree", WORKTREE_FORWARD,
                                     "--target", "Review this diff", "--no-nonce"])
-        return code, out.getvalue()
+        return as_attributable(code, out.getvalue())
 
     def test_an_unstatable_claude_dir_refuses(self):
         code, out = self._main(deny=True)
@@ -930,6 +956,54 @@ class AnUnreadableConfigDirRefuses(unittest.TestCase):
         code, out = self._main(deny=False)
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent seen", out)
+
+
+class TheNoNonceAnswerIsNeverAReading(Fixture):
+    """D1. --no-nonce exited 0 with a `tag:` line under the same header as an attributable run, so
+    an inline round beside a same-args peer could quote the peer's tag: F2 back through a flag."""
+
+    def setUp(self):
+        super().setUp()
+        write_fork(self.projects, "s1", "peer", "Review this branch's diff", TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+
+    def test_it_exits_with_its_own_code_and_no_tag_line(self):
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
+                           "--target", "Review this branch's diff", "--no-nonce", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_NOT_ATTRIBUTABLE, out)
+        self.assertNotIn("tag:", out, "a --no-nonce answer printed a quotable tag: line")
+        self.assertIn(review_tag.NOT_ATTRIBUTABLE_PREFIX.strip(), out)
+        self.assertIn("NOT ATTRIBUTABLE", out.splitlines()[0])
+
+    def test_the_same_fork_with_its_nonce_is_a_reading(self):
+        # The control: the attributable path still prints `tag:` and exits 0.
+        write_fork(self.projects, "s1", "mine", "round-abcdef0123 Review this branch's diff",
+                   TAG_XHIGH, worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:10:00Z")
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
+                           "--target", "round-abcdef0123", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertNotIn("NOT-ATTRIBUTABLE", out)
+
+
+class ANonceDoesNotPlaceAForkRecordedElsewhere(Fixture):
+    """N14. The nonce places a fork that records NO location. Mutating `placed is None` to `not
+    placed` let it also place a fork recorded in ANOTHER worktree, and no case caught that."""
+
+    def test_a_nonce_fork_in_another_worktree_does_not_match(self):
+        write_fork(self.projects, "s1", "elsewhere", "round-0123456789 Review x", TAG_HIGH,
+                   worktree=WORKTREE_OTHER, timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", WORKTREE_FORWARD,
+                           "--target", "round-0123456789", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("tag:", out)
+
+    def test_the_same_fork_is_found_from_its_own_worktree(self):
+        write_fork(self.projects, "s1", "elsewhere", "round-0123456789 Review x", TAG_HIGH,
+                   worktree=WORKTREE_OTHER, timestamp="2026-10-22T09:00:00Z")
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", "D:/Code/korus-wt-b",
+                           "--target", "round-0123456789", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
 
 
 class ConfigDirNamesTheRoot(Fixture):
