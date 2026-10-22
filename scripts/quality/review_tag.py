@@ -44,10 +44,10 @@ WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the s
 that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line, and the tag is
-the next line that is not blank. Where the first line leaves a backtick open, or is empty and the
-next line is no tag, or the next line is no tag and a later line is one, or two lines have a tag's
-shape, the arguments may span lines: the tool refuses (exit 13) rather than read a line of them as
-the tag, call the fork tagless, or call it absent. Keep the skill's arguments on one line.
+the next line that is not blank. Where the first line leaves a backtick open, or carries no nonce
+while a later line before the tag does, or the next line is no tag and a later line is one, or two
+lines have a tag's shape, the arguments may span lines: the tool refuses (exit 13) rather than read
+a line of them as the tag, call the fork tagless, or call it absent. Keep the arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -190,9 +190,9 @@ class Fork:
     placed_by: str = ""
     #: No tag after the target line, and the arguments may span lines.
     unsplit: bool = False
-    #: Where the target line is empty, the first nonce on the next non-blank line: the arguments
-    #: began there. Used only to match, never printed.
-    spilled_nonce: str = ""
+    #: The fork's own nonce: the first in its target line, else the first on a later line before
+    #: its tag, where its arguments spilled. Used only to match, never printed.
+    own_nonce: str = ""
 
     @property
     def worktree(self) -> str:
@@ -307,43 +307,44 @@ def is_tag(line: str) -> bool:
 
 
 def read_head(lines: list[str]) -> tuple[bool, str, str, bool, str]:
-    """(is a review fork, target args, tag, unsplit, spilled nonce) from record 0's message.
+    """(is a review fork, target args, tag, unsplit, own nonce) from record 0's message.
 
     A review fork's message STARTS with the target line; the tag is the next non-blank line, and
     only if it has the tag's shape. The arguments may span lines, which is `unsplit`, a refusal and
     never a tagless fork, where:
 
     - the target line leaves a backtick open;
-    - the target line is empty, or a lone backtick, and the next line is no tag;
+    - the target line carries no nonce, and a later line before the tag does;
     - the next line is no tag, and a later line is one;
-    - the next line is a tag, and a later line is one too: the arguments' own second line can be
-      tag-shaped, and every template measured at CLI 2.1.308 carries exactly one.
+    - two lines have a tag's shape: the arguments' own second line can be tag-shaped, and every
+      template read at CLI 2.1.308 carries exactly one (`roles/BUILDER.md` 4e names the command).
 
-    Only the target line and the tag are kept, and from an empty target line's next line only its
-    first nonce; the rest is tested.
+    The own nonce is the first in the target line, else the first on a later line before the first
+    tag-shaped one. Only the target line, the tag and that nonce are kept; the rest is tested.
     """
     if not lines or not lines[0].startswith(TARGET_PREFIX):
         return False, "", "", False, ""
     first = lines[0][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
+    rest = lines[1:]
+    tags = [index for index, line in enumerate(rest) if is_tag(line)]
+    found = NONCE_SHAPE.search(target)
+    if found:
+        own = found.group(0)
+    else:
+        spill = (NONCE_SHAPE.search(line) for line in rest[: tags[0] if tags else len(rest)])
+        own = next((match.group(0) for match in spill if match), "")
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
     # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
-    opened = first.count("`") % 2 == 1
-    rest = lines[1:]
-    for index, line in enumerate(rest):
-        if line.strip():
-            later = any(is_tag(more) for more in rest[index + 1 :])
-            if is_tag(line) and not opened:
-                if later:
-                    return True, target, "", True, ""
-                return True, target, unquote(line), False, ""
-            spilled = ""
-            if not target:
-                # The arguments began on this line, so their nonce is here, not on the target line.
-                found = NONCE_SHAPE.search(line)
-                spilled = found.group(0) if found else ""
-            return True, target, "", opened or not target or later, spilled
-    return True, target, "", opened, ""
+    unsplit = first.count("`") % 2 == 1 or len(tags) > 1 or bool(own and not found)
+    following = next((index for index, line in enumerate(rest) if line.strip()), None)
+    if following is None:
+        return True, target, "", unsplit, own
+    if tags and tags[0] == following:
+        if unsplit:
+            return True, target, "", True, own
+        return True, target, unquote(rest[following]), False, own
+    return True, target, "", unsplit or bool(tags), own
 
 
 def strip_invocation(text: str) -> str:
@@ -516,14 +517,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         continue
                 result.unreadable_files += 1
                 continue
-            is_review, fork.target, fork.tag, fork.unsplit, fork.spilled_nonce = read_head(head)
+            is_review, fork.target, fork.tag, fork.unsplit, fork.own_nonce = read_head(head)
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
-                own = fork.target or fork.spilled_nonce
-                if not (fork.unsplit and own_nonce_matches(filters.target, own)):
+                if not (fork.unsplit and own_nonce_matches(filters.target, fork.own_nonce)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:

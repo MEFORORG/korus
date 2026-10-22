@@ -1230,8 +1230,10 @@ class TheVault4006Findings(Fixture):
 
 class TheVault4044Edges(Fixture):
     """vault #4044, the edges PR 235 left open. Each refusal sits beside the control that shows the
-    fixture would read the other way. Edge 2, a tagless fork quoting a tag-shaped line, stays exit
-    13: it fails closed, and no template measured at CLI 2.1.308 is tagless."""
+    fixture would read the other way. Edge 2, a tagless fork whose body quotes a tag-shaped line
+    after a line that is no tag, stays exit 13: it fails closed, and no template read at CLI 2.1.308
+    is tagless. A tagless fork whose arguments' own second line is tag-shaped still reads that line
+    as its tag, for the same reason it is not built for: no such template exists to read."""
 
     NONCE = "round-4044abcdef"
 
@@ -1282,6 +1284,22 @@ class TheVault4044Edges(Fixture):
         # No later tag either, so only the empty target line says the arguments moved down.
         self._write("bare", f"Review target: \n{self.NONCE} Review x\nYou are reading.\n")
         self._refused(*self._run()[:2])
+
+    def test_a_target_line_without_the_nonce_refuses_when_a_later_line_carries_it(self):
+        # Round one: only an empty target line looked further, so these read as exit 3.
+        for first in ("xhigh", "--comment", "please", "`xhigh`"):
+            with self.subTest(first=first):
+                self._write("word", f"Review target: {first}\n{self.NONCE} Review x\n\n`{TAG_XHIGH}`\n")
+                self._refused(*self._run()[:2])
+
+    def test_the_nonce_on_line_three_still_keeps_the_fork(self):
+        self._write("three", f"Review target: \nReview x\n{self.NONCE}\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run()[:2])
+
+    def test_control_a_nonce_after_the_tag_is_not_the_forks_own(self):
+        self._write("after", f"Review target: Review x\n`{TAG_XHIGH}`\n\nlast round {self.NONCE}\n")
+        code, out, _ = self._run()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_control_another_rounds_nonce_on_the_next_line_is_out_of_scope(self):
         self._write("empty", f"Review target: \n{self.NONCE} Review x\n`{TAG_XHIGH}`\n")

@@ -870,7 +870,7 @@ shape, and never kept or printed.
 arguments may span lines where:
 
 - that line leaves a backtick open;
-- that line is empty, or a lone backtick, and the next non-blank line is no tag;
+- that line carries no nonce, and a later line before the tag does;
 - the next non-blank line is no tag, and a later line is one;
 - two lines have a tag's shape.
 
@@ -880,10 +880,18 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 `none returned`.
 
 **CHANGED 2026-10-22, vault #4044.** The list held the first and third rows alone. Under the
-second, a fork with its nonce on line 2 exited 3, `no fork found`. Under the fourth, a tag-shaped
-second line of unquoted arguments was quoted as the tag, exit 0.
+second, a fork with its nonce below an empty or nonce-less target line exited 3, `no fork found`.
+Under the fourth, a tag-shaped second line of unquoted arguments was quoted as the tag, exit 0.
 
-Every template read at CLI 2.1.308 carries exactly one tag-shaped line.
+**The fourth row rests on one tag per template.** Read 2026-10-22 against the CLI 2.1.308 binary:
+
+```bash
+grep -a -o '.\{6\}[a-z${}]* effort \\u2192' <cli binary> | sed 's/[a-z${}]* effort.*//' | sort | uniq -c
+```
+
+It returns 12 matches under four prefixes, and each opens a template literal or a `tag:` argument.
+None sits inside a template's body. This branch's own xhigh fork, at 2.1.308, held 1 tag-shaped
+line in 151, read with the tool's `is_tag`. The other levels' forks and `--fix` were not run.
 
 | Flag | What it does |
 | --- | --- |
