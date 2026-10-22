@@ -225,6 +225,8 @@ class TheCollectorWritesItPerRepository(unittest.TestCase):
                 return done("")
             if "/issues" in joined:
                 return nightly_answer
+            if "/actions/runs" in joined:
+                return done("[0]\n")  # one page, and no scheduled run in the window
             if "/actions/" in joined:
                 return done("")
             raise AssertionError("unexpected call: %s" % joined)
