@@ -41,11 +41,12 @@ pair exists to keep merging. Other seats still use it.
 
 1. Strong recommendation? Proceed with it. Confirming is asking.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
-3. Still undecided? Put it in a table at the END OF EVERY TURN until the Owner responds. Say that
-   adversarial review failed and why a human is needed. Give a recommendation with its confidence
-   marked, or say plainly why you have none.
-4. Classifier blocked you? Put the command the Owner must run in a code block at the end of every
-   round. Keep nagging until they run it or decline.
+3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
+   review failed, a recommendation or why you have none, your confidence and what changes it.
+4. Classifier blocked you? Print the command once, then only in that table until it is run.
+
+`empower` is on too: `roles/COMMON.md`, *The empower rules are on by default, for every seat but
+Special*.
 
 Your partner's unanswered question goes in that table too, marked as theirs.
 

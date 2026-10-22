@@ -2,6 +2,9 @@
 
 > Split out of [COMMON.md](COMMON.md) on 2026-09-05. **Nothing here has been edited.**
 > Each block needs a destination chosen by the owner before it is merged or dropped.
+> Added to this header 2026-10-22, with no block edited: the `driver` and `empower` rules are on
+> by default for every seat but Special. [COMMON.md](COMMON.md), *The empower rules are on by
+> default, for every seat but Special*.
 
 ### How to select the Proactive output style
 
