@@ -488,9 +488,9 @@ check is the only reason the seat that hit this caught its own.**
 10. **Re-anchor after every commit:** `git update-ref refs/rescue/<name> <sha>`, SHA read live from
     HEAD. Five commits cost nothing to anchor; one anchor at handoff leaves four tips loose.
 11. **Review the diff, and stop after two rounds.** Invoke the `Skill` tool with
-    `skill: "code-review"` at the level your brief names, `xhigh` by default. **Keep its first
-    line: that is the tag.** Section 4c has the two-round rule, what to do with a round-two
-    finding, and the traps.
+    `skill: "code-review"` at your brief's level, `xhigh` by default, a fresh nonce after the
+    level. **Then run `review_tag.py --target <nonce> --since "$T"`.** 4c has the rest; 4e says
+    how, and what to quote.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
     a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
@@ -508,6 +508,7 @@ check is the only reason the seat that hit this caught its own.**
 | Step 7 | This line cited *Before you verify* and *Verification expectations* until 2026-09-16. NEITHER SECTION HAS EVER EXISTED, in either repository. |
 | The control that fired | Zero hits for each name, against 84 for `the` in korus `CLAUDE.md`. The citation read like a working cross-reference and resolved to nothing. |
 | Which file step 7 means | [COMMON.md](COMMON.md) records the shape under *Where a role playbook and this file disagree*. Step 2 is why the engine's file is meant: `constraints.lock` and `ci.yml` are its artifacts, and korus has neither. |
+| Step 11 | **CHANGED 2026-10-22:** it read *"Keep its first line: that is the tag."* The tag sits in the skill's prompt, not its reply, as 4e has shown since 2026-09-22. The first line goes in your report. |
 | Step 12 | The `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it. The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read the result back. |
 | Your last commit message is load-bearing, not a courtesy | It makes the branch self-describing if the Manager dies before the pull request exists. Section 4d says what it carries and why. |
 | The queue file is the supply record | `<git-common-dir>/mefor-coord/queue/<lane>.tsv` is tab-separated `status`, `item`, `description`. If your brief cites a row there, mark it `started` when you take it. |
@@ -623,6 +624,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
 **The review-standards example began `xhigh.` until 2026-10-13, and the period kept the level from
@@ -766,7 +768,7 @@ pull request could not tell a diff that had been worked from one that had not.
 
 ```
 QA -- korus roles/BUILDER.md step 11
-Level: xhigh, from the brief. Tag: none returned.
+Level: xhigh, from the brief. Tag: xhigh effort -> 10 inline angles -> dedup (no verify) -> sweep -> <=15 findings (forks a1b2c3d4 round-7f3a9c21e4, e5f6a7b8 round-0b1c2d3e4f; ascii spelling).
 Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 ```
 
@@ -775,7 +777,13 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | The citation | `korus roles/BUILDER.md step 11`. The repository name is load-bearing; the paragraph under this table says why. |
 | Level | The level you PASSED, and where it came from: `from the brief`, or `4c default`. Read it off your own invocation. |
 | Level, where you passed none | `inherited, not passed`. 4c says a bare call takes the session's level and `CLAUDE_CODE_EFFORT_LEVEL` beats both, so name the override where one is set. |
-| Tag | The `<level> effort -> ...` line if the skill returned one, otherwise `none returned`. Never reconstruct one, and never paste the skill's prose opener here. |
+| Tag | What follows `tag:` in `review_tag.py`'s output, quoted verbatim, then a note naming the fork agent id it printed and the round's nonce: `(fork <id> round-<hex>)`. Never reconstruct one, and never paste the skill's prose opener here. |
+| Tag, over two rounds | One tag, and both fork ids with their nonces, where both rounds printed the same tag: `(forks <id1> round-<hex1>, <id2> round-<hex2>)`. Where they differ, quote both, round one first. |
+| Tag, verbatim | Both spellings count: the glyph form, and the `--ascii` form with `->` and `<=`. **The `--ascii` form must say so** in the note, as `ascii spelling`, because it is not the text the fork holds. |
+| Tag, where the tool found none | `none returned`, and beside it the tool's own refusal message in quotes. Bare `none returned` is not a reading any more: it cannot tell a miss from a search that never ran. |
+| Tag, in the inline shape | The tag quoted from your own context, where the skill's prompt landed, then `(inline, no fork)`. There is no fork transcript to read. |
+| Tag, where the fetch failed | `not read: fetch failed`. That is not `none returned`, which says the tool ran and found nothing. |
+| Tag, where the tool refused and running it again does not clear it | `not read: refused, exit <n>`, then its message in quotes. A refusal is not `none returned`: the tool found something it could not tell apart, place or read. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
 
@@ -784,6 +792,145 @@ this field's clothes. `inherited, not passed` is the honest spelling, and it cos
 
 **Where the two levels disagree, print both.** A tag naming a level you did not pass is a reading
 about the skill, and flattening it to one number throws away the only place that shows.
+
+#### The tag is read from the fork's transcript, by `review_tag.py`
+
+**CHANGED 2026-10-22, by Owner instruction ("fix that").** The Tag row read *"The `<level> effort
+-> ...` line if the skill returned one, otherwise `none returned`"*. The skill never returns it.
+So that row could record only `none returned`, and a QA line could not prove which level ran.
+
+The seven Tag rows above replace it (`grep -c '^| Tag' roles/BUILDER.md`, 7 at `f4383e5`), and
+the example block read `Tag: none returned.` until then.
+The measurements in the subsections below stand: they are why the tag is not in the reply.
+
+**The tag proves which prompt template the skill selected, not that the fork obeyed it.** It is
+the first thing the fork was told. Whether its findings honour the angle count or the cap is not
+in the tag, and nothing here measures it.
+
+Where it lands. The Windows column is relayed from the dispatching Manager's brief and was not
+re-run here. The cloud column is this branch's own round one, read 2026-10-22:
+
+| Read | Windows, CLI 2.1.301, five forks (relayed) | Cloud, CLI 2.1.307, one fork |
+| --- | --- | --- |
+| The transcript | `<projects dir>/<project>/<session id>/subagents/agent-<id>.jsonl` | The same path, under `~/.claude/projects`. |
+| Record 0's head | `Review target: <args>`, then the tag "on line 2", in backticks | `` Review target: `<args>` ``, a blank line 2, then the tag on line 3, in backticks. |
+| Where it ran | `inheritedWorktreePath` in the meta, with Windows backslashes | Not in the meta. Record 0 carries `cwd`. |
+| The meta's other keys | `parentAgentId`, `spawnDepth` 2, `agentType` | `spawnDepth` 1, `agentType`, two request keys. No `parentAgentId`. |
+| Who ran it | A Builder subagent | A top-level cloud session, in its own worktree. |
+
+The cloud column was read with this, and the tool then read the same fork:
+
+```bash
+head -1 ~/.claude/projects/*/<session id>/subagents/agent-<id>.jsonl \
+  | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["cwd"], r["version"])'
+```
+
+**So the tag's line number is not fixed, and the tool does not assume one.** It takes the first
+non-blank line after `Review target:`. Its first draft read line 2 alone, and on the real fork it
+printed no tag.
+
+**It refuses anything else rather than guess.** A message that does not START with the target line
+is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
+line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
+
+**Give each round a fresh nonce, right after the level, and run the tool on that nonce:**
+
+```bash
+N=round-$(python -c 'import secrets; print(secrets.token_hex(5))')    # fresh each round
+test ${#N} -eq 16 || echo "no nonce: $N"                                 # round- and 10 hex
+T=$(date -u +%Y-%m-%dT%H:%M:%SZ)                                         # just before the round
+# Skill args: "xhigh $N Review this branch's diff against origin/main"
+python scripts/quality/review_tag.py --target "$N" --since "$T"
+```
+
+**The nonce goes after the level, never before it.** 4c says the level must be the bare first
+word to parse; the skill drops it from its `Review target` line, which then starts with the nonce.
+This branch's last round ran with `xhigh round-<hex> ...` and its fork carried the `xhigh` tag.
+
+**`--target` is required, and the nonce makes the one match yours.** Builders share the standard
+arguments, so a round that left no fork could find a peer's fork as its one match. With a nonce, an
+inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never 0.
+
+**A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
+where the skill leaves it. A later mention of an earlier round's nonce is not that round.
+
+**It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
+picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
+newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
+
+It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
+one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
+forbids a home path in a QA line.
+
+| Flag | What it does |
+| --- | --- |
+| `--target` | REQUIRED. The round's nonce, or your arguments carrying it, level and skill flags stripped. A level alone is refused, exit 9, and so is a target with no well-formed nonce, unless `--no-nonce`, which no QA line may use. |
+| `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
+| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
+| `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
+| `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
+
+The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any worktree`.
+
+| Exit | Message | The Tag field |
+| --- | --- | --- |
+| 0 | the `tag:` line of the one fork that matched | Quote it. |
+| 3 | `no fork found; inline shape or unpersisted transcript possible` | If your round ran inline, quote the tag from your own context with `(inline, no fork)`. Otherwise `none returned`, with the message. |
+| 4 | `no projects dir could be read` | `none returned`, with the message. |
+| 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
+| 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
+| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Only under `--no-nonce`: with a nonce, the nonce places the fork. Never widen with `--any-worktree` to clear it. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, at least two candidate forks carry it: a reuse, or the same fork under two roots. |
+| 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
+| 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
+| 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
+| 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
+| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
+
+**No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
+not a readable fork also matched.
+
+**No stdout line carries the word the QA line may not, except `target:`.** That line echoes your own
+arguments. Lines on stderr begin with the tool's name, which carries the word, so quote stdout only,
+and name the fork in the QA line, not the tool.
+
+**The session default keeps another session's fork out.** It is set in the cloud session measured
+here, where it named the directory the fork landed under. Whether a local Windows session sets it is
+not measured; the nonce does not depend on it.
+
+**A Manager checks a QA line's round by its nonce.** The note carries it, so the Manager runs the
+tool with that nonce and its own `--session`, and expects the same fork id.
+
+**Where korus is not checked out, fetch the tool pinned to a commit SHA, never `main`.** A Builder
+in the cloud, or in another repository, runs this. Every step stops the chain, and the directory is
+new, so no older copy can run in its place:
+
+```bash
+d=$(mktemp -d) &&
+sha=$(git ls-remote https://github.com/MEFORORG/korus refs/heads/main | cut -f1) &&
+test -n "$sha" &&
+curl -fsSL -o "$d/review_tag.py" \
+  "https://raw.githubusercontent.com/MEFORORG/korus/$sha/scripts/quality/review_tag.py" &&
+echo "review_tag.py at $sha" &&
+python "$d/review_tag.py" --target "$N" --since "$T"
+```
+
+**Name the SHA in your report under 4d,** so the tool that read the tag is a fixed file. Where a
+step before the last fails, the Tag field reads `not read: fetch failed`. That is not
+`none returned`.
+
+**Network reach from a cloud Builder is not measured beyond one reading.** In this branch's cloud
+session, the repository being public, this returned `200`:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  https://raw.githubusercontent.com/MEFORORG/korus/48109a1884e46d1c7ea599b22e2575235001f485/scripts/quality/expiry_audit.py
+```
+
+**NOT measured, 0 samples each:** a Windows top-level session, a Builder sharing its Manager's
+worktree, a Linux Builder subagent, and the inline shape. In that shape there is no fork, and the
+prompt lands in the caller's own transcript, which the tool does not read.
 
 #### That table said the first line already carried the level, and it did not
 
@@ -865,6 +1012,10 @@ carries no word rule, so nothing is smoothed away. It moves to where quoting it 
 
 **Writing `none returned` is a reading, not an inference.** Section 4c forbids inferring WHICH shape
 ran from what you were granted. Recording that no tag came back says only what you saw.
+
+**NARROWED 2026-10-22: it is a reading only beside the tool's refusal message.** Bare, it cannot
+tell a search that found nothing from one that never ran. *The tag is read from the fork's
+transcript* holds the rule.
 
 **The citation names the REPOSITORY, and that is not decoration.** Measured 2026-09-20:
 `roles/BUILDER.md` exists in korus AND in the `MessageFoundry-vault` checkout, and the two are

@@ -173,7 +173,9 @@ class TheQaLineNeverSaysReview(unittest.TestCase):
 
         # 1. A RENAMED LABEL inside the block must be caught.
         renamed = dict(texts)
-        renamed[victim] = texts[victim].replace("Tag: none returned", "Shape: none returned")
+        # It replaced "Tag: none returned" until 2026-10-22, when that sample value left every
+        # carrier and the plant silently matched nothing. It keys on the label alone now.
+        renamed[victim] = texts[victim].replace(". Tag: ", ". Shape: ", 1)
         self.assertNotEqual(renamed[victim], texts[victim], "the rename plant changed nothing")
         self.assertGreater(
             len(_field_labels(renamed)),

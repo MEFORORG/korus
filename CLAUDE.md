@@ -340,7 +340,15 @@ pull request returned none. `roles/BUILDER.md` 4e holds the reading and the comm
 exposure, because it is real*, already says.
 
 **So the Builder's QA line carries the level it PASSED, not one read off the reply.** Its `Tag`
-field holds `none returned` where nothing came back, which is a reading rather than an empty field.
+field holds what `scripts/quality/review_tag.py` read from the fork's transcript, with the fork id
+and the round's nonce.
+
+An inline round leaves no fork, so its tag comes from the Builder's own context, marked
+`(inline, no fork)`.
+
+**CHANGED 2026-10-22: that sentence read "holds `none returned` where nothing came back, which is a
+reading rather than an empty field".** Bare, it cannot tell a miss from a search that never ran,
+so it now needs the tool's refusal message beside it. `roles/BUILDER.md` 4e holds the rule.
 
 `roles/LANDER.md` *4a-quinquies* holds both halves. Its *4c-quinquies* holds the conflict rule
 named in the seat table above.
