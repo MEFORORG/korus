@@ -173,6 +173,7 @@ their failure criteria and the run's stopping point.
 | `scripts/validation/check-allocation-collisions.ps1` | Every ref, grouped by sequence number. Fires when one number maps to two paths its index row does not declare as companions | [Sequence allocation](SEQUENCE-ALLOC.md) |
 | `scripts/validation/check-session-reaping.ps1` | Liveness against last write. Fires when a live record's worktree has seen no commit and no file write for a day | [Pruning](PRUNING.md) |
 | `scripts/quality/expiry_audit.py` | Does the artifact a standing rule's expiry clause points at still exist? Reports DANGLING, UNCHECKABLE or LIVE per clause, and never decides a rule expired. Exits 0 unless `--strict` | [House style](HOUSE-STYLE.md) |
+| `scripts/quality/review_tag.py` | Reads the `code-review` skill's level tag from line 2 of its fork's transcript record 0, nothing later. Filters on worktree, `--target`, `--session`, `--since`; paths only under `--verbose`. Exits 3 no fork, 4 no projects dir, 5 no tag | [Builder playbook](https://claude-multisession.pages.dev/roles/BUILDER.md) |
 
 These instruments report results without blocking commits or pushes. CANNOT_TELL from a validation
 check, and UNCHECKABLE from the expiry audit, mean nothing was examined. Neither means nothing was

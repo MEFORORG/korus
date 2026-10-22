@@ -246,11 +246,15 @@ Name every hosted-only leg.
 
 End the report with the QA line your manager posts for you, in this shape:
   QA -- korus roles/BUILDER.md step 11
-  Level: xhigh, from the brief. Tag: none returned.
+  Level: xhigh, from the brief. Tag: <tag line the tool printed> (fork <id>).
   Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 `Level` is the level you passed AND where it came from: "from the brief", or
 "4c default", or "inherited, not passed" if you made a bare call. `Tag` is the
-`<level> effort -> ...` line if the skill returned one, otherwise "none returned".
+tag line korus scripts/quality/review_tag.py printed after the round, run as
+review_tag.py --target "<your args>", with the fork id it named: the line
+names the fork, never the tool. Where it
+found none, write "none returned" and quote its message. korus
+roles/BUILDER.md 4e says how to fetch it pinned to a commit.
 The QA line never uses the word "review", so the skill's own opener goes in the
 report above it. Then exit.
 
