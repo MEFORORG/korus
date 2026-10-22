@@ -105,7 +105,11 @@ def run(projects, *args, env_extra=None, cwd=None):
         env=env,
         cwd=cwd,
     )
-    return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
+    # Text mode on Windows writes CRLF, which reddened an assertion that ends in a newline on the
+    # windows-latest leg only (run 39725164513). Normalize here, so every case reads one spelling.
+    out = proc.stdout.decode("utf-8").replace("\r\n", "\n")
+    err = proc.stderr.decode("utf-8").replace("\r\n", "\n")
+    return proc.returncode, out, err
 
 
 class Fixture(unittest.TestCase):
