@@ -91,7 +91,7 @@ def write_fork(projects, session, agent, args, tag, *, timestamp, shape=RELAYED,
             fh.write(json.dumps(item) + "\n")
 
 
-def run(projects, *args, env_extra=None, cwd=None, default_target=True):
+def run(projects, *args, env_extra=None, cwd=None, default_target=True, words_ok=True):
     env = dict(os.environ)
     # Both are set in a live session, and either would point the tool away from the fixture.
     env.pop("CLAUDE_CONFIG_DIR", None)
@@ -104,6 +104,11 @@ def run(projects, *args, env_extra=None, cwd=None, default_target=True):
     # so it still tests what it names; the cases about the requirement opt out.
     if default_target and "--target" not in args:
         args = args + ("--target", "Review")
+    # Most fixtures carry no nonce, and a target without one is refused. Cases not about the nonce
+    # say --no-nonce, so they test what they name; the nonce cases opt out with words_ok=False.
+    target = args[args.index("--target") + 1] if "--target" in args else ""
+    if words_ok and target and not review_tag.NONCE_SHAPE.search(target):
+        args = args + ("--no-nonce",)
     proc = subprocess.run(
         cmd + list(args),
         capture_output=True,
@@ -214,11 +219,13 @@ class NothingWidensOnItsOwn(Fixture):
                 self.assertIn(review_tag.NO_WORDS_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
-    def test_two_sessions_are_ambiguous_and_print_no_tag(self):
-        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session")
-        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
-        self.assertIn(review_tag.AMBIGUOUS_MESSAGE, out)
-        self.assertNotIn("tag:", out, "a refused run printed a quotable tag")
+    def test_a_target_without_a_nonce_is_refused(self):
+        # Round five: a no-nonce target only warned, and a peer's fork could be the one match.
+        code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--any-session",
+                           "--target", "Review the ledger change", words_ok=False)
+        self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
+        self.assertIn(review_tag.NO_NONCE_MESSAGE, out)
+        self.assertNotIn("tag:", out)
 
     def test_target_words_shared_by_two_sessions_stay_ambiguous(self):
         # Round three: the standard arguments are shared by every Builder, so words matching both
@@ -619,6 +626,7 @@ class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
     def _main(self, roots, *args):
         out = io.StringIO()
         argv = [a for root in roots for a in ("--projects-dir", str(root))] + list(args)
+        argv.append("--no-nonce")
         with contextlib.redirect_stdout(out):
             code = review_tag.main(argv)
         return code, out.getvalue()
@@ -666,7 +674,7 @@ class TheFinalRoundsFailOpens(Fixture):
             return real_scandir(path)
 
         args = ["--projects-dir", str(self.projects), "--session", "s1",
-                "--worktree", WORKTREE_FORWARD, "--target", self.STD]
+                "--worktree", WORKTREE_FORWARD, "--target", self.STD, "--no-nonce"]
         out = io.StringIO()
         with mock.patch.object(review_tag.os, "scandir", side_effect=refuse):
             with contextlib.redirect_stdout(out):
@@ -762,10 +770,39 @@ class ARoundNonceMakesTheOneMatchTheCallersOwn(Fixture):
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_without_a_nonce_the_shared_arguments_stay_ambiguous(self):
-        # The control: the same tree, the arguments alone, two candidates and a refusal.
-        code, out, err = self._run("--target", self.STD)
+        # The control: the same tree, the arguments alone under --no-nonce, two candidates.
+        code, out, _ = self._run("--target", self.STD)
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
-        self.assertIn("no round nonce", err)
+
+    def test_a_malformed_nonce_is_refused_not_matched_broadly(self):
+        # `round-` alone is what an empty command substitution leaves; every fork carries it.
+        for bad in ("round-", "round-1111aaa", "pre-round-1111aaaa22"):
+            with self.subTest(target=bad):
+                code, out, _ = run(self.projects, "--session", "mgr", "--worktree",
+                                   WORKTREE_FORWARD, "--target", bad, words_ok=False)
+                self.assertEqual(code, review_tag.EXIT_NO_SELECTOR, out)
+                self.assertNotIn("tag:", out)
+
+    def test_a_nonce_does_not_match_a_longer_hyphenated_token(self):
+        write_fork(self.projects, "mgr", "hyphen", "round-7777dddd88-b " + self.STD, TAG_HIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:10:00Z")
+        code, out, _ = self._run("--target", "round-7777dddd88")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_the_nonce_places_a_fork_that_records_no_worktree(self):
+        # Round five: exit 6 told the Builder to narrow with --since, which can never drop its
+        # own fork. The target filter has run, so the nonce identifies the fork.
+        write_fork(self.projects, "mgr", "nowhere", "round-9999eeee00 " + self.STD, TAG_XHIGH,
+                   timestamp="2026-10-22T09:20:00Z")
+        code, out, _ = self._run("--target", "round-9999eeee00")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("placed by: the round nonce", out)
+
+    def test_without_a_nonce_that_fork_still_refuses_unplaced(self):
+        write_fork(self.projects, "mgr", "nowhere", "round-9999eeee00 " + self.STD, TAG_XHIGH,
+                   timestamp="2026-10-22T09:20:00Z")
+        code, out, _ = self._run("--target", "Review this branch")
+        self.assertEqual(code, review_tag.EXIT_UNPLACED, out)
 
 
 class TheSurvivingMutantsAreKilled(Fixture):
@@ -776,7 +813,7 @@ class TheSurvivingMutantsAreKilled(Fixture):
 
     def _main(self, *args):
         out = io.StringIO()
-        argv = ["--projects-dir", str(self.projects), "--session", "s1"] + list(args)
+        argv = ["--projects-dir", str(self.projects), "--session", "s1", "--no-nonce"] + list(args)
         with contextlib.redirect_stdout(out):
             code = review_tag.main(argv)
         return code, out.getvalue()
@@ -881,7 +918,7 @@ class AnUnreadableConfigDirRefuses(unittest.TestCase):
                 contextlib.redirect_stdout(out):
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
             code = review_tag.main(["--session", "s1", "--worktree", WORKTREE_FORWARD,
-                                    "--target", "Review this diff"])
+                                    "--target", "Review this diff", "--no-nonce"])
         return code, out.getvalue()
 
     def test_an_unstatable_claude_dir_refuses(self):

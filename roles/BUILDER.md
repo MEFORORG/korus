@@ -778,7 +778,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Level | The level you PASSED, and where it came from: `from the brief`, or `4c default`. Read it off your own invocation. |
 | Level, where you passed none | `inherited, not passed`. 4c says a bare call takes the session's level and `CLAUDE_CODE_EFFORT_LEVEL` beats both, so name the override where one is set. |
 | Tag | What follows `tag:` in `review_tag.py`'s output, quoted verbatim, then a note naming the fork agent id it printed and the round's nonce: `(fork <id> round-<hex>)`. Never reconstruct one, and never paste the skill's prose opener here. |
-| Tag, over two rounds | One tag, and both fork ids, where both rounds printed the same tag: `(forks <id1>, <id2>)`. Where they differ, quote both, round one first. |
+| Tag, over two rounds | One tag, and both fork ids with their nonces, where both rounds printed the same tag: `(forks <id1> round-<hex1>, <id2> round-<hex2>)`. Where they differ, quote both, round one first. |
 | Tag, verbatim | Both spellings count: the glyph form, and the `--ascii` form with `->` and `<=`. **The `--ascii` form must say so** in the note, as `ascii spelling`, because it is not the text the fork holds. |
 | Tag, where the tool found none | `none returned`, and beside it the tool's own refusal message in quotes. Bare `none returned` is not a reading any more: it cannot tell a miss from a search that never ran. |
 | Tag, in the inline shape | The tag quoted from your own context, where the skill's prompt landed, then `(inline, no fork)`. There is no fork transcript to read. |
@@ -799,7 +799,8 @@ about the skill, and flattening it to one number throws away the only place that
 -> ...` line if the skill returned one, otherwise `none returned`"*. The skill never returns it.
 So that row could record only `none returned`, and a QA line could not prove which level ran.
 
-The six Tag rows above replace it, and the example block read `Tag: none returned.` until then.
+The seven Tag rows above replace it (`grep -c '^| Tag' roles/BUILDER.md`, 7 at `f4383e5`), and
+the example block read `Tag: none returned.` until then.
 The measurements in the subsections below stand: they are why the tag is not in the reply.
 
 **The tag proves which prompt template the skill selected, not that the fork obeyed it.** It is
@@ -835,7 +836,8 @@ line is prose. CHANGED 2026-10-22: both were looser, and round two showed them f
 **Give each round a fresh nonce, right after the level, and run the tool on that nonce:**
 
 ```bash
-N=round-$(python3 -c 'import secrets; print(secrets.token_hex(5))')   # fresh each round
+N=round-$(python -c 'import secrets; print(secrets.token_hex(5))')    # fresh each round
+test ${#N} -eq 16 || echo "no nonce: $N"                                 # round- and 10 hex
 T=$(date -u +%Y-%m-%dT%H:%M:%SZ)                                         # just before the round
 # Skill args: "xhigh $N Review this branch's diff against origin/main"
 python scripts/quality/review_tag.py --target "$N" --since "$T"
@@ -859,7 +861,7 @@ forbids a home path in a QA line.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and the skill's flags are stripped first. A level alone is refused, exit 9; a target with no nonce warns on stderr. |
+| `--target` | REQUIRED. The round's nonce, or your arguments carrying it, level and skill flags stripped. A level alone is refused, exit 9, and so is a target with no well-formed nonce, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
@@ -874,10 +876,10 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 4 | `no projects dir could be read` | `none returned`, with the message. |
 | 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
 | 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
-| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Not a result yet. Narrow with `--since`. Never widen with `--any-worktree` to clear it: that lets another worktree's fork in. |
+| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Only under `--no-nonce`: with a nonce, the nonce places the fork. Never widen with `--any-worktree` to clear it. |
 | 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a fresh nonce this means the nonce was reused. |
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
-| 9 | `--target is required; ...`, or `--target holds only a level or flags; ...` | Not a result yet. Pass the round's nonce. |
+| 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or

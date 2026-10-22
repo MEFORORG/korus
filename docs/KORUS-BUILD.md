@@ -246,15 +246,16 @@ Name every hosted-only leg.
 
 End the report with the QA line your manager posts for you, in this shape:
   QA -- korus roles/BUILDER.md step 11
-  Level: xhigh, from the brief. Tag: <tag line the tool printed> (fork <id>).
+  Level: xhigh, from the brief. Tag: <tag line the tool printed> (fork <id> <nonce>).
   Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (reason), 0 open.
 `Level` is the level you passed AND where it came from: "from the brief", or
 "4c default", or "inherited, not passed" if you made a bare call. `Tag` is the
 tag line korus scripts/quality/review_tag.py printed after the round. Give
 each round a fresh nonce right after the level, "xhigh round-<10 hex> ...",
-and run review_tag.py --target <nonce>. Note the fork id and the nonce: the
-line names the fork, never the tool. On exit 3 after an inline round, quote
-the tag from your own context and write "(inline, no fork)". Where it
+and run review_tag.py --target <nonce> --since <a time just before the round>.
+Note the fork id and the nonce: the line names the fork, never the tool. On
+exit 3 after an inline round, quote the tag from your own context and write
+"(inline, no fork)". Otherwise, where it
 exits 3 or 5, or 4 with "no projects dir", write "none returned" and quote its
 message. Any other non-zero exit is a refusal: re-run it as its message says,
 and if it still refuses, write "not read: refused, exit <n>" and quote it. korus

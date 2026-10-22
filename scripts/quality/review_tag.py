@@ -28,8 +28,10 @@ fails among them -- and any fork it cannot place. It never picks the newest read
 A ROUND NONCE MAKES THE ONE MATCH THE CALLER'S OWN. Arguments alone cannot: Builders share the
 standard ones, so a round that left no fork (the inline shape) could find another Builder's fork as
 its one match. So a Builder puts a fresh nonce in its arguments right after the level --
-`xhigh round-7f3a9c21e4 Review ...` -- and `--target` is REQUIRED: pass the nonce. With it, only the
-Builder's own fork can match, and an inline, misplaced or unpersisted round exits 3, never 0.
+`xhigh round-7f3a9c21e4 Review ...` -- and `--target` is REQUIRED, with the nonce in it: a target
+without one is refused unless `--no-nonce`. With it, only the Builder's own fork can match, and an
+inline, misplaced or unpersisted round exits 3, never 0. The nonce also places a fork that records
+no worktree.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -65,7 +67,8 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     6  a fork in scope records no worktree, so it could be the run asked for
     7  ambiguous: more than one fork could be the run asked for
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
-    9  nothing selects a fork: no --target, or a --target holding only a level or flags
+    9  nothing selects a fork: no --target, a --target holding only a level or flags, or one with
+       no round nonce (unless --no-nonce, whose answer is not attributable)
    10  a fork transcript in scope could not be read, so it could be the run asked for
 """
 
@@ -109,6 +112,10 @@ UNREAD_MESSAGE = (
     " if a round is still running, run this again when it ends"
 )
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
+NO_NONCE_MESSAGE = (
+    "--target carries no round nonce (round- and 8 or more hex digits);"
+    " --no-nonce allows that, and no QA line may use it"
+)
 NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
 AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; narrow with --since set before the round,"
@@ -118,8 +125,10 @@ NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pas
 
 TARGET_PREFIX = "Review target:"
 
-#: A round nonce: 8 or more hex digits, fresh each round, after `round-`.
-NONCE_SHAPE = re.compile(r"\bround-[0-9a-f]{8,}\b", re.IGNORECASE)
+#: A round nonce: 8 or more hex digits, fresh each round, after `round-`, as a whole token. One
+#: pattern both finds a nonce in --target and matches it in a fork's target, so the two cannot
+#: disagree on where a token ends: `round-...22` never matches `round-...22-b`.
+NONCE_SHAPE = re.compile(r"(?<![0-9A-Za-z-])round-[0-9a-f]{8,}(?![0-9A-Za-z-])", re.IGNORECASE)
 
 #: The levels the skill parses, and the flags its description advertises. The `Review target` line
 #: drops a level that parsed, and probably the flags too (not traced), so a caller's own argument
@@ -316,9 +325,9 @@ def target_matches(wanted: str, args: str) -> bool:
         return have == ""
     # A nonce matches only as a whole token: as a substring, round-7f3a9c21 would match a fork
     # whose nonce is round-7f3a9c21e4.
-    for nonce in NONCE_SHAPE.findall(wanted):
-        if not re.search(r"(?<![0-9a-z-])" + re.escape(nonce.casefold()) + r"(?![0-9a-z])", have):
-            return False
+    wanted_nonces = {n.casefold() for n in NONCE_SHAPE.findall(wanted)}
+    if wanted_nonces and not wanted_nonces <= {n.casefold() for n in NONCE_SHAPE.findall(args)}:
+        return False
     return squash(wanted) in have or words in have
 
 
@@ -445,6 +454,11 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
+            if placed is None and filters.target and NONCE_SHAPE.search(filters.target):
+                # The target filter already ran, so this fork carries the caller's own nonce: the
+                # nonce places it, where a worktree cannot.
+                fork.placed_by = "the round nonce (no worktree or cwd recorded)"
+                placed = True
             if placed is None:
                 result.unplaced += 1
                 continue
@@ -515,6 +529,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--any-worktree", action="store_true", help="do not filter on the worktree at all"
+    )
+    parser.add_argument(
+        "--no-nonce",
+        action="store_true",
+        help="allow a --target with no round nonce; the answer is then not attributable",
     )
     parser.add_argument(
         "--target", help="REQUIRED: the round's nonce (round-<hex>), or the arguments that carry it"
@@ -588,9 +607,11 @@ def main(argv: list[str] | None = None) -> int:
         # the one match while the caller's own round left no fork at all.
         print(NO_SELECTOR_MESSAGE)
         return EXIT_NO_SELECTOR
-    if not NONCE_SHAPE.search(args.target):
-        print("review_tag: --target carries no round nonce (round-<8+ hex>); a peer's fork with the"
-              " same arguments could be the one match", file=sys.stderr)
+    if not NONCE_SHAPE.search(args.target) and not args.no_nonce:
+        # Refused, not warned: without a nonce a peer's fork with the same arguments can be the one
+        # match. A malformed nonce -- `round-` alone, too few digits -- is refused the same way.
+        print(NO_NONCE_MESSAGE)
+        return EXIT_NO_SELECTOR
 
     roots = projects_roots(args.projects_dir)
     result = scan(roots, Filters(worktree, args.target, session, since))
