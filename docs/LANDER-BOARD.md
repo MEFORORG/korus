@@ -326,8 +326,10 @@ read was whole.
 
 Each page prints its own total. Every read is judged against the highest total any page of any
 read reported, and that figure is the one the cap applies to. A read is whole only when each of
-its pages reports that total and its distinct rows number exactly that total. No read is believed
-while the runs seen across all reads outnumber that total, which proves every total low.
+its pages reports that total and its distinct rows number exactly that total.
+
+No read is believed while the runs seen across all reads outnumber that total, which proves every
+total low.
 
 A page saying the window holds no run is believed at once when no workflow is active. Otherwise
 it is believed only when all three reads say so. Any other mix refuses.
