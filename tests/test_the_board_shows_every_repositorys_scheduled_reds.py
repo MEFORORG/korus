@@ -401,6 +401,23 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
         got = read_in_turn(answers)
         self.assertEqual((answers, got["read"]), (["unused"], 1))
 
+    def test_runs_seen_across_reads_past_the_total_refuse_a_later_whole_looking_read(self):
+        # Lander probe of 96848f9: read 1 proves the total low (200 runs under a total of 100), so
+        # read 2's 100 runs under that total must not be believed. A red at id 150 is hidden.
+        over = lines(greens(1, 100), total=100) + lines(
+            greens(101, 49) + [run(150, 1, "failure", "2026-10-02T00:00:00Z")] + greens(151, 50),
+            total=100)
+        looks_whole = lines(greens(1, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([over, looks_whole, looks_whole])
+        self.assertIn("read 200 distinct scheduled runs, more than the 100 any page reported",
+                      str(cm.exception.code))
+
+    def test_a_total_at_the_cap_refuses(self):
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([lines(greens(1, 100), total=collect.RUNS_API_CAP)])
+        self.assertIn("narrow SCHEDULE_WINDOW_DAYS", str(cm.exception.code))
+
     def test_a_run_created_mid_read_is_short_and_the_next_read_settles_it(self):
         # The new run shifts page 2 down one, so page 2 repeats a row and the new run is unread.
         grown = lines(greens(1, 100), total=150) + lines(greens(100, 51), total=151)

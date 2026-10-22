@@ -162,6 +162,11 @@ def run_total(reads):
     return max([t for r in reads for t in r.pages] or [0])
 
 
+def run_union(reads):
+    """Every distinct run id any read of this window saw."""
+    return set().union(*(r.seen for r in reads))
+
+
 def run_read_state(read, bar):
     """`whole`, `zero`, `short` or `none` for one read, judged against `bar`, the highest total
     any page of any read of this window reported (`run_total`).
@@ -183,8 +188,14 @@ def chosen_run_read(reads, active):
     """The read to trust out of `reads`, or None while none can be trusted yet.
 
     A whole read wins. A page saying the window holds no run is believed at once only when no
-    workflow is active; otherwise only when every one of RUNS_READ_ATTEMPTS reads says so."""
+    workflow is active; otherwise only when every one of RUNS_READ_ATTEMPTS reads says so.
+
+    No read is trusted while the runs seen across ALL reads outnumber `bar`: then every reported
+    total is provably low. Below that, a whole read holds exactly `bar` runs, so it holds every run
+    any read saw."""
     bar = run_total(reads)
+    if len(run_union(reads)) > bar:
+        return None
     states = [run_read_state(r, bar) for r in reads]
     for read, state in zip(reads, states):
         if state == "whole":
@@ -289,18 +300,19 @@ def scheduled_reds(full, since_day):
             time.sleep(RUNS_RETRY_WAIT_S)
         reads.append(read_scheduled_runs(full, since_day))
         bar = run_total(reads)
-        if bar > RUNS_API_CAP:
-            refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
-                   "SCHEDULE_WINDOW_DAYS." % (full, bar, SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
+        # At the cap itself the total may be the API's ceiling rather than the window's count.
+        if bar >= RUNS_API_CAP:
+            refuse("%s holds %d scheduled runs in %d days, at or past the %d the API returns; "
+                   "narrow SCHEDULE_WINDOW_DAYS." % (full, bar, SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
         chosen = chosen_run_read(reads, active)
         if chosen is not None:
             break
     if chosen is None:
-        # Say how far the most complete read got, so the refusal names the shape it saw.
-        most = max(len(r.seen) for r in reads)
-        if most > bar:
+        # Say how far the reads got, so the refusal names the shape it saw.
+        union, most = len(run_union(reads)), max(len(r.seen) for r in reads)
+        if union > bar:
             refuse("%s read %d distinct scheduled runs, more than the %d any page reported."
-                   % (full, most, bar))
+                   % (full, union, bar))
         if bar:
             refuse("%s reports %d scheduled runs in the window but %d were read."
                    % (full, bar, most))
