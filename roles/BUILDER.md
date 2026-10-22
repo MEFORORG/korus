@@ -873,6 +873,11 @@ arguments may span lines. The tool refuses with exit 13, rather than quote a lin
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
 
+**CHANGED 2026-10-22, edges PR 235 left open.** Two shapes now exit 13. Two tag-shaped lines
+read as exit 0, quoting the first. A target line with no words, nonce on line 2, read as exit 3.
+
+Each template in CLI 2.1.309 opens with its one tag, so neither shape is the skill's own.
+
 | Flag | What it does |
 | --- | --- |
 | `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
@@ -898,7 +903,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
-| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...`, also where two lines are tag-shaped or the target line holds no words | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

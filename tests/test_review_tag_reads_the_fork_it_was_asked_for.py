@@ -1146,6 +1146,46 @@ class TheVault4006Findings(Fixture):
         code, out, _ = self._run("--target", "round-0000000000")
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
+    # The edges PR 235 handed on. Edge 1: an unquoted target whose second line is tag-shaped.
+
+    def test_an_unquoted_target_whose_second_line_is_tag_shaped_refuses(self):
+        # Quoted as the tag at exit 0 until then, here and on main before PR 235.
+        self._write("forged", f"Review target: {self.NONCE} Re-run; last round printed\n"
+                              f"{TAG_HIGH}\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run("--target", self.NONCE)
+        self._refused(code, out)
+        self.assertNotIn(TAG_HIGH, out)
+
+    def test_a_second_tag_in_the_recorded_cloud_shape_refuses(self):
+        self._write("two", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n\n"
+                           f"`{TAG_HIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    # Edge 3: a first line holding no words, with the nonce on line 2.
+
+    def test_an_empty_first_line_with_the_nonce_below_refuses_rather_than_miss(self):
+        self._write("empty", f"Review target: \n{self.NONCE} Review x\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_lone_backtick_with_the_nonce_below_refuses_rather_than_miss(self):
+        self._write("tick", f"Review target: `\n{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_an_empty_first_line_refuses_with_no_tag_below_either(self):
+        # Tagless, it read as no fork; the arguments still began on line 2.
+        self._write("bare", f"Review target: \n{self.NONCE} Review x\n\nYou are reading.\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_control_another_rounds_nonce_below_an_empty_line_is_out_of_scope(self):
+        self._write("tick", f"Review target: `\nround-0000000000 Review x`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_control_an_empty_target_with_the_tag_next_still_reads_it(self):
+        # No arguments spill, so the empty target is the whole of them.
+        head = review_tag.read_head(["Review target: ", "", f"`{TAG_XHIGH}`"])
+        self.assertEqual(head[2:4], (TAG_XHIGH, False))
+
     # Finding 8: flags in the equals form, and flags after the words.
 
     def test_flags_are_stripped_wherever_they_sit(self):
