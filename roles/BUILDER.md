@@ -783,6 +783,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Tag, where the tool found none | `none returned`, and beside it the tool's own refusal message in quotes. Bare `none returned` is not a reading any more: it cannot tell a miss from a search that never ran. |
 | Tag, in the inline shape | The tag quoted from your own context, where the skill's prompt landed, then `(inline, no fork)`. There is no fork transcript to read. |
 | Tag, where the fetch failed | `not read: fetch failed`. That is not `none returned`, which says the tool ran and found nothing. |
+| Tag, where the tool refused and running it again does not clear it | `not read: refused, exit <n>`, then its message in quotes. A refusal is not `none returned`: the tool found something it could not tell apart, place or read. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
 
@@ -838,9 +839,13 @@ T=$(date -u +%Y-%m-%dT%H:%M:%SZ)     # before you invoke the skill
 python scripts/quality/review_tag.py --since "$T" --target "<your args>"
 ```
 
-**It answers for exactly one fork, or refuses.** Exit 0 means one fork, and no other, could be the
-run asked for. It never picks the newest readable one. CHANGED 2026-10-22: it listed every match and
+**It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched your
+filters. It never picks the newest readable one. CHANGED 2026-10-22: it listed every match and
 quoted the newest, and the Lander showed four ways that quoted the wrong fork's tag.
+
+**Exit 0 cannot rule out a round that left no fork.** If your round ran inline while another
+Builder's fork matched your filters, that fork is the one match. Only you know your round forked,
+so check the agent id against what your Agent call reported where you can.
 
 It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
 one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
@@ -858,15 +863,16 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 
 | Exit | Message | The Tag field |
 | --- | --- | --- |
-| 0 | the `tag:` line of the one fork | Quote it. |
+| 0 | the `tag:` line of the one fork that matched | Quote it. |
 | 3 | `no fork found; inline shape or unpersisted transcript possible` | `none returned`, with the message, unless you know the shape was inline. |
-| 4 | `no projects dir could be read`, or `a projects root could not be read; a fork there could be the one asked for` | `none returned`, with the message. |
-| 5 | `the one matching fork carried no tag line` | `none returned`, with the message. Name the fork id. |
-| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Not a result yet. Narrow with `--since`; `--any-worktree` includes them. |
+| 4 | `no projects dir could be read` | `none returned`, with the message. |
+| 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
+| 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
+| 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Not a result yet. Narrow with `--since`. Never widen with `--any-worktree` to clear it: that lets another worktree's fork in. |
 | 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. Narrow with `--since`, `--target` or `--worktree`. |
-| 8 | `no git toplevel here; pass --worktree, or --any-worktree to widen` | Not a result yet. Run it from your worktree, or name it. |
+| 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target holds only a level or flags; ...`, or `no filter selects a fork; ...` | Not a result yet. Pass the words of your arguments. |
-| 10 | `<n> fork transcript(s) in scope could not be read, so any could be the one asked for` | Not a result yet. A fork still being written reads this way; run it again once the round ends. |
+| 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.

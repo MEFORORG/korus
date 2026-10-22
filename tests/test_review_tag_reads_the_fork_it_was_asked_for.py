@@ -178,7 +178,8 @@ class OnlyALevelPipelineIsATag(Fixture):
                    shape=CLOUD, cwd="/home/user/korus", timestamp="2026-10-22T05:00:00Z")
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus", "--session", "s1")
         self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
-        self.assertIn("NONE IN RECORD 0", out)
+        self.assertIn("no tag line in record 0", out)
+        self.assertNotIn("tag:", out, "a placeholder sat on a tag: line")
 
     def test_the_ascii_spelling_of_the_pipeline_is_a_tag(self):
         # The control: the shape is the level and the arrow, in either spelling, not one byte.
@@ -531,7 +532,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
                    worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T10:00:00Z")
         code, out, _ = run(self.projects, "--worktree", WORKTREE_FORWARD)
         self.assertEqual(code, review_tag.EXIT_NO_TAG)
-        self.assertIn("NONE IN RECORD 0", out)
+        self.assertIn("no tag line in record 0", out)
+        self.assertNotIn("tag:", out, "a placeholder sat on a tag: line")
         self.assertIn(review_tag.NO_TAG_MESSAGE, out)
 
     def test_the_codes_are_distinct(self):
@@ -639,6 +641,81 @@ class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
         code, out = self._main([self.projects, other], *args)
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent elsewhere", out)
+
+
+class TheFinalRoundsFailOpens(Fixture):
+    """Round four, on 8e00ab1: the unread rule held at the root and for record 0, and not one level
+    down or for the meta file. Each case exited 0 with a fork's tag where a refusal was owed."""
+
+    STD = "Review this branch's diff against origin/main"
+
+    def test_an_unreadable_project_directory_refuses(self):
+        write_fork(self.projects, "s1", "seen", self.STD, TAG_XHIGH, project="projA",
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:00:00Z")
+        blocked = self.projects / "projB"
+        blocked.mkdir()
+        real_scandir = os.scandir
+
+        def refuse(path="."):
+            if Path(path) == blocked:
+                raise PermissionError(13, "denied", str(blocked))
+            return real_scandir(path)
+
+        args = ["--projects-dir", str(self.projects), "--session", "s1",
+                "--worktree", WORKTREE_FORWARD, "--target", self.STD]
+        out = io.StringIO()
+        with mock.patch.object(review_tag.os, "scandir", side_effect=refuse):
+            with contextlib.redirect_stdout(out):
+                code = review_tag.main(args)
+        self.assertEqual(code, review_tag.EXIT_NO_ROOT, out.getvalue())
+        self.assertNotIn("tag:", out.getvalue())
+        # The control: with the directory readable, the one fork is quoted.
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = review_tag.main(args)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out.getvalue())
+
+    def test_a_meta_file_that_cannot_be_parsed_makes_the_fork_unread(self):
+        # The meta may hold the inheritedWorktreePath that puts the fork elsewhere; without it the
+        # fork would be placed by its cwd and quoted.
+        write_fork(self.projects, "s1", "halfmeta", self.STD, TAG_HIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        meta = self.projects / "D--Code-korus" / "s1" / "subagents" / "agent-halfmeta.meta.json"
+        meta.write_text('{"inheritedWorktreePath": "D:\\\\Co', encoding="utf-8")
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", "/home/user/korus",
+                           "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertNotIn("tag:", out)
+
+    def test_an_absent_meta_file_is_no_meta_not_unread(self):
+        # The control: the cloud shape may carry no meta at all, and that fork is still read.
+        write_fork(self.projects, "s1", "nometa", self.STD, TAG_XHIGH, shape=CLOUD,
+                   cwd="/home/user/korus", timestamp="2026-10-22T09:00:00Z")
+        (self.projects / "D--Code-korus" / "s1" / "subagents" / "agent-nometa.meta.json").unlink()
+        code, out, _ = run(self.projects, "--session", "s1", "--worktree", "/home/user/korus",
+                           "--target", self.STD)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_since_rules_out_an_unread_fork_written_before_it(self):
+        # The mtime branch the final round found untested: a stale unread file older than --since
+        # is not a candidate, and without --since the same tree refuses.
+        write_fork(self.projects, "s1", "fresh", self.STD, TAG_XHIGH,
+                   worktree=WORKTREE_WINDOWS, timestamp="2026-10-22T09:30:00Z")
+        sub = self.projects / "D--Code-korus" / "s1" / "subagents"
+        stale = sub / "agent-stale.jsonl"
+        stale.write_text("", encoding="utf-8")
+        old = review_tag.parse_time("2026-10-22T08:00:00Z").timestamp()
+        os.utime(stale, (old, old))
+        args = ("--session", "s1", "--worktree", WORKTREE_FORWARD, "--target", self.STD)
+        code, out, _ = run(self.projects, *args, "--since", "2026-10-22T09:00:00Z")
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent fresh", out)
+        code, out, _ = run(self.projects, *args)
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+
+    def test_no_refusal_offers_the_widening_that_would_let_a_peer_in(self):
+        for name in ("UNPLACED_MESSAGE", "NO_TOPLEVEL_MESSAGE", "UNREAD_MESSAGE"):
+            self.assertNotIn("--any-worktree", getattr(review_tag, name), name)
 
 
 class ConfigDirNamesTheRoot(Fixture):

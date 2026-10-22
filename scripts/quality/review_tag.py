@@ -20,10 +20,12 @@ Builder subagents at spawn depth 2). The cloud sample's meta did not; its record
 The tool uses the first of the two it finds and says which on the row. A fork with neither is
 never placed by its session alone: every subagent Builder shares its Manager's session.
 
-IT ANSWERS FOR EXACTLY ONE FORK, OR REFUSES. It exits 0 only when one fork, and no other, could be
-the run asked for. More than one candidate refuses, in one session or several; so does any fork in
-scope it could not read, any root it could not read, and any fork it cannot place. It never picks
-the newest readable one. Narrow with `--since` set just before the round, and `--target`.
+IT ANSWERS FOR EXACTLY ONE FORK, OR REFUSES. It exits 0 only when exactly one fork matches the
+filters. More than one candidate refuses, in one session or several; so does any fork in scope it
+could not read (transcript or meta), any directory it could not read, and any fork it cannot place.
+It never picks the newest readable one. Narrow with `--since` set just before the round, and
+`--target`. What exit 0 cannot rule out: a run that left NO fork (the inline shape) while another
+Builder's fork matched the same filters. Only the caller knows its round forked.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -51,10 +53,11 @@ does not read. A miss therefore names that possibility instead of printing a bla
 
 Exit codes. Each failure has its own, so a caller can tell them apart without parsing text:
 
-    0  exactly one fork could be the run asked for, and it carried a tag
+    0  exactly one fork matched the filters, and it carried a tag
     2  usage error (argparse)
     3  no fork found; inline shape or unpersisted transcript possible
-    4  a projects root could not be read, whether or not a fork matched elsewhere
+    4  no projects dir could be read; or a projects directory could not be read, whether or not a
+       fork matched elsewhere
     5  exactly one fork matched, and it carried no tag line
     6  a fork in scope records no worktree, so it could be the run asked for
     7  ambiguous: more than one fork could be the run asked for
@@ -89,14 +92,17 @@ EXIT_UNREAD = 10
 # QA line may not; `tests/test_review_tag_reads_the_fork_it_was_asked_for.py` holds that.
 NO_FORK_MESSAGE = "no fork found; inline shape or unpersisted transcript possible"
 NO_ROOT_MESSAGE = "no projects dir could be read"
-PARTIAL_ROOT_MESSAGE = "a projects root could not be read; a fork there could be the one asked for"
+PARTIAL_ROOT_MESSAGE = (
+    "a projects directory could not be read; a fork there could be the one asked for"
+)
 NO_TAG_MESSAGE = "the one matching fork carried no tag line"
 UNPLACED_MESSAGE = (
     "fork(s) in scope record no worktree, so any could be the one asked for;"
-    " --any-worktree includes them"
+    " narrow with --since set before the round"
 )
 UNREAD_MESSAGE = (
-    "fork transcript(s) in scope could not be read, so any could be the one asked for"
+    "fork(s) in scope could not be read, so any could be the one asked for;"
+    " if a round is still running, run this again when it ends"
 )
 NO_SELECTOR_MESSAGE = "no filter selects a fork; pass --target words, --session, or a worktree"
 NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
@@ -104,7 +110,7 @@ AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; narrow with --since set before the round,"
     " --target or --session"
 )
-NO_TOPLEVEL_MESSAGE = "no git toplevel here; pass --worktree, or --any-worktree to widen"
+NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
 TARGET_PREFIX = "Review target:"
 
@@ -200,14 +206,18 @@ def message_text(record: dict) -> str:
     return ""
 
 
-def read_meta(transcript: Path) -> dict:
+def read_meta(transcript: Path) -> tuple[dict, bool]:
+    """(meta, read). An ABSENT meta file is no meta. One that exists and cannot be read or parsed
+    is unread: it may hold the `inheritedWorktreePath` that would place the fork elsewhere."""
     meta_path = transcript.with_name(transcript.name[: -len(".jsonl")] + ".meta.json")
     try:
         with meta_path.open(encoding="utf-8") as fh:
             value = json.load(fh)
+    except FileNotFoundError:
+        return {}, True
     except (OSError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
+        return {}, False
+    return (value, True) if isinstance(value, dict) else ({}, False)
 
 
 def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
@@ -286,9 +296,29 @@ def target_matches(wanted: str, args: str) -> bool:
     return squash(wanted) in have or words in have
 
 
-def fork_files(root: Path) -> list[Path]:
-    """Every `agent-*.jsonl` under a `subagents` directory of a session, at any depth below it."""
-    return sorted(root.glob("*/*/subagents/**/agent-*.jsonl"))
+def fork_files(root: Path, unreadable: list[Path]) -> list[Path]:
+    """Every `agent-*.jsonl` under a `subagents` directory of a session, at any depth below it.
+
+    A walk, not a glob: glob skips a directory it cannot read without a word, and a fork in that
+    directory could be the one asked for. Every directory that could not be read is recorded.
+    """
+
+    def failed(err: OSError) -> None:
+        unreadable.append(Path(err.filename) if err.filename else root)
+
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root, onerror=failed):
+        depth = len(Path(dirpath).relative_to(root).parts)
+        if depth == 2:
+            # <project>/<session>: only its subagents directory can hold a fork.
+            dirnames[:] = [d for d in dirnames if d == "subagents"]
+        if depth >= 3:
+            found.extend(
+                Path(dirpath) / f
+                for f in filenames
+                if f.startswith("agent-") and f.endswith(".jsonl")
+            )
+    return sorted(found)
 
 
 @dataclass
@@ -329,29 +359,31 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     result = Scan()
     want = normalize_path(filters.worktree) if filters.worktree else None
     for root in roots:
-        if not root.is_dir():
+        try:
+            # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
+            # denied stat raises from is_dir, and on 3.14 is_dir answers False, filing the root
+            # as missing when it is only unreadable.
+            os.listdir(root)
+        except (FileNotFoundError, NotADirectoryError):
             result.missing_roots.append(root)
             continue
-        try:
-            # The probe is the unreadable-root check: glob swallows a permission error and returns
-            # nothing, which would read as "no fork" rather than "could not look".
-            os.listdir(root)
-            files = fork_files(root)
         except OSError:
             result.unreadable_roots.append(root)
             continue
+        files = fork_files(root, result.unreadable_roots)
         for transcript in files:
             parts = transcript.relative_to(root).parts
             session_id = parts[1] if len(parts) > 1 else ""
             if filters.session and session_id != filters.session:
                 continue
             agent_id = transcript.name[len("agent-") : -len(".jsonl")]
-            fork = Fork(transcript, agent_id, session_id, read_meta(transcript))
+            meta, meta_read = read_meta(transcript)
+            fork = Fork(transcript, agent_id, session_id, meta)
             try:
                 record, head = read_record_zero(transcript)
             except OSError:
                 record, head = None, []
-            if record is None:
+            if record is None or not meta_read:
                 # Unread is not absent: a fork still being written could be the very run asked
                 # for. Only what proves it is elsewhere rules it out -- a recorded worktree that
                 # differs, or a file last written before --since.
@@ -429,7 +461,11 @@ def render(forks: list[Fork], ascii_only: bool, verbose: bool) -> list[str]:
     for fork in forks:
         out.append(f"fork | {stamp(fork.time)} | agent {fork.agent_id}")
         out.append(f"  target: {spell(fork.target, ascii_only) or '(none)'}")
-        out.append(f"  tag: {spell(fork.tag, ascii_only) if fork.tag else 'NONE IN RECORD 0'}")
+        # No placeholder on a `tag:` line: what follows `tag:` is quoted as the tag.
+        if fork.tag:
+            out.append(f"  tag: {spell(fork.tag, ascii_only)}")
+        else:
+            out.append("  no tag line in record 0")
         out.append(f"  placed by: {fork.placed_by}")
         if verbose:
             meta = fork.meta
