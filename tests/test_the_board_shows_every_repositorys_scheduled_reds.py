@@ -349,8 +349,31 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
     def test_a_later_page_reporting_fewer_runs_refuses(self):
         # Lander review of dc92f8e, finding 4: pages saying 365 then 100, 100 rows read.
         read = lines(greens(1, 100), total=365) + lines([], total=100)
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit) as cm:
             read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_later_page_reporting_more_runs_than_the_rows_refuses(self):
+        # Lander review of 39010fc, finding 1: pages saying 100 then 365, 100 rows read.
+        read = lines(greens(1, 100), total=100) + lines([], total=365)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 100 were read", str(cm.exception.code))
+
+    def test_a_later_page_past_the_cap_refuses(self):
+        # Lander review of 39010fc, finding 2: the cap applies to every page, not only the first.
+        read = lines(greens(1, 100), total=999) + lines([], total=collect.RUNS_API_CAP + 1)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("narrow SCHEDULE_WINDOW_DAYS", str(cm.exception.code))
+
+    def test_more_distinct_rows_than_any_total_refuses(self):
+        # Lander review of 39010fc, finding 3: two pages saying 100 that hold 200 distinct runs.
+        read = lines(greens(1, 100), total=100) + lines(greens(101, 100), total=100)
+        with self.assertRaises(SystemExit) as cm:
+            read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("read 200 distinct scheduled runs, more than the 100 any page reported",
+                      str(cm.exception.code))
 
     def test_a_zero_then_reads_with_no_page_refuses(self):
         # Lander review of dc92f8e, finding 2: two failed reads are not agreement.
@@ -369,18 +392,22 @@ class AReadThatCannotBeTrustedRefuses(unittest.TestCase):
 
     def test_a_zero_first_page_with_a_later_page_saying_runs_exist_is_not_a_zero(self):
         read = lines([], total=0) + lines([], total=365)
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit) as cm:
             read_in_turn([read] * collect.RUNS_READ_ATTEMPTS)
+        self.assertIn("365 scheduled runs in the window but 0 were read", str(cm.exception.code))
 
     def test_two_pages_read_whole_are_read_once(self):
         answers = [lines(greens(1, 100), total=150) + lines(greens(101, 50), total=150), "unused"]
         got = read_in_turn(answers)
         self.assertEqual((answers, got["read"]), (["unused"], 1))
 
-    def test_a_run_created_mid_read_raises_a_later_total_and_still_reads_whole(self):
-        answers = [lines(greens(1, 100), total=150) + lines(greens(101, 51), total=151), "unused"]
-        read_in_turn(answers)
-        self.assertEqual(answers, ["unused"])
+    def test_a_run_created_mid_read_is_short_and_the_next_read_settles_it(self):
+        # The new run shifts page 2 down one, so page 2 repeats a row and the new run is unread.
+        grown = lines(greens(1, 100), total=150) + lines(greens(100, 51), total=151)
+        settled = lines(greens(1, 100), total=151) + lines(greens(101, 51), total=151)
+        answers = [grown, settled, "unused"]
+        got = read_in_turn(answers)
+        self.assertEqual((answers, got["read"]), (["unused"], 1))
 
     def test_a_whole_first_read_is_read_once(self):
         answers = [lines([run(1, 1, "failure", "2026-10-01T00:00:00Z")]), "unused"]

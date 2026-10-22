@@ -157,23 +157,26 @@ def read_scheduled_runs(full, since_day):
     return RunRead(pages, seen, by_flow)
 
 
-def run_read_state(read, bar=0):
-    """`whole`, `zero`, `short`, `cap` or `none` for one read, judged against its FIRST page's total
-    and against `bar`, the highest first-page total any read of this window has reported.
+def run_total(reads):
+    """The highest total any page of any read of this window reported, 0 when none did."""
+    return max([t for r in reads for t in r.pages] or [0])
 
-    A later page may report more (a run created mid-read) but never fewer: a lower total, a zero
-    among them included, is the shape a failed page takes, so that read is short. For the same
-    reason a read reporting fewer runs than an earlier read did is short."""
+
+def run_read_state(read, bar):
+    """`whole`, `zero`, `short` or `none` for one read, judged against `bar`, the highest total
+    any page of any read of this window reported (`run_total`).
+
+    A read is whole only when every one of its pages reports `bar` and its distinct rows number
+    exactly `bar`. Any page reporting less, a zero among them, is the shape a failed page takes,
+    and rows past the total mean the pages do not describe one list. A run created mid-read
+    raises a later total, so that read is short and the next read settles it."""
     if not read.pages:
         return "none"
-    first = read.pages[0]
-    if first > RUNS_API_CAP:
-        return "cap"
-    if min(read.pages) < first:
-        return "short"
-    if max(read.pages) == 0 and not bar:
+    if bar == 0:
         return "zero" if not read.seen else "short"
-    return "whole" if first >= bar and len(read.seen) >= max(first, 1) else "short"
+    if all(t == bar for t in read.pages) and len(read.seen) == bar:
+        return "whole"
+    return "short"
 
 
 def chosen_run_read(reads, active):
@@ -181,7 +184,7 @@ def chosen_run_read(reads, active):
 
     A whole read wins. A page saying the window holds no run is believed at once only when no
     workflow is active; otherwise only when every one of RUNS_READ_ATTEMPTS reads says so."""
-    bar = max([r.pages[0] for r in reads if r.pages] or [0])
+    bar = run_total(reads)
     states = [run_read_state(r, bar) for r in reads]
     for read, state in zip(reads, states):
         if state == "whole":
@@ -285,20 +288,22 @@ def scheduled_reds(full, since_day):
         if attempt:
             time.sleep(RUNS_RETRY_WAIT_S)
         reads.append(read_scheduled_runs(full, since_day))
-        if run_read_state(reads[-1]) == "cap":
+        bar = run_total(reads)
+        if bar > RUNS_API_CAP:
             refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
-                   "SCHEDULE_WINDOW_DAYS." % (full, reads[-1].pages[0], SCHEDULE_WINDOW_DAYS,
-                                              RUNS_API_CAP))
+                   "SCHEDULE_WINDOW_DAYS." % (full, bar, SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
         chosen = chosen_run_read(reads, active)
         if chosen is not None:
             break
     if chosen is None:
-        # Name the most complete read that came back, so the refusal says how far it got.
-        paged = [r for r in reads if r.pages and r.pages[0]]
-        if paged:
-            best = max(paged, key=lambda r: len(r.seen))
+        # Say how far the most complete read got, so the refusal names the shape it saw.
+        most = max(len(r.seen) for r in reads)
+        if most > bar:
+            refuse("%s read %d distinct scheduled runs, more than the %d any page reported."
+                   % (full, most, bar))
+        if bar:
             refuse("%s reports %d scheduled runs in the window but %d were read."
-                   % (full, best.pages[0], len(best.seen)))
+                   % (full, bar, most))
         if any(r.pages for r in reads):
             refuse("The scheduled run list for %s said it held no run on only some of %d reads, "
                    "and no read was whole." % (full, len(reads)))

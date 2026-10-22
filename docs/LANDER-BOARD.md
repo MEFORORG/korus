@@ -324,9 +324,9 @@ reader can see.
 paginated read stopped at a page boundary with no error on most collects that day, and the next
 read was whole.
 
-Each page prints its own total, and a read is judged against its first page's total. It is whole
-only when every later page reports at least that total, no earlier read reported more, and the
-rows reach it.
+Each page prints its own total. Every read is judged against the highest total any page of any
+read reported, and that figure is the one the cap applies to. A read is whole only when each of
+its pages reports that total and its distinct rows number exactly that total.
 
 A page saying the window holds no run is believed at once when no workflow is active. Otherwise
 it is believed only when all three reads say so. Any other mix refuses.
