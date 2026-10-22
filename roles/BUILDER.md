@@ -798,22 +798,34 @@ about the skill, and flattening it to one number throws away the only place that
 -> ...` line if the skill returned one, otherwise `none returned`"*. The skill never returns it.
 So that row could record only `none returned`, and a QA line could not prove which level ran.
 
-The five Tag rows above replace it, and the example block read `Tag: none returned.` until then.
+The six Tag rows above replace it, and the example block read `Tag: none returned.` until then.
 The measurements in the subsections below stand: they are why the tag is not in the reply.
 
 **The tag proves which prompt template the skill selected, not that the fork obeyed it.** It is
 the first thing the fork was told. Whether its findings honour the angle count or the cap is not
 in the tag, and nothing here measures it.
 
-Where it lands, relayed from the dispatching Manager's brief and not re-run here. One Windows
-session, CLI 2.1.301, 2026-10-22:
+Where it lands. The Windows column is relayed from the dispatching Manager's brief and was not
+re-run here. The cloud column is this branch's own round one, read 2026-10-22:
 
-| Read | What it held |
-| --- | --- |
-| The fork's transcript | `<projects dir>/<project>/<session id>/subagents/agent-<id>.jsonl`. |
-| Its record 0 | A user message beginning `Review target: <args>`. Line 2 is the tag, in backticks. |
-| The sibling `agent-<id>.meta.json` | `parentAgentId`, `inheritedWorktreePath` with Windows backslashes, `spawnDepth` and `agentType`. |
-| The sample | Five forks, all carrying the tag, all at `spawnDepth` 2 under a Builder subagent. |
+| Read | Windows, CLI 2.1.301, five forks (relayed) | Cloud, CLI 2.1.307, one fork |
+| --- | --- | --- |
+| The transcript | `<projects dir>/<project>/<session id>/subagents/agent-<id>.jsonl` | The same path, under `~/.claude/projects`. |
+| Record 0's head | `Review target: <args>`, then the tag "on line 2", in backticks | `` Review target: `<args>` ``, a blank line 2, then the tag on line 3, in backticks. |
+| Where it ran | `inheritedWorktreePath` in the meta, with Windows backslashes | Not in the meta. Record 0 carries `cwd`. |
+| The meta's other keys | `parentAgentId`, `spawnDepth` 2, `agentType` | `spawnDepth` 1, `agentType`, two request keys. No `parentAgentId`. |
+| Who ran it | A Builder subagent | A top-level cloud session, in its own worktree. |
+
+The cloud column was read with this, and the tool then read the same fork:
+
+```bash
+head -1 ~/.claude/projects/*/<session id>/subagents/agent-<id>.jsonl \
+  | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["cwd"], r["version"])'
+```
+
+**So the tag's line number is not fixed, and the tool does not assume one.** It takes the first
+line of record 0's head that has the `<level> effort` shape. Its first draft read line 2 alone,
+and on the real fork it printed no tag.
 
 **Run it after each round, from your worktree:**
 
@@ -821,52 +833,69 @@ session, CLI 2.1.301, 2026-10-22:
 python scripts/quality/review_tag.py --target "<your args>"
 ```
 
-It reads the meta file first, then record 0 alone, and of that only two lines. No later record is
+It reads the meta file, then record 0 alone, and of that only the first 12 lines. No later record is
 read or printed. Paths appear only under `--verbose`, because the leak gate forbids a home path in
 a QA line.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | Substring of the arguments you passed. The skill drops a level that parsed from its `Review target` line, so a leading level in yours is tolerated. |
-| `--worktree` | Defaults to the current git toplevel. Compared on normalized separators, and case-folded on Windows. |
-| `--session`, `--since`, `--latest` | Narrow further. Every match is listed oldest first, numbered as rounds. |
+| `--target` | Your arguments, or a substring. The skill drops a level that parsed from its `Review target` line, so a leading level and the skill's flags are stripped first. |
+| `--worktree` | Defaults to the current git toplevel. Matched against `inheritedWorktreePath`, else record 0's `cwd`. Separators normalized, case folded on Windows. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. |
+| `--since`, `--latest` | Narrow further. `--since` needs an offset. Every match is listed oldest first, numbered as rounds. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
+
+Each row prints `placed by:`, naming which of the three placed it: the meta's path, record 0's
+`cwd`, or the session alone.
 
 | Exit | Message | The Tag field |
 | --- | --- | --- |
-| 0 | the `tag:` line | Quote it. |
+| 0 | the `tag:` line of the newest fork | Quote it. |
 | 3 | `no fork found; inline shape or unpersisted transcript possible` | `none returned`, with the message, unless you know the shape was inline. |
-| 4 | `no projects dir could be read` | `none returned`, with the message. |
-| 5 | `matching fork(s) found, and none carried a tag on line 2` | `none returned`, with the message. Name the fork ids. |
+| 4 | `no projects dir could be read`, or `a projects root could not be read, and no fork matched in the rest` | `none returned`, with the message. |
+| 5 | `the newest matching fork carried no tag line` | `none returned`, with the message. Name the fork ids. |
+| 6 | `<n> fork(s) found with no recorded worktree; pass --session to match them` | Not a result yet. Pass `--session` and run it again. |
 
 **No line it prints carries the word the QA line may not, except `target:`.** That line echoes your
-own arguments. The tool's file name carries the word, so the QA line names the fork, not the tool.
+own arguments, and the header does not. The tool's file name carries the word, so the QA line names
+the fork, not the tool.
 
-**A fork with no `inheritedWorktreePath` cannot match on the worktree.** The tool then matches it
-by `--session` or `--target`, says so on the row, and skips it aloud when you gave neither.
+**The session default keeps another session's fork out.** It is set in the cloud session measured
+here, where it named the directory the fork landed under. Whether a local Windows session sets it is
+not measured; where it is unset, pass `--session` or `--since`.
 
-**A Builder sharing its Manager's worktree matches the Manager's forks too.** The worktree filter
-cannot tell them apart. `--target` and `--since` can, so pass both there.
+**A Builder subagent shares its Manager's session and may share its worktree.** Neither filter can
+tell their forks apart then. `--target` and `--since` can, so pass both there.
 
 **Where korus is not checked out, fetch the tool pinned to a commit SHA, never `main`.** A Builder
-in the cloud, or in another repository, runs:
+in the cloud, or in another repository, runs this. Every step stops the chain, and the directory is
+new, so no older copy can run in its place:
 
 ```bash
-sha=$(git ls-remote https://github.com/MEFORORG/korus refs/heads/main | cut -f1)
-curl -fsSL -o "${TMPDIR:-/tmp}/review_tag.py" \
-  "https://raw.githubusercontent.com/MEFORORG/korus/$sha/scripts/quality/review_tag.py"
-python "${TMPDIR:-/tmp}/review_tag.py" --target "<your args>"
+d=$(mktemp -d) &&
+sha=$(git ls-remote https://github.com/MEFORORG/korus refs/heads/main | cut -f1) &&
+test -n "$sha" &&
+curl -fsSL -o "$d/review_tag.py" \
+  "https://raw.githubusercontent.com/MEFORORG/korus/$sha/scripts/quality/review_tag.py" &&
+echo "review_tag.py at $sha" &&
+python "$d/review_tag.py" --target "<your args>"
 ```
 
 **Name the SHA in your report under 4d,** so the tool that read the tag is a fixed file. Where a
-step fails, the Tag field reads `not read: fetch failed`. That is not `none returned`.
+step before the last fails, the Tag field reads `not read: fetch failed`. That is not
+`none returned`.
 
-**Network reach from a cloud Builder is not measured.** One reading only, in this branch's cloud
-session: a raw fetch of a korus file at a pinned SHA returned 200. The repository is public.
+**Network reach from a cloud Builder is not measured beyond one reading.** In this branch's cloud
+session, the repository being public, this returned `200`:
 
-**NOT measured, 0 samples each:** a review run from a top-level session, a Builder sharing its
-Manager's worktree, and the inline shape. In that shape there is no fork, and the prompt lands in
-the caller's own transcript, which the tool does not read.
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  https://raw.githubusercontent.com/MEFORORG/korus/48109a1884e46d1c7ea599b22e2575235001f485/scripts/quality/expiry_audit.py
+```
+
+**NOT measured, 0 samples each:** a Windows top-level session, a Builder sharing its Manager's
+worktree, a Linux Builder subagent, and the inline shape. In that shape there is no fork, and the
+prompt lands in the caller's own transcript, which the tool does not read.
 
 #### That table said the first line already carried the level, and it did not
 
