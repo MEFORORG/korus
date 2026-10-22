@@ -1051,7 +1051,7 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
 | The other open findings are filed as rows before the merge | The approved words: *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* |
 | The row comes first, for now | The approved words are *"are filed"*, and only this ruling grants a merge past a finding that once went to the owner. That is the fit with *Filing never holds a green pull request* until the owner answers. |
-| Since 2026-10-22 | A record under the owner's delegation also grants it. *What you check on a delegated record*. |
+| Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
 | One question is still with the owner | May you name a finding on the pull request, merge, and file its row after? Asked 2026-10-12. This row is edited when the owner answers. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. A queued row does not count. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
@@ -1813,8 +1813,8 @@ no longer the PR's.
 | So | If the grant and this clause appear to disagree about whether you HAVE a grant, the grant is the grant and this clause is about what you may INFER. |
 | The fallback | With NO lander running, remote operations go to **the owner**, not to whichever worker holds the branch. A worker who cannot reach a lander is **blocked, not promoted**. |
 | Bare approvals | When the owner volunteers an approval for a remote action the grant does not already cover, a bare "yes" does not tell you which route, so ask which. |
-| A `/driver` or `/empower` answer | Not a bare yes. It delegates that specific question to the asking seat (2026-10-22). COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*. |
 | Where that does NOT apply | Where the grant already covers the authority. There "use your best judgement" is delegation inside a grant you hold, not a bare approval standing in for one. |
+| A `/driver` or `/empower` answer | Not a bare yes. It delegates that specific question to the asking seat (2026-10-22). COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*. |
 | Work arriving unannounced | A seat with finished work routes it to you without asking anyone. Owner ruling 2026-08-20: *"the fact that you had to ask for the route is a failure of our current roles setup."* |
 | So | A lane triple arriving unannounced is the system working, not a seat overstepping. The discriminator is **who raised the route**. |
 | The vault is inside clause 1 | Owner, 2026-08-12: *"I also give you authority to push, merge, etc on the vault"*, so vault remote operations route to the lander on the same footing as the engine repo. |

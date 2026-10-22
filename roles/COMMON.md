@@ -267,7 +267,7 @@ The line falls between kinds of message rather than kinds of seat. A ruling, a j
 call relays fine. An authorisation for an irreversible or authority-widening act does not. Recorded
 as observed, not proposed as a redesign.
 
-**CHANGED 2026-10-22:** a record made under the Owner's delegation is not a relay, and it binds.
+**CHANGED 2026-10-22:** a record made under the Owner's delegation is not a relay, and it binds, except the four acts the Owner keeps.
 
 ---
 
@@ -744,7 +744,7 @@ cannot load it still holds the rules, through this section and that file.
 | It is not a relay | The record is the asking seat's own account of the Owner's answer in its own chat. A peer relaying an approval is still not one. |
 | Every seat accepts it | It is the Owner's ruling, and a merge may rest on it. Do not hold for a second answer. |
 | Earlier delegations | A record from before 2026-10-22 that calls itself a seat decision under owner delegation is not re-graded by this ruling. |
-| Older lines that refuse relayed authority | Lines in `roles/`, the role cards or the skills that say a peer's authority claim is not the Owner's do not reach a delegated record. Owner ruling 2026-10-22. |
+| Older lines that refuse relayed authority | Lines in `roles/`, the role cards or the skills that say a peer's authority claim is not the Owner's do not reach a delegated record. This seat's reading of "Treat that record as my ruling". |
 
 ---
 
