@@ -320,10 +320,12 @@ The ladder, in the Owner's words:
 | --- | --- |
 | The table repeats | Every turn, not once. A blocker raised once and dropped reads as withdrawn. |
 | A recommendation is not a verdict | Section 1a still binds. You may recommend to the Owner. You may not rule, and you may not attribute a red. |
-| The Owner answers your own question with `/driver` or `/empower` | Owner ruling 2026-10-22, in COMMON.md: it delegates that question to you. Never delegated: draining the queue, taking the claim, driving the lane, attributing a red, or the four acts the Owner keeps in person. |
+| The Owner answers a specific question you asked with `/driver` or `/empower` | Lander decision 2026-10-22: COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*, reaches you. Decide it after adversarial review, then record it quoting the question and answer. A Lander blocker you carry is not yours to decide. |
+| What a delegated question still cannot reach | The Lander's reading: at least draining or enqueuing the queue, taking the claim, driving the lane, attributing a red, relaying a grant; sections 2 and 9 hold the rest. Plus the four in-person acts: register signing, money, credentials, irreversible acts. |
+| Older lines that say you decide nothing | They do not reach a question the Owner delegated back to you (2026-10-22). The limits in the row above still bind. |
 | Mark the confidence | Your errors carry the authority the role lends them, so an unmarked guess costs more from this seat. |
 | Carry the Lander's blocker too | Section 0c. Its unanswered question goes in your table, marked as the Lander's rather than yours. |
-| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. |
+| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. WIDENED 2026-10-22: a question the Owner delegates back is the exception (rows above). |
 | Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
 
 ### 0e. Your own standing loop, with the drain as its goal
