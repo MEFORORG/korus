@@ -48,9 +48,9 @@ the next line that is not blank. Where the first line leaves a backtick open, or
 while a later line above the last tag-shaped one does (any line, in a tagless fork), or the next line
 is no tag and a later line is one, or two lines have a tag's shape, the arguments may span lines: the
 tool refuses (exit 13) rather than read a line of them as the tag, call the fork tagless, or call it
-absent. A fork kept only by a nonce below its target line is a mention where another fork carries
-the nonce on its target line, and is out of scope outside the caller's worktree. Keep the arguments
-on one line.
+absent, and names each such fork on a candidate line. A peer whose nonce-less target line sits above
+a mention of the round's nonce refuses the same way: a mention cannot be told from split arguments.
+Keep the arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -458,11 +458,8 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
-    #: Forks whose arguments may span lines, kept by their target line.
+    #: Forks whose arguments may span lines. Each one refuses, and is named on a candidate line.
     unsplit: list[Fork] = field(default_factory=list)
-    #: Forks kept only by a nonce below their target line: the fork's own, or a mention of it.
-    #: They refuse only where no fork matched on its target line, since a nonce is fresh each round.
-    mentioned: list[Fork] = field(default_factory=list)
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -532,14 +529,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
-            mentioned = False
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit fork's arguments are known only in part, so a nonce below its target
-                # line keeps it. That nonce may be the fork's own or a mention of the caller's.
+                # line keeps it. That nonce may be the fork's own or a mention of the caller's, and
+                # nothing tells the two apart, so the fork stays in scope and the run refuses.
                 if not (fork.unsplit and any(own_nonce_matches(filters.target, nonce)
                                              for nonce in fork.own_nonces)):
                     continue
-                mentioned = not NONCE_SHAPE.search(fork.target)
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
                 try:
@@ -553,12 +549,6 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
-            if mentioned:
-                # Only a fork in the caller's own worktree can stand in for the caller's round. A
-                # mention elsewhere, or in a fork placed nowhere, says nothing about this round.
-                if placed:
-                    result.mentioned.append(fork)
-                continue
             if placed is None and nonced:
                 # The target filter already ran, so this fork carries the caller's own nonce: the
                 # nonce places it, where a worktree cannot.
@@ -604,6 +594,10 @@ def spell(text: str, ascii_only: bool) -> str:
 
 def stamp(value: dt.datetime | None) -> str:
     return value.strftime("%Y-%m-%dT%H:%M:%SZ") if value else "time unknown"
+
+
+def candidate_line(fork: Fork) -> str:
+    return f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}"
 
 
 def render(
@@ -756,13 +750,12 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
-    # A fork kept only by a nonce below its target line stands aside when one matched on its
-    # target line: the nonce is fresh each round, so that one is the round's, and this a mention.
-    split = result.unsplit + ([] if result.forks or result.unsplit else result.mentioned)
-    if split:
-        print(f"{len(split)} {UNSPLIT_MESSAGE}")
-        for fork in split:
-            print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
+    if result.unsplit:
+        # Named, because a peer that only mentions the nonce refuses too, and the caller's own
+        # arguments may have been on one line.
+        print(f"{len(result.unsplit)} {UNSPLIT_MESSAGE}")
+        for fork in result.unsplit:
+            print(candidate_line(fork))
         return EXIT_UNSPLIT
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
@@ -776,7 +769,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(result.forks) > 1:
         print(AMBIGUOUS_MESSAGE)
         for fork in result.forks:
-            print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
+            print(candidate_line(fork))
         return EXIT_AMBIGUOUS
 
     for line in render(result.forks, args.ascii, args.verbose, attributable):

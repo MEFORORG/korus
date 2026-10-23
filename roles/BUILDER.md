@@ -888,20 +888,19 @@ That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a ta
 second, a fork with its nonce below the target line exited 3, `no fork found`.
 Under the fourth, a tag-shaped second line of unquoted arguments was quoted as the tag, exit 0.
 
-**A fork kept only under the second row may be a mention, so it counts in three cases:**
+**The second row cannot tell your split arguments from a peer's mention, so both refuse.** Exit 13
+names each such fork on a `candidate` line. Where one names a fork that is not yours, a peer in your
+session and worktree cited your nonce below a nonce-less target line.
 
-| Where that fork ran | Another fork carries the nonce on its target line | Exit |
+**That residual is kept on purpose.** Two other rules were tried on PR 240 and both failed:
+
+| Commit | Rule | What broke |
 | --- | --- | --- |
-| Your worktree | No | 13, naming it on a `candidate` line |
-| Your worktree | Yes | It stands aside: a nonce is fresh each round |
-| Another worktree, or none recorded | Either | It is out of scope: never 12, never placed by the nonce |
+| `5db01b5` | Only a nonce leading line 2 below a level or flags counts | Any other split fork read as absent, exit 3, and `none returned` was published over it. The Lander held the pull request on it. |
+| `0b836ef` | A mention stands aside where another fork carries the nonce on its target line | A peer citing your nonce on its target line was quoted at exit 0, with its own level, over your split fork. |
 
-**The first row is a residual, kept on purpose.** Where your round left no fork, a peer that cites
-your nonce refuses your run. Reading it as absent was the alternative, and it would also read your
-own split fork as absent, publishing `none returned` over a fork that existed.
-
-The Lander held PR 240 on that at `5db01b5`, which narrowed the row to a nonce leading line 2 below
-a level or flags. `ca0304b` widened it back and refused every mention; the table above replaced it.
+A mention in another worktree reads as exit 12, and one recording no worktree is placed by the
+nonce. Each may be your own split fork, so neither reads as absent.
 
 **The fourth row rests on one tag per template.** Read 2026-10-22 against the CLI 2.1.308 binary:
 
