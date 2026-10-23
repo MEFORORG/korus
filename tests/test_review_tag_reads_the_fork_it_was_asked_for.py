@@ -586,8 +586,9 @@ class EveryMissIsLoudAndDistinct(Fixture):
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
                  review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
-                 review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED, 1, 2}
-        self.assertEqual(len(codes), 15, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED,
+                 review_tag.EXIT_UNKNOWN_NOTICE, 1, 2}
+        self.assertEqual(len(codes), 16, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1360,9 +1361,13 @@ class TheNoticesAboveTheTargetLine(Fixture):
 
     def test_parenthesised_prose_that_is_no_notice_refuses(self):
         # Round one: any line in parentheses was skipped, so a helper's brief above a pasted head
-        # read at exit 0 and its text landed on a `tag:` line. Only the skill's openings skip.
+        # read at exit 0 and its text landed on a `tag:` line. Only the skill's sentences skip.
+        # CHANGED 2026-10-23: this refused as exit 14. One line in parentheses above a canonical
+        # head now has its own refusal, exit 15, which names its opening words.
         self._write("helper", self._body("(Check this QA line for me)"))
-        self._refused(*self._main())
+        code, out = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
 
     def test_a_brief_quoting_the_target_line_with_no_tag_does_not_block(self):
         # Round one: a finder's or helper's brief quoting the round's target line refused the
@@ -1408,13 +1413,213 @@ class TheNoticesAboveTheTargetLine(Fixture):
 
         def absent(lines):
             found = real(lines)
-            return review_tag.Head() if found.refusal == "displaced" else found
+            return review_tag.Head() if found.refusal is review_tag.Refusal.DISPLACED else found
 
         with mock.patch.object(review_tag, "read_head", side_effect=absent):
             code, out = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
         code, out = self._main()
         self._refused(code, out)
+
+
+class TheRoundTwoFindingsOfPr243(Fixture):
+    """PR 243 handed on seven round-two findings and two older edges. Each rule below sits beside a
+    control of the nearest shape that reads the other way. The notices are the measured sentences
+    in `TheNoticesAboveTheTargetLine`; the budget line is copied from CLI 2.1.309's prompt builder,
+    with its count filled in."""
+
+    NONCE = TheNoticesAboveTheTargetLine.NONCE
+    ARGS = TheNoticesAboveTheTargetLine.ARGS
+    FINDINGS = TheNoticesAboveTheTargetLine.FINDINGS
+    LOCAL = "(Running a local xhigh-effort review and applying its findings.)"
+    BUDGET = ("This diff is about 420 lines. Spawn about 3 finder subagents (min 2, max 8) \u2014"
+              " scale your investigation depth to the diff size rather than using a fixed large"
+              " fleet.")
+    OTHER = "D:/Code/korus-wt-b"
+
+    def _body(self, *notices, args=None, between=""):
+        opening = "".join(notice + "\n\n" for notice in notices)
+        return (f"{opening}Review target: `{args or self.ARGS}`\n\n{between}`{TAG_XHIGH}`\n\n"
+                "You are reviewing ...")
+
+    def _write(self, agent, body, cwd="/home/user/korus"):
+        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd=cwd,
+                   timestamp="2026-10-23T09:00:00Z", body=body)
+
+    def _main(self, target=None):
+        out, err = io.StringIO(), io.StringIO()
+        argv = ["--projects-dir", str(self.projects), "--session", "s1",
+                "--worktree", "/home/user/korus", "--target", target or self.NONCE]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def _found(self, code, out, agent="mine"):
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertIn(f"agent {agent}", out)
+
+    # 1. A brief that pastes the whole head no longer refuses the caller's real fork.
+
+    def test_1_a_brief_pasting_the_head_is_set_aside_beside_the_callers_fork(self):
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._write("mine", self._body(self.FINDINGS))
+        code, out, _ = self._main()
+        self._found(code, out)
+        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent helper", out)
+
+    def test_1_control_the_brief_alone_still_refuses(self):
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_1_control_two_canonical_forks_beside_it_stay_ambiguous(self):
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._write("mine", self._body())
+        self._write("twin", self._body())
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("tag:", out)
+
+    def test_1_the_set_aside_line_carries_no_banned_word(self):
+        self.assertNotIn("review", review_tag.SET_ASIDE_MESSAGE.lower())
+
+    # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
+
+    def test_2_prose_opening_with_a_notices_words_is_not_skipped(self):
+        for agent, line in (("local", "(Running a local check of the tree first.)"),
+                            ("upto", "(Reporting up to three issues is plenty.)")):
+            with self.subTest(line=line):
+                self._write(agent, self._body(line))
+                code, out, _ = self._main()
+                self.assertNotEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertNotIn("tag:", out)
+                (self.projects / "D--Code-korus" / "s1" / "subagents" /
+                 f"agent-{agent}.jsonl").unlink()
+
+    def test_2_control_the_whole_sentence_is_skipped(self):
+        self._write("mine", self._body(self.LOCAL))
+        self._found(*self._main()[:2])
+
+    def test_2_every_notice_template_is_one_line_in_parentheses(self):
+        for template in review_tag.NOTICE_TEMPLATES:
+            with self.subTest(template=template[:40]):
+                self.assertTrue(template.startswith("(") and template.endswith(")"), template)
+                self.assertNotIn("\n", template)
+
+    # 3. A displaced brief in another worktree is not the round's fork found elsewhere.
+
+    def test_3_an_inline_round_beside_a_displaced_brief_elsewhere_is_no_fork(self):
+        self._write("helper", "Run this for me:\n\n" + self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_3_control_a_canonical_fork_elsewhere_is_still_exit_12(self):
+        self._write("mine", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    # 4. An unknown notice above a canonical head has its own exit, and names its opening words.
+
+    def test_4_an_unknown_notice_refuses_with_its_own_exit_and_words(self):
+        notice = "(Reporting the top findings first, as a later CLI might say it.)"
+        self._write("mine", self._body(notice))
+        code, out, err = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertIn(review_tag.UNKNOWN_NOTICE_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+        self.assertIn("(Reporting the top findings first, as ...", err)
+        self.assertIn("agent mine", err)
+
+    def test_4_the_opening_words_are_printed_in_ascii(self):
+        self._write("mine", self._body("(A dash \u2014 in a notice nobody measured.)"))
+        code, _, err = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE)
+        self.assertIn("\\u2014", err)
+        err.encode("ascii")
+
+    def test_4_control_a_measured_notice_in_the_same_place_reads(self):
+        self._write("mine", self._body(self.FINDINGS))
+        self._found(*self._main()[:2])
+
+    def test_4_an_unknown_notice_above_a_tagless_target_is_no_fork(self):
+        # A brief quoting the target line with no tag is no skill prompt, notice-shaped or not.
+        self._write("brief", "(Please look at this.)\n\nReview target: `" + self.ARGS + "`\n\nGo.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_4_an_unknown_notice_beside_the_callers_fork_still_refuses(self):
+        # Set aside is for displaced heads only: an unknown notice may be the round's own fork.
+        self._write("new", self._body("(A notice a later CLI added.)"))
+        self._write("mine", self._body())
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+
+    # 5. One table maps each refusal to its exit and message.
+
+    def test_5_every_refusal_has_one_row_with_a_distinct_exit(self):
+        self.assertEqual(set(review_tag.REFUSALS), set(review_tag.Refusal))
+        exits = [rule.exit for rule in review_tag.REFUSALS.values()]
+        self.assertEqual(len(exits), len(set(exits)))
+        for rule in review_tag.REFUSALS.values():
+            self.assertTrue(rule.message.endswith(("tag", "line", "stderr")), rule.message)
+
+    def test_5_a_refusal_lands_in_its_own_list_never_in_forks(self):
+        self._write("mine", self._body("(A notice a later CLI added.)"))
+        result = review_tag.scan([self.projects], review_tag.Filters(
+            "/home/user/korus", self.NONCE, "s1", None))
+        self.assertEqual(result.forks, [])
+        self.assertEqual(len(result.refused[review_tag.Refusal.UNKNOWN_NOTICE]), 1)
+
+    # 6. A transcript with no target line is ruled out before it is copied or scanned for tags.
+
+    def test_6_no_target_line_means_no_tag_scan(self):
+        lines = [f"line {n}" for n in range(200)] + [f"`{TAG_XHIGH}`"]
+        with mock.patch.object(review_tag, "is_tag", wraps=review_tag.is_tag) as probe:
+            self.assertEqual(review_tag.displaced_targets(lines), [])
+        self.assertEqual(probe.call_count, 0)
+
+    def test_6_control_a_target_line_is_still_scanned_and_kept(self):
+        lines = ["Note", f"Review target: `{self.ARGS}`", "", f"`{TAG_XHIGH}`"]
+        self.assertEqual(review_tag.displaced_targets(lines), [self.ARGS])
+        self.assertEqual(review_tag.displaced_targets(lines[:2]), [], "no tag after it")
+
+    # Edge from PR 242: one literal backtick inside a one-line target.
+
+    def test_a_one_line_target_holding_one_backtick_reads_its_tag(self):
+        args = f"{self.NONCE} Check the `--max-findings flag"
+        self._write("mine", self._body(args=args))
+        code, out, _ = self._main()
+        self._found(code, out)
+        self.assertIn(f"target: {args}\n", out)
+
+    def test_control_a_backtick_left_open_at_line_end_still_refuses(self):
+        self._write("mine", f"Review target: `{self.NONCE} Check the\nflag`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    def test_control_a_wrapped_first_line_spanning_lines_still_refuses(self):
+        # Wrapped whole on its first line, then more arguments: the later tag still refuses it.
+        self._write("mine", f"Review target: `{self.NONCE} a `b`\nc`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    # Edge from PR 243: the finder-budget line between the target line and the tag.
+
+    def test_the_budget_line_is_skipped_once(self):
+        self._write("mine", self._body(between=self.BUDGET + "\n\n"))
+        self._found(*self._main()[:2])
+
+    def test_control_another_line_in_its_place_still_refuses(self):
+        self._write("mine", self._body(between="This diff is long; spawn many.\n\n"))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    def test_control_two_budget_lines_refuse(self):
+        self._write("mine", self._body(between=(self.BUDGET + "\n\n") * 2))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
 
 
 class ConfigDirNamesTheRoot(Fixture):

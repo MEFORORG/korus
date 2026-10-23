@@ -19,10 +19,23 @@ refusal, never a match.
 
 NOTICES MAY COME FIRST. At CLI 2.1.309 the skill builds its prompt as notices, then the target line:
 a remembered or ignored `--max-findings`, an unrecognized or last-used level, an ultra fallback, a
-typed `--post`. Each is one line in parentheses opening with words the skill writes, then one
-blank line, and there are at most three. That shape, and only that shape, is skipped. A target line
-below anything else, with a tag-shaped line somewhere after it, is DISPLACED: the tool refuses
-(exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
+typed `--post`. Each is one line in parentheses, then one blank line, and there are at most three.
+A notice is skipped only where the WHOLE line is one of the sentences that binary writes
+(`NOTICE_SHAPES`), so a helper's brief that merely opens with the same words is not.
+
+A target line below anything else, with a tag-shaped line somewhere after it, is DISPLACED: the
+tool refuses (exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
+A brief that pastes a whole head is displaced too, so where a fork reads canonically, the displaced
+ones are set aside and named rather than refusing it; two canonical forks still refuse as
+ambiguous, exit 7. A displaced head in another worktree is not the round's fork found elsewhere.
+
+A notice-shaped line the tool does not know -- one line in parentheses, one blank line, then a target
+line and its tag -- is most likely a notice a later CLI added or reworded. It refuses with its own
+exit (15), and prints its opening words on stderr, so the new sentence can be measured and added.
+
+A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
+line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
+target. It is skipped, once, where the whole line is that sentence.
 
 WHERE THE FORK RAN. The meta file may carry `inheritedWorktreePath` (the relayed Windows sample,
 Builder subagents at spawn depth 2). The cloud sample's meta did not; its record 0 carried `cwd`.
@@ -90,13 +103,17 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
    13  a fork in scope may have arguments spanning lines, so no line can be read as its tag
-   14  a fork in scope carries its target line below text that is not the skill's notices
+   14  a fork in scope carries its target line below text that is not the skill's notices, and no
+       fork reads canonically beside it
+   15  a fork in scope carries its target line and tag below a notice-shaped line no measured CLI
+       writes; its opening words go to stderr
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import enum
 import json
 import os
 import re
@@ -119,6 +136,7 @@ EXIT_NOT_ATTRIBUTABLE = 11
 EXIT_ELSEWHERE = 12
 EXIT_UNSPLIT = 13
 EXIT_DISPLACED = 14
+EXIT_UNKNOWN_NOTICE = 15
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -153,6 +171,11 @@ DISPLACED_MESSAGE = (
     "fork(s) in scope carry the target line below an opening that is not the skill's notices,"
     " so no line can be read as the tag"
 )
+UNKNOWN_NOTICE_MESSAGE = (
+    "fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes;"
+    " its opening words are on stderr"
+)
+SET_ASIDE_MESSAGE = "set aside: its target line sits below other text, and a fork reads canonically"
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
     "--target carries no round nonce (round- and 8 or more hex digits);"
@@ -171,21 +194,85 @@ TARGET_PREFIX = "Review target:"
 #: from its level and `--post` notices, one from its `--max-findings` notice.
 NOTICE_LIMIT = 3
 
-#: How each of those notices opens, at CLI 2.1.309. Parenthesised prose that opens any other way
-#: is not skipped, so a helper's brief above a pasted head is not read as the skill's prompt. A
-#: notice a later CLI adds refuses (exit 14) until it is measured and added here.
-NOTICE_OPENINGS = (
-    "(Reporting every finding, ",
-    "(Reporting up to ",
-    "(`--max-findings` ",
-    "(The user set `--max-findings ",
-    "(This review reports at most ",
-    "(Running a local ",
-    "(ultra (cloud review) ",
-    "(Claude can't launch the cloud review directly ",
-    "(Ignoring unrecognized effort ",
-    "(No effort level given ",
-    "(The typed `--post` ",
+#: The sentences the skill writes above the target line, read from the prompt builder of CLI 2.1.309
+#: (`roles/BUILDER.md` 4e names the commands). A whole line must match one, so prose that merely
+#: opens with a notice's words is not skipped. `{L}` is a level, `{N}` a count, `{T}` free text.
+_DASH = "\u2014"
+_LEVEL_TELL = (
+    " Open your report with one short line telling the user this, and that typing a level (for"
+    " example `/code-review high`) changes it; that opening line reaches them with the findings.)",
+    " Tell the user this in one short line as you begin, including that typing a level (for example"
+    " `/code-review high`) changes it.)",
+)
+_FINDINGS_TELL = (
+    " Open your report with one short line telling the user this{OPT_DEFAULT_AND}; that opening line"
+    " reaches them with the findings.)",
+    " Tell the user this in one short line as you begin{OPT_DEFAULT_INCLUDING}.)",
+)
+_FINDINGS_BODIES = (
+    "This review reports at most {N} findings, so the limit is {N} here.",
+    "`--max-findings` does not change this review: low effort here has no maximum.",
+    "The user set `--max-findings {T}` last time. This review reports at most {N} findings, so the"
+    " limit is {N} here.",
+    "Reporting every finding, as the user chose last time with `--max-findings all`.",
+    "Reporting up to {N} {FINDING}, the limit the user set last time with `--max-findings`.",
+)
+_IGNORED = (
+    "`--max-findings` was ignored: type a whole number above zero, `all`, or `default` after it."
+)
+_UNRECOGNIZED = 'Ignoring unrecognized effort "{T}"; valid: {T}. Using {L}{OPT_LAST}.'
+_LAST_USED = f"No effort level given {_DASH} reusing {{L}}, the level the user typed last time{{OPT_RUN}}."
+NOTICE_TEMPLATES = (
+    "(Running a local {L}-effort review and applying its findings.)",
+    "(ultra (cloud review) {T} Falling back to a local {L}-effort review.)",
+    f"(Claude can't launch the cloud review directly {_DASH} type `/code-review ultra --fix` to review"
+    " in the cloud and apply the findings locally when it completes. Running a local {L}-effort"
+    " review and applying its findings for now.)",
+    f"(Claude can't launch the cloud review directly {_DASH} type `/code-review ultra` to run it."
+    " Falling back to a local {L}-effort review for now.)",
+    f"(Claude can't launch the cloud review directly {_DASH} the user can run `claude ultrareview`"
+    " from a terminal to start it. Falling back to a local {L}-effort review for now.)",
+    "(" + _UNRECOGNIZED + ")",
+    *("(" + body + tell for body in (_UNRECOGNIZED, _LAST_USED) for tell in _LEVEL_TELL),
+    "(The typed `--post` applies only to the `/code-review ultra` cloud review and was ignored"
+    f" {_DASH} {{T}}. Tell the user this in one short line.)",
+    *(
+        "(" + ignored + body + tell
+        for ignored in ("", _IGNORED + " ")
+        for body in _FINDINGS_BODIES
+        for tell in _FINDINGS_TELL
+    ),
+    *("(" + _IGNORED + "{OPT_USUAL}" + tell for tell in _FINDINGS_TELL),
+)
+_FIELDS = {
+    "{L}": "(?:low|medium|high|xhigh|max)",
+    "{N}": "[0-9]+",
+    "{T}": ".+?",
+    "{FINDING}": "findings?",
+    "{OPT_LAST}": "(?:, the level the user typed last time)?",
+    "{OPT_RUN}": "(?:; running at (?:low|medium|high|xhigh|max) here)?",
+    "{OPT_USUAL}": "(?: Using the usual limit\\.)?",
+    "{OPT_DEFAULT_AND}": (
+        "(?:, and that passing `--max-findings default` goes back to the usual limit)?"
+    ),
+    "{OPT_DEFAULT_INCLUDING}": (
+        "(?:, including that passing `--max-findings default` goes back to the usual limit)?"
+    ),
+}
+
+
+def notice_pattern(template: str) -> re.Pattern[str]:
+    """One whole notice line: the template's text literally, each `{FIELD}` as its pattern."""
+    parts = re.split("(" + "|".join(re.escape(f) for f in _FIELDS) + ")", template)
+    return re.compile("".join(_FIELDS.get(part, re.escape(part)) for part in parts))
+
+
+NOTICE_SHAPES = tuple(notice_pattern(t) for t in NOTICE_TEMPLATES)
+
+#: The finder-budget line some model cells add between the target line and the tag, at 2.1.309.
+BUDGET_HINT = notice_pattern(
+    f"This diff is about {{N}} lines. Spawn about {{N}} finder subagents (min 2, max 8) {_DASH} scale"
+    " your investigation depth to the diff size rather than using a fixed large fleet."
 )
 
 #: A round nonce: 8 or more hex digits, fresh each round, after `round-`, as a whole token. One
@@ -213,6 +300,33 @@ ASCII_SPELLINGS = {"\u2192": "->", "\u2264": "<=", "\u2265": ">="}
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 
 
+class Refusal(enum.Enum):
+    """Why a fork in scope cannot be read. REFUSALS gives each its exit and its message."""
+
+    #: No tag after the target line, and the arguments may span lines.
+    UNSPLIT = "unsplit"
+    #: The target line and tag sit below a notice-shaped line no measured CLI writes.
+    UNKNOWN_NOTICE = "unknown notice"
+    #: A target line sits below an opening that is not the skill's notices.
+    DISPLACED = "displaced"
+
+
+@dataclass(frozen=True)
+class RefusalRule:
+    exit: int
+    message: str
+
+
+#: One row per refusal, in the order `main` checks them. A refusal missing here fails at import.
+REFUSALS = {
+    Refusal.UNSPLIT: RefusalRule(EXIT_UNSPLIT, UNSPLIT_MESSAGE),
+    Refusal.UNKNOWN_NOTICE: RefusalRule(EXIT_UNKNOWN_NOTICE, UNKNOWN_NOTICE_MESSAGE),
+    Refusal.DISPLACED: RefusalRule(EXIT_DISPLACED, DISPLACED_MESSAGE),
+}
+if set(REFUSALS) != set(Refusal):
+    raise AssertionError("every Refusal needs a row in REFUSALS")
+
+
 @dataclass
 class Fork:
     transcript: Path
@@ -224,10 +338,10 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: No tag after the target line, and the arguments may span lines.
-    unsplit: bool = False
-    #: A target line sits below an opening that is not the skill's notices.
-    displaced: bool = False
+    #: Why the fork cannot be read, if it cannot: a key of REFUSALS.
+    refusal: Refusal | None = None
+    #: For an unknown notice, its opening words, printed on stderr.
+    notice: str = ""
 
     @property
     def worktree(self) -> str:
@@ -342,23 +456,38 @@ def is_tag(line: str) -> bool:
 
 
 def is_notice(line: str) -> bool:
-    return line.startswith(NOTICE_OPENINGS) and line.endswith(")")
+    """One of the measured notice sentences, the whole line."""
+    return any(shape.fullmatch(line) for shape in NOTICE_SHAPES)
 
 
-def target_index(lines: list[str]) -> int | None:
-    """Where the target line sits, past the skill's notices; None if the head is not that shape.
+def is_notice_shaped(line: str) -> bool:
+    """One line in parentheses: a notice's shape, whether or not its words are known."""
+    return len(line) > 2 and line.startswith("(") and line.endswith(")")
+
+
+def target_index(lines: list[str]) -> tuple[int | None, list[str]]:
+    """Where the target line sits past the notices, and the notice lines no measured CLI writes.
 
     Each notice is one line in parentheses followed by exactly one blank line, and there are at most
-    NOTICE_LIMIT. Anything else above a target line is not skipped.
+    NOTICE_LIMIT. Anything else above a target line is not skipped: the index is then None.
     """
     index = 0
+    unknown: list[str] = []
     for _ in range(NOTICE_LIMIT + 1):
         if index < len(lines) and lines[index].startswith(TARGET_PREFIX):
-            return index
-        if index + 1 >= len(lines) or not is_notice(lines[index]) or lines[index + 1] != "":
-            return None
+            return index, unknown
+        if index + 1 >= len(lines) or not is_notice_shaped(lines[index]) or lines[index + 1] != "":
+            return None, []
+        if not is_notice(lines[index]):
+            unknown.append(lines[index])
         index += 2
-    return None
+    return None, []
+
+
+def opening_words(line: str, count: int = 6) -> str:
+    """The first words of a line, enough to find its sentence in a CLI binary."""
+    words = line.split()
+    return " ".join(words[:count]) + (" ..." if len(words) > count else "")
 
 
 @dataclass
@@ -368,23 +497,30 @@ class Head:
     review: bool = False
     target: str = ""
     tag: str = ""
-    #: None, "unsplit" (arguments may span lines) or "displaced" (target below an unknown opening).
-    refusal: str | None = None
+    refusal: Refusal | None = None
     #: For a displaced head, the arguments of every target line with a tag after it.
     targets: list[str] = field(default_factory=list)
+    #: For an unknown notice, its opening words.
+    notice: str = ""
 
 
 def displaced_targets(lines: list[str]) -> list[str]:
     """The arguments of each target line, indented or quoted too, with a tag-shaped line after it.
 
     A subagent brief that quotes a target line and no tag is not a skill prompt, and is not kept.
+    Most non-fork transcripts carry no target line at all, so they are ruled out before any copy.
     """
+    if not any(TARGET_PREFIX in line for line in lines):
+        return []
     bare = [line.lstrip(" \t>") for line in lines]
-    found = []
-    for index, line in enumerate(bare):
-        if line.startswith(TARGET_PREFIX) and any(is_tag(later) for later in bare[index + 1 :]):
-            found.append(unquote(line[len(TARGET_PREFIX) :]))
-    return found
+    last_tag = max((i for i, line in enumerate(bare) if is_tag(line)), default=None)
+    if last_tag is None:
+        return []
+    return [
+        unquote(line[len(TARGET_PREFIX) :])
+        for line in bare[:last_tag]
+        if line.startswith(TARGET_PREFIX)
+    ]
 
 
 def read_head(lines: list[str]) -> Head:
@@ -397,27 +533,45 @@ def read_head(lines: list[str]) -> Head:
     line below anything else, with a tag after it, is `displaced`, also a refusal: a real fork with
     a tag once read as no fork that way. Only the target line and the tag are kept.
     """
-    start = target_index(lines)
-    if start is None:
-        targets = displaced_targets(lines)
-        if not targets:
-            return Head()
-        return Head(True, targets[0], refusal="displaced", targets=targets)
+    start, unknown = target_index(lines)
+    found = None if start is None else read_from_target(lines, start)
+    if found is not None and unknown and found.tag:
+        # A canonical head below a notice no measured CLI writes: most likely a new notice.
+        return Head(True, found.target, refusal=Refusal.UNKNOWN_NOTICE,
+                    notice=opening_words(unknown[0]))
+    if found is not None and not unknown:
+        return found
+    targets = displaced_targets(lines)
+    if not targets:
+        return Head()
+    return Head(True, targets[0], refusal=Refusal.DISPLACED, targets=targets)
+
+
+def read_from_target(lines: list[str], start: int) -> Head:
+    """The head from its target line on: the tag, a tagless fork, or `unsplit`."""
     first = lines[start][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
-    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
-    opened = first.count("`") % 2 == 1
+    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing. A line the
+    # skill wrapped whole, `...`, is closed whatever it holds: one literal backtick in the
+    # arguments made the count odd, and a one-line target refused as exit 13.
+    wrapped = len(first) > 1 and first.startswith("`") and first.endswith("`")
+    opened = first.count("`") % 2 == 1 and not wrapped
     rest = lines[start + 1 :]
+    hinted = False
     for index, line in enumerate(rest):
         if line.strip():
             if opened:
-                return Head(True, target, refusal="unsplit")
+                return Head(True, target, refusal=Refusal.UNSPLIT)
+            if not hinted and BUDGET_HINT.fullmatch(line):
+                # The finder-budget line, once: the tag follows it.
+                hinted = True
+                continue
             if is_tag(line):
                 return Head(True, target, unquote(line))
             later = any(is_tag(after) for after in rest[index + 1 :])
-            return Head(True, target, refusal="unsplit" if later else None)
-    return Head(True, target, refusal="unsplit" if opened else None)
+            return Head(True, target, refusal=Refusal.UNSPLIT if later else None)
+    return Head(True, target, refusal=Refusal.UNSPLIT if opened else None)
 
 
 def strip_invocation(text: str) -> str:
@@ -524,8 +678,10 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
-    unsplit: int = 0
-    displaced: int = 0
+    #: The placed forks each refusal holds, by REFUSALS key.
+    refused: dict[Refusal, list[Fork]] = field(
+        default_factory=lambda: {refusal: [] for refusal in Refusal}
+    )
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -595,9 +751,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not read.review:
                 continue
             fork.target, fork.tag = read.target, read.tag
-            fork.unsplit = read.refusal == "unsplit"
-            fork.displaced = read.refusal == "displaced"
-            if fork.displaced and filters.target:
+            fork.refusal, fork.notice = read.refusal, read.notice
+            if fork.refusal is Refusal.DISPLACED and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
                 fork.target = next(
                     (t for t in read.targets if own_nonce_matches(filters.target, t)), fork.target
@@ -606,7 +761,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit or displaced fork's arguments are known only in part, so its own nonce
                 # alone keeps it.
-                partial = fork.unsplit or fork.displaced
+                partial = fork.refusal in (Refusal.UNSPLIT, Refusal.DISPLACED)
                 if not (partial and own_nonce_matches(filters.target, fork.target)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
@@ -630,12 +785,14 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if placed is None:
                 result.unplaced += 1
                 continue
-            if placed and fork.displaced:
-                result.displaced += 1
-            elif placed and fork.unsplit:
-                result.unsplit += 1
+            if placed and fork.refusal is not None:
+                result.refused[fork.refusal].append(fork)
             elif placed:
                 result.forks.append(fork)
+            elif fork.refusal is Refusal.DISPLACED:
+                # A brief that quoted the round's head is no fork of it, so it is not the round's
+                # fork found elsewhere: an inline round then reads exit 3, not exit 12.
+                continue
             elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
@@ -821,12 +978,22 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
-    if result.unsplit:
-        print(f"{result.unsplit} {UNSPLIT_MESSAGE}")
-        return EXIT_UNSPLIT
-    if result.displaced:
-        print(f"{result.displaced} {DISPLACED_MESSAGE}")
-        return EXIT_DISPLACED
+    for refusal, rule in REFUSALS.items():
+        refused = result.refused[refusal]
+        if refusal is Refusal.DISPLACED and result.forks:
+            # A brief pasting the skill's whole head is displaced, and beside a fork that reads
+            # canonically it is that brief, not the round: name it and read the fork. Two
+            # canonical forks still refuse below, as ambiguous.
+            for fork in refused:
+                print(f"{SET_ASIDE_MESSAGE} | agent {fork.agent_id}")
+            continue
+        if refused:
+            for fork in refused:
+                if fork.notice:
+                    print(f"review_tag: agent {fork.agent_id}: the unknown notice opens "
+                          f"{spell(fork.notice, True)!r}", file=sys.stderr)
+            print(f"{len(refused)} {rule.message}")
+            return rule.exit
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE
