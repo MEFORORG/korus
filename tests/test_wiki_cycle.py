@@ -577,6 +577,13 @@ class AStateRootThatMovedIsRefused(_CycleCase):
         (self.state / "root.toml").write_bytes(b"shared_root = 'C:/\xff'\n")
         self.assert_refused(self.cycle("-NoImport"), "is not UTF-8")
 
+    def test_another_spelling_of_this_root_runs(self):
+        # A trailing separator and forward slashes name the same directory, so nothing has moved.
+        spelled = str(self.state).replace("\\", "/") + "/"
+        self.plant_root_toml(f"shared_root = '{spelled}'\n")
+        self.assert_ran(self.cycle("-NoImport"))
+        self.assert_ran(self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": spelled}))
+
     def test_a_utf16_root_toml_naming_this_root_runs(self):
         (self.state / "root.toml").write_bytes(f"shared_root = '{self.state}'\n".encode("utf-16"))
         self.assert_ran(self.cycle("-NoImport"))
