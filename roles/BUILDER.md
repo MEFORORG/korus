@@ -833,6 +833,25 @@ printed no tag.
 is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
 line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
 
+**NARROWED 2026-10-23: the skill's own notices may come first, and the tool skips their shape only.** Measured
+2026-10-23 in CLI 2.1.309, at `/opt/claude-code/bin/claude` in a cloud session. The prompt is built
+as `${Le}${W}${En}...`, and `En` is the target line.
+
+`Le` is a level notice (an ultra fallback, an unrecognized level, a last-used level) and a typed
+`--post` notice. `W` is a remembered or ignored `--max-findings` notice. Each is one line in
+parentheses, then one blank line: at most three. Read it with:
+
+```bash
+grep -a -c 'Review target: \\`' /opt/claude-code/bin/claude    # 2 template literals write it
+grep -a -o 'function ls({ultraFallback.\{0,300\}' /opt/claude-code/bin/claude
+```
+
+**A target line below anything else refuses, exit 14.** The fork exists; the tool cannot read it.
+
+**CHANGED 2026-10-23, PR 242 round two:** a target line below a notice, or below anything else, read
+as exit 3, *"no fork found"*. A `--max-findings all` is remembered, so its notice opens every later
+round. Every real fork with a tag then read as absent, and this section allowed `none returned`.
+
 **Give each round a fresh nonce, right after the level, and run the tool on that nonce:**
 
 ```bash
@@ -899,6 +918,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal, and running the tool again does not clear it. See the refusal row above. Never `none returned`, and never `(inline, no fork)`: the fork exists. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

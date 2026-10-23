@@ -15,6 +15,12 @@ itself in backticks, line 2 was blank and the tag was line 3. A Windows sample a
 as "line 2". A message that does not START with the target line is not a review fork, and only a
 `<level> effort -> ...` pipeline counts as a tag. Both refusals fail closed: a miss, never a match.
 
+NOTICES MAY COME FIRST. At CLI 2.1.309 the skill builds its prompt as notices, then the target line:
+a remembered or ignored `--max-findings`, an unrecognized or last-used level, an ultra fallback, a
+typed `--post`. Each is one line in parentheses, then one blank line, and there are at most three.
+That shape, and only that shape, is skipped. A target line below anything else is DISPLACED: the
+tool refuses (exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
+
 WHERE THE FORK RAN. The meta file may carry `inheritedWorktreePath` (the relayed Windows sample,
 Builder subagents at spawn depth 2). The cloud sample's meta did not; its record 0 carried `cwd`.
 The tool uses the first of the two it finds and says which on the row. A fork with neither is
@@ -80,6 +86,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
    13  a fork in scope may have arguments spanning lines, so no line can be read as its tag
+   14  a fork in scope carries its target line below text that is not the skill's notices
 """
 
 from __future__ import annotations
@@ -107,6 +114,7 @@ EXIT_UNREAD = 10
 EXIT_NOT_ATTRIBUTABLE = 11
 EXIT_ELSEWHERE = 12
 EXIT_UNSPLIT = 13
+EXIT_DISPLACED = 14
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -137,6 +145,10 @@ UNSPLIT_MESSAGE = (
     "fork(s) in scope may have arguments spanning lines, so no line can be read as the tag;"
     " keep the skill's arguments on one line"
 )
+DISPLACED_MESSAGE = (
+    "fork(s) in scope carry the target line below an opening that is not the skill's notices,"
+    " so no line can be read as the tag"
+)
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
     "--target carries no round nonce (round- and 8 or more hex digits);"
@@ -150,6 +162,10 @@ AMBIGUOUS_MESSAGE = (
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
 TARGET_PREFIX = "Review target:"
+
+#: The most notice paragraphs the skill puts above the target line, measured at CLI 2.1.309: two
+#: from its level and `--post` notices, one from its `--max-findings` notice.
+NOTICE_LIMIT = 3
 
 #: A round nonce: 8 or more hex digits, fresh each round, after `round-`, as a whole token. One
 #: pattern both finds a nonce in --target and matches it in a fork's target, so the two cannot
@@ -189,6 +205,8 @@ class Fork:
     placed_by: str = ""
     #: No tag after the target line, and the arguments may span lines.
     unsplit: bool = False
+    #: A target line sits below an opening that is not the skill's notices.
+    displaced: bool = False
 
     @property
     def worktree(self) -> str:
@@ -302,30 +320,56 @@ def is_tag(line: str) -> bool:
     return bool(TAG_SHAPE.match(unquote(line)))
 
 
-def read_head(lines: list[str]) -> tuple[bool, str, str, bool]:
-    """(is a review fork, target args, tag, unsplit) from record 0's message.
+def is_notice(line: str) -> bool:
+    return line.startswith("(") and line.endswith(")")
 
-    A review fork's message STARTS with the target line; the tag is the next non-blank line, and
-    only if it has the tag's shape. The arguments may span lines where the target line leaves a
-    backtick open, or where that next line is no tag and a later line is one: that is `unsplit`, a
-    refusal, never a tagless fork. Only the target line and the tag are kept; the rest is tested.
+
+def target_index(lines: list[str]) -> int | None:
+    """Where the target line sits, past the skill's notices; None if the head is not that shape.
+
+    Each notice is one line in parentheses followed by exactly one blank line, and there are at most
+    NOTICE_LIMIT. Anything else above a target line is not skipped.
     """
-    if not lines or not lines[0].startswith(TARGET_PREFIX):
-        return False, "", "", False
-    first = lines[0][len(TARGET_PREFIX) :].strip()
+    index = 0
+    for _ in range(NOTICE_LIMIT + 1):
+        if index < len(lines) and lines[index].startswith(TARGET_PREFIX):
+            return index
+        if index + 1 >= len(lines) or not is_notice(lines[index]) or lines[index + 1] != "":
+            return None
+        index += 2
+    return None
+
+
+def read_head(lines: list[str]) -> tuple[bool, str, str, bool, bool]:
+    """(is a review fork, target args, tag, unsplit, displaced) from record 0's message.
+
+    A review fork's message STARTS with the target line, or with the skill's notices and then the
+    target line. The tag is the next non-blank line, and only if it has the tag's shape. The
+    arguments may span lines where the target line leaves a backtick open, or where that next line
+    is no tag and a later line is one: that is `unsplit`, a refusal, never a tagless fork. A target
+    line below anything else is `displaced`, also a refusal: a real fork with a tag once read as
+    no fork that way. Only the target line and the tag are kept; the rest is tested.
+    """
+    start = target_index(lines)
+    if start is None:
+        later = next((line for line in lines if line.startswith(TARGET_PREFIX)), None)
+        if later is None:
+            return False, "", "", False, False
+        return True, unquote(later[len(TARGET_PREFIX) :]), "", False, True
+    first = lines[start][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
     # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
     opened = first.count("`") % 2 == 1
-    rest = lines[1:]
+    rest = lines[start + 1 :]
     for index, line in enumerate(rest):
         if line.strip():
             if opened:
-                return True, target, "", True
+                return True, target, "", True, False
             if is_tag(line):
-                return True, target, unquote(line), False
-            return True, target, "", any(is_tag(later) for later in rest[index + 1 :])
-    return True, target, "", opened
+                return True, target, unquote(line), False, False
+            return True, target, "", any(is_tag(later) for later in rest[index + 1 :]), False
+    return True, target, "", opened, False
 
 
 def strip_invocation(text: str) -> str:
@@ -433,6 +477,7 @@ class Scan:
     unplaced: int = 0
     elsewhere: int = 0
     unsplit: int = 0
+    displaced: int = 0
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -498,13 +543,15 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         continue
                 result.unreadable_files += 1
                 continue
-            is_review, fork.target, fork.tag, fork.unsplit = read_head(head)
+            is_review, fork.target, fork.tag, fork.unsplit, fork.displaced = read_head(head)
             if not is_review:
                 continue
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit fork's arguments are known only in part, so its own nonce alone keeps it.
-                if not (fork.unsplit and own_nonce_matches(filters.target, fork.target)):
+                # An unsplit or displaced fork's arguments are known only in part, so its own nonce
+                # alone keeps it.
+                partial = fork.unsplit or fork.displaced
+                if not (partial and own_nonce_matches(filters.target, fork.target)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
@@ -527,7 +574,9 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if placed is None:
                 result.unplaced += 1
                 continue
-            if placed and fork.unsplit:
+            if placed and fork.displaced:
+                result.displaced += 1
+            elif placed and fork.unsplit:
                 result.unsplit += 1
             elif placed:
                 result.forks.append(fork)
@@ -719,6 +768,9 @@ def main(argv: list[str] | None = None) -> int:
     if result.unsplit:
         print(f"{result.unsplit} {UNSPLIT_MESSAGE}")
         return EXIT_UNSPLIT
+    if result.displaced:
+        print(f"{result.displaced} {DISPLACED_MESSAGE}")
+        return EXIT_DISPLACED
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE
