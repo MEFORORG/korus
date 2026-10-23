@@ -829,24 +829,24 @@ head -1 ~/.claude/projects/*/<session id>/subagents/agent-<id>.jsonl \
 non-blank line after `Review target:`. Its first draft read line 2 alone, and on the real fork it
 printed no tag.
 
-**It refuses anything else rather than guess.** A message that does not START with the target line
-is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
-line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
+**It refuses anything else rather than guess.** A message not STARTING with the target line, past
+notices, reads as no review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort` line is prose. CHANGED 2026-10-22: both were looser, and round
+two showed them fail open.
 
-**NARROWED 2026-10-23: the skill's own notices may come first, and the tool skips their shape only.** Measured
-2026-10-23 in CLI 2.1.309, at `/opt/claude-code/bin/claude` in a cloud session. The prompt is built
-as `${Le}${W}${En}...`, and `En` is the target line.
+**NARROWED 2026-10-23: that first sentence ended *"is not a review fork"*.** Notices may come
+first. Measured 2026-10-23 in CLI 2.1.309, at `/opt/claude-code/bin/claude` in a cloud session. The
+prompt is built as `${Le}${W}${En}...`, and `En` is the target line.
 
 `Le` is a level notice (an ultra fallback, an unrecognized level, a last-used level) and a typed
 `--post` notice. `W` is a remembered or ignored `--max-findings` notice. Each is one line in
-parentheses, then one blank line: at most three. Read it with:
+parentheses, opening with the skill's own words, then one blank line: at most three. Read it with:
 
 ```bash
 grep -a -c 'Review target: \\`' /opt/claude-code/bin/claude    # 2 template literals write it
 grep -a -o 'function ls({ultraFallback.\{0,300\}' /opt/claude-code/bin/claude
 ```
 
-**A target line below anything else refuses, exit 14.** The fork exists; the tool cannot read it.
+**A target line below anything else, with a tag after it, refuses: exit 14.** The tool cannot read it.
 
 **CHANGED 2026-10-23, PR 242 round two:** a target line below a notice, or below anything else, read
 as exit 3, *"no fork found"*. A `--max-findings all` is remembered, so its notice opens every later
@@ -885,7 +885,7 @@ forbids a home path in a QA line.
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
 
-**Keep your arguments on one line.** The target is the first line of the fork's message. Where
+**Keep your arguments on one line.** The target is the first line past the skill's notices. Where
 that line leaves a backtick open, or the next non-blank line is no tag and a later line is one, your
 arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
 

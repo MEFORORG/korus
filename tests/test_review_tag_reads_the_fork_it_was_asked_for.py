@@ -1266,13 +1266,13 @@ class TheNoticesAboveTheTargetLine(Fixture):
         opening = "".join(notice + gap for notice in notices)
         return f"{opening}Review target: `{self.ARGS}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ..."
 
-    def _write(self, agent, body):
-        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd="/home/user/korus",
+    def _write(self, agent, body, session="s1"):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd="/home/user/korus",
                    timestamp="2026-10-23T09:00:00Z", body=body)
 
-    def _main(self, target=None):
+    def _main(self, target=None, session="s1"):
         out = io.StringIO()
-        argv = ["--projects-dir", str(self.projects), "--session", "s1",
+        argv = ["--projects-dir", str(self.projects), "--session", session,
                 "--worktree", "/home/user/korus", "--target", target or self.NONCE]
         with contextlib.redirect_stdout(out):
             code = review_tag.main(argv)
@@ -1296,10 +1296,9 @@ class TheNoticesAboveTheTargetLine(Fixture):
     def test_each_measured_notice_reads_the_tag(self):
         for name in ("FINDINGS", "IGNORED", "UNRECOGNIZED", "LAST_USED", "ULTRA", "POST"):
             with self.subTest(notice=name):
-                self._write(name, self._body(getattr(self, name)))
-                self._found(*self._main())
-                for path in (self.projects / "D--Code-korus" / "s1" / "subagents").iterdir():
-                    path.unlink()
+                # A session each, so one notice that stops reading cannot fail the others as two.
+                self._write(name, self._body(getattr(self, name)), session=name)
+                self._found(*self._main(session=name))
 
     def test_the_most_notices_the_skill_writes_read_the_tag(self):
         # A level notice and the `--post` notice from one builder, then the `--max-findings` one.
@@ -1354,6 +1353,35 @@ class TheNoticesAboveTheTargetLine(Fixture):
         self._found(code, out)
         self.assertIn("agent mine", out)
 
+    def test_parenthesised_prose_that_is_no_notice_refuses(self):
+        # Round one: any line in parentheses was skipped, so a helper's brief above a pasted head
+        # read at exit 0 and its text landed on a `tag:` line. Only the skill's openings skip.
+        self._write("helper", self._body("(Check this QA line for me)"))
+        self._refused(*self._main())
+
+    def test_a_brief_quoting_the_target_line_with_no_tag_does_not_block(self):
+        # Round one: a finder's or helper's brief quoting the round's target line refused the
+        # caller's own fork, exit 14, for good. With no tag after it, it is not a skill prompt.
+        self._write("finder", f"You are angle A.\n\nReview target: `{self.ARGS}`\n\nFind bugs.\n")
+        self._write("mine", self._body(self.FINDINGS))
+        code, out = self._main()
+        self._found(code, out)
+        self.assertIn("agent mine", out)
+
+    def test_a_later_target_line_carrying_the_nonce_refuses(self):
+        # Round one: only the first target line was judged, so another round's line above the
+        # fork's own one read as exit 3.
+        self._write("two", "Note\nReview target: `other words`\n\n" + self._body())
+        self._refused(*self._main())
+
+    def test_an_indented_or_quoted_target_line_refuses(self):
+        for opening in ("  ", "> "):
+            with self.subTest(opening=opening):
+                session = "q" if opening.strip() else "i"
+                body = "Note\n" + "\n".join(opening + line for line in self._body().split("\n"))
+                self._write("indented", body, session=session)
+                self._refused(*self._main(session=session))
+
     def test_notice_shaped_prose_with_no_target_line_is_not_a_fork(self):
         self._write("prose", f"{self.FINDINGS}\n\nYou are exploring the tree.\n`{TAG_XHIGH}`\n")
         code, out = self._main()
@@ -1375,7 +1403,7 @@ class TheNoticesAboveTheTargetLine(Fixture):
 
         def absent(lines):
             found = real(lines)
-            return (False, "", "", False, False) if found[4] else found
+            return review_tag.Head() if found.refusal == "displaced" else found
 
         with mock.patch.object(review_tag, "read_head", side_effect=absent):
             code, out = self._main()
