@@ -1543,10 +1543,10 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def test_4_without_verbose_the_words_stay_out(self):
         # They are record 0's own words, and could carry a path, so they sit behind --verbose.
-        self._write("mine", self._body("(Check C:/Users/someone/korus first.)"))
+        self._write("mine", self._body("(Check D:/work/korus-wt-z first.)"))
         code, out, err = self._main()
         self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
-        self.assertNotIn("Users", out + err)
+        self.assertNotIn("korus-wt-z", out + err)
 
     def test_4_the_opening_words_are_printed_in_ascii(self):
         self._write("mine", self._body("(A dash \u2014 in a notice nobody measured.)"))
