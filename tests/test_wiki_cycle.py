@@ -532,6 +532,55 @@ class AStateRootThatMovedIsRefused(_CycleCase):
         r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(self.state)})
         self.assert_ran(r)
 
+    def assert_refused(self, r: subprocess.CompletedProcess, needle: str):
+        self.assert_ran(r, 2)
+        self.assertIn(needle, r.stderr)
+        self.assertEqual([], self.called(), "no step runs against the stale inbox")
+
+    def test_the_env_var_naming_another_root_refuses_with_no_root_toml(self):
+        shared = self.root / "shared-coord"
+        shared.mkdir()
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(shared)})
+        self.assert_refused(r, f"-StateRoot '{shared}'")
+
+    def test_the_env_var_wins_over_a_root_toml_naming_this_root(self):
+        self.plant_root_toml(f"shared_root = '{self.state}'\n")
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(self.root / "shared-coord")})
+        self.assert_refused(r, "has moved")
+
+    def test_a_relative_env_var_is_refused(self):
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": "shared-coord"})
+        self.assert_refused(r, "MEFOR_COORD_ROOT is not an absolute path")
+
+    def test_a_root_toml_that_names_none_is_refused(self):
+        self.plant_root_toml("# nothing yet\n\n")
+        self.assert_refused(self.cycle("-NoImport"), "names no shared_root")
+
+    def test_an_empty_shared_root_is_refused(self):
+        self.plant_root_toml("shared_root = '  '\n")
+        self.assert_refused(self.cycle("-NoImport"), "not shared_root = '<path>'")
+
+    def test_a_relative_shared_root_is_refused(self):
+        self.plant_root_toml("shared_root = 'shared-coord'\n")
+        self.assert_refused(self.cycle("-NoImport"), "not an absolute path")
+
+    def test_a_second_shared_root_is_refused(self):
+        self.plant_root_toml(f"shared_root = '{self.state}'\nshared_root = '{self.state}'\n")
+        self.assert_refused(self.cycle("-NoImport"), "more than once")
+
+    def test_a_non_ascii_space_is_not_whitespace(self):
+        # NBSP before the key. The engine allows only space and tab, so it refuses this line.
+        self.plant_root_toml(f"\u00a0shared_root = '{self.state}'\n")
+        self.assert_refused(self.cycle("-NoImport"), "not shared_root = '<path>'")
+
+    def test_invalid_utf8_is_refused(self):
+        (self.state / "root.toml").write_bytes(b"shared_root = 'C:/\xff'\n")
+        self.assert_refused(self.cycle("-NoImport"), "is not UTF-8")
+
+    def test_a_utf16_root_toml_naming_this_root_runs(self):
+        (self.state / "root.toml").write_bytes(f"shared_root = '{self.state}'\n".encode("utf-16"))
+        self.assert_ran(self.cycle("-NoImport"))
+
     def test_whatif_reports_the_move_with_exit_2(self):
         self.plant_root_toml(f"shared_root = '{self.root / 'shared-coord'}'\n")
         r = self.cycle("-NoImport", "-WhatIf", env=self.NO_ENV)

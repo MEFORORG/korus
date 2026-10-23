@@ -27,7 +27,7 @@ not the shared inbox. So pass every path yourself:
 | Placeholder | What it names |
 | --- | --- |
 | `<korus>` | A korus checkout at `origin/main`. |
-| `<coord>` | The engine's SHARED coordination root on the reference fleet, which holds the one inbox every account on every machine shares. In any engine worktree, `. scripts/coord/coord-root.ps1; (Get-CoordSharedRoot).Path` prints it. Until a machine's `root.toml` names a shared root, that is `<engine clone>/.git/mefor-coord`. Never build it from `--git-common-dir` by hand: after the move, that path is an inbox the other machine never reads. |
+| `<coord>` | The engine's SHARED coordination root on the reference fleet. It holds the one inbox every account on every machine shares. *Name `<coord>` through the resolver* below prints it. |
 | `<vault>` | A checkout of the record repository at `origin/main`, `MessageFoundry-vault` on the reference fleet. A query reads the compiled log from it; a write does not use it. |
 
 ```powershell
@@ -40,7 +40,23 @@ pwsh -NoProfile -File <korus>/scripts/wiki/query.ps1 -StateRoot <coord> -RecordR
 
 Each clone has its own coordination directory, so its own inbox. `Get-CcxStateRoot` in
 `scripts/coord/_common.ps1` says why. The engine shares one root across machines, as its
-`docs/COORD-SHARED-ROOT.md` says, so name `<coord>` through its resolver.
+`docs/COORD-SHARED-ROOT.md` says.
+
+### Name `<coord>` through the resolver
+
+Run this in any engine worktree. It prints the shared root, or stops when the resolver reports an
+error:
+
+```powershell
+. scripts/coord/coord-root.ps1; $r = Get-CoordSharedRoot; if ($r.Error) { throw $r.Error }; $r.Path
+```
+
+Never pass an empty `-StateRoot`. `write.ps1` and `query.ps1` then fall back to the local default
+inbox, which is the stale inbox the cycle refuses.
+
+Until a machine's `root.toml` names a shared root, the resolver prints
+`<engine clone>/.git/mefor-coord`. Never build `<coord>` from `--git-common-dir` by hand. After the move, that path is an inbox the
+other machine never reads.
 
 **If a script is missing from your korus checkout, carry on without it and say so in your report.** A memory
 that cannot be reached never blocks work.
@@ -86,8 +102,10 @@ the task and the last log line.
 **Two cycles over one inbox fight.** `compile.ps1` rebuilds its one standing branch from the inbox
 it reads, so a second compile job drops the first one's events from the open pull request. Two
 machines also give the same memory store the same label, so their imports overwrite each other's
-notes. A task registered before the shared root existed names the local root. The cycle refuses
-that root once its `root.toml` names the shared one, and says which root to register.
+notes.
+
+A task registered before the shared root existed names the local root. The cycle resolves the root
+the way the engine does, and refuses a root that has moved. It says which root to register.
 
 **CORRECTED 2026-10-22.** This paragraph read *"Register the cycle once per machine"* until
 the engine moved its coordination state to a root two machines share.

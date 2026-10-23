@@ -16,6 +16,7 @@ engine's shared coordination root on the reference fleet, every time, and `-Reco
 state root is the wrong inbox or none.
 
 WIKI.md, *Run them from korus by path, and name both stores*, names each placeholder.
+WIKI.md, *Name `<coord>` through the resolver*, prints `<coord>` and stops on a resolver error.
 
 ### Query before you act on a fact you remember or were told
 

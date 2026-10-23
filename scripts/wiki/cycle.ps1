@@ -91,11 +91,11 @@
     that two machines share (engine docs/COORD-SHARED-ROOT.md). It records the move as
     `shared_root = '<path>'` in `<local root>/root.toml`. From then on seats write the inbox under
     the shared root, so a task still registered with the local root would compile an inbox nobody
-    writes. So a -StateRoot holding a root.toml that names another directory, or that names none,
-    exits 2 and says which root to register. `MEFOR_COORD_ROOT`, when set to this same directory,
-    overrides it, as it overrides root.toml for the engine. Register the task again with the shared
-    root, on ONE machine: two cycles over one inbox import each machine's stores, which share
-    labels, and compile.ps1 asks for one compile job.
+    writes. The cycle resolves the root the way the engine does: `MEFOR_COORD_ROOT` when it is not
+    blank, then root.toml, then -StateRoot itself. When that names another directory, or the engine
+    would refuse it, the cycle exits 2 and says which root to register. Register the task again
+    with the shared root, on ONE machine: two cycles over one inbox import each machine's stores,
+    which share labels, and compile.ps1 asks for one compile job.
 
     IT NEVER MERGES, AND IT PUSHES ONLY THROUGH compile.ps1. It writes only under -StateRoot and
     -LintOut, and moves only the two checkouts named above.
@@ -179,39 +179,77 @@ function Resolve-CycleDir {
     return $full
 }
 
+# The engine's root.toml grammar, copied from its scripts/coord/coord-root.ps1 so both refuse one set
+# of files. ASCII space and tab only, never \s or Trim(): those accept NBSP and other Unicode spaces.
+$script:CoordRootLine = [regex]"\A[ \t]*shared_root[ \t]*=[ \t]*'([^']*)'[ \t]*(#.*)?\z"
+$script:CoordBlankLine = [regex]'\A[ \t]*(#.*)?\z'
+$script:CoordWs = [char[]]@(' ', "`t", "`r", "`n")
+
+function Test-CoordAbsolutePath {
+    <# The engine's test: drive-rooted, UNC, or (off Windows) a leading slash. A relative root names a different directory in every cwd. #>
+    param([string] $Path)
+    return ($Path -cmatch '\A(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+|/(?![\\/]))')
+}
+
+function Get-StateRootTarget {
+    <#
+    .SYNOPSIS
+        Where the engine says seats write, given this local root: @{ Path; Error }. Path is $null only when Error is set.
+    .DESCRIPTION
+        A twin of the engine's Get-CoordSharedRoot, in the same order. MEFOR_COORD_ROOT first, when it
+        is not blank. Then `shared_root = '<path>'` in <Root>/root.toml. Then <Root> itself. Every case
+        the engine refuses is an Error here, because seats then write nowhere the cycle can name.
+    #>
+    param([string] $Root)
+    $envValue = ([string][Environment]::GetEnvironmentVariable('MEFOR_COORD_ROOT')).Trim($script:CoordWs)
+    if ($envValue) {
+        if (-not (Test-CoordAbsolutePath $envValue)) { return @{ Path = $null; Error = "MEFOR_COORD_ROOT is not an absolute path: $envValue" } }
+        return @{ Path = $envValue; Error = $null }
+    }
+    $file = Join-Path $Root 'root.toml'
+    try {
+        if (-not (Test-Path -LiteralPath $file)) { return @{ Path = $Root; Error = $null } }
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return @{ Path = $null; Error = "'$file' exists but is not a file" } }
+        $raw = [System.IO.File]::ReadAllBytes($file)
+    } catch { return @{ Path = $null; Error = "'$file' could not be read: $($_.Exception.Message)" } }
+    # UTF-16 with a byte-order mark, or strict UTF-8: invalid bytes are an error, never replacement characters.
+    try {
+        if ($raw.Length -ge 2 -and (($raw[0] -eq 0xFF -and $raw[1] -eq 0xFE) -or ($raw[0] -eq 0xFE -and $raw[1] -eq 0xFF))) {
+            $text = [System.Text.UnicodeEncoding]::new($raw[0] -eq 0xFE, $true, $true).GetString($raw, 2, $raw.Length - 2)
+        } else {
+            $skip = if ($raw.Length -ge 3 -and $raw[0] -eq 0xEF -and $raw[1] -eq 0xBB -and $raw[2] -eq 0xBF) { 3 } else { 0 }
+            $text = [System.Text.UTF8Encoding]::new($false, $true).GetString($raw, $skip, $raw.Length - $skip)
+        }
+    } catch { return @{ Path = $null; Error = "'$file' is not UTF-8 or UTF-16 with a byte-order mark" } }
+    $found = $null
+    foreach ($line in ($text -split "`r`n|`n|`r")) {
+        if ($script:CoordBlankLine.IsMatch($line)) { continue }
+        $m = $script:CoordRootLine.Match($line)
+        if (-not $m.Success -or -not $m.Groups[1].Value.Trim($script:CoordWs)) {
+            return @{ Path = $null; Error = "'$file' has a line that is not shared_root = '<path>' (single quotes): $line" }
+        }
+        if ($null -ne $found) { return @{ Path = $null; Error = "'$file' names shared_root more than once" } }
+        $found = $m.Groups[1].Value.Trim($script:CoordWs)
+    }
+    if ($null -eq $found) { return @{ Path = $null; Error = "'$file' names no shared_root" } }
+    if (-not (Test-CoordAbsolutePath $found)) { return @{ Path = $null; Error = "'$file' names a shared_root that is not an absolute path: $found" } }
+    return @{ Path = $found; Error = $null }
+}
+
 function Get-MovedStateRoot {
     <#
     .SYNOPSIS
         Why this state root is not the one seats write to, or $null when it is.
     .DESCRIPTION
-        The header's A STATE ROOT THAT HAS MOVED says why. root.toml is read the way the engine's
-        resolver reads it: every line blank, a comment, or `shared_root = '<path>'` in single quotes,
-        named once. Anything else is a problem too, because the engine refuses it as well, so seats
-        write nowhere the cycle can name.
+        The header's A STATE ROOT THAT HAS MOVED says why. Get-StateRootTarget names where seats write.
     #>
     param([string] $Root)
-    $file = Join-Path $Root 'root.toml'
-    if (-not (Test-Path -LiteralPath $file)) { return $null }
-    $envRoot = ([string]$env:MEFOR_COORD_ROOT).Trim()
-    if ($envRoot) {
-        try { if ((Resolve-CycleDir $envRoot) -ieq $Root) { return $null } } catch { $null = $_ }
-    }
-    try { $lines = [System.IO.File]::ReadAllLines($file) }
-    catch { return "'$file' could not be read ($($_.Exception.Message)), so the root seats write to is unknown." }
-    $found = @()
-    foreach ($line in $lines) {
-        $t = $line.Trim()
-        if (-not $t -or $t.StartsWith('#')) { continue }
-        $m = [regex]::Match($t, "\Ashared_root\s*=\s*'([^']*)'\s*(#.*)?\z")
-        if (-not $m.Success) { return "'$file' has a line that is not shared_root = '<path>', so the root seats write to is unknown." }
-        $found += $m.Groups[1].Value
-    }
-    if ($found.Count -ne 1) { return "'$file' must name shared_root exactly once, so the root seats write to is unknown." }
-    $shared = $found[0].Trim()
-    try { $sharedFull = Resolve-CycleDir $shared } catch { $sharedFull = $shared }
-    if ($sharedFull -ieq $Root) { return $null }
-    return ("state root '$Root' has moved: its root.toml names the shared root '$shared', where seats now write the " +
-        "inbox. Register the cycle again with -StateRoot '$shared', on one machine only.")
+    $target = Get-StateRootTarget $Root
+    if ($target.Error) { return "$($target.Error), so the root seats write to is unknown." }
+    try { $targetFull = Resolve-CycleDir $target.Path } catch { $targetFull = $target.Path }
+    if ($targetFull -ieq $Root) { return $null }
+    return ("state root '$Root' has moved: seats now write the inbox under '$($target.Path)'. " +
+        "Register the cycle again with -StateRoot '$($target.Path)', on one machine only.")
 }
 
 function Split-DirList {
