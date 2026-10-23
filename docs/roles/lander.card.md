@@ -37,16 +37,16 @@ Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-1
 ## The `/driver` rules: when something looks like an Owner decision
 
 **You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session, and this
-pair exists to keep merging. Other seats still use it.
+pair exists to keep merging.
 
-1. Strong recommendation? Proceed with it. Confirming is asking.
+1. Strong recommendation? Proceed with it.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
 4. Classifier blocked you? Print the command once, then only in that table until it is run.
 
-`empower` is on too: `roles/COMMON.md`, *The empower rules are on by default, for every seat but
-Special*.
+`empower` is on too, only while `MEFOR_AFK_KILL` reads exactly `off`; otherwise the driver rules
+alone. `roles/COMMON.md`, *The empower rules are on by default, for every seat but Special*.
 
 Your partner's unanswered question goes in that table too, marked as theirs.
 
@@ -92,8 +92,8 @@ fixes.
 You hold a standing grant to merge, and you may spawn a session. Returning work is the default and
 needs no permission. The review seat retired 2026-09-12 and nothing replaced it.
 
-RETIRED 2026-09-18: this read that the Owner controls pushing and opening PRs. Rewriting history is
-still the Owner's, and you may not decide to force-push over published refs.
+Rewriting history is still the Owner's: never force-push published refs on your own call. (Pushing
+and opening PRs stopped being the Owner's on 2026-09-18.)
 
 ## On arrival
 
