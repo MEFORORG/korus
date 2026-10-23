@@ -1322,6 +1322,11 @@ class TheNoticesAboveTheTargetLine(Fixture):
         self._write("prose", self._body(self.FINDINGS, gap="\nAnd a line of prose.\n"))
         self._refused(*self._main())
 
+    def test_a_notice_that_never_closes_its_parenthesis_refuses(self):
+        # Round two: the wrapped case below fails on its opening, so it never tested the `)`.
+        self._write("open", self._body("(Reporting every finding, as the user chose last time"))
+        self._refused(*self._main())
+
     def test_a_notice_wrapped_over_two_lines_refuses(self):
         self._write("wrapped", self._body("(Reporting every finding,\nas chosen last time.)"))
         self._refused(*self._main())

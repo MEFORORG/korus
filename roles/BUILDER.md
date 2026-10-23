@@ -830,8 +830,9 @@ non-blank line after `Review target:`. Its first draft read line 2 alone, and on
 printed no tag.
 
 **It refuses anything else rather than guess.** A message not STARTING with the target line, past
-notices, reads as no review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort` line is prose. CHANGED 2026-10-22: both were looser, and round
-two showed them fail open.
+notices, is never read as a fork. A tag is a level, `effort`, then the arrow pipeline;
+another `<word> effort` line is prose. CHANGED 2026-10-22: both were looser, and round two showed
+them fail open.
 
 **NARROWED 2026-10-23: that first sentence ended *"is not a review fork"*.** Notices may come
 first. Measured 2026-10-23 in CLI 2.1.309, at `/opt/claude-code/bin/claude` in a cloud session. The
@@ -918,7 +919,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
-| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal, and running the tool again does not clear it. See the refusal row above. Never `none returned`, and never `(inline, no fork)`: the fork exists. |
+| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal, and running the tool again does not clear it. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so an inline round's `(inline, no fork)` still holds. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

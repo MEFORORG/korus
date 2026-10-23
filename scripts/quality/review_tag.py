@@ -10,11 +10,12 @@ the PROMPT the skill feeds its reviewer fork, and that prompt is record 0 of the
     <projects dir>/<project>/<session id>/subagents/agent-<id>.meta.json
 
 Record 0's user message opens with a `Review target: <args>` line, or with the skill's notices and
-then that line, and the tag is the next line that is not blank, inside backticks. Measured in one cloud session at CLI 2.1.307, the target was
-itself in backticks, line 2 was blank and the tag was line 3. A Windows sample at 2.1.301 was relayed
-as "line 2". A message that does not START with the target line, past the notices below, is not
-read as a review fork, and only a `<level> effort -> ...` pipeline counts as a tag. Both fail
-closed: a miss or a refusal, never a match.
+then that line, and the tag is the next line that is not blank, inside backticks. Measured in one
+cloud session at CLI 2.1.307, the target was itself in backticks, line 2 was blank and the tag was
+line 3. A Windows sample at 2.1.301 was relayed as "line 2". A message that does not START with the
+target line, past the notices below, is never read as a review fork: it is no fork, or a refusal
+(exit 14). Only a `<level> effort -> ...` pipeline counts as a tag. Both fail closed: a miss or a
+refusal, never a match.
 
 NOTICES MAY COME FIRST. At CLI 2.1.309 the skill builds its prompt as notices, then the target line:
 a remembered or ignored `--max-findings`, an unrecognized or last-used level, an ultra fallback, a
@@ -52,10 +53,10 @@ WHAT IT PROVES, AND WHAT IT DOES NOT. The tag proves which prompt template the s
 that the fork obeyed it.
 
 ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first line past the
-notices, and the tag is
-the next line that is not blank. Where the first line leaves a backtick open, or the next line is no
-tag and a later line is one, the arguments may span lines: the tool refuses (exit 13) rather than
-read a line of them as the tag, or call the fork tagless. Keep the skill's arguments on one line.
+notices, and the tag is the next line that is not blank. Where the target line leaves a backtick
+open, or the next line is no tag and a later line is one, the arguments may span lines: the tool
+refuses (exit 13) rather than read a line of them as the tag, or call the fork tagless. Keep the
+skill's arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
