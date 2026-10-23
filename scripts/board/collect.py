@@ -8,6 +8,7 @@ A read this file cannot trust stops the run BEFORE data.json is written, so a fa
 leaves the last good file in place (section 9). A default here would be a silent false clean.
 """
 import base64
+import collections
 import json, subprocess, sys, time, datetime as dt
 import os
 import re
@@ -119,6 +120,90 @@ RUN_NO_VERDICT = {"cancelled"}
 # The runs endpoint returns at most 1,000 results for a filtered query, so a window holding more
 # cannot be read whole. Measured 2026-10-01 over 35 days: engine 294, vault 133, korus 50.
 RUNS_API_CAP = 1000
+# A paginated run read can stop at a page boundary with no error. Measured 2026-10-22 by the
+# Watchdog running scripts/board/refresh.ps1 at korus 48109a1: collect.py refused on most refreshes,
+# reading 100 of 216 vault runs and 100, 200 or 300 of 365 engine runs, and the next read was whole.
+# So the list is read up to RUNS_READ_ATTEMPTS times. Each page prints its total_count on a line of
+# its own, so a read that returned no page is told apart from a window that holds no run.
+RUNS_READ_ATTEMPTS = 3
+RUNS_RETRY_WAIT_S = 2
+RunRead = collections.namedtuple("RunRead", "pages seen by_flow")
+
+
+def read_scheduled_runs(full, since_day):
+    """One read of the scheduled run list, possibly short. `pages` holds each page's total_count in
+    the order read, empty when no page came back. `run_read_state` judges it."""
+    rows = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
+                         "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
+                         "--jq", "([.total_count] | @json), (.workflow_runs[] | [.id, .workflow_id,"
+                         " .status, .conclusion, .created_at, .html_url] | @json)"],
+                        "scheduled run list for %s" % full)
+    pages, seen, by_flow = [], set(), {}
+    for r in rows:
+        if isinstance(r, list) and len(r) == 1 and is_int(r[0]):
+            pages.append(r[0])
+            continue
+        if not (isinstance(r, list) and len(r) == 6 and all(is_int(x) for x in r[:2])
+                and isinstance(r[2], str) and (r[3] is None or isinstance(r[3], str))
+                and aware_instant(r[4]) and isinstance(r[5], str)):
+            refuse("The scheduled run list for %s holds a row it cannot read: %r" % (full, r))
+        run_id, flow, status, conclusion, created, url = r
+        # A run created mid-read shifts the newest-first pages, so a row can arrive twice.
+        if run_id in seen:
+            continue
+        seen.add(run_id)
+        if status == "completed" and conclusion not in RUN_NO_VERDICT:
+            by_flow.setdefault(flow, []).append((P(created), conclusion, created, url))
+    return RunRead(pages, seen, by_flow)
+
+
+def run_total(reads):
+    """The highest total any page of any read of this window reported, 0 when none did."""
+    return max([t for r in reads for t in r.pages] or [0])
+
+
+def run_union(reads):
+    """Every distinct run id any read of this window saw."""
+    return set().union(*(r.seen for r in reads))
+
+
+def run_read_state(read, bar):
+    """`whole`, `zero`, `short` or `none` for one read, judged against `bar`, the highest total
+    any page of any read of this window reported (`run_total`).
+
+    A read is whole only when every one of its pages reports `bar` and its distinct rows number
+    exactly `bar`. Any page reporting less, a zero among them, is the shape a failed page takes,
+    and rows past the total mean the pages do not describe one list. A run created mid-read
+    raises a later total, so that read is short and the next read settles it."""
+    if not read.pages:
+        return "none"
+    if bar == 0:
+        return "zero" if not read.seen else "short"
+    if all(t == bar for t in read.pages) and len(read.seen) == bar:
+        return "whole"
+    return "short"
+
+
+def chosen_run_read(reads, active):
+    """The read to trust out of `reads`, or None while none can be trusted yet.
+
+    A whole read wins. A page saying the window holds no run is believed at once only when no
+    workflow is active; otherwise only when every one of RUNS_READ_ATTEMPTS reads says so.
+
+    No read is trusted while the runs seen across ALL reads outnumber `bar`: then every reported
+    total is provably low. Below that, a whole read holds exactly `bar` runs, so it holds every run
+    any read saw."""
+    bar = run_total(reads)
+    if len(run_union(reads)) > bar:
+        return None
+    states = [run_read_state(r, bar) for r in reads]
+    for read, state in zip(reads, states):
+        if state == "whole":
+            return read
+    if states and all(s == "zero" for s in states) and (
+            not active or len(states) >= RUNS_READ_ATTEMPTS):
+        return reads[0]
+    return None
 
 
 def gh_json_rows(args, what):
@@ -209,31 +294,34 @@ def scheduled_reds(full, since_day):
             active[f[0]] = {"path": f[2], "name": f[3]}
         if f[1] == "disabled_inactivity":
             stopped.append(f[3])
-    runs = gh_json_rows(["-X", "GET", "repos/%s/actions/runs" % full, "-f", "event=schedule",
-                         "-f", "created=>=" + since_day, "-f", "per_page=100", "--paginate",
-                         "--jq", ".total_count as $t | .workflow_runs[] | [$t, .id, .workflow_id,"
-                         " .status, .conclusion, .created_at, .html_url] | @json"],
-                        "scheduled run list for %s" % full)
-    seen, totals, by_flow = set(), set(), {}
-    for r in runs:
-        if not (isinstance(r, list) and len(r) == 7 and all(is_int(x) for x in r[:3])
-                and isinstance(r[3], str) and (r[4] is None or isinstance(r[4], str))
-                and aware_instant(r[5]) and isinstance(r[6], str)):
-            refuse("The scheduled run list for %s holds a row it cannot read: %r" % (full, r))
-        total, run_id, flow, status, conclusion, created, url = r
-        totals.add(total)
-        # A run created mid-read shifts the newest-first pages, so a row can arrive twice.
-        if run_id in seen:
-            continue
-        seen.add(run_id)
-        if status == "completed" and conclusion not in RUN_NO_VERDICT:
-            by_flow.setdefault(flow, []).append((P(created), conclusion, created, url))
-    if totals and max(totals) > RUNS_API_CAP:
-        refuse("%s holds %d scheduled runs in %d days, past the %d the API returns; narrow "
-               "SCHEDULE_WINDOW_DAYS." % (full, max(totals), SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
-    if totals and len(seen) < min(totals):
-        refuse("%s reports %d scheduled runs in the window but %d were read."
-               % (full, min(totals), len(seen)))
+    reads, chosen = [], None
+    for attempt in range(RUNS_READ_ATTEMPTS):
+        if attempt:
+            time.sleep(RUNS_RETRY_WAIT_S)
+        reads.append(read_scheduled_runs(full, since_day))
+        bar = run_total(reads)
+        # At the cap itself the total may be the API's ceiling rather than the window's count.
+        if bar >= RUNS_API_CAP:
+            refuse("%s holds %d scheduled runs in %d days, at or past the %d the API returns; "
+                   "narrow SCHEDULE_WINDOW_DAYS." % (full, bar, SCHEDULE_WINDOW_DAYS, RUNS_API_CAP))
+        chosen = chosen_run_read(reads, active)
+        if chosen is not None:
+            break
+    if chosen is None:
+        # Say how far the reads got, so the refusal names the shape it saw.
+        union, most = len(run_union(reads)), max(len(r.seen) for r in reads)
+        if union > bar:
+            refuse("%s read %d distinct scheduled runs, more than the %d any page reported."
+                   % (full, union, bar))
+        if bar:
+            refuse("%s reports %d scheduled runs in the window but %d were read."
+                   % (full, bar, most))
+        if any(r.pages for r in reads):
+            refuse("The scheduled run list for %s said it held no run on only some of %d reads, "
+                   "and no read was whole." % (full, len(reads)))
+        refuse("The scheduled run list for %s returned no page in %d reads."
+               % (full, len(reads)))
+    by_flow = chosen.by_flow
     reds, unscheduled, read = [], [], 0
     for flow, info in sorted(active.items(), key=lambda kv: kv[1]["name"]):
         verdicts = sorted(by_flow.get(flow, []), key=lambda x: x[0], reverse=True)

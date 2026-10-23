@@ -89,7 +89,7 @@ moment they can win.
 | The retired review-step row | A pull request merges on `gates (ubuntu-latest)` and `gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so report what you ran and what you did NOT run. Section 4d holds the format. |
 | Naming what you did not run is the half that gets dropped | A hosted-only leg you cannot run locally is unread until CI reads it, and nobody downstream can tell it from a green one. |
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
-| The relay row | The recipient cannot verify a relayed authority claim and will not act on it. |
+| The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
 | The precedence row | If COMMON and LANDER conflict on the same point, that is an owner question. Route it, do not pick. |
 
 Measured 2026-08-28: LANDER claims precedence over COMMON for its own seat, and cites a COMMON
@@ -854,19 +854,54 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
 
+**NARROWED 2026-10-22: where the arguments span lines, the first nonce on any of them is the
+fork's own.** That fork then refuses with exit 13. So put the nonce right after the level, or a
+round naming an earlier nonce first blocks that earlier round's check.
+
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
 newest, then it took arguments alone, and the Lander showed both quoting the wrong fork's tag.
 
-It reads the meta file, then record 0 alone, and of that only the target line and the next non-blank
-one. No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
+It reads the meta file, then record 0 alone, and prints of that only the target and the tag line.
+No later record is read or printed. Paths appear only under `--verbose`, because the leak gate
 forbids a home path in a QA line.
+
+**CHANGED 2026-10-22, vault #4006.** The paragraph beginning *It reads the meta file* read *"of
+that only the target line and the next non-blank one"*. A later line is now tested for a tag's
+shape, and never kept or printed.
+
+**Keep your arguments on one line.** The target is the first line of the fork's message. Where
+that line leaves a backtick open, or the next non-blank line is no tag and a later line is one, your
+arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
+
+That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
+`none returned`.
+
+**CHANGED 2026-10-22, edges PR 235 left open.** Two shapes now exit 13. Two tag-shaped lines
+read as exit 0, quoting the first. A target line with no words, nonce below it, read as exit 3.
+
+Where the arguments span lines, the fork's own nonce is now the first one on any of them, up to the
+last tag-shaped line. Before, only the target line was read, so such a round read as exit 3.
+
+Measured on CLI 2.1.309, in this branch's cloud session:
+
+```bash
+B=/opt/claude-code/bin/claude
+grep -aoE '(low|medium|high|xhigh|max|\$\{[A-Za-z_.]+\}) effort (\\u2192|->)' "$B" | wc -l
+```
+
+It returns 12, and read one by one, each opens a template string or a `tag:` field. Other
+`${...} effort` hits carry no arrow, so they are not tag-shaped. The target is always in backticks.
+
+Not varied: the notices the skill puts ahead of the target line, and any other CLI version.
+
+Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 under the new code.
 
 | Flag | What it does |
 | --- | --- |
-| `--target` | REQUIRED. The round's nonce, or your arguments carrying it, level and skill flags stripped. A level alone is refused, exit 9, and so is a target with no well-formed nonce, unless `--no-nonce`, which no QA line may use. |
+| `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
-| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. |
+| `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. Inside each project, only its directory is walked. |
 | `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
 | `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
@@ -887,6 +922,16 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
+| 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+
+**CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
+and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.
+Exit 13 is new.
+
+**NARROWED the same day: under `--session`, only that session's directory is walked in each
+project.** So another session's unreadable directory no longer refuses with exit 4. An unreadable
+project directory still does. The `--session` row ended at
+*"share their Manager's session"*.
 
 **No refusal prints a `tag:` line.** Every refusal is decided before the row is rendered, whether or
 not a readable fork also matched.

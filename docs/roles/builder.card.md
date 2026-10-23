@@ -83,8 +83,9 @@ That paragraph read "Keep the skill's FIRST LINE. It names the shape the run too
 2026-09-22. The tag is the first line of the skill's own prompt, not of its report.
 
 The QA line further down carries the level you PASSED. Give each round a fresh nonce after the
-level, `xhigh round-<hex> ...`, then run `review_tag.py --target <nonce> --since <before it>`: it
-reads that fork's tag, or refuses. Never infer a shape, and never paste a prose opener into that line.
+level, `xhigh round-<hex> ...`, all on one line, then run `review_tag.py --target <nonce> --since
+<before it>`: it reads that fork's tag, or refuses. Never infer a shape, and never paste a prose
+opener into that line.
 
 The Tag field held "a tag only if one came back" until 2026-10-22. None ever came back, so the field
 proved nothing. `roles/BUILDER.md` 4e holds the tool, its pinned fetch, and what to quote.

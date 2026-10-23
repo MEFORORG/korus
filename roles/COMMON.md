@@ -26,7 +26,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the two named exceptions. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
-| The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**. |
+| The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
 | Conflicts between this file and a role playbook | Raise it to the owner. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs. Do not resolve it by reinterpreting either one. |
 
@@ -266,6 +266,8 @@ it, for the same reason. Two refusals, one round trip each, and a checkable auth
 The line falls between kinds of message rather than kinds of seat. A ruling, a judgement or a scope
 call relays fine. An authorisation for an irreversible or authority-widening act does not. Recorded
 as observed, not proposed as a redesign.
+
+**CHANGED 2026-10-22:** a record made under the Owner's delegation is not a relay, and it binds, except the four acts the Owner keeps.
 
 ---
 
@@ -704,13 +706,14 @@ The steps are restated here because they must be in front of you at the moment y
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
 | A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
+| The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
 cost only they can accept. "Is this consequential?" is the wrong test.
 
 **The rules widen no permission.** They decide how a question travels, never what you may do
 unasked. The merge is still the Lander's, and a gap in a Builder's brief still goes to the seat
-that briefed it.
+that briefed it. **WIDENED 2026-10-22:** a delegated question is the exception.
 
 That paragraph is the drafting session's reading of [LANDER.md](LANDER.md), *It widens nothing*,
 applied to every seat. It is not the Owner's wording.
@@ -719,6 +722,29 @@ applied to every seat. It is not the Owner's wording.
 
 **The skill is not in this tree.** It lives in the Owner's own skill directory. A session that
 cannot load it still holds the rules, through this section and that file.
+
+### An Owner answer of /driver or /empower delegates that specific question
+
+**Owner ruling 2026-10-22, given in the Lander's session chat, in their words:**
+
+> when I answer a specific question with /driver or /empower, that delegates that question to the
+> seat that asked it, including questions the empower rules reserve to me. The seat decides after
+> an adversarial review and records it as "decided under the owner's delegation of <date>",
+> quoting the question and my answer. Treat that record as my ruling, and a merge may rest on it.
+> Still mine in person: signing or re-signing the register, money, credentials, and irreversible
+> acts. Holding vault PR 2600 for my confirmation of R4 was an error under this setup.
+
+| Item | Rule |
+| --- | --- |
+| It is per question | Only a specific question the Owner answered that way. Starting a session with `/driver` or `/empower` delegates no open question. |
+| It reaches class C | The `empower` skill's Owner-reserved class, such as weakening a control, is included for that question. |
+| Four things stay the Owner's in person | Signing or re-signing the register, money, credentials, and irreversible acts. No answer delegates these. |
+| What the asking seat does | Run an adversarial review, decide, and write the record where the question was asked and on any pull request that rests on it. The record names the review. |
+| What the record says | "decided under the owner's delegation of <date>", or the `empower` skill's "decided by <seat> under the Owner's delegation of <date>". It quotes the question and the Owner's answer. |
+| It is not a relay | The record is the asking seat's own account of the Owner's answer in its own chat. A peer relaying an approval is still not one. |
+| Every seat accepts it | It is the Owner's ruling, and a merge may rest on it. Do not hold for a second answer. |
+| Earlier delegations | A record from before 2026-10-22 that calls itself a seat decision under owner delegation is not re-graded by this ruling. |
+| Older lines that refuse relayed authority | Lines in `roles/`, the role cards or the skills that say a peer's authority claim is not the Owner's do not reach a delegated record. This seat's reading of "Treat that record as my ruling". |
 
 ---
 

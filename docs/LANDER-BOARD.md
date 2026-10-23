@@ -313,12 +313,26 @@ that window is not read, and the panel's clear headline says so. It also says ho
 were read, so the zero has a size.
 
 **The runs endpoint returns at most 1,000 results for a filtered query.** Measured 2026-10-01 over
-35 days: engine 294, vault 133, korus 50. A repository past the cap refuses rather than reading a
-truncated list as complete.
+35 days: engine 294, vault 133, korus 50. A repository at or past the cap refuses rather than
+reading a truncated list as complete.
 
 **A failed read refuses the whole collect, unlike section 4d.** Owner instruction 2026-10-01: keep
 the fail-closed rule. A refused collect leaves the last good board and its old stamp, which a
 reader can see.
+
+**A short read is read again, up to three times, before it refuses.** Measured 2026-10-22: the
+paginated read stopped at a page boundary with no error on most collects that day, and the next
+read was whole.
+
+Each page prints its own total. Every read is judged against the highest total any page of any
+read reported, and that figure is the one the cap applies to. A read is whole only when each of
+its pages reports that total and its distinct rows number exactly that total.
+
+No read is believed while the runs seen across all reads outnumber that total, which proves every
+total low.
+
+A page saying the window holds no run is believed at once when no workflow is active. Otherwise
+it is believed only when all three reads say so. Any other mix refuses.
 
 Each row shows the repository, the workflow linked to its latest run, and the result. It also
 shows when the red streak started, how long it has been red as of the board's stamp, the failed
