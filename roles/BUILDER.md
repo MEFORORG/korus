@@ -858,13 +858,16 @@ own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
 
 **A target line below anything else, with a tag after it, refuses: exit 14.** The tool cannot read it.
 
-**Except beside a fork that reads canonically.** A brief pasting the skill's whole head is
+**Except beside a fork that reads with its tag.** A brief pasting the skill's whole head is
 displaced, and it once refused the caller's own fork for good. It is now set aside on a
-`set aside: ... | agent <id>` line. Two canonical forks still exit 7.
+`set aside: ... | agent <id>` line. Two readable forks still exit 7.
+
+A displaced head in another worktree refuses as 14, never as 12. Exit 12 sent an inline round to
+`--worktree`, after a helper's brief, and dropping it instead read a real one as absent.
 
 **One line in parentheses that no measured CLI writes, above a target line and its tag, refuses:
-exit 15.** It is most likely a notice a later CLI added or reworded, so its opening words go to
-stderr. Find that sentence in the binary and add it to `NOTICE_TEMPLATES`; do not quote the tag.
+exit 15.** It is most likely a new or reworded notice. `--verbose` prints its opening words on
+stderr; add that sentence to `NOTICE_TEMPLATES`. Beside a readable fork it is set aside.
 
 **CHANGED 2026-10-23, PR 243 round two:** a notice was skipped where it OPENED with one of eleven
 phrases, two of them ordinary English. An unknown notice refused as exit 14, with no diagnosis.
@@ -922,9 +925,13 @@ available, and the target is a bare git range such as `origin/main...HEAD`. Argu
 nonce and words are no range, so a QA round should not meet it.
 
 ```bash
-grep -a -o 'finderBudgetHint:!0' "$B" | wc -l                    # 3: claude-sonnet-5 high, xhigh, max
+B=/opt/claude-code/bin/claude
+grep -a -c 'Review target: \\`' "$B"                                  # control: 2
+grep -a -o 'finderBudgetHint:!0' "$B" | wc -l                          # 3: sonnet-5 high to max
 grep -a -o 'This diff is about ${h} lines. Spawn about' "$B" | wc -l   # 1
 ```
+
+Read at 2.1.309, from `7443ebd`.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
@@ -956,7 +963,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 | 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. With no canonical fork, a brief pasting the skill's head refuses too, so `(inline, no fork)` still holds. |
-| 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; its opening words are on stderr` | A refusal, and running the tool again does not clear it. See the refusal row above. Name the opening words from stderr in your report under 4d. |
+| 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; --verbose prints its opening words` | A refusal that a rerun does not clear. See the refusal row above. Where your round ran inline, `(inline, no fork)` still holds. Report the words under 4d, minus any path. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

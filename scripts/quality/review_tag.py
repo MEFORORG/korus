@@ -21,17 +21,19 @@ NOTICES MAY COME FIRST. At CLI 2.1.309 the skill builds its prompt as notices, t
 a remembered or ignored `--max-findings`, an unrecognized or last-used level, an ultra fallback, a
 typed `--post`. Each is one line in parentheses, then one blank line, and there are at most three.
 A notice is skipped only where the WHOLE line is one of the sentences that binary writes
-(`NOTICE_SHAPES`), so a helper's brief that merely opens with the same words is not.
+(`NOTICE_TEMPLATES`), so a helper's brief that merely opens with the same words is not.
 
 A target line below anything else, with a tag-shaped line somewhere after it, is DISPLACED: the
 tool refuses (exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
-A brief that pastes a whole head is displaced too, so where a fork reads canonically, the displaced
-ones are set aside and named rather than refusing it; two canonical forks still refuse as
-ambiguous, exit 7. A displaced head in another worktree is not the round's fork found elsewhere.
-
 A notice-shaped line the tool does not know -- one line in parentheses, one blank line, then a target
-line and its tag -- is most likely a notice a later CLI added or reworded. It refuses with its own
-exit (15), and prints its opening words on stderr, so the new sentence can be measured and added.
+line and a tag after it -- is most likely a notice a later CLI added or reworded. It refuses with its
+own exit (15). Under `--verbose` its opening words go to stderr, so the sentence can be measured and
+added; they are record 0's own words, so they sit behind the flag with the paths.
+
+A brief that pastes a whole head is displaced, or below an unknown notice. Beside a fork that reads
+with its tag, such heads are set aside and named, since the skill writes one prompt per round; two
+readable forks still refuse as ambiguous, exit 7. A displaced head in another worktree refuses as
+14, never as the round's fork found elsewhere (12).
 
 A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
 line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
@@ -73,7 +75,8 @@ skill's arguments on one line.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
-and prints from that only the target and the tag line. No later record is read or printed. Path
+and prints from that only the target and the tag line, and under `--verbose` an unknown notice's
+opening words. No later record is read or printed. Path
 columns are printed only under `--verbose`, because the leak gate forbids a user-home path in
 published text and a QA line is published text.
 
@@ -106,7 +109,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
    14  a fork in scope carries its target line below text that is not the skill's notices, and no
        fork reads canonically beside it
    15  a fork in scope carries its target line and tag below a notice-shaped line no measured CLI
-       writes; its opening words go to stderr
+       writes; --verbose prints its opening words on stderr
 """
 
 from __future__ import annotations
@@ -173,9 +176,11 @@ DISPLACED_MESSAGE = (
 )
 UNKNOWN_NOTICE_MESSAGE = (
     "fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes;"
-    " its opening words are on stderr"
+    " --verbose prints its opening words"
 )
-SET_ASIDE_MESSAGE = "set aside: its target line sits below other text, and a fork reads canonically"
+SET_ASIDE_MESSAGE = (
+    "set aside: its target line sits below other text, and a fork with a tag reads canonically"
+)
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
     "--target carries no round nonce (round- and 8 or more hex digits);"
@@ -267,7 +272,10 @@ def notice_pattern(template: str) -> re.Pattern[str]:
     return re.compile("".join(_FIELDS.get(part, re.escape(part)) for part in parts))
 
 
-NOTICE_SHAPES = tuple(notice_pattern(t) for t in NOTICE_TEMPLATES)
+#: Every notice sentence as one alternation, so a line is matched in one pass.
+NOTICE_SHAPE = re.compile(
+    "|".join(f"(?:{notice_pattern(t).pattern})" for t in NOTICE_TEMPLATES)
+)
 
 #: The finder-budget line some model cells add between the target line and the tag, at 2.1.309.
 BUDGET_HINT = notice_pattern(
@@ -301,30 +309,19 @@ SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 
 
 class Refusal(enum.Enum):
-    """Why a fork in scope cannot be read. REFUSALS gives each its exit and its message."""
+    """Why a fork in scope cannot be read: one row each, its exit and its message, in the order
+    `main` checks them. A misspelt member is an AttributeError, never a fork read as readable."""
 
     #: No tag after the target line, and the arguments may span lines.
-    UNSPLIT = "unsplit"
-    #: The target line and tag sit below a notice-shaped line no measured CLI writes.
-    UNKNOWN_NOTICE = "unknown notice"
+    UNSPLIT = (EXIT_UNSPLIT, UNSPLIT_MESSAGE)
+    #: The target line sits below a notice-shaped line no measured CLI writes.
+    UNKNOWN_NOTICE = (EXIT_UNKNOWN_NOTICE, UNKNOWN_NOTICE_MESSAGE)
     #: A target line sits below an opening that is not the skill's notices.
-    DISPLACED = "displaced"
+    DISPLACED = (EXIT_DISPLACED, DISPLACED_MESSAGE)
 
-
-@dataclass(frozen=True)
-class RefusalRule:
-    exit: int
-    message: str
-
-
-#: One row per refusal, in the order `main` checks them. A refusal missing here fails at import.
-REFUSALS = {
-    Refusal.UNSPLIT: RefusalRule(EXIT_UNSPLIT, UNSPLIT_MESSAGE),
-    Refusal.UNKNOWN_NOTICE: RefusalRule(EXIT_UNKNOWN_NOTICE, UNKNOWN_NOTICE_MESSAGE),
-    Refusal.DISPLACED: RefusalRule(EXIT_DISPLACED, DISPLACED_MESSAGE),
-}
-if set(REFUSALS) != set(Refusal):
-    raise AssertionError("every Refusal needs a row in REFUSALS")
+    def __init__(self, exit_code: int, message: str) -> None:
+        self.exit = exit_code
+        self.message = message
 
 
 @dataclass
@@ -338,7 +335,7 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: Why the fork cannot be read, if it cannot: a key of REFUSALS.
+    #: Why the fork cannot be read, if it cannot.
     refusal: Refusal | None = None
     #: For an unknown notice, its opening words, printed on stderr.
     notice: str = ""
@@ -457,7 +454,7 @@ def is_tag(line: str) -> bool:
 
 def is_notice(line: str) -> bool:
     """One of the measured notice sentences, the whole line."""
-    return any(shape.fullmatch(line) for shape in NOTICE_SHAPES)
+    return bool(NOTICE_SHAPE.fullmatch(line))
 
 
 def is_notice_shaped(line: str) -> bool:
@@ -529,14 +526,20 @@ def read_head(lines: list[str]) -> Head:
     A review fork's message STARTS with the target line, or with the skill's notices and then the
     target line. The tag is the next non-blank line, and only if it has the tag's shape. The
     arguments may span lines where the target line leaves a backtick open, or where that next line
-    is no tag and a later line is one: that is `unsplit`, a refusal, never a tagless fork. A target
-    line below anything else, with a tag after it, is `displaced`, also a refusal: a real fork with
-    a tag once read as no fork that way. Only the target line and the tag are kept.
+    is no tag and a later line is one: that is `unsplit`, a refusal, never a tagless fork. One
+    finder-budget line between the target line and the tag is skipped.
+
+    Past a notice-shaped line no measured CLI writes, a target line with a tag after it, unsplit or
+    not, is `unknown notice`, a refusal. With no tag after it, the head is read as below.
+
+    A target line below anything else, with a tag after it, is `displaced`, also a refusal: a real
+    fork with a tag once read as no fork that way. Only the target line and the tag are kept.
     """
     start, unknown = target_index(lines)
     found = None if start is None else read_from_target(lines, start)
-    if found is not None and unknown and found.tag:
-        # A canonical head below a notice no measured CLI writes: most likely a new notice.
+    if found is not None and unknown and (found.tag or found.refusal is not None):
+        # A head below a notice no measured CLI writes, with a tag after its target line: most
+        # likely a new notice. Unsplit arguments under it refuse here too, never as displaced.
         return Head(True, found.target, refusal=Refusal.UNKNOWN_NOTICE,
                     notice=opening_words(unknown[0]))
     if found is not None and not unknown:
@@ -678,10 +681,12 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
-    #: The placed forks each refusal holds, by REFUSALS key.
+    #: The forks each refusal holds.
     refused: dict[Refusal, list[Fork]] = field(
         default_factory=lambda: {refusal: [] for refusal in Refusal}
     )
+    #: Briefs that pasted the round's head, set aside beside a fork that reads with its tag.
+    set_aside: list[Fork] = field(default_factory=list)
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -789,13 +794,20 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 result.refused[fork.refusal].append(fork)
             elif placed:
                 result.forks.append(fork)
-            elif fork.refusal is Refusal.DISPLACED:
-                # A brief that quoted the round's head is no fork of it, so it is not the round's
-                # fork found elsewhere: an inline round then reads exit 3, not exit 12.
-                continue
+            elif fork.refusal is Refusal.DISPLACED and nonced:
+                # A displaced head is most often a brief that quoted the round's head, so it is not
+                # the round's fork found elsewhere (exit 12). It may still be one, so it refuses.
+                result.refused[fork.refusal].append(fork)
             elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
+    if any(fork.tag for fork in result.forks):
+        # The skill writes one prompt per round, so beside a fork that reads with its tag, a
+        # displaced or unknown-notice head carrying the same nonce is a brief that pasted it.
+        # Two readable forks still refuse in `main`, as ambiguous.
+        for refusal in (Refusal.DISPLACED, Refusal.UNKNOWN_NOTICE):
+            result.set_aside += result.refused[refusal]
+            result.refused[refusal] = []
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result
@@ -978,22 +990,18 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
-    for refusal, rule in REFUSALS.items():
+    for refusal in Refusal:
         refused = result.refused[refusal]
-        if refusal is Refusal.DISPLACED and result.forks:
-            # A brief pasting the skill's whole head is displaced, and beside a fork that reads
-            # canonically it is that brief, not the round: name it and read the fork. Two
-            # canonical forks still refuse below, as ambiguous.
-            for fork in refused:
-                print(f"{SET_ASIDE_MESSAGE} | agent {fork.agent_id}")
-            continue
         if refused:
             for fork in refused:
-                if fork.notice:
-                    print(f"review_tag: agent {fork.agent_id}: the unknown notice opens "
-                          f"{spell(fork.notice, True)!r}", file=sys.stderr)
-            print(f"{len(refused)} {rule.message}")
-            return rule.exit
+                # Record 0's own words, so behind --verbose with the paths: one could be a path.
+                if fork.notice and args.verbose:
+                    print(f'review_tag: agent {fork.agent_id}: the unknown notice opens '
+                          f'"{spell(fork.notice, True)}"', file=sys.stderr)
+            print(f"{len(refused)} {refusal.message}")
+            return refusal.exit
+    for fork in result.set_aside:
+        print(f"{SET_ASIDE_MESSAGE} | agent {fork.agent_id}")
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE

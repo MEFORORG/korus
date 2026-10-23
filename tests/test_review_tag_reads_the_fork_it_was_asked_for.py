@@ -1442,14 +1442,14 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         return (f"{opening}Review target: `{args or self.ARGS}`\n\n{between}`{TAG_XHIGH}`\n\n"
                 "You are reviewing ...")
 
-    def _write(self, agent, body, cwd="/home/user/korus"):
-        write_fork(self.projects, "s1", agent, "", "", shape=CLOUD, cwd=cwd,
+    def _write(self, agent, body, cwd="/home/user/korus", session="s1"):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd=cwd,
                    timestamp="2026-10-23T09:00:00Z", body=body)
 
-    def _main(self, target=None):
+    def _main(self, target=None, *extra, session="s1"):
         out, err = io.StringIO(), io.StringIO()
-        argv = ["--projects-dir", str(self.projects), "--session", "s1",
-                "--worktree", "/home/user/korus", "--target", target or self.NONCE]
+        argv = ["--projects-dir", str(self.projects), "--session", session,
+                "--worktree", "/home/user/korus", "--target", target or self.NONCE, *extra]
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = review_tag.main(argv)
         return code, out.getvalue(), err.getvalue()
@@ -1474,6 +1474,15 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
         self.assertNotIn("tag:", out)
 
+    def test_1_beside_a_tagless_canonical_fork_it_still_refuses(self):
+        # Round one: set aside beside any canonical fork, a displaced head holding a tag lost to
+        # a tagless one, exit 5, and a fork with a tag would be published as `none returned`.
+        self._write("real", "Something else first.\n\n" + self._body())
+        self._write("brief", f"Review target: `{self.ARGS}`\n\nFind bugs.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn(review_tag.NO_TAG_MESSAGE, out)
+
     def test_1_control_two_canonical_forks_beside_it_stay_ambiguous(self):
         self._write("helper", "Run this for me, as written:\n\n" + self._body())
         self._write("mine", self._body())
@@ -1488,15 +1497,14 @@ class TheRoundTwoFindingsOfPr243(Fixture):
     # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
 
     def test_2_prose_opening_with_a_notices_words_is_not_skipped(self):
-        for agent, line in (("local", "(Running a local check of the tree first.)"),
-                            ("upto", "(Reporting up to three issues is plenty.)")):
+        for session, line in (("local", "(Running a local check of the tree first.)"),
+                              ("upto", "(Reporting up to three issues is plenty.)")):
             with self.subTest(line=line):
-                self._write(agent, self._body(line))
-                code, out, _ = self._main()
-                self.assertNotEqual(code, review_tag.EXIT_FOUND, out)
+                # A session each, so one subtest's fork cannot stand in another's scope.
+                self._write("helper", self._body(line), session=session)
+                code, out, _ = self._main(session=session)
+                self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
                 self.assertNotIn("tag:", out)
-                (self.projects / "D--Code-korus" / "s1" / "subagents" /
-                 f"agent-{agent}.jsonl").unlink()
 
     def test_2_control_the_whole_sentence_is_skipped(self):
         self._write("mine", self._body(self.LOCAL))
@@ -1510,10 +1518,14 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     # 3. A displaced brief in another worktree is not the round's fork found elsewhere.
 
-    def test_3_an_inline_round_beside_a_displaced_brief_elsewhere_is_no_fork(self):
+    def test_3_a_displaced_brief_elsewhere_refuses_as_displaced_not_elsewhere(self):
+        # Exit 12 sent an inline round to --worktree; exit 14's row says `(inline, no fork)`
+        # still holds. Round one: dropping it instead read a real displaced fork as absent, exit 3.
         self._write("helper", "Run this for me:\n\n" + self._body(), cwd=self.OTHER)
         code, out, _ = self._main()
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn(review_tag.ELSEWHERE_MESSAGE, out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
 
     def test_3_control_a_canonical_fork_elsewhere_is_still_exit_12(self):
         self._write("mine", self._body(), cwd=self.OTHER)
@@ -1525,19 +1537,34 @@ class TheRoundTwoFindingsOfPr243(Fixture):
     def test_4_an_unknown_notice_refuses_with_its_own_exit_and_words(self):
         notice = "(Reporting the top findings first, as a later CLI might say it.)"
         self._write("mine", self._body(notice))
-        code, out, err = self._main()
+        code, out, err = self._main(None, "--verbose")
         self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
         self.assertIn(review_tag.UNKNOWN_NOTICE_MESSAGE, out)
         self.assertNotIn("tag:", out)
-        self.assertIn("(Reporting the top findings first, as ...", err)
+        self.assertIn('"(Reporting the top findings first, as ..."', err)
         self.assertIn("agent mine", err)
+
+    def test_4_without_verbose_the_words_stay_out(self):
+        # They are record 0's own words, and could carry a path, so they sit behind --verbose.
+        self._write("mine", self._body("(Check C:/Users/someone/korus first.)"))
+        code, out, err = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("Users", out + err)
 
     def test_4_the_opening_words_are_printed_in_ascii(self):
         self._write("mine", self._body("(A dash \u2014 in a notice nobody measured.)"))
-        code, _, err = self._main()
+        code, _, err = self._main(None, "--verbose")
         self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE)
-        self.assertIn("\\u2014", err)
+        # One escape, as a reader would search for it: round one printed it doubled.
+        self.assertIn("dash \\u2014 in", err)
+        self.assertNotIn("\\\\u2014", err)
         err.encode("ascii")
+
+    def test_4_unsplit_arguments_below_an_unknown_notice_refuse_as_15(self):
+        # Round one: these fell through to displaced, exit 14, under the wrong diagnosis.
+        self._write("mine", f"(A new notice.)\n\nReview target: `{self.NONCE} a\nb`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
 
     def test_4_control_a_measured_notice_in_the_same_place_reads(self):
         self._write("mine", self._body(self.FINDINGS))
@@ -1549,21 +1576,24 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
-    def test_4_an_unknown_notice_beside_the_callers_fork_still_refuses(self):
-        # Set aside is for displaced heads only: an unknown notice may be the round's own fork.
-        self._write("new", self._body("(A notice a later CLI added.)"))
+    def test_4_a_parenthesised_brief_beside_the_callers_fork_is_set_aside(self):
+        # Round one: a brief in parentheses blocked the caller's fork for good, exit 15, while the
+        # same brief in plain prose was set aside. The skill writes one prompt per round.
+        self._write("brief", self._body("(Run this for me)"))
         self._write("mine", self._body())
         code, out, _ = self._main()
-        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self._found(code, out)
+        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent brief", out)
 
     # 5. One table maps each refusal to its exit and message.
 
-    def test_5_every_refusal_has_one_row_with_a_distinct_exit(self):
-        self.assertEqual(set(review_tag.REFUSALS), set(review_tag.Refusal))
-        exits = [rule.exit for rule in review_tag.REFUSALS.values()]
-        self.assertEqual(len(exits), len(set(exits)))
-        for rule in review_tag.REFUSALS.values():
-            self.assertTrue(rule.message.endswith(("tag", "line", "stderr")), rule.message)
+    def test_5_every_refusal_carries_its_own_exit_and_message(self):
+        rows = list(review_tag.Refusal)
+        self.assertEqual(len({r.exit for r in rows}), len(rows))
+        self.assertEqual(len({r.message for r in rows}), len(rows))
+        self.assertEqual(review_tag.Refusal.UNKNOWN_NOTICE.exit, review_tag.EXIT_UNKNOWN_NOTICE)
+        with self.assertRaises(AttributeError):
+            review_tag.Refusal.DISPLACD  # noqa: B018 -- a typo fails loudly
 
     def test_5_a_refusal_lands_in_its_own_list_never_in_forks(self):
         self._write("mine", self._body("(A notice a later CLI added.)"))
