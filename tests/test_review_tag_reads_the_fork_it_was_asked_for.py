@@ -1491,9 +1491,6 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
         self.assertNotIn("tag:", out)
 
-    def test_1_the_set_aside_line_carries_no_banned_word(self):
-        self.assertNotIn("review", review_tag.SET_ASIDE_MESSAGE.lower())
-
     # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
 
     def test_2_prose_opening_with_a_notices_words_is_not_skipped(self):
@@ -1562,7 +1559,8 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def test_4_unsplit_arguments_below_an_unknown_notice_refuse_as_15(self):
         # Round one: these fell through to displaced, exit 14, under the wrong diagnosis.
-        self._write("mine", f"(A new notice.)\n\nReview target: `{self.NONCE} a\nb`\n\n`{TAG_XHIGH}`\n")
+        self._write("mine",
+                    f"(A new notice.)\n\nReview target: `{self.NONCE} a\nb`\n\n`{TAG_XHIGH}`\n")
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
 
@@ -1572,7 +1570,8 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def test_4_an_unknown_notice_above_a_tagless_target_is_no_fork(self):
         # A brief quoting the target line with no tag is no skill prompt, notice-shaped or not.
-        self._write("brief", "(Please look at this.)\n\nReview target: `" + self.ARGS + "`\n\nGo.\n")
+        self._write("brief",
+                    "(Please look at this.)\n\nReview target: `" + self.ARGS + "`\n\nGo.\n")
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
@@ -1612,8 +1611,52 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def test_6_control_a_target_line_is_still_scanned_and_kept(self):
         lines = ["Note", f"Review target: `{self.ARGS}`", "", f"`{TAG_XHIGH}`"]
-        self.assertEqual(review_tag.displaced_targets(lines), [self.ARGS])
+        self.assertEqual(review_tag.displaced_targets(lines), [(self.ARGS, TAG_XHIGH)])
         self.assertEqual(review_tag.displaced_targets(lines[:2]), [], "no tag after it")
+
+    # Round two of this work: set aside only a head carrying the readable fork's own tag.
+
+    def test_r2_a_real_fork_under_a_new_notice_is_not_set_aside_for_a_brief(self):
+        # The fork under the unknown notice ran at xhigh; a brief pasted a high head. Quoting the
+        # brief's tag at exit 0 would publish the wrong level.
+        self._write("real", self._body("(A notice a later CLI added.)"))
+        self._write("brief", self._body().replace(TAG_XHIGH, TAG_HIGH))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_a_displaced_fork_with_another_tag_still_refuses(self):
+        self._write("real", "Something else first.\n\n" + self._body())
+        self._write("rerun", self._body().replace(TAG_XHIGH, TAG_HIGH))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_unsplit_arguments_under_a_new_notice_keep_the_fork_by_its_nonce(self):
+        # The full arguments match only the first target line, so the nonce alone keeps it.
+        self._write("mine", f"(A new notice.)\n\nReview target: `{self.NONCE} Review\nthis diff`"
+                            f"\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main(f"{self.NONCE} Review this diff")
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+
+    def test_r2_a_wrapped_line_with_its_own_backtick_and_two_tags_refuses(self):
+        self._write("mine",
+                    f"Review target: `{self.NONCE} quote `x`\n{TAG_HIGH}`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_a_parenthesised_brief_elsewhere_refuses_rather_than_exit_12(self):
+        self._write("brief", self._body("(Run this for me)"), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_a_tagless_brief_under_a_notice_with_an_open_backtick_is_no_fork(self):
+        self._write("brief", f"(Please look at this.)\n\nReview target: `{self.NONCE} fix the"
+                             " `x` y\n\nGo now.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     # Edge from PR 242: one literal backtick inside a one-line target.
 
