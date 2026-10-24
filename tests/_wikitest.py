@@ -110,8 +110,10 @@ def run(pwsh: str, script: Path, *args: str, cwd: Path | None = None, env: dict 
     # The leak scan reads these. A developer's own token file or a CI secret must not change what a
     # planted value does, so each case runs structural-only unless it says otherwise.
     # KORUS_SEAT is the seat fallback write.ps1 reads; a session that has one set must not turn a
-    # "no seat" case green.
-    for var in ("CCX_FORBIDDEN_TOKENS", "CCX_REQUIRE_TOKENS", "CCX_MIN_DETECTORS", "CCX_CONFIG", "KORUS_SEAT"):
+    # "no seat" case green. MEFOR_COORD_ROOT moves the root cycle.ps1 resolves, so a developer's own
+    # value would refuse every cycle case.
+    for var in ("CCX_FORBIDDEN_TOKENS", "CCX_REQUIRE_TOKENS", "CCX_MIN_DETECTORS", "CCX_CONFIG", "KORUS_SEAT",
+                "MEFOR_COORD_ROOT"):
         full_env.pop(var, None)
     if env:
         full_env.update(env)
