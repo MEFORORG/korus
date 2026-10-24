@@ -582,6 +582,8 @@ def read_head(lines: list[str]) -> Head:
                 own_nonce=found.own_nonce,
                 notice=opening_words(unknown[0]),
                 held_tag=found.tag,
+                # A later target line may be the round's own, as below a displaced opening.
+                candidates=displaced_heads(lines),
             )
     candidates = displaced_heads(lines)
     if not candidates:
@@ -610,11 +612,11 @@ def read_target(lines: list[str], start: int) -> Head:
     rest = lines[start + 1 :]
     tags = [index for index, line in enumerate(rest) if is_tag(line)]
     tag, unsplit = "", opened
-    filled = [index for index, line in enumerate(rest) if line.strip()]
-    if filled and not opened and BUDGET_HINT.fullmatch(rest[filled[0]]):
+    filled = (index for index, line in enumerate(rest) if line.strip())
+    following = next(filled, None)
+    if following is not None and not opened and BUDGET_HINT.fullmatch(rest[following]):
         # The finder-budget line, once: the tag follows it.
-        filled = filled[1:]
-    following = filled[0] if filled else None
+        following = next(filled, None)
     if following is not None and not opened:
         if tags and tags[0] == following:
             # Each template opens with its one tag, so with two tag-shaped lines one came from
@@ -815,7 +817,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 continue
             fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
             fork.refusal, fork.notice, fork.held_tag = read.refusal, read.notice, read.held_tag
-            if fork.refusal is Refusal.DISPLACED and filters.target:
+            if read.candidates and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
                 mine = next(
                     (c for c in read.candidates if own_nonce_matches(filters.target, c.own_nonce)),
@@ -870,11 +872,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     # a brief that pasted the head cannot block the round. A head with another tag, or none, still
     # refuses: it may be the round, and the readable one a brief. Two readable forks refuse in
     # `main`, as ambiguous.
-    readable = {fork.tag for fork in result.forks if fork.tag}
+    # Compared in the ASCII spelling, so a brief that pasted an `--ascii` QA head still matches.
+    readable = {spell(fork.tag, True) for fork in result.forks if fork.tag}
     for refusal in SET_ASIDE_REFUSALS:
         held = result.refused[refusal]
-        result.set_aside += [fork for fork in held if fork.held_tag in readable]
-        result.refused[refusal] = [fork for fork in held if fork.held_tag not in readable]
+        same = [fork for fork in held if fork.held_tag and spell(fork.held_tag, True) in readable]
+        result.set_aside += same
+        result.refused[refusal] = [fork for fork in held if fork not in same]
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result

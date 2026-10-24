@@ -1606,6 +1606,30 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         self.assertNotIn("tag:", out)
         self.assertNotIn(review_tag.SET_ASIDE_MESSAGE, out)
 
+    def test_1_a_pasted_head_in_the_ascii_spelling_is_set_aside(self):
+        # Takeover review: the tags were compared byte for byte, so a brief pasting an `--ascii`
+        # QA head never matched the fork's arrow and blocked the round, exit 14.
+        ascii_head = self._body().replace(TAG_XHIGH, review_tag.spell(TAG_XHIGH, True))
+        self.assertNotEqual(ascii_head, self._body(), "the fixture tag holds no glyph")
+        self._write("helper", "Run this for me, as written:\n\n" + ascii_head)
+        self._write("mine", self._body(self.FINDINGS))
+        code, out, _ = self._main()
+        self._found(code, out)
+        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent helper", out)
+
+    def test_1_a_later_target_line_below_an_unknown_notice_refuses(self):
+        # Takeover review: below an unknown notice only the first target line was matched, so
+        # the round's own line further down read as no fork, exit 3. A plain opening refused 14.
+        other = "Review target: `round-00000000aa old words`\n\nThen:\n\n"
+        for opening, want in (("(Compare.)", review_tag.EXIT_UNKNOWN_NOTICE),
+                              ("Compare.", review_tag.EXIT_DISPLACED)):
+            with self.subTest(opening=opening):
+                session = "p" if opening.startswith("(") else "q"
+                self._write("later", f"{opening}\n\n{other}" + self._body(), session=session)
+                code, out, _ = self._main(session=session)
+                self.assertEqual(code, want, out)
+                self.assertNotIn("tag:", out)
+
     # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
 
     def test_2_prose_opening_with_a_notices_words_is_not_skipped(self):
