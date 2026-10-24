@@ -829,9 +829,29 @@ head -1 ~/.claude/projects/*/<session id>/subagents/agent-<id>.jsonl \
 non-blank line after `Review target:`. Its first draft read line 2 alone, and on the real fork it
 printed no tag.
 
-**It refuses anything else rather than guess.** A message that does not START with the target line
-is not a review fork. A tag is a level, `effort`, then the arrow pipeline; another `<word> effort`
-line is prose. CHANGED 2026-10-22: both were looser, and round two showed them fail open.
+**It refuses anything else rather than guess.** A message not STARTING with the target line, past
+notices, is never read as a fork. A tag is a level, `effort`, then the arrow pipeline;
+another `<word> effort` line is prose. CHANGED 2026-10-22: both were looser, and round two showed
+them fail open.
+
+**NARROWED 2026-10-23: that first sentence ended *"is not a review fork"*.** Notices may come
+first. Measured 2026-10-23 in CLI 2.1.309, at `/opt/claude-code/bin/claude` in a cloud session. The
+prompt is built as `${Le}${W}${En}...`, and `En` is the target line.
+
+`Le` is a level notice (an ultra fallback, an unrecognized level, a last-used level) and a typed
+`--post` notice. `W` is a remembered or ignored `--max-findings` notice. Each is one line in
+parentheses, opening with the skill's own words, then one blank line: at most three. Read it with:
+
+```bash
+grep -a -c 'Review target: \\`' /opt/claude-code/bin/claude    # 2 template literals write it
+grep -a -o 'function ls({ultraFallback.\{0,300\}' /opt/claude-code/bin/claude
+```
+
+**A target line below anything else, with a tag after it, refuses: exit 14.** The tool cannot read it.
+
+**CHANGED 2026-10-23, PR 242 round two:** a target line below a notice, or below anything else, read
+as exit 3, *"no fork found"*. A `--max-findings all` is remembered, so its notice opens every later
+round. Every real fork with a tag then read as absent, and this section allowed `none returned`.
 
 **Give each round a fresh nonce, right after the level, and run the tool on that nonce:**
 
@@ -870,7 +890,7 @@ forbids a home path in a QA line.
 that only the target line and the next non-blank one"*. A later line is now tested for a tag's
 shape, and never kept or printed.
 
-**Keep your arguments on one line.** The target is the first line of the fork's message. Where
+**Keep your arguments on one line.** The target is the first line past the skill's notices. Where
 that line leaves a backtick open, or the next non-blank line is no tag and a later line is one, your
 arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
 
@@ -894,6 +914,10 @@ It returns 12, and read one by one, each opens a template string or a `tag:` fie
 `${...} effort` hits carry no arrow, so they are not tag-shaped. The target is always in backticks.
 
 Not varied: the notices the skill puts ahead of the target line, and any other CLI version.
+
+**NARROWED 2026-10-24, when PR 243 merged this in.** The binary was not read with notices. The
+tool was: both rules refuse below a notice, and a displaced target line follows the same rules.
+Fixtures pin each case.
 
 Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 under the new code.
 
@@ -923,6 +947,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
+| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal, and running the tool again does not clear it. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so an inline round's `(inline, no fork)` still holds. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

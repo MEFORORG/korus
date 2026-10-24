@@ -180,13 +180,17 @@ class TheRecordedCloudShapeIsRead(Fixture):
         self.assertNotIn("nested", out)
         self.assertNotIn("sibling", out)
 
-    def test_a_message_not_starting_with_the_target_line_is_not_a_fork(self):
+    def test_a_target_line_below_an_unknown_opening_refuses(self):
         # Fail closed: a guess at where a review prompt begins could take ordinary prose for one.
+        # CHANGED 2026-10-23: this exited 3, no fork, and a Builder could publish `none returned`
+        # over a real fork with a tag. A target line below text that is not the skill's notices
+        # now refuses, exit 14. `TheNoticesAboveTheTargetLine` holds the notices that are read.
         write_fork(self.projects, "s1", "a1", "Review this diff", TAG_XHIGH, shape=CLOUD,
                    cwd="/home/user/korus", timestamp="2026-10-22T04:00:00Z",
                    prefix="Note: findings are capped as you asked last time.")
         code, out, _ = run(self.projects, "--worktree", "/home/user/korus")
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertIn(review_tag.DISPLACED_MESSAGE, out)
         self.assertNotIn("tag: " + TAG_XHIGH, out)
 
 
@@ -582,8 +586,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
                  review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
-                 review_tag.EXIT_UNSPLIT, 1, 2}
-        self.assertEqual(len(codes), 14, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED, 1, 2}
+        self.assertEqual(len(codes), 15, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1214,7 +1218,8 @@ class TheVault4006Findings(Fixture):
     def test_control_an_empty_target_with_the_tag_next_still_reads_it(self):
         # No arguments spill, so the empty target is the whole of them.
         head = review_tag.read_head(["Review target: ", "", f"`{TAG_XHIGH}`"])
-        self.assertEqual(head[2:4], (TAG_XHIGH, False))
+        # read_head returns a Head since korus PR 243; this read `head[2:4], (TAG_XHIGH, False)`.
+        self.assertEqual((head.tag, head.refusal), (TAG_XHIGH, None))
 
     # Finding 8: flags in the equals form, and flags after the words.
 
@@ -1296,6 +1301,223 @@ class TheVault4006Findings(Fixture):
                         code = review_tag.main(argv)
                 self.assertEqual(code, expected, out.getvalue())
                 self.assertEqual(blocked in walked, session is None)
+
+
+class TheNoticesAboveTheTargetLine(Fixture):
+    """PR 242, round two. CLI 2.1.309 builds the skill's prompt as notices, then the target line,
+    so a real fork with a tag read as no fork, exit 3. The notices below are copied from that
+    binary's prompt builder, with the level filled in. Each match sits beside a refusal of the
+    nearest shape that is not the skill's."""
+
+    NONCE = "round-242abcdef0"
+    ARGS = f"{NONCE} Review this branch's diff against origin/main"
+
+    # A remembered `--max-findings all`, in the fork form.
+    FINDINGS = ("(Reporting every finding, as the user chose last time with `--max-findings all`."
+                " Open your report with one short line telling the user this, and that passing"
+                " `--max-findings default` goes back to the usual limit; that opening line reaches"
+                " them with the findings.)")
+    IGNORED = ("(`--max-findings` was ignored: type a whole number above zero, `all`, or `default`"
+               " after it. Using the usual limit. Open your report with one short line telling the"
+               " user this; that opening line reaches them with the findings.)")
+    UNRECOGNIZED = ('(Ignoring unrecognized effort "xhighh"; valid: low, medium, high, xhigh,'
+                    ' max. Using xhigh.)')
+    LAST_USED = ("(No effort level given \u2014 reusing xhigh, the level the user typed last time."
+                 " Open your report with one short line telling the user this, and that typing a"
+                 " level (for example `/code-review high`) changes it; that opening line reaches"
+                 " them with the findings.)")
+    ULTRA = ("(Claude can't launch the cloud review directly \u2014 the user can run"
+             " `claude ultrareview` from a terminal to start it. Falling back to a local"
+             " xhigh-effort review for now.)")
+    POST = ("(The typed `--post` applies only to the `/code-review ultra` cloud review and was"
+            " ignored \u2014 this local review will not post to GitHub; `--comment` is the flag that"
+            " posts local findings as inline PR comments. Tell the user this in one short line.)")
+
+    def _body(self, *notices, gap="\n\n"):
+        opening = "".join(notice + gap for notice in notices)
+        return f"{opening}Review target: `{self.ARGS}`\n\n`{TAG_XHIGH}`\n\nYou are reviewing ..."
+
+    def _write(self, agent, body, session="s1"):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd="/home/user/korus",
+                   timestamp="2026-10-23T09:00:00Z", body=body)
+
+    def _main(self, target=None, session="s1"):
+        out = io.StringIO()
+        argv = ["--projects-dir", str(self.projects), "--session", session,
+                "--worktree", "/home/user/korus", "--target", target or self.NONCE]
+        with contextlib.redirect_stdout(out):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def _found(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertIn(f"target: {self.ARGS}\n", out)
+
+    def _refused(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertIn(review_tag.DISPLACED_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out, "a fork with a tag was called absent")
+
+    def test_control_no_notice_reads_the_tag(self):
+        self._write("bare", self._body())
+        self._found(*self._main())
+
+    def test_each_measured_notice_reads_the_tag(self):
+        for name in ("FINDINGS", "IGNORED", "UNRECOGNIZED", "LAST_USED", "ULTRA", "POST"):
+            with self.subTest(notice=name):
+                # A session each, so one notice that stops reading cannot fail the others as two.
+                self._write(name, self._body(getattr(self, name)), session=name)
+                self._found(*self._main(session=name))
+
+    def test_the_most_notices_the_skill_writes_read_the_tag(self):
+        # A level notice and the `--post` notice from one builder, then the `--max-findings` one.
+        self._write("three", self._body(self.ULTRA, self.POST, self.FINDINGS))
+        self._found(*self._main())
+
+    def test_one_notice_past_the_limit_refuses(self):
+        self._write("four", self._body(self.ULTRA, self.POST, self.FINDINGS, self.FINDINGS))
+        self._refused(*self._main())
+
+    def test_a_notice_without_its_blank_line_refuses(self):
+        self._write("tight", self._body(self.FINDINGS, gap="\n"))
+        self._refused(*self._main())
+
+    def test_a_notice_with_two_blank_lines_refuses(self):
+        self._write("loose", self._body(self.FINDINGS, gap="\n\n\n"))
+        self._refused(*self._main())
+
+    def test_a_notice_followed_by_prose_refuses(self):
+        # Stepping two lines at a time is not the rule: the second must be blank.
+        self._write("prose", self._body(self.FINDINGS, gap="\nAnd a line of prose.\n"))
+        self._refused(*self._main())
+
+    def test_a_notice_that_never_closes_its_parenthesis_refuses(self):
+        # Round two: the wrapped case below fails on its opening, so it never tested the `)`.
+        self._write("open", self._body("(Reporting every finding, as the user chose last time"))
+        self._refused(*self._main())
+
+    def test_a_notice_wrapped_over_two_lines_refuses(self):
+        self._write("wrapped", self._body("(Reporting every finding,\nas chosen last time.)"))
+        self._refused(*self._main())
+
+    def test_an_opening_that_is_not_in_parentheses_refuses(self):
+        self._write("prose", self._body("Reporting every finding, as chosen last time."))
+        self._refused(*self._main())
+
+    def test_the_target_line_is_read_from_below_the_notice(self):
+        # The full arguments match too, not only the nonce: the target is the line past the notice.
+        self._write("one", self._body(self.FINDINGS))
+        self._found(*self._main(f"xhigh {self.ARGS}"))
+
+    def test_a_displaced_fork_is_kept_by_its_own_nonce_alone(self):
+        # Its words may not match the caller's, as with arguments spanning lines; its nonce does.
+        self._write("prose", self._body("Something else first."))
+        self._refused(*self._main(f"xhigh {self.ARGS} and the docs"))
+
+    def test_a_displaced_fork_of_another_round_is_out_of_scope(self):
+        self._write("other", self._body("Something else first."))
+        code, out = self._main("round-0000000000")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_a_displaced_fork_of_another_round_does_not_block_the_callers_own(self):
+        other = self._body("Something else first.").replace(self.NONCE, "round-0000000000")
+        self._write("old", other)
+        self._write("mine", self._body(self.FINDINGS))
+        code, out = self._main()
+        self._found(code, out)
+        self.assertIn("agent mine", out)
+
+    def test_parenthesised_prose_that_is_no_notice_refuses(self):
+        # Round one: any line in parentheses was skipped, so a helper's brief above a pasted head
+        # read at exit 0 and its text landed on a `tag:` line. Only the skill's openings skip.
+        self._write("helper", self._body("(Check this QA line for me)"))
+        self._refused(*self._main())
+
+    def test_a_brief_quoting_the_target_line_with_no_tag_does_not_block(self):
+        # Round one: a finder's or helper's brief quoting the round's target line refused the
+        # caller's own fork, exit 14, for good. With no tag after it, it is not a skill prompt.
+        self._write("finder", f"You are angle A.\n\nReview target: `{self.ARGS}`\n\nFind bugs.\n")
+        self._write("mine", self._body(self.FINDINGS))
+        code, out = self._main()
+        self._found(code, out)
+        self.assertIn("agent mine", out)
+
+    def test_a_later_target_line_carrying_the_nonce_refuses(self):
+        # Round one: only the first target line was judged, so another round's line above the
+        # fork's own one read as exit 3.
+        self._write("two", "Note\nReview target: `other words`\n\n" + self._body())
+        self._refused(*self._main())
+
+    def test_an_indented_or_quoted_target_line_refuses(self):
+        for opening in ("  ", "> "):
+            with self.subTest(opening=opening):
+                session = "q" if opening.strip() else "i"
+                body = "Note\n" + "\n".join(opening + line for line in self._body().split("\n"))
+                self._write("indented", body, session=session)
+                self._refused(*self._main(session=session))
+
+    def test_notice_shaped_prose_with_no_target_line_is_not_a_fork(self):
+        self._write("prose", f"{self.FINDINGS}\n\nYou are exploring the tree.\n`{TAG_XHIGH}`\n")
+        code, out = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    # The merge with korus PR 242: its second-tag and wordless-target rules hold below a notice.
+
+    def _unsplit(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertIn(review_tag.UNSPLIT_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_a_second_tag_below_a_notice_refuses_as_unsplit(self):
+        body = self._body(self.FINDINGS) + f"\n`{TAG_XHIGH}`\n"
+        self._write("two-tags", body)
+        self._unsplit(*self._main())
+
+    def test_a_wordless_target_below_a_notice_refuses_as_unsplit(self):
+        # The level alone on the target line, the arguments and their nonce on the next one. No tag
+        # follows, so only the wordless-target rule, not the later-tag rule, can refuse it.
+        body = f"{self.FINDINGS}\n\nReview target: xhigh\n{self.ARGS}\n\nYou are reviewing ...\n"
+        self._write("wordless", body)
+        self._unsplit(*self._main())
+
+    def test_a_displaced_target_spanning_lines_refuses_rather_than_miss(self):
+        # Merge review: the displaced path read only the target line, so each of these exited 3.
+        shapes = {
+            "tick": f"Review target: `\n{self.ARGS}`",
+            "wordless": f"Review target: xhigh\n{self.ARGS}",
+            "words": f"Review target: Review this\n{self.ARGS}",
+        }
+        for name, opening in shapes.items():
+            with self.subTest(shape=name):
+                body = f"Something else first.\n\n{opening}\n\n`{TAG_XHIGH}`\n"
+                self._write(name, body, session=name)
+                self._refused(*self._main(session=name))
+
+    def test_mutant_no_notice_skipped_fails_the_notice_case(self):
+        # Mutation check: with the skip removed, the measured notice no longer reads its tag.
+        self._write("one", self._body(self.FINDINGS))
+        with mock.patch.object(review_tag, "NOTICE_LIMIT", 0):
+            code, out = self._main()
+        self.assertNotEqual(code, review_tag.EXIT_FOUND, out)
+        self._refused(code, out)
+
+    def test_mutant_displaced_read_as_absent_fails_the_refusal_case(self):
+        # Mutation check: read a displaced head as no fork, the pre-fix rule, and the refusal is
+        # gone: the run exits 3, the code that let a Builder publish `none returned`.
+        self._write("prose", self._body("Something else first."))
+        real = review_tag.read_head
+
+        def absent(lines):
+            found = real(lines)
+            return review_tag.Head() if found.refusal == "displaced" else found
+
+        with mock.patch.object(review_tag, "read_head", side_effect=absent):
+            code, out = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        code, out = self._main()
+        self._refused(code, out)
 
 
 class ConfigDirNamesTheRoot(Fixture):
