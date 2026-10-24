@@ -840,14 +840,42 @@ prompt is built as `${Le}${W}${En}...`, and `En` is the target line.
 
 `Le` is a level notice (an ultra fallback, an unrecognized level, a last-used level) and a typed
 `--post` notice. `W` is a remembered or ignored `--max-findings` notice. Each is one line in
-parentheses, opening with the skill's own words, then one blank line: at most three. Read it with:
+parentheses, then one blank line: at most three.
+
+The tool skips a notice only where the WHOLE line is a sentence that binary writes, as listed in
+the script's `NOTICE_TEMPLATES`. Read them with:
 
 ```bash
-grep -a -c 'Review target: \\`' /opt/claude-code/bin/claude    # 2 template literals write it
-grep -a -o 'function ls({ultraFallback.\{0,300\}' /opt/claude-code/bin/claude
+B=/opt/claude-code/bin/claude
+grep -a -c 'Review target: \\`' "$B"                                    # control: 2 template literals
+grep -a -o 'that opening line reaches them with the findings' "$B" | wc -l   # subject: 3
+grep -a -o 'that opening line reaches them with the findings' /bin/ls | wc -l   # 0 off the CLI
 ```
 
+**CHANGED 2026-10-23, PR 243 round two:** the second line read `grep -a -o 'function
+ls({ultraFallback...'`, a minified symbol with no control beside it. The subject is now the skill's
+own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
+
 **A target line below anything else, with a tag after it, refuses: exit 14.** The tool cannot read it.
+
+**That holds beside any fork that reads.** A brief pasting the skill's whole head is displaced, so
+it refuses too. The readable fork beside it may be a helper's brief that opens with the same target
+line and tag, and nothing in record 0 tells the two apart.
+
+A refused head in another worktree is out of scope beside a fork that reads here. With nothing
+read here, it refuses as 14 or 15 rather than send an inline round to `--worktree`. But where a head
+elsewhere reads with its tag, exit 12 stands.
+
+**NOT MERGED: a same-tag set-aside.** An earlier commit of PR 244 set a refused head aside beside a
+readable fork with the same tag, exit 0. A probe put the real fork under an unknown notice, with a
+helper's canonical head beside it. The run exited 0 and named the helper; `main` exited 14.
+
+**One line in parentheses that no measured CLI writes, above a target line and its tag, refuses:
+exit 15.** It is most likely a new or reworded notice. `--verbose` prints its opening words on
+stderr; add that sentence to `NOTICE_TEMPLATES`. Beside a fork that reads, it still refuses.
+
+**CHANGED 2026-10-23, PR 243 round two:** a notice was skipped where it OPENED with one of eleven
+phrases, two of them ordinary English. An unknown notice refused as exit 14, with no diagnosis.
 
 **CHANGED 2026-10-23, PR 242 round two:** a target line below a notice, or below anything else, read
 as exit 3, *"no fork found"*. A `--max-findings all` is remembered, so its notice opens every later
@@ -893,6 +921,26 @@ shape, and never kept or printed.
 **Keep your arguments on one line.** The target is the first line past the skill's notices. Where
 that line leaves a backtick open, or the next non-blank line is no tag and a later line is one, your
 arguments may span lines. The tool refuses with exit 13, rather than quote a line of them as a tag.
+
+**CHANGED 2026-10-23:** a target line the skill wrapped whole in backticks is closed, whatever it
+holds. One literal backtick in one-line arguments made the count odd and refused as exit 13.
+
+**The finder-budget line is skipped, once.** At 2.1.309 the prompt is `${En}${_n}${Oe.text}...`:
+target line, then `This diff is about N lines. Spawn about ...`, then the tag. Before this date it
+refused as exit 13, under a message about arguments that did not fit the cause.
+
+That line is written only where the model cell sets `finderBudgetHint`, the `Agent` tool is
+available, and the target is a bare git range such as `origin/main...HEAD`. Arguments carrying a
+nonce and words are no range, so a QA round should not meet it.
+
+```bash
+B=/opt/claude-code/bin/claude
+grep -a -c 'Review target: \\`' "$B"                                  # control: 2
+grep -a -o 'finderBudgetHint:!0' "$B" | wc -l                          # 3: sonnet-5 high to max
+grep -a -o 'This diff is about ${h} lines. Spawn about' "$B" | wc -l   # 1
+```
+
+Read at 2.1.309, from `7443ebd`.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
@@ -945,9 +993,10 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
-| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
+| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. A brief there can still make that rerun refuse. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
-| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal, and running the tool again does not clear it. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so an inline round's `(inline, no fork)` still holds. |
+| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so where your round ran inline, `(inline, no fork)` still holds. |
+| 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; --verbose prints its opening words` | A refusal that a rerun does not clear. See the refusal row above. Where your round ran inline, `(inline, no fork)` still holds. Report the words under 4d, minus any path. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

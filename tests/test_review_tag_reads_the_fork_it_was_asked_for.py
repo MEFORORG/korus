@@ -586,8 +586,9 @@ class EveryMissIsLoudAndDistinct(Fixture):
                  review_tag.EXIT_NO_TAG, review_tag.EXIT_UNPLACED, review_tag.EXIT_AMBIGUOUS,
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
                  review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
-                 review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED, 1, 2}
-        self.assertEqual(len(codes), 15, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED,
+                 review_tag.EXIT_UNKNOWN_NOTICE, 1, 2}
+        self.assertEqual(len(codes), 16, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1431,9 +1432,13 @@ class TheNoticesAboveTheTargetLine(Fixture):
 
     def test_parenthesised_prose_that_is_no_notice_refuses(self):
         # Round one: any line in parentheses was skipped, so a helper's brief above a pasted head
-        # read at exit 0 and its text landed on a `tag:` line. Only the skill's openings skip.
+        # read at exit 0 and its text landed on a `tag:` line. Only the skill's sentences skip.
+        # CHANGED 2026-10-23: this refused as exit 14. One line in parentheses above a canonical
+        # head now has its own refusal, exit 15, which names its opening words.
         self._write("helper", self._body("(Check this QA line for me)"))
-        self._refused(*self._main())
+        code, out = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
 
     def test_a_brief_quoting_the_target_line_with_no_tag_does_not_block(self):
         # Round one: a finder's or helper's brief quoting the round's target line refused the
@@ -1511,13 +1516,363 @@ class TheNoticesAboveTheTargetLine(Fixture):
 
         def absent(lines):
             found = real(lines)
-            return review_tag.Head() if found.refusal == "displaced" else found
+            return review_tag.Head() if found.refusal is review_tag.Refusal.DISPLACED else found
 
         with mock.patch.object(review_tag, "read_head", side_effect=absent):
             code, out = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
         code, out = self._main()
         self._refused(code, out)
+
+
+class TheRoundTwoFindingsOfPr243(Fixture):
+    """PR 243 handed on seven round-two findings and two older edges. Each rule below sits beside a
+    control of the nearest shape that reads the other way. The notices are the measured sentences
+    in `TheNoticesAboveTheTargetLine`; the budget line is copied from CLI 2.1.309's prompt builder,
+    with its count filled in."""
+
+    NONCE = TheNoticesAboveTheTargetLine.NONCE
+    ARGS = TheNoticesAboveTheTargetLine.ARGS
+    FINDINGS = TheNoticesAboveTheTargetLine.FINDINGS
+    LOCAL = "(Running a local xhigh-effort review and applying its findings.)"
+    BUDGET = ("This diff is about 420 lines. Spawn about 3 finder subagents (min 2, max 8) \u2014"
+              " scale your investigation depth to the diff size rather than using a fixed large"
+              " fleet.")
+    OTHER = "D:/Code/korus-wt-b"
+
+    def _body(self, *notices, args=None, between=""):
+        opening = "".join(notice + "\n\n" for notice in notices)
+        return (f"{opening}Review target: `{args or self.ARGS}`\n\n{between}`{TAG_XHIGH}`\n\n"
+                "You are reviewing ...")
+
+    def _write(self, agent, body, cwd="/home/user/korus", session="s1"):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd=cwd,
+                   timestamp="2026-10-23T09:00:00Z", body=body)
+
+    def _main(self, target=None, *extra, session="s1"):
+        out, err = io.StringIO(), io.StringIO()
+        argv = ["--projects-dir", str(self.projects), "--session", session,
+                "--worktree", "/home/user/korus", "--target", target or self.NONCE, *extra]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def _found(self, code, out, agent="mine"):
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("tag: " + TAG_XHIGH, out)
+        self.assertIn(f"agent {agent}", out)
+
+    # 1. A brief that pastes the whole head refuses, even beside the caller's readable fork.
+    # CHANGED 2026-10-24, takeover: such a head was set aside beside a readable fork with the same
+    # tag. The readable one can be a helper's brief and the refused one the real fork, so the run
+    # exited 0 naming the brief. Nothing in record 0 tells them apart, so it refuses, as on main.
+
+    def _displaced(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertIn(review_tag.DISPLACED_MESSAGE, out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_1_a_brief_pasting_the_head_beside_the_callers_fork_refuses(self):
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._write("mine", self._body(self.FINDINGS))
+        self._displaced(*self._main()[:2])
+
+    def test_1_a_real_fork_under_a_new_notice_beside_a_canonical_brief_refuses(self):
+        # The takeover probe's case B: the real fork sits under a notice no measured CLI writes,
+        # and a helper's record 0 opens with the same target line and tag. At 64178ac this exited
+        # 0 and named the helper as the fork.
+        self._write("real", self._body("(A notice a later CLI added, reworded.)"))
+        self._write("helper", self._body().replace("You are reviewing ...", "Helper brief."))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
+        self.assertNotIn("agent helper", out)
+
+    def test_1_control_the_brief_alone_still_refuses(self):
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._displaced(*self._main()[:2])
+
+    def test_1_beside_two_canonical_forks_the_brief_refuses_before_ambiguity(self):
+        # The refusal outranks exit 7, so the brief is named rather than lost behind it.
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._write("mine", self._body())
+        self._write("twin", self._body())
+        self._displaced(*self._main()[:2])
+
+    def test_1_control_the_callers_fork_alone_reads(self):
+        self._write("mine", self._body(self.FINDINGS))
+        self._found(*self._main()[:2])
+
+    def test_1_beside_a_tagless_canonical_fork_it_still_refuses(self):
+        # Round one: set aside beside any canonical fork, a displaced head holding a tag lost to
+        # a tagless one, exit 5, and a fork with a tag would be published as `none returned`.
+        self._write("real", "Something else first.\n\n" + self._body())
+        self._write("brief", f"Review target: `{self.ARGS}`\n\nFind bugs.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn(review_tag.NO_TAG_MESSAGE, out)
+
+    def test_1_a_later_target_line_below_an_unknown_notice_refuses(self):
+        # Takeover review: below an unknown notice only the first target line was matched, so
+        # the round's own line further down read as no fork, exit 3. A plain opening refused 14.
+        other = "Review target: `round-00000000aa old words`\n\nThen:\n\n"
+        for opening, want in (("(Compare.)", review_tag.EXIT_UNKNOWN_NOTICE),
+                              ("Compare.", review_tag.EXIT_DISPLACED)):
+            with self.subTest(opening=opening):
+                session = "p" if opening.startswith("(") else "q"
+                self._write("later", f"{opening}\n\n{other}" + self._body(), session=session)
+                code, out, _ = self._main(session=session)
+                self.assertEqual(code, want, out)
+                self.assertNotIn("tag:", out)
+
+    # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
+
+    def test_2_prose_opening_with_a_notices_words_is_not_skipped(self):
+        for session, line in (("local", "(Running a local check of the tree first.)"),
+                              ("upto", "(Reporting up to three issues is plenty.)")):
+            with self.subTest(line=line):
+                # A session each, so one subtest's fork cannot stand in another's scope.
+                self._write("helper", self._body(line), session=session)
+                code, out, _ = self._main(session=session)
+                self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+                self.assertNotIn("tag:", out)
+
+    def test_2_control_the_whole_sentence_is_skipped(self):
+        self._write("mine", self._body(self.LOCAL))
+        self._found(*self._main()[:2])
+
+    def test_2_every_notice_template_is_one_line_in_parentheses(self):
+        for template in review_tag.NOTICE_TEMPLATES:
+            with self.subTest(template=template[:40]):
+                self.assertTrue(template.startswith("(") and template.endswith(")"), template)
+                self.assertNotIn("\n", template)
+
+    # 3. A displaced brief in another worktree is not the round's fork found elsewhere.
+
+    def test_3_a_displaced_brief_elsewhere_refuses_as_displaced_not_elsewhere(self):
+        # Exit 12 sent an inline round to --worktree; exit 14's row says `(inline, no fork)`
+        # still holds. Round one: dropping it instead read a real displaced fork as absent, exit 3.
+        self._write("helper", "Run this for me:\n\n" + self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn(review_tag.ELSEWHERE_MESSAGE, out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
+
+    def test_3_control_a_canonical_fork_elsewhere_is_still_exit_12(self):
+        self._write("mine", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    # 4. An unknown notice above a canonical head has its own exit, and names its opening words.
+
+    def test_4_an_unknown_notice_refuses_with_its_own_exit_and_words(self):
+        notice = "(Reporting the top findings first, as a later CLI might say it.)"
+        self._write("mine", self._body(notice))
+        code, out, err = self._main(None, "--verbose")
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertIn(review_tag.UNKNOWN_NOTICE_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+        self.assertIn('"(Reporting the top findings first, as ..."', err)
+        self.assertIn("agent mine", err)
+
+    def test_4_without_verbose_the_words_stay_out(self):
+        # They are record 0's own words, and could carry a path, so they sit behind --verbose.
+        self._write("mine", self._body("(Check D:/work/korus-wt-z first.)"))
+        code, out, err = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("korus-wt-z", out + err)
+
+    def test_4_the_opening_words_are_printed_in_ascii(self):
+        self._write("mine", self._body("(A dash \u2014 in a notice nobody measured.)"))
+        code, _, err = self._main(None, "--verbose")
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE)
+        # One escape, as a reader would search for it: round one printed it doubled.
+        self.assertIn("dash \\u2014 in", err)
+        self.assertNotIn("\\\\u2014", err)
+        err.encode("ascii")
+
+    def test_4_unsplit_arguments_below_an_unknown_notice_refuse_as_15(self):
+        # Round one: these fell through to displaced, exit 14, under the wrong diagnosis.
+        self._write("mine",
+                    f"(A new notice.)\n\nReview target: `{self.NONCE} a\nb`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+
+    def test_4_control_a_measured_notice_in_the_same_place_reads(self):
+        self._write("mine", self._body(self.FINDINGS))
+        self._found(*self._main()[:2])
+
+    def test_4_an_unknown_notice_above_a_tagless_target_is_no_fork(self):
+        # A brief quoting the target line with no tag is no skill prompt, notice-shaped or not.
+        self._write("brief",
+                    "(Please look at this.)\n\nReview target: `" + self.ARGS + "`\n\nGo.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_4_a_parenthesised_brief_beside_the_callers_fork_refuses(self):
+        # CHANGED 2026-10-24, takeover: this was set aside, exit 0. Like a plain-prose brief, it
+        # now refuses, because the readable fork beside it may be the brief (see section 1).
+        self._write("brief", self._body("(Run this for me)"))
+        self._write("mine", self._body())
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
+
+    # 5. One table maps each refusal to its exit and message.
+
+    def test_5_every_refusal_carries_its_own_exit_and_message(self):
+        rows = list(review_tag.Refusal)
+        self.assertEqual(len({r.exit for r in rows}), len(rows))
+        self.assertEqual(len({r.message for r in rows}), len(rows))
+        self.assertEqual(review_tag.Refusal.UNKNOWN_NOTICE.exit, review_tag.EXIT_UNKNOWN_NOTICE)
+        with self.assertRaises(AttributeError):
+            review_tag.Refusal.DISPLACD  # noqa: B018 -- a typo fails loudly
+
+    def test_5_a_refusal_lands_in_its_own_list_never_in_forks(self):
+        self._write("mine", self._body("(A notice a later CLI added.)"))
+        result = review_tag.scan([self.projects], review_tag.Filters(
+            "/home/user/korus", self.NONCE, "s1", None))
+        self.assertEqual(result.forks, [])
+        self.assertEqual(len(result.refused[review_tag.Refusal.UNKNOWN_NOTICE]), 1)
+
+    # 6. A transcript with no target line is ruled out before it is copied or scanned for tags.
+
+    def test_6_no_target_line_means_no_tag_scan(self):
+        lines = [f"line {n}" for n in range(200)] + [f"`{TAG_XHIGH}`"]
+        with mock.patch.object(review_tag, "is_tag", wraps=review_tag.is_tag) as probe:
+            self.assertEqual(review_tag.displaced_heads(lines), [])
+        self.assertEqual(probe.call_count, 0)
+
+    def test_6_control_a_target_line_is_still_scanned_and_kept(self):
+        # The merge with main: displaced_targets became displaced_heads, PR 243's one reader.
+        lines = ["Note", f"Review target: `{self.ARGS}`", "", f"`{TAG_XHIGH}`"]
+        read = [(h.target, h.tag) for h in review_tag.displaced_heads(lines)]
+        self.assertEqual(read, [(self.ARGS, TAG_XHIGH)])
+        self.assertEqual(review_tag.displaced_heads(lines[:2]), [], "no tag after it")
+
+    # Round two of this work. It set aside only a head carrying the readable fork's own tag; since
+    # the takeover nothing is set aside, and these still refuse.
+
+    def test_r2_a_real_fork_under_a_new_notice_is_not_set_aside_for_a_brief(self):
+        # The fork under the unknown notice ran at xhigh; a brief pasted a high head. Quoting the
+        # brief's tag at exit 0 would publish the wrong level.
+        self._write("real", self._body("(A notice a later CLI added.)"))
+        self._write("brief", self._body().replace(TAG_XHIGH, TAG_HIGH))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_a_displaced_fork_with_another_tag_still_refuses(self):
+        self._write("real", "Something else first.\n\n" + self._body())
+        self._write("rerun", self._body().replace(TAG_XHIGH, TAG_HIGH))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_unsplit_arguments_under_a_new_notice_keep_the_fork_by_its_nonce(self):
+        # The full arguments match only the first target line, so the nonce alone keeps it.
+        self._write("mine", f"(A new notice.)\n\nReview target: `{self.NONCE} Review\nthis diff`"
+                            f"\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main(f"{self.NONCE} Review this diff")
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+
+    def test_r2_a_wrapped_line_with_its_own_backtick_and_two_tags_refuses(self):
+        self._write("mine",
+                    f"Review target: `{self.NONCE} quote `x`\n{TAG_HIGH}`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertNotIn("tag:", out)
+
+    def test_r2_a_parenthesised_brief_elsewhere_refuses_rather_than_exit_12(self):
+        self._write("brief", self._body("(Run this for me)"), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_beside_a_canonical_fork_elsewhere_exit_12_stands(self):
+        # Takeover: a refused head elsewhere outranked a canonical fork elsewhere, so the round
+        # was refused (14 or 15) where its fork was found in another worktree. Exit 12 says where.
+        for name, opening in (("unknown", "(Run this for me)"), ("displaced", "Run this:")):
+            with self.subTest(head=name):
+                body = (self._body(opening) if opening.startswith("(")
+                        else opening + "\n\n" + self._body())
+                self._write("brief", body, cwd=self.OTHER, session=name)
+                self._write("real", self._body(), cwd=self.OTHER, session=name)
+                code, out, _ = self._main(session=name)
+                self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+                self.assertIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_the_rerun_exit_12_asks_for_refuses_on_what_it_finds(self):
+        # Review of 30f1c88: exit 12 is not a result. Rerun in that worktree, the brief is in
+        # scope there, so the round refuses rather than read the head beside it.
+        self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
+        self._write("real", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main(None, "--worktree", self.OTHER)
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+
+    def test_r2_a_tagless_head_elsewhere_does_not_unlock_exit_12(self):
+        # Review of 30f1c88: any head elsewhere unlocked exit 12, a tagless finder brief too, so
+        # a displaced head holding a tag lost to it, the round-one rule in another worktree.
+        self._write("real", "Something else first.\n\n" + self._body(), cwd=self.OTHER)
+        self._write("brief", f"Review target: `{self.ARGS}`\n\nFind bugs.\n", cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+
+    def test_r2_a_refused_head_elsewhere_is_out_of_scope_beside_a_fork_here(self):
+        # Review of 30f1c88: a brief in another worktree refused the caller's readable fork for
+        # good, since no rerun put it out of scope. As on main, it is out of scope here.
+        self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
+        self._write("mine", self._body())
+        self._found(*self._main()[:2])
+
+    def test_r2_control_a_refused_head_here_still_outranks_exit_12(self):
+        self._write("brief", "Run this:\n\n" + self._body())
+        self._write("real", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+
+    def test_r2_a_tagless_brief_under_a_notice_with_an_open_backtick_is_no_fork(self):
+        self._write("brief", f"(Please look at this.)\n\nReview target: `{self.NONCE} fix the"
+                             " `x` y\n\nGo now.\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    # Edge from PR 242: one literal backtick inside a one-line target.
+
+    def test_a_one_line_target_holding_one_backtick_reads_its_tag(self):
+        args = f"{self.NONCE} Check the `--max-findings flag"
+        self._write("mine", self._body(args=args))
+        code, out, _ = self._main()
+        self._found(code, out)
+        self.assertIn(f"target: {args}\n", out)
+
+    def test_control_a_backtick_left_open_at_line_end_still_refuses(self):
+        self._write("mine", f"Review target: `{self.NONCE} Check the\nflag`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    def test_control_a_wrapped_first_line_spanning_lines_still_refuses(self):
+        # Wrapped whole on its first line, then more arguments: the later tag still refuses it.
+        self._write("mine", f"Review target: `{self.NONCE} a `b`\nc`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    # Edge from PR 243: the finder-budget line between the target line and the tag.
+
+    def test_the_budget_line_is_skipped_once(self):
+        self._write("mine", self._body(between=self.BUDGET + "\n\n"))
+        self._found(*self._main()[:2])
+
+    def test_control_another_line_in_its_place_still_refuses(self):
+        self._write("mine", self._body(between="This diff is long; spawn many.\n\n"))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+
+    def test_control_two_budget_lines_refuse(self):
+        self._write("mine", self._body(between=(self.BUDGET + "\n\n") * 2))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
 
 
 class ConfigDirNamesTheRoot(Fixture):

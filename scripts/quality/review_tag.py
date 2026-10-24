@@ -19,10 +19,26 @@ refusal, never a match.
 
 NOTICES MAY COME FIRST. At CLI 2.1.309 the skill builds its prompt as notices, then the target line:
 a remembered or ignored `--max-findings`, an unrecognized or last-used level, an ultra fallback, a
-typed `--post`. Each is one line in parentheses opening with words the skill writes, then one
-blank line, and there are at most three. That shape, and only that shape, is skipped. A target line
-below anything else, with a tag-shaped line somewhere after it, is DISPLACED: the tool refuses
-(exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
+typed `--post`. Each is one line in parentheses, then one blank line, and there are at most three.
+A notice is skipped only where the WHOLE line is one of the sentences that binary writes
+(`NOTICE_TEMPLATES`), so a helper's brief that merely opens with the same words is not.
+
+A target line below anything else, with a tag-shaped line somewhere after it, is DISPLACED: the
+tool refuses (exit 14) rather than call the fork absent, which once let a real tag read as exit 3.
+A notice-shaped line the tool does not know -- one line in parentheses, one blank line, then a
+target line and a tag after it -- is most likely a notice a later CLI added or reworded. It refuses
+with its own exit (15). Under `--verbose` its opening words go to stderr, so the sentence can be measured and
+added; they are record 0's own words, so they sit behind the flag with the paths.
+
+A brief that pastes a whole head is displaced, or below an unknown notice. In scope it refuses,
+whatever fork reads beside it: nothing in record 0 tells the skill's own prompt from a brief that
+pasted it, so the readable one may be the brief. In another worktree it is out of scope beside a
+fork that reads here. With nothing read here it refuses rather than exit 12, unless a head
+elsewhere reads with its tag.
+
+A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
+line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
+target. It is skipped, once, where the whole line is that sentence.
 
 WHERE THE FORK RAN. The meta file may carry `inheritedWorktreePath` (the relayed Windows sample,
 Builder subagents at spawn depth 2). The cloud sample's meta did not; its record 0 carried `cwd`.
@@ -65,7 +81,8 @@ as no fork at all. That holds for a displaced target line too: each is read by t
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
-and prints from that only the target and the tag line. No later record is read or printed. Path
+and prints from that only the target and the tag line, and under `--verbose` an unknown notice's
+opening words. No later record is read or printed. Path
 columns are printed only under `--verbose`, because the leak gate forbids a user-home path in
 published text and a QA line is published text.
 
@@ -96,12 +113,15 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
    13  a fork in scope may have arguments spanning lines, so no line can be read as its tag
    14  a fork in scope carries its target line below text that is not the skill's notices
+   15  a fork in scope carries its target line and tag below a notice-shaped line no measured CLI
+       writes; --verbose prints its opening words on stderr
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import enum
 import json
 import os
 import re
@@ -124,6 +144,7 @@ EXIT_NOT_ATTRIBUTABLE = 11
 EXIT_ELSEWHERE = 12
 EXIT_UNSPLIT = 13
 EXIT_DISPLACED = 14
+EXIT_UNKNOWN_NOTICE = 15
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -158,6 +179,10 @@ DISPLACED_MESSAGE = (
     "fork(s) in scope carry the target line below an opening that is not the skill's notices,"
     " so no line can be read as the tag"
 )
+UNKNOWN_NOTICE_MESSAGE = (
+    "fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes;"
+    " --verbose prints its opening words"
+)
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
     "--target carries no round nonce (round- and 8 or more hex digits);"
@@ -176,21 +201,90 @@ TARGET_PREFIX = "Review target:"
 #: from its level and `--post` notices, one from its `--max-findings` notice.
 NOTICE_LIMIT = 3
 
-#: How each of those notices opens, at CLI 2.1.309. Parenthesised prose that opens any other way
-#: is not skipped, so a helper's brief above a pasted head is not read as the skill's prompt. A
-#: notice a later CLI adds refuses (exit 14) until it is measured and added here.
-NOTICE_OPENINGS = (
-    "(Reporting every finding, ",
-    "(Reporting up to ",
-    "(`--max-findings` ",
-    "(The user set `--max-findings ",
-    "(This review reports at most ",
-    "(Running a local ",
-    "(ultra (cloud review) ",
-    "(Claude can't launch the cloud review directly ",
-    "(Ignoring unrecognized effort ",
-    "(No effort level given ",
-    "(The typed `--post` ",
+#: The sentences the skill writes above the target line, read from the prompt builder of CLI 2.1.309
+#: (`roles/BUILDER.md` 4e names the commands). A whole line must match one, so prose that merely
+#: opens with a notice's words is not skipped. `{L}` is a level, `{N}` a count, `{T}` free text.
+_DASH = "\u2014"
+_LEVEL_TELL = (
+    " Open your report with one short line telling the user this, and that typing a level (for"
+    " example `/code-review high`) changes it; that opening line reaches them with the findings.)",
+    " Tell the user this in one short line as you begin, including that typing a level (for example"
+    " `/code-review high`) changes it.)",
+)
+_FINDINGS_TELL = (
+    " Open your report with one short line telling the user this{OPT_DEFAULT_AND}; that opening"
+    " line reaches them with the findings.)",
+    " Tell the user this in one short line as you begin{OPT_DEFAULT_INCLUDING}.)",
+)
+_FINDINGS_BODIES = (
+    "This review reports at most {N} findings, so the limit is {N} here.",
+    "`--max-findings` does not change this review: low effort here has no maximum.",
+    "The user set `--max-findings {T}` last time. This review reports at most {N} findings, so the"
+    " limit is {N} here.",
+    "Reporting every finding, as the user chose last time with `--max-findings all`.",
+    "Reporting up to {N} {FINDING}, the limit the user set last time with `--max-findings`.",
+)
+_IGNORED = (
+    "`--max-findings` was ignored: type a whole number above zero, `all`, or `default` after it."
+)
+_UNRECOGNIZED = 'Ignoring unrecognized effort "{T}"; valid: {T}. Using {L}{OPT_LAST}.'
+_LAST_USED = (
+    f"No effort level given {_DASH} reusing {{L}}, the level the user typed last time{{OPT_RUN}}."
+)
+NOTICE_TEMPLATES = (
+    "(Running a local {L}-effort review and applying its findings.)",
+    "(ultra (cloud review) {T} Falling back to a local {L}-effort review.)",
+    f"(Claude can't launch the cloud review directly {_DASH} type `/code-review ultra --fix` to"
+    " review in the cloud and apply the findings locally when it completes. Running a local {L}-effort"
+    " review and applying its findings for now.)",
+    f"(Claude can't launch the cloud review directly {_DASH} type `/code-review ultra` to run it."
+    " Falling back to a local {L}-effort review for now.)",
+    f"(Claude can't launch the cloud review directly {_DASH} the user can run `claude ultrareview`"
+    " from a terminal to start it. Falling back to a local {L}-effort review for now.)",
+    "(" + _UNRECOGNIZED + ")",
+    *("(" + body + tell for body in (_UNRECOGNIZED, _LAST_USED) for tell in _LEVEL_TELL),
+    "(The typed `--post` applies only to the `/code-review ultra` cloud review and was ignored"
+    f" {_DASH} {{T}}. Tell the user this in one short line.)",
+    *(
+        "(" + ignored + body + tell
+        for ignored in ("", _IGNORED + " ")
+        for body in _FINDINGS_BODIES
+        for tell in _FINDINGS_TELL
+    ),
+    *("(" + _IGNORED + "{OPT_USUAL}" + tell for tell in _FINDINGS_TELL),
+)
+_FIELDS = {
+    "{L}": "(?:low|medium|high|xhigh|max)",
+    "{N}": "[0-9]+",
+    "{T}": ".+?",
+    "{FINDING}": "findings?",
+    "{OPT_LAST}": "(?:, the level the user typed last time)?",
+    "{OPT_RUN}": "(?:; running at (?:low|medium|high|xhigh|max) here)?",
+    "{OPT_USUAL}": "(?: Using the usual limit\\.)?",
+    "{OPT_DEFAULT_AND}": (
+        "(?:, and that passing `--max-findings default` goes back to the usual limit)?"
+    ),
+    "{OPT_DEFAULT_INCLUDING}": (
+        "(?:, including that passing `--max-findings default` goes back to the usual limit)?"
+    ),
+}
+
+
+def notice_pattern(template: str) -> re.Pattern[str]:
+    """One whole notice line: the template's text literally, each `{FIELD}` as its pattern."""
+    parts = re.split("(" + "|".join(re.escape(f) for f in _FIELDS) + ")", template)
+    return re.compile("".join(_FIELDS.get(part, re.escape(part)) for part in parts))
+
+
+#: Every notice sentence as one alternation, so a line is matched in one pass.
+NOTICE_SHAPE = re.compile(
+    "|".join(f"(?:{notice_pattern(t).pattern})" for t in NOTICE_TEMPLATES)
+)
+
+#: The finder-budget line some model cells add between the target line and the tag, at 2.1.309.
+BUDGET_HINT = notice_pattern(
+    f"This diff is about {{N}} lines. Spawn about {{N}} finder subagents (min 2, max 8) {_DASH}"
+    " scale your investigation depth to the diff size rather than using a fixed large fleet."
 )
 
 #: A round nonce: 8 or more hex digits, fresh each round, after `round-`, as a whole token. One
@@ -218,6 +312,26 @@ ASCII_SPELLINGS = {"\u2192": "->", "\u2264": "<=", "\u2265": ">="}
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 
 
+class Refusal(enum.Enum):
+    """Why a fork in scope cannot be read: one row each, its exit and its message, in the order
+    `main` checks them. A misspelt member is an AttributeError, never a fork read as readable."""
+
+    #: The arguments may span lines, or carry a tag-shaped line: refused, never read as tagless.
+    UNSPLIT = (EXIT_UNSPLIT, UNSPLIT_MESSAGE)
+    #: The target line sits below a notice-shaped line no measured CLI writes.
+    UNKNOWN_NOTICE = (EXIT_UNKNOWN_NOTICE, UNKNOWN_NOTICE_MESSAGE)
+    #: A target line sits below an opening that is not the skill's notices.
+    DISPLACED = (EXIT_DISPLACED, DISPLACED_MESSAGE)
+
+    def __init__(self, exit_code: int, message: str) -> None:
+        self.exit = exit_code
+        self.message = message
+
+
+#: The refusals a brief that pasted the round's head produces.
+BRIEF_REFUSALS = (Refusal.DISPLACED, Refusal.UNKNOWN_NOTICE)
+
+
 @dataclass
 class Fork:
     transcript: Path
@@ -229,10 +343,10 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: The arguments may span lines, or carry a tag-shaped line: refused, never read as tagless.
-    unsplit: bool = False
-    #: A target line sits below an opening that is not the skill's notices.
-    displaced: bool = False
+    #: Why the fork cannot be read, if it cannot.
+    refusal: Refusal | None = None
+    #: For an unknown notice, its opening words, printed on stderr.
+    notice: str = ""
     #: The first nonce in the fork's arguments: the target line's, or for arguments that may span
     #: lines, the first on any of them. Matched, never printed.
     own_nonce: str = ""
@@ -350,23 +464,38 @@ def is_tag(line: str) -> bool:
 
 
 def is_notice(line: str) -> bool:
-    return line.startswith(NOTICE_OPENINGS) and line.endswith(")")
+    """One of the measured notice sentences, the whole line."""
+    return bool(NOTICE_SHAPE.fullmatch(line))
 
 
-def target_index(lines: list[str]) -> int | None:
-    """Where the target line sits, past the skill's notices; None if the head is not that shape.
+def is_notice_shaped(line: str) -> bool:
+    """One line in parentheses: a notice's shape, whether or not its words are known."""
+    return len(line) > 2 and line.startswith("(") and line.endswith(")")
+
+
+def target_index(lines: list[str]) -> tuple[int | None, list[str]]:
+    """Where the target line sits past the notices, and the notice lines no measured CLI writes.
 
     Each notice is one line in parentheses followed by exactly one blank line, and there are at most
-    NOTICE_LIMIT. Anything else above a target line is not skipped.
+    NOTICE_LIMIT. Anything else above a target line is not skipped: the index is then None.
     """
     index = 0
+    unknown: list[str] = []
     for _ in range(NOTICE_LIMIT + 1):
         if index < len(lines) and lines[index].startswith(TARGET_PREFIX):
-            return index
-        if index + 1 >= len(lines) or not is_notice(lines[index]) or lines[index + 1] != "":
-            return None
+            return index, unknown
+        if index + 1 >= len(lines) or not is_notice_shaped(lines[index]) or lines[index + 1] != "":
+            return None, []
+        if not is_notice(lines[index]):
+            unknown.append(lines[index])
         index += 2
-    return None
+    return None, []
+
+
+def opening_words(line: str, count: int = 6) -> str:
+    """The first words of a line, enough to find its sentence in a CLI binary."""
+    words = line.split()
+    return " ".join(words[:count]) + (" ..." if len(words) > count else "")
 
 
 @dataclass
@@ -376,13 +505,14 @@ class Head:
     review: bool = False
     target: str = ""
     tag: str = ""
-    #: None, "unsplit" (arguments may span lines) or "displaced" (target below an unknown opening).
-    refusal: str | None = None
+    refusal: Refusal | None = None
     #: The first nonce in the arguments: the target line's, or for arguments that may span lines,
     #: the first on any of them. Matched, never printed.
     own_nonce: str = ""
     #: For a displaced head, each target line with a tag after it, read as if it opened the message.
     candidates: list["Head"] = field(default_factory=list)
+    #: For an unknown notice, its opening words.
+    notice: str = ""
 
 
 def first_nonce(text: str) -> str:
@@ -390,18 +520,22 @@ def first_nonce(text: str) -> str:
     return found.group(0) if found else ""
 
 
-def displaced_heads(lines: list[str]) -> list["Head"]:
+def displaced_heads(lines: list[str]) -> list[Head]:
     """Each target line, indented or quoted too, with a tag-shaped line after it, read from there.
 
     A subagent brief that quotes a target line and no tag is not a skill prompt, and is not kept.
     Each is read by the same rules as a target line that opens the message, so arguments spanning
-    lines carry their own nonce here too.
+    lines carry their own nonce here too. Most non-fork transcripts carry no target line at all, so
+    they are ruled out before any copy, and the tag-shaped lines are found once.
     """
+    if not any(TARGET_PREFIX in line for line in lines):
+        return []
     bare = [line.lstrip(" \t>") for line in lines]
+    last_tag = max((index for index, line in enumerate(bare) if is_tag(line)), default=-1)
     return [
         read_target(bare, index)
         for index, line in enumerate(bare)
-        if line.startswith(TARGET_PREFIX) and any(is_tag(later) for later in bare[index + 1 :])
+        if index < last_tag and line.startswith(TARGET_PREFIX)
     ]
 
 
@@ -409,20 +543,40 @@ def read_head(lines: list[str]) -> Head:
     """What record 0's message says: a review fork's target and tag, a refusal, or no fork.
 
     A review fork's message STARTS with the target line, or with the skill's notices and then the
-    target line. The tag is the next non-blank line, and only if it has the tag's shape. The fork
-    is `unsplit` -- a refusal, never a tagless fork or a quoted tag -- where the target line leaves
-    a backtick open; where the next non-blank line is no tag and either a later line is one or the
-    target line holds no words; or where a second tag-shaped line follows the tag. A target line
-    below anything else, with a tag after it, is `displaced`, also a refusal: a real fork with a tag
-    once read as no fork that way. Only the target line and the tag are kept; the rest is tested.
+    target line. The tag is the next non-blank line, and only if it has the tag's shape; one
+    finder-budget line between the target line and the tag is skipped. The fork is `unsplit` -- a
+    refusal, never a tagless fork or a quoted tag -- where the target line leaves a backtick open;
+    where the next non-blank line is no tag and either a later line is one or the target line holds
+    no words; or where a second tag-shaped line follows the tag.
+
+    Past a notice-shaped line no measured CLI writes, a target line with a tag after it, unsplit or
+    not, is `unknown notice`, a refusal. With no tag after it, the head is read as below.
+
+    A target line below anything else, with a tag after it, is `displaced`, also a refusal: a real
+    fork with a tag once read as no fork that way. Only the target line and the tag are kept; the
+    rest is tested.
 
     The own nonce is the first one in the arguments: the target line, and for an unsplit fork every
     line after it up to the LAST tag-shaped one, since a tag-shaped line above that may be theirs.
     It is matched, never printed.
     """
-    start = target_index(lines)
+    start, unknown = target_index(lines)
     if start is not None:
-        return read_target(lines, start)
+        found = read_target(lines, start)
+        if not unknown:
+            return found
+        if found.tag or any(is_tag(line) for line in lines[start + 1 :]):
+            # A head below a notice no measured CLI writes, with a tag after its target line: most
+            # likely a new notice. Unsplit arguments under it refuse here too, never as displaced.
+            return Head(
+                True,
+                found.target,
+                refusal=Refusal.UNKNOWN_NOTICE,
+                own_nonce=found.own_nonce,
+                notice=opening_words(unknown[0]),
+                # A later target line may be the round's own, as below a displaced opening.
+                candidates=displaced_heads(lines),
+            )
     candidates = displaced_heads(lines)
     if not candidates:
         return Head()
@@ -430,7 +584,7 @@ def read_head(lines: list[str]) -> Head:
     return Head(
         True,
         first.target,
-        refusal="displaced",
+        refusal=Refusal.DISPLACED,
         own_nonce=first.own_nonce,
         candidates=candidates,
     )
@@ -441,12 +595,19 @@ def read_target(lines: list[str], start: int) -> Head:
     first = lines[start][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
-    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
-    opened = first.count("`") % 2 == 1
+    # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing. A line the
+    # skill wrapped whole, `...`, is closed whatever it holds: one literal backtick in the
+    # arguments made the count odd, and a one-line target refused as exit 13.
+    wrapped = len(first) > 1 and first.startswith("`") and first.endswith("`")
+    opened = first.count("`") % 2 == 1 and not wrapped
     rest = lines[start + 1 :]
     tags = [index for index, line in enumerate(rest) if is_tag(line)]
     tag, unsplit = "", opened
-    following = next((index for index, line in enumerate(rest) if line.strip()), None)
+    filled = (index for index, line in enumerate(rest) if line.strip())
+    following = next(filled, None)
+    if following is not None and not opened and BUDGET_HINT.fullmatch(rest[following]):
+        # The finder-budget line, once: the tag follows it.
+        following = next(filled, None)
     if following is not None and not opened:
         if tags and tags[0] == following:
             # Each template opens with its one tag, so with two tag-shaped lines one came from
@@ -462,7 +623,7 @@ def read_target(lines: list[str], start: int) -> Head:
         True,
         target,
         tag,
-        refusal="unsplit" if unsplit else None,
+        refusal=Refusal.UNSPLIT if unsplit else None,
         own_nonce=first_nonce("\n".join(args)),
     )
 
@@ -571,8 +732,10 @@ class Scan:
     unreadable_files: int = 0
     unplaced: int = 0
     elsewhere: int = 0
-    unsplit: int = 0
-    displaced: int = 0
+    #: The forks each refusal holds.
+    refused: dict[Refusal, list[Fork]] = field(
+        default_factory=lambda: {refusal: [] for refusal in Refusal}
+    )
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -597,6 +760,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     want = normalize_path(filters.worktree) if filters.worktree else None
     # With a nonce in the target, every fork past the target filter carries the caller's own.
     nonced = bool(filters.target and NONCE_SHAPE.search(filters.target))
+    refused_elsewhere: list[Fork] = []
+    readable_elsewhere = 0
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -642,9 +807,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not read.review:
                 continue
             fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
-            fork.unsplit = read.refusal == "unsplit"
-            fork.displaced = read.refusal == "displaced"
-            if fork.displaced and filters.target:
+            fork.refusal, fork.notice = read.refusal, read.notice
+            if read.candidates and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
                 mine = next(
                     (c for c in read.candidates if own_nonce_matches(filters.target, c.own_nonce)),
@@ -654,9 +818,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     fork.target, fork.own_nonce = mine.target, mine.own_nonce
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit or displaced fork's arguments are known only in part, so its own nonce
-                # alone keeps it.
-                partial = fork.unsplit or fork.displaced
+                # A refused fork's arguments are known only in part, so its own nonce alone keeps it.
+                partial = fork.refusal is not None
                 if not (partial and own_nonce_matches(filters.target, fork.own_nonce)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
@@ -680,15 +843,32 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if placed is None:
                 result.unplaced += 1
                 continue
-            if placed and fork.displaced:
-                result.displaced += 1
-            elif placed and fork.unsplit:
-                result.unsplit += 1
+            if placed and fork.refusal is not None:
+                result.refused[fork.refusal].append(fork)
             elif placed:
                 result.forks.append(fork)
+            elif fork.refusal in BRIEF_REFUSALS and nonced:
+                # Such a head is most often a brief that quoted the round's head. It may still be
+                # the round's fork; below decides whether it refuses.
+                refused_elsewhere.append(fork)
             elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
+                readable_elsewhere += fork.refusal is None and bool(fork.tag)
+    # A head in another worktree is out of scope beside a fork that reads here, as on main, so a
+    # brief elsewhere cannot block a reading for good. With nothing read here, a refused head
+    # elsewhere refuses (14 or 15) rather than send an inline round to --worktree (exit 12) after
+    # a helper's brief, unless a head elsewhere reads with its tag: then exit 12 says where, and a
+    # rerun there either reads or refuses on what it finds. A refused head in scope always refuses,
+    # never set aside beside a readable fork: nothing in record 0 tells the skill's own prompt from
+    # a brief that pasted it, so the readable one may be the brief.
+    if result.forks:
+        pass
+    elif readable_elsewhere:
+        result.elsewhere += len(refused_elsewhere)
+    else:
+        for fork in refused_elsewhere:
+            result.refused[fork.refusal].append(fork)
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result
@@ -871,12 +1051,16 @@ def main(argv: list[str] | None = None) -> int:
     if result.unplaced:
         print(f"{result.unplaced} {UNPLACED_MESSAGE}")
         return EXIT_UNPLACED
-    if result.unsplit:
-        print(f"{result.unsplit} {UNSPLIT_MESSAGE}")
-        return EXIT_UNSPLIT
-    if result.displaced:
-        print(f"{result.displaced} {DISPLACED_MESSAGE}")
-        return EXIT_DISPLACED
+    for refusal in Refusal:
+        refused = result.refused[refusal]
+        if refused:
+            for fork in refused:
+                # Record 0's own words, so behind --verbose with the paths: one could be a path.
+                if fork.notice and args.verbose:
+                    print(f'review_tag: agent {fork.agent_id}: the unknown notice opens '
+                          f'"{spell(fork.notice, True)}"', file=sys.stderr)
+            print(f"{len(refused)} {refusal.message}")
+            return refusal.exit
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE
