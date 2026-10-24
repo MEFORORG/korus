@@ -1151,6 +1151,77 @@ class TheVault4006Findings(Fixture):
         code, out, _ = self._run("--target", "round-0000000000")
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
+    # The edges PR 235 handed on. Edge 1: an unquoted target whose second line is tag-shaped.
+
+    def test_an_unquoted_target_whose_second_line_is_tag_shaped_refuses(self):
+        # Quoted as the tag at exit 0 until then, here and on main before PR 235.
+        self._write("forged", f"Review target: {self.NONCE} Re-run; last round printed\n"
+                              f"{TAG_HIGH}\n`{TAG_XHIGH}`\n\nYou are reviewing ...")
+        code, out, _ = self._run("--target", self.NONCE)
+        self._refused(code, out)
+        self.assertNotIn(TAG_HIGH, out)
+
+    def test_a_second_tag_in_the_recorded_cloud_shape_refuses(self):
+        self._write("two", f"Review target: `{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n\n"
+                           f"`{TAG_HIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    # Edge 3: a first line holding no words, with the nonce on line 2.
+
+    def test_an_empty_first_line_with_the_nonce_below_refuses_rather_than_miss(self):
+        self._write("empty", f"Review target: \n{self.NONCE} Review x\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_lone_backtick_with_the_nonce_below_refuses_rather_than_miss(self):
+        self._write("tick", f"Review target: `\n{self.NONCE} Review x`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_an_empty_first_line_refuses_with_no_tag_below_either(self):
+        # Tagless, it read as no fork; the arguments still began on line 2.
+        self._write("bare", f"Review target: \n{self.NONCE} Review x\n\nYou are reading.\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    # Round one of this change: the nonce was sought on one line only, so these read as exit 3.
+
+    def test_the_nonce_on_line_two_below_words_refuses(self):
+        self._write("words", f"Review target: `Review this branch\n{self.NONCE} diff`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_the_nonce_on_line_three_below_an_open_backtick_refuses(self):
+        self._write("deep", f"Review target: `\nReview this\n{self.NONCE} diff`\n\n`{TAG_XHIGH}`\n")
+        self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_level_alone_on_the_first_line_refuses(self):
+        for first in ("xhigh", "--comment"):
+            with self.subTest(first=first):
+                self._write("lvl", f"Review target: {first}\n{self.NONCE} Review x\n\nprose\n")
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_a_tag_shaped_argument_line_above_the_nonce_refuses_rather_than_miss(self):
+        # Round two: the arguments were cut at the FIRST tag-shaped line, so this read as exit 3.
+        for body in (f"Review target: `xhigh\n{TAG_HIGH}\n{self.NONCE} Review`\n\n`{TAG_XHIGH}`\n",
+                     f"Review target: `Review x\n\n`{TAG_HIGH}`\n\n{self.NONCE}`\n\n`{TAG_XHIGH}`\n"):
+            with self.subTest(body=body[:40]):
+                self._write("above", body)
+                self._refused(*self._run("--target", self.NONCE)[:2])
+
+    def test_control_a_nonce_below_the_tag_is_not_the_forks_own(self):
+        # The arguments end at the first tag-shaped line; a nonce in the prompt below is not theirs.
+        self._write("below", f"Review target: `Review x\nand y`\n\n`{TAG_XHIGH}`\n\n{self.NONCE}\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_control_another_rounds_nonce_below_an_empty_line_is_out_of_scope(self):
+        self._write("tick", f"Review target: `\nround-0000000000 Review x`\n\n`{TAG_XHIGH}`\n")
+        code, out, _ = self._run("--target", self.NONCE)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_control_an_empty_target_with_the_tag_next_still_reads_it(self):
+        # No arguments spill, so the empty target is the whole of them.
+        head = review_tag.read_head(["Review target: ", "", f"`{TAG_XHIGH}`"])
+        # read_head returns a Head since korus PR 243; this read `head[2:4], (TAG_XHIGH, False)`.
+        self.assertEqual((head.tag, head.refusal), (TAG_XHIGH, None))
+
     # Finding 8: flags in the equals form, and flags after the words.
 
     def test_flags_are_stripped_wherever_they_sit(self):
@@ -1397,6 +1468,38 @@ class TheNoticesAboveTheTargetLine(Fixture):
         code, out = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
+    # The merge with korus PR 242: its second-tag and wordless-target rules hold below a notice.
+
+    def _unsplit(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_UNSPLIT, out)
+        self.assertIn(review_tag.UNSPLIT_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_a_second_tag_below_a_notice_refuses_as_unsplit(self):
+        body = self._body(self.FINDINGS) + f"\n`{TAG_XHIGH}`\n"
+        self._write("two-tags", body)
+        self._unsplit(*self._main())
+
+    def test_a_wordless_target_below_a_notice_refuses_as_unsplit(self):
+        # The level alone on the target line, the arguments and their nonce on the next one. No tag
+        # follows, so only the wordless-target rule, not the later-tag rule, can refuse it.
+        body = f"{self.FINDINGS}\n\nReview target: xhigh\n{self.ARGS}\n\nYou are reviewing ...\n"
+        self._write("wordless", body)
+        self._unsplit(*self._main())
+
+    def test_a_displaced_target_spanning_lines_refuses_rather_than_miss(self):
+        # Merge review: the displaced path read only the target line, so each of these exited 3.
+        shapes = {
+            "tick": f"Review target: `\n{self.ARGS}`",
+            "wordless": f"Review target: xhigh\n{self.ARGS}",
+            "words": f"Review target: Review this\n{self.ARGS}",
+        }
+        for name, opening in shapes.items():
+            with self.subTest(shape=name):
+                body = f"Something else first.\n\n{opening}\n\n`{TAG_XHIGH}`\n"
+                self._write(name, body, session=name)
+                self._refused(*self._main(session=name))
+
     def test_mutant_no_notice_skipped_fails_the_notice_case(self):
         # Mutation check: with the skip removed, the measured notice no longer reads its tag.
         self._write("one", self._body(self.FINDINGS))
@@ -1490,6 +1593,18 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
         self.assertNotIn("tag:", out)
+
+    def test_1_a_pasted_head_with_a_second_tag_line_is_not_set_aside(self):
+        # The merge with main: the held tag is read by PR 243's one reader, so a pasted head with
+        # a second tag-shaped line below it has no tag to compare, and it refuses. test_1 above is
+        # the control: the same brief with one tag line is set aside.
+        self._write("helper", "Run this for me, as written:\n\n" + self._body()
+                    + f"\n\n`{TAG_XHIGH}`\n")
+        self._write("mine", self._body(self.FINDINGS))
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn("tag:", out)
+        self.assertNotIn(review_tag.SET_ASIDE_MESSAGE, out)
 
     # 2. A notice is skipped only as a whole measured sentence, never by its opening words.
 
@@ -1606,13 +1721,15 @@ class TheRoundTwoFindingsOfPr243(Fixture):
     def test_6_no_target_line_means_no_tag_scan(self):
         lines = [f"line {n}" for n in range(200)] + [f"`{TAG_XHIGH}`"]
         with mock.patch.object(review_tag, "is_tag", wraps=review_tag.is_tag) as probe:
-            self.assertEqual(review_tag.displaced_targets(lines), [])
+            self.assertEqual(review_tag.displaced_heads(lines), [])
         self.assertEqual(probe.call_count, 0)
 
     def test_6_control_a_target_line_is_still_scanned_and_kept(self):
+        # The merge with main: displaced_targets became displaced_heads, PR 243's one reader.
         lines = ["Note", f"Review target: `{self.ARGS}`", "", f"`{TAG_XHIGH}`"]
-        self.assertEqual(review_tag.displaced_targets(lines), [(self.ARGS, TAG_XHIGH)])
-        self.assertEqual(review_tag.displaced_targets(lines[:2]), [], "no tag after it")
+        read = [(h.target, h.tag) for h in review_tag.displaced_heads(lines)]
+        self.assertEqual(read, [(self.ARGS, TAG_XHIGH)])
+        self.assertEqual(review_tag.displaced_heads(lines[:2]), [], "no tag after it")
 
     # Round two of this work: set aside only a head carrying the readable fork's own tag.
 

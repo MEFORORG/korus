@@ -866,6 +866,9 @@ A head carrying another tag, or none, still refuses: it may be the round, and th
 brief. Two readable forks still exit 7. In another worktree such a head refuses as 14 or 15, never
 12, which sent an inline round to `--worktree` after a helper's brief.
 
+**NARROWED 2026-10-24, when this met PR 243's one reader.** A pasted head is read like any other
+target line. So one with a second tag-shaped line holds no tag, and it still refuses.
+
 **One line in parentheses that no measured CLI writes, above a target line and its tag, refuses:
 exit 15.** It is most likely a new or reworded notice. `--verbose` prints its opening words on
 stderr; add that sentence to `NOTICE_TEMPLATES`. Beside a fork with its tag it is set aside.
@@ -897,6 +900,10 @@ inline or unpersisted round exits 3, and a fork placed elsewhere exits 12, never
 
 **A nonce matches only as the fork's own:** a whole token, and the first nonce in its target line,
 where the skill leaves it. A later mention of an earlier round's nonce is not that round.
+
+**NARROWED 2026-10-22: where the arguments span lines, the first nonce on any of them is the
+fork's own.** That fork then refuses with exit 13. So put the nonce right after the level, or a
+round naming an earlier nonce first blocks that earlier round's check.
 
 **It answers for exactly one fork, or refuses.** Exit 0 means exactly one fork matched. It never
 picks the newest readable one. CHANGED 2026-10-22, twice: it listed every match and quoted the
@@ -936,6 +943,30 @@ Read at 2.1.309, from `7443ebd`.
 
 That case read as `no tag line`, exit 5, until 2026-10-22: a fork that held a tag was published as
 `none returned`.
+
+**CHANGED 2026-10-22, edges PR 235 left open.** Two shapes now exit 13. Two tag-shaped lines
+read as exit 0, quoting the first. A target line with no words, nonce below it, read as exit 3.
+
+Where the arguments span lines, the fork's own nonce is now the first one on any of them, up to the
+last tag-shaped line. Before, only the target line was read, so such a round read as exit 3.
+
+Measured on CLI 2.1.309, in this branch's cloud session:
+
+```bash
+B=/opt/claude-code/bin/claude
+grep -aoE '(low|medium|high|xhigh|max|\$\{[A-Za-z_.]+\}) effort (\\u2192|->)' "$B" | wc -l
+```
+
+It returns 12, and read one by one, each opens a template string or a `tag:` field. Other
+`${...} effort` hits carry no arrow, so they are not tag-shaped. The target is always in backticks.
+
+Not varied: the notices the skill puts ahead of the target line, and any other CLI version.
+
+**NARROWED 2026-10-24, when PR 243 merged this in.** The binary was not read with notices. The
+tool was: both rules refuse below a notice, and a displaced target line follows the same rules.
+Fixtures pin each case.
+
+Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 under the new code.
 
 | Flag | What it does |
 | --- | --- |

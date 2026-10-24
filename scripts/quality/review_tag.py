@@ -71,7 +71,12 @@ ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first li
 notices, and the tag is the next line that is not blank. Where the target line leaves a backtick
 open, or the next line is no tag and a later line is one, the arguments may span lines: the tool
 refuses (exit 13) rather than read a line of them as the tag, or call the fork tagless. Keep the
-skill's arguments on one line.
+skill's arguments on one line. Two more shapes refuse the same way. A second tag-shaped line
+anywhere after the target line: every tag in CLI 2.1.309 opens its template, one per prompt, so one
+of the two came from the arguments. And a target line holding no words, or a level or flags alone,
+whose arguments start on the next line. Where the arguments span lines, the fork's own nonce is the
+first one on any of them, up to the last tag-shaped line, so the round refuses rather than reading
+as no fork at all. That holds for a displaced target line too: each is read by these same rules.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -168,7 +173,7 @@ UNREAD_MESSAGE = (
 )
 UNSPLIT_MESSAGE = (
     "fork(s) in scope may have arguments spanning lines, so no line can be read as the tag;"
-    " keep the skill's arguments on one line"
+    " keep the skill's arguments on one line, with no tag-shaped line in them"
 )
 DISPLACED_MESSAGE = (
     "fork(s) in scope carry the target line below an opening that is not the skill's notices,"
@@ -314,7 +319,7 @@ class Refusal(enum.Enum):
     """Why a fork in scope cannot be read: one row each, its exit and its message, in the order
     `main` checks them. A misspelt member is an AttributeError, never a fork read as readable."""
 
-    #: No tag after the target line, and the arguments may span lines.
+    #: The arguments may span lines, or carry a tag-shaped line: refused, never read as tagless.
     UNSPLIT = (EXIT_UNSPLIT, UNSPLIT_MESSAGE)
     #: The target line sits below a notice-shaped line no measured CLI writes.
     UNKNOWN_NOTICE = (EXIT_UNKNOWN_NOTICE, UNKNOWN_NOTICE_MESSAGE)
@@ -347,6 +352,9 @@ class Fork:
     notice: str = ""
     #: The tag a refused head carries, compared before it is set aside and never printed.
     held_tag: str = ""
+    #: The first nonce in the fork's arguments: the target line's, or for arguments that may span
+    #: lines, the first on any of them. Matched, never printed.
+    own_nonce: str = ""
 
     @property
     def worktree(self) -> str:
@@ -503,70 +511,94 @@ class Head:
     target: str = ""
     tag: str = ""
     refusal: Refusal | None = None
-    #: For a displaced head, each target line's arguments with the first tag after it.
-    targets: list[tuple[str, str]] = field(default_factory=list)
+    #: The first nonce in the arguments: the target line's, or for arguments that may span lines,
+    #: the first on any of them. Matched, never printed.
+    own_nonce: str = ""
+    #: For a displaced head, each target line with a tag after it, read as if it opened the message.
+    candidates: list["Head"] = field(default_factory=list)
     #: For an unknown notice, its opening words.
     notice: str = ""
     #: The tag a refused head carries. Never printed: it decides only whether to set it aside.
     held_tag: str = ""
 
 
-def displaced_targets(lines: list[str]) -> list[tuple[str, str]]:
-    """Each target line's arguments, indented or quoted too, and the first tag-shaped line after it.
+def first_nonce(text: str) -> str:
+    found = NONCE_SHAPE.search(text)
+    return found.group(0) if found else ""
+
+
+def displaced_heads(lines: list[str]) -> list[Head]:
+    """Each target line, indented or quoted too, with a tag-shaped line after it, read from there.
 
     A subagent brief that quotes a target line and no tag is not a skill prompt, and is not kept.
-    Most non-fork transcripts carry no target line at all, so they are ruled out before any copy.
+    Each is read by the same rules as a target line that opens the message, so arguments spanning
+    lines carry their own nonce here too. Most non-fork transcripts carry no target line at all, so
+    they are ruled out before any copy, and the tag-shaped lines are found once.
     """
     if not any(TARGET_PREFIX in line for line in lines):
         return []
     bare = [line.lstrip(" \t>") for line in lines]
-    tags = [i for i, line in enumerate(bare) if is_tag(line)]
-    found = []
-    for index, line in enumerate(bare):
-        after = next((i for i in tags if i > index), None)
-        if after is None:
-            break
-        if line.startswith(TARGET_PREFIX):
-            found.append((unquote(line[len(TARGET_PREFIX) :]), unquote(bare[after])))
-    return found
+    last_tag = max((index for index, line in enumerate(bare) if is_tag(line)), default=-1)
+    return [
+        read_target(bare, index)
+        for index, line in enumerate(bare)
+        if index < last_tag and line.startswith(TARGET_PREFIX)
+    ]
 
 
 def read_head(lines: list[str]) -> Head:
     """What record 0's message says: a review fork's target and tag, a refusal, or no fork.
 
     A review fork's message STARTS with the target line, or with the skill's notices and then the
-    target line. The tag is the next non-blank line, and only if it has the tag's shape. The
-    arguments may span lines where the target line leaves a backtick open, or where that next line
-    is no tag and a later line is one: that is `unsplit`, a refusal, never a tagless fork. One
-    finder-budget line between the target line and the tag is skipped.
+    target line. The tag is the next non-blank line, and only if it has the tag's shape; one
+    finder-budget line between the target line and the tag is skipped. The fork is `unsplit` -- a
+    refusal, never a tagless fork or a quoted tag -- where the target line leaves a backtick open;
+    where the next non-blank line is no tag and either a later line is one or the target line holds
+    no words; or where a second tag-shaped line follows the tag.
 
     Past a notice-shaped line no measured CLI writes, a target line with a tag after it, unsplit or
     not, is `unknown notice`, a refusal. With no tag after it, the head is read as below.
 
     A target line below anything else, with a tag after it, is `displaced`, also a refusal: a real
-    fork with a tag once read as no fork that way. Only the target line and the tag are kept.
+    fork with a tag once read as no fork that way. Only the target line and the tag are kept; the
+    rest is tested.
+
+    The own nonce is the first one in the arguments: the target line, and for an unsplit fork every
+    line after it up to the LAST tag-shaped one, since a tag-shaped line above that may be theirs.
+    It is matched, never printed.
     """
     start, unknown = target_index(lines)
-    found = None if start is None else read_from_target(lines, start)
-    tagged = found is not None and (
-        bool(found.tag) or any(is_tag(line) for line in lines[start + 1 :])
-    )
-    if unknown and tagged:
-        # A head below a notice no measured CLI writes, with a tag after its target line: most
-        # likely a new notice. Unsplit arguments under it refuse here too, never as displaced.
-        return Head(True, found.target, refusal=Refusal.UNKNOWN_NOTICE,
-                    notice=opening_words(unknown[0]), held_tag=found.tag)
-    if found is not None and not unknown:
-        return found
-    targets = displaced_targets(lines)
-    if not targets:
+    if start is not None:
+        found = read_target(lines, start)
+        if not unknown:
+            return found
+        if found.tag or any(is_tag(line) for line in lines[start + 1 :]):
+            # A head below a notice no measured CLI writes, with a tag after its target line: most
+            # likely a new notice. Unsplit arguments under it refuse here too, never as displaced.
+            return Head(
+                True,
+                found.target,
+                refusal=Refusal.UNKNOWN_NOTICE,
+                own_nonce=found.own_nonce,
+                notice=opening_words(unknown[0]),
+                held_tag=found.tag,
+            )
+    candidates = displaced_heads(lines)
+    if not candidates:
         return Head()
-    return Head(True, targets[0][0], refusal=Refusal.DISPLACED, targets=targets,
-                held_tag=targets[0][1])
+    first = candidates[0]
+    return Head(
+        True,
+        first.target,
+        refusal=Refusal.DISPLACED,
+        own_nonce=first.own_nonce,
+        candidates=candidates,
+        held_tag=first.tag,
+    )
 
 
-def read_from_target(lines: list[str], start: int) -> Head:
-    """The head from its target line on: the tag, a tagless fork, or `unsplit`."""
+def read_target(lines: list[str], start: int) -> Head:
+    """The target line at `start` and the lines below it, read as read_head describes."""
     first = lines[start][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
@@ -576,24 +608,31 @@ def read_from_target(lines: list[str], start: int) -> Head:
     wrapped = len(first) > 1 and first.startswith("`") and first.endswith("`")
     opened = first.count("`") % 2 == 1 and not wrapped
     rest = lines[start + 1 :]
-    hinted = False
-    for index, line in enumerate(rest):
-        if line.strip():
-            if opened:
-                return Head(True, target, refusal=Refusal.UNSPLIT)
-            if not hinted and BUDGET_HINT.fullmatch(line):
-                # The finder-budget line, once: the tag follows it.
-                hinted = True
-                continue
-            later = any(is_tag(after) for after in rest[index + 1 :])
-            if is_tag(line) and wrapped and first.count("`") % 2 == 1 and later:
-                # Wrapped, with a backtick of its own, and a second tag-shaped line: the first
-                # may be the arguments' next line, so neither is read as the tag.
-                return Head(True, target, refusal=Refusal.UNSPLIT)
-            if is_tag(line):
-                return Head(True, target, unquote(line))
-            return Head(True, target, refusal=Refusal.UNSPLIT if later else None)
-    return Head(True, target, refusal=Refusal.UNSPLIT if opened else None)
+    tags = [index for index, line in enumerate(rest) if is_tag(line)]
+    tag, unsplit = "", opened
+    filled = [index for index, line in enumerate(rest) if line.strip()]
+    if filled and not opened and BUDGET_HINT.fullmatch(rest[filled[0]]):
+        # The finder-budget line, once: the tag follows it.
+        filled = filled[1:]
+    following = filled[0] if filled else None
+    if following is not None and not opened:
+        if tags and tags[0] == following:
+            # Each template opens with its one tag, so with two tag-shaped lines one came from
+            # the arguments, and either could be the line the skill wrote.
+            unsplit = len(tags) > 1
+            tag = "" if unsplit else unquote(rest[following])
+        else:
+            # A target line with no words, a level or flags alone among them, puts the
+            # arguments on the lines below it.
+            unsplit = not target_words(target) or any(index > following for index in tags)
+    args = [first] + (rest[: tags[-1]] if tags else rest) if unsplit else [first]
+    return Head(
+        True,
+        target,
+        tag,
+        refusal=Refusal.UNSPLIT if unsplit else None,
+        own_nonce=first_nonce("\n".join(args)),
+    )
 
 
 def strip_invocation(text: str) -> str:
@@ -774,20 +813,25 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             read = read_head(head)
             if not read.review:
                 continue
-            fork.target, fork.tag = read.target, read.tag
+            fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
             fork.refusal, fork.notice, fork.held_tag = read.refusal, read.notice, read.held_tag
             if fork.refusal is Refusal.DISPLACED and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
-                fork.target, fork.held_tag = next(
-                    (pair for pair in read.targets if own_nonce_matches(filters.target, pair[0])),
-                    (fork.target, fork.held_tag),
+                mine = next(
+                    (c for c in read.candidates if own_nonce_matches(filters.target, c.own_nonce)),
+                    None,
                 )
+                if mine is not None:
+                    fork.target, fork.own_nonce, fork.held_tag = (
+                        mine.target,
+                        mine.own_nonce,
+                        mine.tag,
+                    )
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
-                # An unsplit or displaced fork's arguments are known only in part, so its own nonce
-                # alone keeps it.
+                # A refused fork's arguments are known only in part, so its own nonce alone keeps it.
                 partial = fork.refusal is not None
-                if not (partial and own_nonce_matches(filters.target, fork.target)):
+                if not (partial and own_nonce_matches(filters.target, fork.own_nonce)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
