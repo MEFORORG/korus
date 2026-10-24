@@ -915,6 +915,10 @@ It returns 12, and read one by one, each opens a template string or a `tag:` fie
 
 Not varied: the notices the skill puts ahead of the target line, and any other CLI version.
 
+**NARROWED 2026-10-24, when PR 243 merged this in.** The binary was not read with notices. The
+tool was: both rules refuse below a notice, and a displaced target line follows the same rules.
+Fixtures pin each case.
+
 Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 under the new code.
 
 | Flag | What it does |

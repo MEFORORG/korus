@@ -1482,6 +1482,19 @@ class TheNoticesAboveTheTargetLine(Fixture):
         self._write("wordless", body)
         self._unsplit(*self._main())
 
+    def test_a_displaced_target_spanning_lines_refuses_rather_than_miss(self):
+        # Merge review: the displaced path read only the target line, so each of these exited 3.
+        shapes = {
+            "tick": f"Review target: `\n{self.ARGS}`",
+            "wordless": f"Review target: xhigh\n{self.ARGS}",
+            "words": f"Review target: Review this\n{self.ARGS}",
+        }
+        for name, opening in shapes.items():
+            with self.subTest(shape=name):
+                body = f"Something else first.\n\n{opening}\n\n`{TAG_XHIGH}`\n"
+                self._write(name, body, session=name)
+                self._refused(*self._main(session=name))
+
     def test_mutant_no_notice_skipped_fails_the_notice_case(self):
         # Mutation check: with the skip removed, the measured notice no longer reads its tag.
         self._write("one", self._body(self.FINDINGS))

@@ -61,7 +61,7 @@ anywhere after the target line: every tag in CLI 2.1.309 opens its template, one
 of the two came from the arguments. And a target line holding no words, or a level or flags alone,
 whose arguments start on the next line. Where the arguments span lines, the fork's own nonce is the
 first one on any of them, up to the last tag-shaped line, so the round refuses rather than reading
-as no fork at all.
+as no fork at all. That holds for a displaced target line too: each is read by these same rules.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -233,7 +233,8 @@ class Fork:
     unsplit: bool = False
     #: A target line sits below an opening that is not the skill's notices.
     displaced: bool = False
-    #: The first nonce in the fork's arguments, on any of their lines. Matched, never printed.
+    #: The first nonce in the fork's arguments: the target line's, or for arguments that may span
+    #: lines, the first on any of them. Matched, never printed.
     own_nonce: str = ""
 
     @property
@@ -377,24 +378,31 @@ class Head:
     tag: str = ""
     #: None, "unsplit" (arguments may span lines) or "displaced" (target below an unknown opening).
     refusal: str | None = None
-    #: For a displaced head, the arguments of every target line with a tag after it.
-    targets: list[str] = field(default_factory=list)
-    #: The first nonce in the arguments, on any of their lines for an unsplit head. Matched, never
-    #: printed.
+    #: The first nonce in the arguments: the target line's, or for arguments that may span lines,
+    #: the first on any of them. Matched, never printed.
     own_nonce: str = ""
+    #: For a displaced head, each target line with a tag after it, read as if it opened the message.
+    candidates: list["Head"] = field(default_factory=list)
 
 
-def displaced_targets(lines: list[str]) -> list[str]:
-    """The arguments of each target line, indented or quoted too, with a tag-shaped line after it.
+def first_nonce(text: str) -> str:
+    found = NONCE_SHAPE.search(text)
+    return found.group(0) if found else ""
+
+
+def displaced_heads(lines: list[str]) -> list["Head"]:
+    """Each target line, indented or quoted too, with a tag-shaped line after it, read from there.
 
     A subagent brief that quotes a target line and no tag is not a skill prompt, and is not kept.
+    Each is read by the same rules as a target line that opens the message, so arguments spanning
+    lines carry their own nonce here too.
     """
     bare = [line.lstrip(" \t>") for line in lines]
-    found = []
-    for index, line in enumerate(bare):
-        if line.startswith(TARGET_PREFIX) and any(is_tag(later) for later in bare[index + 1 :]):
-            found.append(unquote(line[len(TARGET_PREFIX) :]))
-    return found
+    return [
+        read_target(bare, index)
+        for index, line in enumerate(bare)
+        if line.startswith(TARGET_PREFIX) and any(is_tag(later) for later in bare[index + 1 :])
+    ]
 
 
 def read_head(lines: list[str]) -> Head:
@@ -413,11 +421,23 @@ def read_head(lines: list[str]) -> Head:
     It is matched, never printed.
     """
     start = target_index(lines)
-    if start is None:
-        targets = displaced_targets(lines)
-        if not targets:
-            return Head()
-        return Head(True, targets[0], refusal="displaced", targets=targets)
+    if start is not None:
+        return read_target(lines, start)
+    candidates = displaced_heads(lines)
+    if not candidates:
+        return Head()
+    first = candidates[0]
+    return Head(
+        True,
+        first.target,
+        refusal="displaced",
+        own_nonce=first.own_nonce,
+        candidates=candidates,
+    )
+
+
+def read_target(lines: list[str], start: int) -> Head:
+    """The target line at `start` and the lines below it, read as read_head describes."""
     first = lines[start][len(TARGET_PREFIX) :].strip()
     target = unquote(first)
     # An odd count of backticks leaves one open, so the next line is still the arguments, whatever
@@ -438,13 +458,12 @@ def read_head(lines: list[str]) -> Head:
             # arguments on the lines below it.
             unsplit = not target_words(target) or any(index > following for index in tags)
     args = [first] + (rest[: tags[-1]] if tags else rest) if unsplit else [first]
-    own = NONCE_SHAPE.search("\n".join(args))
     return Head(
         True,
         target,
         tag,
         refusal="unsplit" if unsplit else None,
-        own_nonce=own.group(0) if own else "",
+        own_nonce=first_nonce("\n".join(args)),
     )
 
 
@@ -627,12 +646,12 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             fork.displaced = read.refusal == "displaced"
             if fork.displaced and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
-                fork.target = next(
-                    (t for t in read.targets if own_nonce_matches(filters.target, t)), fork.target
+                mine = next(
+                    (c for c in read.candidates if own_nonce_matches(filters.target, c.own_nonce)),
+                    None,
                 )
-            if fork.displaced:
-                own = NONCE_SHAPE.search(fork.target)
-                fork.own_nonce = own.group(0) if own else ""
+                if mine is not None:
+                    fork.target, fork.own_nonce = mine.target, mine.own_nonce
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit or displaced fork's arguments are known only in part, so its own nonce
