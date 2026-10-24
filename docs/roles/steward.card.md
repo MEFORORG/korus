@@ -35,6 +35,10 @@ always on, in every session*, holds the steps.
 They bind a session that holds or repairs this seat. The scheduled job decides nothing and
 spends no model call, so it has no step of theirs to take.
 
+The `empower` rules are on too, only while `MEFOR_AFK_KILL` reads exactly `off`; otherwise the
+driver rules alone. `roles/COMMON.md`, *The empower rules are on by default, for every seat but
+Special*, holds the classes and the kill switch.
+
 They widen no permission. This seat still starts nothing and stops nothing.
 
 ## On arrival

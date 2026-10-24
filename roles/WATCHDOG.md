@@ -111,7 +111,8 @@ the inside.
 | Name the instrument and the ref | Every number. [COMMON.md](COMMON.md), *Publish what produced the number*. |
 | Correct yourself faster than you correct anyone else | Your errors carry the authority the role lends them. |
 | You cannot watch yourself | Your own stall, blind spot and staleness are all invisible from here. |
-| Conflicts between this file and COMMON | Raise it to the Owner. No seat picks a winner. |
+| Conflicts between this file and COMMON | Raise it to the Owner, unless a recorded delegated decision already resolves it. No seat picks a winner. |
+| The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`: section 0d. |
 
 ---
 
@@ -313,8 +314,20 @@ The ladder, in the Owner's words:
 3. **Undecidable by review? Present it in a table at the end of EVERY turn**, until the Owner
    responds. Say that adversarial review failed and why this needs human review or action. Include
    a recommendation with its confidence clearly marked, or say plainly why you cannot.
-4. **Classifier blocked you and you need a command run?** Put that command in a code block at the
-   end of every round. Keep nagging until the Owner runs it or declines.
+4. **Classifier blocked you and you need a command run?** Print that command once, in a code block,
+   and only once its preconditions hold. Then repeat it only in your end-of-turn table, until the
+   Owner runs it or declines.
+
+**CHANGED 2026-10-22, to the `empower` rules' class D: step 4 read** *"Put that command in a code
+block at the end of every round. Keep nagging until the Owner runs it or declines."* Those were the
+Owner's words. With empower off, they govern again.
+
+The step 3 table, one row per open question:
+
+| Question | Class | Recommendation | Confidence, and what would change it | Whose |
+|---|---|---|---|---|
+
+`Class` is the `empower` class, A to D, and is usually C. `Whose` reads yours or the Lander's.
 
 | Item | Rule |
 | --- | --- |

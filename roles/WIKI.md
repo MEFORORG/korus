@@ -4,6 +4,8 @@
 > own. The reasons, the research and the requirements are in
 > [the fleet wiki spec](../specs/002-fleet-wiki/spec.md).
 > [The mental model](../specs/002-fleet-wiki/mental-model.md) is the one-page picture.
+> The `driver` and `empower` rules are on by default for every seat but Special: [COMMON.md](COMMON.md),
+> *The empower rules are on by default, for every seat but Special*.
 
 The fleet wiki is one memory that every seat on every account can search. This file is its schema.
 

@@ -80,6 +80,7 @@ moment they can win.
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes **disposition, not permissions**. |
 | Where this file loses | On **the merge, the queue and the ledger banner**, [LANDER.md](LANDER.md) is the authority. On **who opens the pull request**, [MANAGER.md](MANAGER.md) is, since 2026-09-18. On everything else, COMMON. |
 | Editing this folder | Send what broke when you *ran* this playbook to the Manager. |
+| The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still cannot ask and wait: a question goes in your report. |
 
 | On which row | What it adds |
 | --- | --- |
@@ -90,7 +91,7 @@ moment they can win.
 | Naming what you did not run is the half that gets dropped | A hosted-only leg you cannot run locally is unread until CI reads it, and nobody downstream can tell it from a green one. |
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
 | The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
-| The precedence row | If COMMON and LANDER conflict on the same point, that is an owner question. Route it, do not pick. |
+| The precedence row | If COMMON and LANDER conflict on the same point, that is an owner question, unless a recorded delegated decision already resolves it. Route it, do not pick. |
 
 Measured 2026-08-28: LANDER claims precedence over COMMON for its own seat, and cites a COMMON
 precedence section that no longer exists. A reader resolving this alone gets whichever file they read
