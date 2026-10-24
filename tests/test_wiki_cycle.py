@@ -485,6 +485,117 @@ class ACheckoutWithLocalChangesIsNeverMoved(_CycleCase):
         self.assertEqual([], self.called())
 
 
+class AStateRootThatMovedIsRefused(_CycleCase):
+    """The engine records a move to a shared root in <local root>/root.toml. A task still registered
+    with the local root would compile an inbox nobody writes, so it must stop and name the new root."""
+
+    NO_ENV = {"MEFOR_COORD_ROOT": ""}
+
+    def plant_root_toml(self, text: str) -> Path:
+        path = self.state / "root.toml"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_control_no_root_toml_runs(self):
+        r = self.cycle("-NoImport", env=self.NO_ENV)
+        self.assert_ran(r)
+        self.assertEqual(["compile", "lint"], [c["name"] for c in self.called()])
+
+    def test_a_root_toml_naming_another_root_refuses_and_names_it(self):
+        shared = self.root / "shared-coord"
+        shared.mkdir()
+        self.plant_root_toml(f"# moved\nshared_root = '{shared}'  # the share\n")
+        r = self.cycle("-NoImport", env=self.NO_ENV)
+        self.assert_ran(r, 2)
+        self.assertIn("has moved", r.stderr)
+        self.assertIn(f"-StateRoot '{shared}'", r.stderr)
+        self.assertIn("one machine only", r.stderr)
+        self.assertEqual([], self.called(), "no step runs against the stale inbox")
+        self.assertEqual(self.korus_v1, self.head(self.korus), "nothing moves")
+        self.assertFalse(self.lock().exists())
+        line = self.log_lines()[-1]
+        self.assertEqual(2, line["exit"], "the refusal is logged where -Status reads it")
+
+    def test_a_root_toml_naming_this_root_runs(self):
+        self.plant_root_toml(f"shared_root = '{self.state}'\n")
+        self.assert_ran(self.cycle("-NoImport", env=self.NO_ENV))
+
+    def test_a_root_toml_the_engine_would_refuse_is_refused(self):
+        self.plant_root_toml(f'shared_root = "{self.root / "x"}"\n')
+        r = self.cycle("-NoImport", env=self.NO_ENV)
+        self.assert_ran(r, 2)
+        self.assertIn("not shared_root = '<path>'", r.stderr)
+        self.assertEqual([], self.called())
+
+    def test_the_env_override_naming_this_root_wins(self):
+        self.plant_root_toml(f"shared_root = '{self.root / 'shared-coord'}'\n")
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(self.state)})
+        self.assert_ran(r)
+
+    def assert_refused(self, r: subprocess.CompletedProcess, needle: str):
+        self.assert_ran(r, 2)
+        self.assertIn(needle, r.stderr)
+        self.assertEqual([], self.called(), "no step runs against the stale inbox")
+
+    def test_the_env_var_naming_another_root_refuses_with_no_root_toml(self):
+        shared = self.root / "shared-coord"
+        shared.mkdir()
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(shared)})
+        self.assert_refused(r, f"-StateRoot '{shared}'")
+
+    def test_the_env_var_wins_over_a_root_toml_naming_this_root(self):
+        self.plant_root_toml(f"shared_root = '{self.state}'\n")
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": str(self.root / "shared-coord")})
+        self.assert_refused(r, "has moved")
+
+    def test_a_relative_env_var_is_refused(self):
+        r = self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": "shared-coord"})
+        self.assert_refused(r, "MEFOR_COORD_ROOT is not an absolute path")
+
+    def test_a_root_toml_that_names_none_is_refused(self):
+        self.plant_root_toml("# nothing yet\n\n")
+        self.assert_refused(self.cycle("-NoImport"), "names no shared_root")
+
+    def test_an_empty_shared_root_is_refused(self):
+        self.plant_root_toml("shared_root = '  '\n")
+        self.assert_refused(self.cycle("-NoImport"), "not shared_root = '<path>'")
+
+    def test_a_relative_shared_root_is_refused(self):
+        self.plant_root_toml("shared_root = 'shared-coord'\n")
+        self.assert_refused(self.cycle("-NoImport"), "not an absolute path")
+
+    def test_a_second_shared_root_is_refused(self):
+        self.plant_root_toml(f"shared_root = '{self.state}'\nshared_root = '{self.state}'\n")
+        self.assert_refused(self.cycle("-NoImport"), "more than once")
+
+    def test_a_non_ascii_space_is_not_whitespace(self):
+        # NBSP before the key. The engine allows only space and tab, so it refuses this line.
+        self.plant_root_toml(f"\u00a0shared_root = '{self.state}'\n")
+        self.assert_refused(self.cycle("-NoImport"), "not shared_root = '<path>'")
+
+    def test_invalid_utf8_is_refused(self):
+        (self.state / "root.toml").write_bytes(b"shared_root = 'C:/\xff'\n")
+        self.assert_refused(self.cycle("-NoImport"), "is not UTF-8")
+
+    def test_another_spelling_of_this_root_runs(self):
+        # A trailing separator and forward slashes name the same directory, so nothing has moved.
+        spelled = str(self.state).replace("\\", "/") + "/"
+        self.plant_root_toml(f"shared_root = '{spelled}'\n")
+        self.assert_ran(self.cycle("-NoImport"))
+        self.assert_ran(self.cycle("-NoImport", env={"MEFOR_COORD_ROOT": spelled}))
+
+    def test_a_utf16_root_toml_naming_this_root_runs(self):
+        (self.state / "root.toml").write_bytes(f"shared_root = '{self.state}'\n".encode("utf-16"))
+        self.assert_ran(self.cycle("-NoImport"))
+
+    def test_whatif_reports_the_move_with_exit_2(self):
+        self.plant_root_toml(f"shared_root = '{self.root / 'shared-coord'}'\n")
+        r = self.cycle("-NoImport", "-WhatIf", env=self.NO_ENV)
+        self.assert_ran(r, 2)
+        self.assertIn("has moved", r.stdout + r.stderr)
+        self.assertEqual(self.korus_v1, self.head(self.korus))
+
+
 class TheLockKeepsTwoCyclesApart(_CycleCase):
     def test_a_live_lock_refuses_the_run_and_is_left_alone(self):
         before = self.plant_lock(age_hours=0.5)

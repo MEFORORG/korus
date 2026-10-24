@@ -56,7 +56,12 @@ ARGUMENTS SPANNING LINES ARE REFUSED, NOT GUESSED AT. The target is the first li
 notices, and the tag is the next line that is not blank. Where the target line leaves a backtick
 open, or the next line is no tag and a later line is one, the arguments may span lines: the tool
 refuses (exit 13) rather than read a line of them as the tag, or call the fork tagless. Keep the
-skill's arguments on one line.
+skill's arguments on one line. Two more shapes refuse the same way. A second tag-shaped line
+anywhere after the target line: every tag in CLI 2.1.309 opens its template, one per prompt, so one
+of the two came from the arguments. And a target line holding no words, or a level or flags alone,
+whose arguments start on the next line. Where the arguments span lines, the fork's own nonce is the
+first one on any of them, up to the last tag-shaped line, so the round refuses rather than reading
+as no fork at all.
 
 IT IS READ-ONLY, AND IT READS AS LITTLE AS IT CAN. With a session filter, it walks only that
 session's directory inside each project directory. Per fork it reads the meta file, then record 0 -- one line of the transcript --
@@ -147,7 +152,7 @@ UNREAD_MESSAGE = (
 )
 UNSPLIT_MESSAGE = (
     "fork(s) in scope may have arguments spanning lines, so no line can be read as the tag;"
-    " keep the skill's arguments on one line"
+    " keep the skill's arguments on one line, with no tag-shaped line in them"
 )
 DISPLACED_MESSAGE = (
     "fork(s) in scope carry the target line below an opening that is not the skill's notices,"
@@ -224,10 +229,12 @@ class Fork:
     target: str = ""
     tag: str = ""
     placed_by: str = ""
-    #: No tag after the target line, and the arguments may span lines.
+    #: The arguments may span lines, or carry a tag-shaped line: refused, never read as tagless.
     unsplit: bool = False
     #: A target line sits below an opening that is not the skill's notices.
     displaced: bool = False
+    #: The first nonce in the fork's arguments, on any of their lines. Matched, never printed.
+    own_nonce: str = ""
 
     @property
     def worktree(self) -> str:
@@ -372,6 +379,9 @@ class Head:
     refusal: str | None = None
     #: For a displaced head, the arguments of every target line with a tag after it.
     targets: list[str] = field(default_factory=list)
+    #: The first nonce in the arguments, on any of their lines for an unsplit head. Matched, never
+    #: printed.
+    own_nonce: str = ""
 
 
 def displaced_targets(lines: list[str]) -> list[str]:
@@ -391,11 +401,16 @@ def read_head(lines: list[str]) -> Head:
     """What record 0's message says: a review fork's target and tag, a refusal, or no fork.
 
     A review fork's message STARTS with the target line, or with the skill's notices and then the
-    target line. The tag is the next non-blank line, and only if it has the tag's shape. The
-    arguments may span lines where the target line leaves a backtick open, or where that next line
-    is no tag and a later line is one: that is `unsplit`, a refusal, never a tagless fork. A target
-    line below anything else, with a tag after it, is `displaced`, also a refusal: a real fork with
-    a tag once read as no fork that way. Only the target line and the tag are kept.
+    target line. The tag is the next non-blank line, and only if it has the tag's shape. The fork
+    is `unsplit` -- a refusal, never a tagless fork or a quoted tag -- where the target line leaves
+    a backtick open; where the next non-blank line is no tag and either a later line is one or the
+    target line holds no words; or where a second tag-shaped line follows the tag. A target line
+    below anything else, with a tag after it, is `displaced`, also a refusal: a real fork with a tag
+    once read as no fork that way. Only the target line and the tag are kept; the rest is tested.
+
+    The own nonce is the first one in the arguments: the target line, and for an unsplit fork every
+    line after it up to the LAST tag-shaped one, since a tag-shaped line above that may be theirs.
+    It is matched, never printed.
     """
     start = target_index(lines)
     if start is None:
@@ -409,15 +424,28 @@ def read_head(lines: list[str]) -> Head:
     # it looks like: `scripts/x.py` round-... closes its own pair and opens nothing.
     opened = first.count("`") % 2 == 1
     rest = lines[start + 1 :]
-    for index, line in enumerate(rest):
-        if line.strip():
-            if opened:
-                return Head(True, target, refusal="unsplit")
-            if is_tag(line):
-                return Head(True, target, unquote(line))
-            later = any(is_tag(after) for after in rest[index + 1 :])
-            return Head(True, target, refusal="unsplit" if later else None)
-    return Head(True, target, refusal="unsplit" if opened else None)
+    tags = [index for index, line in enumerate(rest) if is_tag(line)]
+    tag, unsplit = "", opened
+    following = next((index for index, line in enumerate(rest) if line.strip()), None)
+    if following is not None and not opened:
+        if tags and tags[0] == following:
+            # Each template opens with its one tag, so with two tag-shaped lines one came from
+            # the arguments, and either could be the line the skill wrote.
+            unsplit = len(tags) > 1
+            tag = "" if unsplit else unquote(rest[following])
+        else:
+            # A target line with no words, a level or flags alone among them, puts the
+            # arguments on the lines below it.
+            unsplit = not target_words(target) or any(index > following for index in tags)
+    args = [first] + (rest[: tags[-1]] if tags else rest) if unsplit else [first]
+    own = NONCE_SHAPE.search("\n".join(args))
+    return Head(
+        True,
+        target,
+        tag,
+        refusal="unsplit" if unsplit else None,
+        own_nonce=own.group(0) if own else "",
+    )
 
 
 def strip_invocation(text: str) -> str:
@@ -594,7 +622,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             read = read_head(head)
             if not read.review:
                 continue
-            fork.target, fork.tag = read.target, read.tag
+            fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
             fork.unsplit = read.refusal == "unsplit"
             fork.displaced = read.refusal == "displaced"
             if fork.displaced and filters.target:
@@ -602,12 +630,15 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 fork.target = next(
                     (t for t in read.targets if own_nonce_matches(filters.target, t)), fork.target
                 )
+            if fork.displaced:
+                own = NONCE_SHAPE.search(fork.target)
+                fork.own_nonce = own.group(0) if own else ""
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 # An unsplit or displaced fork's arguments are known only in part, so its own nonce
                 # alone keeps it.
                 partial = fork.unsplit or fork.displaced
-                if not (partial and own_nonce_matches(filters.target, fork.target)):
+                if not (partial and own_nonce_matches(filters.target, fork.own_nonce)):
                     continue
             fork.time = parse_time(record.get("timestamp", ""))
             if fork.time is None:
