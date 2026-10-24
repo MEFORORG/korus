@@ -30,10 +30,11 @@ target line and a tag after it -- is most likely a notice a later CLI added or r
 with its own exit (15). Under `--verbose` its opening words go to stderr, so the sentence can be measured and
 added; they are record 0's own words, so they sit behind the flag with the paths.
 
-A brief that pastes a whole head is displaced, or below an unknown notice. It refuses, even beside
-a fork that reads with the same tag: nothing in record 0 tells the skill's own prompt from a brief
-that pasted it, so the readable one may be the brief. In another worktree it refuses too, rather
-than exit 12, unless a canonical head for the nonce ran elsewhere and nothing reads here.
+A brief that pastes a whole head is displaced, or below an unknown notice. In scope it refuses,
+whatever fork reads beside it: nothing in record 0 tells the skill's own prompt from a brief that
+pasted it, so the readable one may be the brief. In another worktree it is out of scope beside a
+fork that reads here. With nothing read here it refuses rather than exit 12, unless a head
+elsewhere reads with its tag.
 
 A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
 line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
@@ -760,6 +761,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     # With a nonce in the target, every fork past the target filter carries the caller's own.
     nonced = bool(filters.target and NONCE_SHAPE.search(filters.target))
     refused_elsewhere: list[Fork] = []
+    readable_elsewhere = 0
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -847,18 +849,22 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 result.forks.append(fork)
             elif fork.refusal in BRIEF_REFUSALS and nonced:
                 # Such a head is most often a brief that quoted the round's head. It may still be
-                # the round's fork, so it refuses below, unless a canonical head ran elsewhere too.
+                # the round's fork; below decides whether it refuses.
                 refused_elsewhere.append(fork)
             elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
-    # A refused head elsewhere refuses (14 or 15) rather than send an inline round to --worktree
-    # (exit 12) after a helper's brief. Where a canonical head for the nonce ran elsewhere too and
-    # nothing reads here, exit 12 stands: that worktree is where to look, and a rerun there reads
-    # every head again. A refused head is never set aside beside a readable fork: nothing in record
-    # 0 tells the skill's own prompt from a brief that pasted it, so the readable one may be the
-    # brief.
-    if result.elsewhere and not result.forks:
+                readable_elsewhere += fork.refusal is None and bool(fork.tag)
+    # A head in another worktree is out of scope beside a fork that reads here, as on main, so a
+    # brief elsewhere cannot block a reading for good. With nothing read here, a refused head
+    # elsewhere refuses (14 or 15) rather than send an inline round to --worktree (exit 12) after
+    # a helper's brief, unless a head elsewhere reads with its tag: then exit 12 says where, and a
+    # rerun there either reads or refuses on what it finds. A refused head in scope always refuses,
+    # never set aside beside a readable fork: nothing in record 0 tells the skill's own prompt from
+    # a brief that pasted it, so the readable one may be the brief.
+    if result.forks:
+        pass
+    elif readable_elsewhere:
         result.elsewhere += len(refused_elsewhere)
     else:
         for fork in refused_elsewhere:

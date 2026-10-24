@@ -1569,6 +1569,8 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def _displaced(self, code, out):
         self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertIn(review_tag.DISPLACED_MESSAGE, out)
+        self.assertNotIn(review_tag.NO_FORK_MESSAGE, out)
         self.assertNotIn("tag:", out)
 
     def test_1_a_brief_pasting_the_head_beside_the_callers_fork_refuses(self):
@@ -1589,6 +1591,13 @@ class TheRoundTwoFindingsOfPr243(Fixture):
 
     def test_1_control_the_brief_alone_still_refuses(self):
         self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._displaced(*self._main()[:2])
+
+    def test_1_beside_two_canonical_forks_the_brief_refuses_before_ambiguity(self):
+        # The refusal outranks exit 7, so the brief is named rather than lost behind it.
+        self._write("helper", "Run this for me, as written:\n\n" + self._body())
+        self._write("mine", self._body())
+        self._write("twin", self._body())
         self._displaced(*self._main()[:2])
 
     def test_1_control_the_callers_fork_alone_reads(self):
@@ -1793,6 +1802,29 @@ class TheRoundTwoFindingsOfPr243(Fixture):
                 code, out, _ = self._main(session=name)
                 self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
                 self.assertIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_the_rerun_exit_12_asks_for_refuses_on_what_it_finds(self):
+        # Review of 30f1c88: exit 12 is not a result. Rerun in that worktree, the brief is in
+        # scope there, so the round refuses rather than read the head beside it.
+        self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
+        self._write("real", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main(None, "--worktree", self.OTHER)
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+
+    def test_r2_a_tagless_head_elsewhere_does_not_unlock_exit_12(self):
+        # Review of 30f1c88: any head elsewhere unlocked exit 12, a tagless finder brief too, so
+        # a displaced head holding a tag lost to it, the round-one rule in another worktree.
+        self._write("real", "Something else first.\n\n" + self._body(), cwd=self.OTHER)
+        self._write("brief", f"Review target: `{self.ARGS}`\n\nFind bugs.\n", cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+
+    def test_r2_a_refused_head_elsewhere_is_out_of_scope_beside_a_fork_here(self):
+        # Review of 30f1c88: a brief in another worktree refused the caller's readable fork for
+        # good, since no rerun put it out of scope. As on main, it is out of scope here.
+        self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
+        self._write("mine", self._body())
+        self._found(*self._main()[:2])
 
     def test_r2_control_a_refused_head_here_still_outranks_exit_12(self):
         self._write("brief", "Run this:\n\n" + self._body())
