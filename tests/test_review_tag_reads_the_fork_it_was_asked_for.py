@@ -1562,20 +1562,38 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         self.assertIn("tag: " + TAG_XHIGH, out)
         self.assertIn(f"agent {agent}", out)
 
-    # 1. A brief that pastes the whole head no longer refuses the caller's real fork.
+    # 1. A brief that pastes the whole head refuses, even beside the caller's readable fork.
+    # CHANGED 2026-10-24, takeover: such a head was set aside beside a readable fork with the same
+    # tag. The readable one can be a helper's brief and the refused one the real fork, so the run
+    # exited 0 naming the brief. Nothing in record 0 tells them apart, so it refuses, as on main.
 
-    def test_1_a_brief_pasting_the_head_is_set_aside_beside_the_callers_fork(self):
+    def _displaced(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
+        self.assertNotIn("tag:", out)
+
+    def test_1_a_brief_pasting_the_head_beside_the_callers_fork_refuses(self):
         self._write("helper", "Run this for me, as written:\n\n" + self._body())
         self._write("mine", self._body(self.FINDINGS))
+        self._displaced(*self._main()[:2])
+
+    def test_1_a_real_fork_under_a_new_notice_beside_a_canonical_brief_refuses(self):
+        # The takeover probe's case B: the real fork sits under a notice no measured CLI writes,
+        # and a helper's record 0 opens with the same target line and tag. At 64178ac this exited
+        # 0 and named the helper as the fork.
+        self._write("real", self._body("(A notice a later CLI added, reworded.)"))
+        self._write("helper", self._body().replace("You are reviewing ...", "Helper brief."))
         code, out, _ = self._main()
-        self._found(code, out)
-        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent helper", out)
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
+        self.assertNotIn("agent helper", out)
 
     def test_1_control_the_brief_alone_still_refuses(self):
         self._write("helper", "Run this for me, as written:\n\n" + self._body())
-        code, out, _ = self._main()
-        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
-        self.assertNotIn("tag:", out)
+        self._displaced(*self._main()[:2])
+
+    def test_1_control_the_callers_fork_alone_reads(self):
+        self._write("mine", self._body(self.FINDINGS))
+        self._found(*self._main()[:2])
 
     def test_1_beside_a_tagless_canonical_fork_it_still_refuses(self):
         # Round one: set aside beside any canonical fork, a displaced head holding a tag lost to
@@ -1585,37 +1603,6 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
         self.assertNotIn(review_tag.NO_TAG_MESSAGE, out)
-
-    def test_1_control_two_canonical_forks_beside_it_stay_ambiguous(self):
-        self._write("helper", "Run this for me, as written:\n\n" + self._body())
-        self._write("mine", self._body())
-        self._write("twin", self._body())
-        code, out, _ = self._main()
-        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
-        self.assertNotIn("tag:", out)
-
-    def test_1_a_pasted_head_with_a_second_tag_line_is_not_set_aside(self):
-        # The merge with main: the held tag is read by PR 243's one reader, so a pasted head with
-        # a second tag-shaped line below it has no tag to compare, and it refuses. test_1 above is
-        # the control: the same brief with one tag line is set aside.
-        self._write("helper", "Run this for me, as written:\n\n" + self._body()
-                    + f"\n\n`{TAG_XHIGH}`\n")
-        self._write("mine", self._body(self.FINDINGS))
-        code, out, _ = self._main()
-        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
-        self.assertNotIn("tag:", out)
-        self.assertNotIn(review_tag.SET_ASIDE_MESSAGE, out)
-
-    def test_1_a_pasted_head_in_the_ascii_spelling_is_set_aside(self):
-        # Takeover review: the tags were compared byte for byte, so a brief pasting an `--ascii`
-        # QA head never matched the fork's arrow and blocked the round, exit 14.
-        ascii_head = self._body().replace(TAG_XHIGH, review_tag.spell(TAG_XHIGH, True))
-        self.assertNotEqual(ascii_head, self._body(), "the fixture tag holds no glyph")
-        self._write("helper", "Run this for me, as written:\n\n" + ascii_head)
-        self._write("mine", self._body(self.FINDINGS))
-        code, out, _ = self._main()
-        self._found(code, out)
-        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent helper", out)
 
     def test_1_a_later_target_line_below_an_unknown_notice_refuses(self):
         # Takeover review: below an unknown notice only the first target line was matched, so
@@ -1714,14 +1701,14 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
-    def test_4_a_parenthesised_brief_beside_the_callers_fork_is_set_aside(self):
-        # Round one: a brief in parentheses blocked the caller's fork for good, exit 15, while the
-        # same brief in plain prose was set aside. The skill writes one prompt per round.
+    def test_4_a_parenthesised_brief_beside_the_callers_fork_refuses(self):
+        # CHANGED 2026-10-24, takeover: this was set aside, exit 0. Like a plain-prose brief, it
+        # now refuses, because the readable fork beside it may be the brief (see section 1).
         self._write("brief", self._body("(Run this for me)"))
         self._write("mine", self._body())
         code, out, _ = self._main()
-        self._found(code, out)
-        self.assertIn(f"{review_tag.SET_ASIDE_MESSAGE} | agent brief", out)
+        self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
+        self.assertNotIn("tag:", out)
 
     # 5. One table maps each refusal to its exit and message.
 
@@ -1755,7 +1742,8 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         self.assertEqual(read, [(self.ARGS, TAG_XHIGH)])
         self.assertEqual(review_tag.displaced_heads(lines[:2]), [], "no tag after it")
 
-    # Round two of this work: set aside only a head carrying the readable fork's own tag.
+    # Round two of this work. It set aside only a head carrying the readable fork's own tag; since
+    # the takeover nothing is set aside, and these still refuse.
 
     def test_r2_a_real_fork_under_a_new_notice_is_not_set_aside_for_a_brief(self):
         # The fork under the unknown notice ran at xhigh; a brief pasted a high head. Quoting the
@@ -1792,6 +1780,25 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_UNKNOWN_NOTICE, out)
         self.assertNotIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_beside_a_canonical_fork_elsewhere_exit_12_stands(self):
+        # Takeover: a refused head elsewhere outranked a canonical fork elsewhere, so the round
+        # was refused (14 or 15) where its fork was found in another worktree. Exit 12 says where.
+        for name, opening in (("unknown", "(Run this for me)"), ("displaced", "Run this:")):
+            with self.subTest(head=name):
+                body = (self._body(opening) if opening.startswith("(")
+                        else opening + "\n\n" + self._body())
+                self._write("brief", body, cwd=self.OTHER, session=name)
+                self._write("real", self._body(), cwd=self.OTHER, session=name)
+                code, out, _ = self._main(session=name)
+                self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+                self.assertIn(review_tag.ELSEWHERE_MESSAGE, out)
+
+    def test_r2_control_a_refused_head_here_still_outranks_exit_12(self):
+        self._write("brief", "Run this:\n\n" + self._body())
+        self._write("real", self._body(), cwd=self.OTHER)
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
 
     def test_r2_a_tagless_brief_under_a_notice_with_an_open_backtick_is_no_fork(self):
         self._write("brief", f"(Please look at this.)\n\nReview target: `{self.NONCE} fix the"

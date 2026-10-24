@@ -858,20 +858,21 @@ own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
 
 **A target line below anything else, with a tag after it, refuses: exit 14.** The tool cannot read it.
 
-**Except beside a fork that reads with the SAME tag.** A brief pasting the skill's whole head is
-displaced, and it once refused the caller's own fork for good. It is now set aside on a
-`set aside: ... | agent <id>` line: whichever is the round, the quoted tag is its level.
+**That holds beside a fork that reads with the same tag.** A brief pasting the skill's whole head
+is displaced, so it refuses too. The readable fork beside it may be a helper's brief that opens
+with the same target line and tag, and nothing in record 0 tells the two apart.
 
-A head carrying another tag, or none, still refuses: it may be the round, and the readable fork a
-brief. Two readable forks still exit 7. In another worktree such a head refuses as 14 or 15, never
-12, which sent an inline round to `--worktree` after a helper's brief.
+In another worktree such a head refuses as 14 or 15, not 12, after a helper's brief once sent an
+inline round to `--worktree`. Where a canonical head for the nonce also ran elsewhere and nothing
+reads here, exit 12 stands.
 
-**NARROWED 2026-10-24, when this met PR 243's one reader.** A pasted head is read like any other
-target line. So one with a second tag-shaped line holds no tag, and it still refuses.
+**CHANGED 2026-10-24, takeover of PR 244:** a refused head beside a readable fork with the same tag
+was set aside, exit 0. A probe put the real fork under an unknown notice and a helper's canonical
+head beside it, and that read at exit 0 naming the helper. On `main` it exited 14.
 
 **One line in parentheses that no measured CLI writes, above a target line and its tag, refuses:
 exit 15.** It is most likely a new or reworded notice. `--verbose` prints its opening words on
-stderr; add that sentence to `NOTICE_TEMPLATES`. Beside a fork with its tag it is set aside.
+stderr; add that sentence to `NOTICE_TEMPLATES`. Beside a fork with its tag it still refuses.
 
 **CHANGED 2026-10-23, PR 243 round two:** a notice was skipped where it OPENED with one of eleven
 phrases, two of them ordinary English. An unknown notice refused as exit 14, with no diagnosis.
@@ -994,7 +995,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
 | 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
-| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. Unless a fork reads with the same tag, a brief pasting the skill's head refuses too, so `(inline, no fork)` still holds. |
+| 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so where your round ran inline, `(inline, no fork)` still holds. |
 | 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; --verbose prints its opening words` | A refusal that a rerun does not clear. See the refusal row above. Where your round ran inline, `(inline, no fork)` still holds. Report the words under 4d, minus any path. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,

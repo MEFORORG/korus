@@ -30,10 +30,10 @@ target line and a tag after it -- is most likely a notice a later CLI added or r
 with its own exit (15). Under `--verbose` its opening words go to stderr, so the sentence can be measured and
 added; they are record 0's own words, so they sit behind the flag with the paths.
 
-A brief that pastes a whole head is displaced, or below an unknown notice. Beside a fork that reads
-with its tag, such a head carrying the SAME tag is set aside and named: whichever is the round, the
-quoted tag is the level it ran at. One with another tag, or none, still refuses. Two readable forks
-refuse as ambiguous, exit 7. Either head in another worktree refuses, never exit 12.
+A brief that pastes a whole head is displaced, or below an unknown notice. It refuses, even beside
+a fork that reads with the same tag: nothing in record 0 tells the skill's own prompt from a brief
+that pasted it, so the readable one may be the brief. In another worktree it refuses too, rather
+than exit 12, unless a canonical head for the nonce ran elsewhere and nothing reads here.
 
 A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
 line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
@@ -111,8 +111,7 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
        `tag:` line, so it cannot be pasted as a QA reading
    12  a fork carries the round's nonce, but it ran in another worktree; it is not "no fork"
    13  a fork in scope may have arguments spanning lines, so no line can be read as its tag
-   14  a fork in scope carries its target line below text that is not the skill's notices, and no
-       fork reads with that same tag beside it
+   14  a fork in scope carries its target line below text that is not the skill's notices
    15  a fork in scope carries its target line and tag below a notice-shaped line no measured CLI
        writes; --verbose prints its opening words on stderr
 """
@@ -182,9 +181,6 @@ DISPLACED_MESSAGE = (
 UNKNOWN_NOTICE_MESSAGE = (
     "fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes;"
     " --verbose prints its opening words"
-)
-SET_ASIDE_MESSAGE = (
-    "set aside: its target line sits below other text, and it carries the same tag as the fork read"
 )
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
@@ -331,8 +327,8 @@ class Refusal(enum.Enum):
         self.message = message
 
 
-#: The refusals a brief that pasted the round's head produces, and so the ones set aside.
-SET_ASIDE_REFUSALS = (Refusal.DISPLACED, Refusal.UNKNOWN_NOTICE)
+#: The refusals a brief that pasted the round's head produces.
+BRIEF_REFUSALS = (Refusal.DISPLACED, Refusal.UNKNOWN_NOTICE)
 
 
 @dataclass
@@ -350,8 +346,6 @@ class Fork:
     refusal: Refusal | None = None
     #: For an unknown notice, its opening words, printed on stderr.
     notice: str = ""
-    #: The tag a refused head carries, compared before it is set aside and never printed.
-    held_tag: str = ""
     #: The first nonce in the fork's arguments: the target line's, or for arguments that may span
     #: lines, the first on any of them. Matched, never printed.
     own_nonce: str = ""
@@ -518,8 +512,6 @@ class Head:
     candidates: list["Head"] = field(default_factory=list)
     #: For an unknown notice, its opening words.
     notice: str = ""
-    #: The tag a refused head carries. Never printed: it decides only whether to set it aside.
-    held_tag: str = ""
 
 
 def first_nonce(text: str) -> str:
@@ -581,7 +573,6 @@ def read_head(lines: list[str]) -> Head:
                 refusal=Refusal.UNKNOWN_NOTICE,
                 own_nonce=found.own_nonce,
                 notice=opening_words(unknown[0]),
-                held_tag=found.tag,
                 # A later target line may be the round's own, as below a displaced opening.
                 candidates=displaced_heads(lines),
             )
@@ -595,7 +586,6 @@ def read_head(lines: list[str]) -> Head:
         refusal=Refusal.DISPLACED,
         own_nonce=first.own_nonce,
         candidates=candidates,
-        held_tag=first.tag,
     )
 
 
@@ -745,8 +735,6 @@ class Scan:
     refused: dict[Refusal, list[Fork]] = field(
         default_factory=lambda: {refusal: [] for refusal in Refusal}
     )
-    #: Briefs that pasted the round's head, set aside beside a fork that reads with its tag.
-    set_aside: list[Fork] = field(default_factory=list)
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -771,6 +759,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     want = normalize_path(filters.worktree) if filters.worktree else None
     # With a nonce in the target, every fork past the target filter carries the caller's own.
     nonced = bool(filters.target and NONCE_SHAPE.search(filters.target))
+    refused_elsewhere: list[Fork] = []
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -816,7 +805,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not read.review:
                 continue
             fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
-            fork.refusal, fork.notice, fork.held_tag = read.refusal, read.notice, read.held_tag
+            fork.refusal, fork.notice = read.refusal, read.notice
             if read.candidates and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
                 mine = next(
@@ -824,11 +813,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     None,
                 )
                 if mine is not None:
-                    fork.target, fork.own_nonce, fork.held_tag = (
-                        mine.target,
-                        mine.own_nonce,
-                        mine.tag,
-                    )
+                    fork.target, fork.own_nonce = mine.target, mine.own_nonce
             # The caller's own filters run first, so a fork they exclude is never counted unplaced.
             if filters.target and not target_matches(filters.target, fork.target):
                 # A refused fork's arguments are known only in part, so its own nonce alone keeps it.
@@ -860,25 +845,24 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 result.refused[fork.refusal].append(fork)
             elif placed:
                 result.forks.append(fork)
-            elif fork.refusal in SET_ASIDE_REFUSALS and nonced:
-                # Such a head is most often a brief that quoted the round's head, so it is not the
-                # round's fork found elsewhere (exit 12). It may still be one, so it refuses.
-                result.refused[fork.refusal].append(fork)
+            elif fork.refusal in BRIEF_REFUSALS and nonced:
+                # Such a head is most often a brief that quoted the round's head. It may still be
+                # the round's fork, so it refuses below, unless a canonical head ran elsewhere too.
+                refused_elsewhere.append(fork)
             elif nonced:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
-    # Beside a fork that reads with its tag, a displaced or unknown-notice head carrying the SAME
-    # tag is set aside: whichever of the two is the round, the tag quoted is the one it ran at, so
-    # a brief that pasted the head cannot block the round. A head with another tag, or none, still
-    # refuses: it may be the round, and the readable one a brief. Two readable forks refuse in
-    # `main`, as ambiguous.
-    # Compared in the ASCII spelling, so a brief that pasted an `--ascii` QA head still matches.
-    readable = {spell(fork.tag, True) for fork in result.forks if fork.tag}
-    for refusal in SET_ASIDE_REFUSALS:
-        held = result.refused[refusal]
-        same = [fork for fork in held if fork.held_tag and spell(fork.held_tag, True) in readable]
-        result.set_aside += same
-        result.refused[refusal] = [fork for fork in held if fork not in same]
+    # A refused head elsewhere refuses (14 or 15) rather than send an inline round to --worktree
+    # (exit 12) after a helper's brief. Where a canonical head for the nonce ran elsewhere too and
+    # nothing reads here, exit 12 stands: that worktree is where to look, and a rerun there reads
+    # every head again. A refused head is never set aside beside a readable fork: nothing in record
+    # 0 tells the skill's own prompt from a brief that pasted it, so the readable one may be the
+    # brief.
+    if result.elsewhere and not result.forks:
+        result.elsewhere += len(refused_elsewhere)
+    else:
+        for fork in refused_elsewhere:
+            result.refused[fork.refusal].append(fork)
     epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
     result.forks.sort(key=lambda f: (f.time or epoch, f.agent_id))
     return result
@@ -1071,8 +1055,6 @@ def main(argv: list[str] | None = None) -> int:
                           f'"{spell(fork.notice, True)}"', file=sys.stderr)
             print(f"{len(refused)} {refusal.message}")
             return refusal.exit
-    for fork in result.set_aside:
-        print(f"{SET_ASIDE_MESSAGE} | agent {fork.agent_id}")
     if not result.forks and result.elsewhere:
         print(f"{result.elsewhere} {ELSEWHERE_MESSAGE}")
         return EXIT_ELSEWHERE
