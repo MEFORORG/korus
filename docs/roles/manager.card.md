@@ -68,8 +68,13 @@ always on, in every session*, holds the steps.
 Press forward. When a decision looks like the Owner's, act on a strong recommendation. Without
 one, put the issue to adversarial review and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
 
-They widen no permission. The merge is still the Lander's, and where a repository's `CLAUDE.md`
-makes you wait for the Owner's go, you still wait.
+While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: bundle every class C item into
+ONE ask, and carry on with work that does not need its answer. Otherwise ask before any class B
+or C decision: `roles/COMMON.md`, *The empower rules are on by default, for every seat but
+Special*.
+
+Neither rule set widens a permission. The merge is still the Lander's, and where a repository's
+`CLAUDE.md` makes you wait for the Owner's go, you still wait.
 
 ## On arrival
 

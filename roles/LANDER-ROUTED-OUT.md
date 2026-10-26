@@ -3,6 +3,9 @@
 > Split out of [LANDER.md](LANDER.md) on 2026-09-05. Each block below is a rule the Lander
 > seat does not perform. **Nothing here has been edited.** Each needs a destination seat
 > chosen by the owner before it is merged into that seat's playbook or deleted.
+> Added to this header 2026-10-22, with no block edited: the `driver` and `empower` rules are on
+> by default for every seat but Special. [COMMON.md](COMMON.md), *The empower rules are on by
+> default, for every seat but Special*.
 
 ### 6c. A negative control must be ASYMMETRIC
 

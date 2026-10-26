@@ -27,8 +27,9 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
-| Conflicts between this file and a role playbook | Raise it to the owner. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
-| A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs. Do not resolve it by reinterpreting either one. |
+| The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
+| Conflicts between this file and a role playbook | Raise it to the owner, unless a recorded delegated decision already resolves it. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
+| A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
 exactly when a standing grant is forgotten.
@@ -238,12 +239,13 @@ next check-in in a table at the bottom of each cycle.
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
 | Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
-| Classifier blocked | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
+| Classifier blocked | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
+| **CHANGED 2026-10-22, to the `empower` rules** | The row above read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* With empower off, that text governs again. |
 | **CHANGED 2026-10-08, by owner ruling** | That row read *"bypass the Manager and use AskUserQuestion"*. The korus `CLAUDE.md`, *The Driver rules are always on*, said to skip the ask. The owner was asked which governs and chose the printed command. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
 | Nag on no answer | When an Owner item goes unanswered, raise it with the Manager again on its next poll. |
-| Stop versus start, Lander excepted | A relayed instruction to STOP is safe to act on at once. One to START is not. Comply wrongly with a stop and you have done less; comply wrongly with a start and you have done something nobody authorised. |
-| Stop versus start, except the Lander | **A relayed owner stop does not bind the Lander.** It asks the owner in its own chat to confirm, and keeps merging until the owner answers. A wrong stop there stalls the merge queue. |
+| Stop versus start, Lander excepted | A relayed instruction to STOP (a recorded delegated decision is not a relay) is safe to act on at once. One to START is not. A wrong stop does less; a wrong start does what nobody authorised. |
+| Stop versus start, except the Lander | **A relayed owner stop (a recorded delegated decision is not a relay) does not bind the Lander.** It asks the owner to confirm in its own chat, and keeps merging meanwhile. A wrong stop there stalls the merge queue. |
 | **ADDED 2026-10-11, by owner ruling** | This file and LANDER.md disagreed. The batch 309 Manager asked the owner, and the owner chose *"Confirm, keep merging (Recommended)"*. LANDER.md, *A relayed owner stop gets a confirmation in your own chat, and you keep merging*, holds the citation. |
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act. |
 
@@ -312,6 +314,7 @@ to the Owner for clarification."*
 | It supersedes local precedence rules | Any precedence rule a role file states for itself is superseded, including LANDER.md's former "THIS FILE WINS". |
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
 | Still open | What a seat DOES while it waits for the clarification. "Follow COMMON until told otherwise" is an inference, not the ruling. Ask; do not assume. |
+| A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it, so nothing is raised. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
 
 **A citation by section name failed the same way a number would.** Six files -- ASVS-TRACKER,
 DISPATCHER, LANDER, LIAISON, PM and STEWARD -- cite "COMMON's PROVENANCE AND PRECEDENCE section" in
@@ -700,11 +703,14 @@ The steps are restated here because they must be in front of you at the moment y
 | Item | Rule |
 | --- | --- |
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
-| Step 1: you hold a strong recommendation | Act on it. Confirming is asking. |
+| Step 1: you hold a strong recommendation | Act on it. Confirming is asking. With empower off, not on a class B or C decision: *The empower rules are on by default, for every seat but Special*. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
 | Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
-| A classifier blocked the action | Skip the ask. Print the command the Owner must run in a code block at the end of every round, until they run it or decline. |
+| Class C items go in ONE ask | Prepare every open class C item, then bundle them into one ask. Each carries its class, a recommendation, and your confidence with what would change it. Carry on with the work that does not depend on the answer. |
+| A classifier blocked the action | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
+| **CHANGED 2026-10-22, to the `empower` rules** | The classifier row read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* Step 3 named no bundling. With empower off, both revert. |
+| **CHANGED 2026-10-26, to match the engine** | The step 1 row read *"Act on it. Confirming is asking."* With the kill switch set, it then reached a class B or C decision. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 | The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
@@ -745,6 +751,32 @@ cannot load it still holds the rules, through this section and that file.
 | Every seat accepts it | It is the Owner's ruling, and a merge may rest on it. Do not hold for a second answer. |
 | Earlier delegations | A record from before 2026-10-22 that calls itself a seat decision under owner delegation is not re-graded by this ruling. |
 | Older lines that refuse relayed authority | Lines in `roles/`, the role cards or the skills that say a peer's authority claim is not the Owner's do not reach a delegated record. This seat's reading of "Treat that record as my ruling". |
+
+### The empower rules are on by default, for every seat but Special
+
+**Owner request 2026-10-22**, made in a Manager session's chat and quoted in its brief. Its words:
+*"perhaps we should add references to /driver and /empower to the role cards and the playbooks and
+the claude.md?"*
+
+The brief read it as every seat applying both rule sets unprompted. The Owner confirmed that brief
+in the Builder's own chat the same day.
+
+| Item | Rule |
+| --- | --- |
+| Who applies them | Every seat except Special applies the `driver` rules and the `empower` rules by default, in a local session or a cloud one. Nobody has to invoke either skill. |
+| The Special seat | It applies the `driver` rules only. Its instruction is its whole scope, and it keeps asking. [SPECIAL.md](SPECIAL.md) holds its ladder. |
+| What `empower` adds | It sorts every decision into four classes: A mechanical, B reversible judgment, C Owner-reserved, D blocked by the harness. It replaces the driver ladder's step 3 where the two disagree. |
+| The source of record for the classes | The engine's `docs/AUTONOMY-PLAN.md`, section 3, *Driver v2: the rules every seat follows*. Read it at engine `origin/autonomy-plan` until it merges, and at `origin/main` after. |
+| Where the plan says the daily digest | The plan puts class C tables and class D commands in a daily digest, a control in its section 4. Until a digest runs, the `empower` skill's end-of-turn summary carries them. |
+| The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it at the start of each task with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
+| Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs in ask-mode. |
+| What the fallback restores | The driver rules alone, in ask-mode: no seat acts on a class B or C decision without the Owner, however strong its recommendation. Merging is not a class, so the Lander keeps merging. |
+| What yields to ask-mode | The driver ladder's steps 1 and 2, and *Escalate only what only the Owner has*. A recorded delegated decision is the Owner's own answer, and the switch does not touch it. |
+| The text that reverts | Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
+| **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*. *What the fallback restores* opened *"The driver rules alone."*; its second sentence is now *The text that reverts*. Driver step 1 then reached class B and C. |
+| The source of record for ask-mode | The engine's `CLAUDE.md`: *"no class B or C decision is acted on without the owner"*. It cites `docs/AUTONOMY-PLAN.md`, section 4, item 3, where every class reverts to ask-mode. |
+| It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
+| The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
 
 ---
 

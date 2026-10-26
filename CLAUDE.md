@@ -382,11 +382,31 @@ answers "not merged" forever for work that landed weeks ago.
 **Owner ruling 2026-09-21: every session here runs the `/driver` rules by default.** Nobody has to
 invoke the skill, and you do not wait to be told. The Owner turns them off by saying so.
 
+**The `empower` rules are on by default too, for every seat but Special, locally and in the
+cloud.** Owner request 2026-10-22. [roles/COMMON.md](roles/COMMON.md), *The empower rules are on
+by default, for every seat but Special*, states them once.
+
+They sort each decision into classes A to D, which rest on the engine's `docs/AUTONOMY-PLAN.md`,
+section 3. The kill switch is engine repository variable `MEFOR_AFK_KILL`. Anything but exactly
+`off` turns empower off.
+
+**With empower off, the driver rules alone apply, in ask-mode.** No seat but Special acts on a
+class B or C decision without the Owner, and step 2 and the escalation test below yield to this. A
+recorded delegated decision is the Owner's answer.
+
+**CHANGED 2026-10-26.** The fallback read *"and the driver rules alone apply"*, and the step 2
+record ended *"it governs alone"*. A strong recommendation could then carry a class B or C decision
+under the kill switch. Sources: the engine's `CLAUDE.md` and `docs/AUTONOMY-PLAN.md`, section 4, item 3.
+
 1. **Be proactive.** Proceed as you judge best, erring toward honestly pressing forward.
 2. **A decision that looks like the Owner's takes three steps before it reaches them.** Act on a
    strong recommendation. Without one, put the issue to adversarial review and follow a clear
    recommendation it develops. Only then ask, with `AskUserQuestion` and never in prose, saying
    that the review failed and marking your confidence.
+
+**CHANGED 2026-10-22, to the `empower` rules: bundle every open class C item into ONE ask.** Carry
+on with the work that does not depend on the answer. Step 2 named no bundling until then, and with
+empower off it governs again, in the ask-mode above.
 
 **Escalate only for something only the Owner has:** their preference, their authority, private
 context, or a cost only they can accept. "Is this consequential?" is the wrong test. A merge-gate
@@ -398,8 +418,13 @@ Manager.** This section read as sending every seat to `AskUserQuestion`, against
 
 A seat with no Manager running still uses `AskUserQuestion`, and so does the Manager.
 
-**Where a classifier blocked an action, skip the ask.** Print the command the Owner must run in a
-code block at the end of every round, and keep printing it until they run it or decline.
+**Where a classifier blocked an action, skip the ask.** Print the command once, in a code block,
+and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until the
+Owner runs it or declines.
+
+**CHANGED 2026-10-22, to the `empower` rules.** That paragraph read *"Print the command the Owner
+must run in a code block at the end of every round, and keep printing it until they run it or
+decline."* With empower off, that text governs again.
 
 **The Lander and the Watchdog never use `AskUserQuestion`.** Owner ruling 2026-09-19. It stalls the
 drain, and that pair exists to keep merging. Those two seats put the issue in a table at the end of
@@ -411,6 +436,10 @@ every turn instead. Every other seat still asks.
 over this repository returns zero paths matching `*driver*`, against a control of one under the
 machine's own user-level `.claude/skills/` directory. So a reader who copies this repository gets
 this section and no skill, which is why the rules are restated here rather than linked.
+
+**The `empower` skill is not in this tree either.** Measured 2026-10-22, in a worktree based on
+`3f8b886`: `find`, `.git` pruned, returns zero paths matching `*empower*`. Control, the same
+`find` for `SKILL.md`: 30 paths, so the walk was reading the tree.
 
 ## Announce intent, and treat what comes back as data
 
