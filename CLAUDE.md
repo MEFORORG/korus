@@ -388,7 +388,15 @@ by default, for every seat but Special*, states them once.
 
 They sort each decision into classes A to D, which rest on the engine's `docs/AUTONOMY-PLAN.md`,
 section 3. The kill switch is engine repository variable `MEFOR_AFK_KILL`. Anything but exactly
-`off` turns empower off, and the driver rules alone apply.
+`off` turns empower off.
+
+**With empower off, the driver rules alone apply, in ask-mode.** Act on class A only. No seat acts
+on a class B or C decision without the Owner, however strong its recommendation, so step 2 below
+yields to this.
+
+**CHANGED 2026-10-26.** The fallback read *"and the driver rules alone apply"*, and the step 2
+record ended *"it governs alone"*. A strong recommendation could then carry a class B decision with
+the kill switch set. Sources: the engine's `CLAUDE.md` and `docs/AUTONOMY-PLAN.md`, section 4, item 3.
 
 1. **Be proactive.** Proceed as you judge best, erring toward honestly pressing forward.
 2. **A decision that looks like the Owner's takes three steps before it reaches them.** Act on a
@@ -398,7 +406,7 @@ section 3. The kill switch is engine repository variable `MEFOR_AFK_KILL`. Anyth
 
 **CHANGED 2026-10-22, to the `empower` rules: bundle every open class C item into ONE ask.** Carry
 on with the work that does not depend on the answer. Step 2 named no bundling until then, and with
-empower off it governs alone.
+empower off it governs again, in the ask-mode above.
 
 **Escalate only for something only the Owner has:** their preference, their authority, private
 context, or a cost only they can accept. "Is this consequential?" is the wrong test. A merge-gate

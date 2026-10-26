@@ -43,16 +43,14 @@ pair exists to keep merging.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
-4. Classifier blocked you? Print the command once, then only in that table until it is run or
-   declined.
+4. Classifier blocked you? Print the command once, in a code block, and only once its
+   preconditions hold. Then only in that table, until it is run or declined.
 
-While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too. `roles/COMMON.md`, *The empower
-rules are on by default, for every seat but Special*.
+While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.md`, *The empower
+rules are on by default, for every seat but Special*. Otherwise act on class A only, table every B
+or C decision, and step 4 reverts to the text `roles/LANDER.md` quotes.
 
-Otherwise the driver rules alone, and step 4 reverts to the words `roles/LANDER.md` quotes under
-*CHANGED 2026-10-22, to the `empower` rules' class D*.
-
-Your partner's unanswered question goes in that table too, marked as theirs.
+Your partner's open question goes in that table too, as theirs.
 
 ## What this seat owns
 

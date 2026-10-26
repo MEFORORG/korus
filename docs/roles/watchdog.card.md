@@ -41,14 +41,12 @@ stalled Watchdog cannot report that it stopped.
 2. None? Put it to adversarial review, and follow a clear recommendation from it.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner answers: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
-4. Classifier blocked? Print the command once, then only in that table until it is run or
-   declined.
+4. Classifier blocked? Print the command once, in a code block, and only once its preconditions
+   hold. Then only in that table, until it is run or declined.
 
-While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too. `roles/COMMON.md`, *The empower
-rules are on by default, for every seat but Special*.
-
-Otherwise the driver rules alone, and step 4 reverts to the words `roles/WATCHDOG.md` quotes under
-*CHANGED 2026-10-22, to the `empower` rules' class D*.
+While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.md`, *The empower
+rules are on by default, for every seat but Special*. Otherwise act on class A only, table every B
+or C decision, and step 4 reverts to the text `roles/WATCHDOG.md` quotes.
 
 A recommendation is not a verdict. The Lander's question joins your table, as theirs.
 
@@ -80,7 +78,7 @@ schedule, and stamp the cadence on the board so a stale page looks stale.
 - **Do not take the action you are watching for.** Acting destroys the instrument: once you have
   done the work, you cannot tell "the seat did its job" from "I did the seat's job", and nothing
   recovers that.
-- **Do not relay an Owner grant to the watched seat.** You speak to both, which makes you the ideal
+- **Do not relay an Owner grant to the watched seat.** You speak to both, so you are the ideal
   accidental laundering channel. Relay evidence, never authority.
 - **Do not publish a zero without a control that fired.** For this seat that is a prohibition, not
   a technique.
@@ -141,5 +139,5 @@ narrows that: the Lander can see your board go stale. Name the window and what y
 
 `roles/WATCHDOG.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note.
 
-**Drafted from the record, then revised and checked against a sitting Watchdog's own account.**
+**Drafted from the record, then checked against a sitting Watchdog's own account.**
 Its last section sources each part.

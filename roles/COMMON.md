@@ -768,8 +768,11 @@ in the Builder's own chat the same day.
 | The source of record for the classes | The engine's `docs/AUTONOMY-PLAN.md`, section 3, *Driver v2: the rules every seat follows*. Read it at engine `origin/autonomy-plan` until it merges, and at `origin/main` after. |
 | Where the plan says the daily digest | The plan puts class C tables and class D commands in a daily digest, a control in its section 4. Until a digest runs, the `empower` skill's end-of-turn summary carries them. |
 | The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it at the start of each task with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
-| Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs the driver rules alone. |
-| What the fallback restores | The driver rules alone. Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
+| Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs in ask-mode. |
+| What the fallback restores | The driver rules alone, in ask-mode: act on class A only. No seat acts on a class B or C decision without the Owner, however strong its recommendation. |
+| The text that reverts | Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
+| **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*, and *What the fallback restores* read *"The driver rules alone."* Driver step 1 could then act on a class B decision with the kill switch set. |
+| The source of record for ask-mode | The engine's `CLAUDE.md`, and its `docs/AUTONOMY-PLAN.md`, section 4, item 3: with the switch set, every class reverts to ask-mode. |
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
 
