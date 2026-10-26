@@ -355,22 +355,27 @@ disabled delivery, helper load failure and catch-all errors all go there.
 What a reader sees of stderr from a hook that exits 0 was not measured. The harness keeps it out of
 the model's context, which is the point; it may show only in debug or verbose output.
 
-So a `Stop` fault also leaves a stamp, one file per worktree and session under
-`<git-common-dir>/ccx-mail-faults/`. The next `SessionStart` for that worktree prints the newest
-on stdout, marked unverified, where a reader is.
+So a `Stop` fault also leaves a stamp under `<git-common-dir>/ccx-mail-faults/`, keyed by worktree
+and session. Each fault gets its own file, written once. A standing fault adds none while its stamp
+is unshown. A session keeps five; a sixth drops its oldest, shown ones first.
 
-A `SessionStart` never clears a stamp, since a phantom session would clear it unread. It marks the
+The next `SessionStart` for that worktree prints up to three stamps on stdout, one line each,
+marked unverified, where a reader is. They run newest first, and the oldest is always among them,
+so a fault that keeps recurring cannot hold an older one back. A further line counts the rest.
+
+A `SessionStart` never clears a stamp, since a phantom session would clear it unread. It marks each
 stamp it printed as shown to its own session, after the print, as it marks mail.
 
 The next `Stop` of that session clears the stamps it was shown, even a `Stop` that faults or meets
 delivery off. A phantom never reaches `Stop`, and a session never shown a stamp cannot clear it.
 A stamp nobody clears is hidden after a day and pruned.
 
+The `Stop` first renames a shown stamp to a claim name that no display reads. It compares only
+that claimed copy with the mark, deletes it if it is the version shown, and renames it back if not.
+A stamp it cannot claim keeps its mark, so the session's next `Stop` tries again.
+
 A `Stop` that keys on another worktree, after a `cd` with no pin, or that names no session,
 misses the mark. That stamp shows again, which is a duplicate and not a loss.
-
-A stamp rewritten after it was shown is kept, because its content no longer matches the mark. So
-a fault that keeps happening waits for its own `SessionStart`.
 
 A shown stamp is cleared even where its fault still stands. A reader was told, and the next `Stop`
 that meets the fault writes a new stamp. The old rule that a healthy peer cannot hide a standing
@@ -380,22 +385,26 @@ This page read "A `Stop` that reaches its box clears only its own session's stam
 2026-10-26. That `Stop` cleared a stamp nobody had been shown, so a one-time fault was logged
 nowhere.
 
+Stderr notes each of these: an unshown stamp pruned, a drop at the cap, a stamp or mark not
+written, and a shown stamp not claimed or deleted. Never stdout, and the exit code does not change.
+
 Delivery off leaves no stamp. It is a switch, every `SessionStart` reports it while it stands, and
 a stamp would report it after it was removed.
 
-The fix ships with five named residuals:
+The fix leaves at least these residuals:
 
 1. Some faults leave no stamp. A drain that started in no checkout, or whose input reader would
-   not load, has nowhere to key one, so that `Stop` fault reaches stderr only.
+   not load, has nowhere to key one, so that `Stop` fault reaches stderr only. A second stderr
+   line says so.
 2. An unnamed `SessionStart`, below, marks nothing shown: no mail and no stamp. Nor does one with
    no session id mark a stamp. Either line says so, and the stamp shows again until a
    `SessionStart` naming its event and session shows it.
-3. Only the newest stamp is printed and marked; the line counts the rest. A fault that stands keeps
-   its stamp newest, so an older one can wait until it is pruned unshown after a day.
-4. One stamp per session. A session's next fault replaces its last one, shown or not, so a
-   one-time fault followed by another before any `SessionStart` is lost.
-5. A `Stop` compares a stamp, then deletes it, in two steps. A rewrite that lands between them is
-   deleted unshown.
+3. A prune, a drop at the cap, or a failed write loses that stamp. Each says so on stderr, which
+   no reader was measured to see.
+
+This list held five residuals until 2026-10-26, when three closed. Only the newest stamp was shown.
+A session's next fault replaced its last stamp. A `Stop` compared a stamp, then deleted it by name,
+so a rewrite between the two steps was deleted unshown.
 
 An event that nothing names is read as `SessionStart`. That is a hook with no `-Event`, whose
 input is empty, will not parse, or names no event. It shows what it finds and marks nothing shown.
