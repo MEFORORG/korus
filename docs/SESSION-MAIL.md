@@ -355,6 +355,22 @@ disabled delivery, helper load failure and catch-all errors all go there.
 What a reader sees of stderr from a hook that exits 0 was not measured. The harness keeps it out of
 the model's context, which is the point; it may show only in debug or verbose output.
 
+So a `Stop` fault also leaves a stamp, one file per worktree under `<git-common-dir>/ccx-mail-faults/`.
+The next `SessionStart` for that worktree prints it on stdout, where a reader is.
+
+A `SessionStart` never clears the stamp, because a phantom session would clear it unread. A `Stop`
+that reaches its box clears it. A fault that stands rewrites the one file, so it never grows.
+
+A drain that started in no checkout, or whose input reader would not load, has nowhere to key a
+stamp. That `Stop` fault reaches stderr only.
+
+An event that nothing names is read as `SessionStart`. That is a hook with no `-Event`, whose
+input is empty, will not parse, or names no event. It shows the box and marks nothing shown.
+
+Marking nothing is the price. A `Stop` with the same bytes would write stdout too, since nothing
+tells the two apart. The CLI's own `Stop` input names its event and carries `stop_hook_active`,
+so a real `Stop` gets there only when its stdin breaks.
+
 This page read "Keep all fault reports at `Stop`" until 2026-10-26. The drain followed it, and that
 rule is the block measured above.
 
@@ -384,7 +400,7 @@ A stateful hook has a state machine. A call between writes can interrupt a trans
 Review initially missed each failure below. The corresponding step supplies its remedy:
 
 1. The exclusion primitive did not exclude. Step 4: an exclusive open, not a move-and-catch.
-2. Showing is not consuming. Step 5: render at every event, consume only at `Stop`.
+2. Showing is not consuming. Step 5: render at `SessionStart`, consume only at `Stop`.
 3. The repair reintroduced the defect it was fixing. Step 5: mint the marker after the emit.
 4. A mid-turn wake-up is one-shot. Below: re-arming belongs to the hook, not the watcher.
 

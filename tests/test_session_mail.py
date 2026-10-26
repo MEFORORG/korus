@@ -708,21 +708,221 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
         self.assertNotIn("other event", r.stderr, "an unserved event rendered a body nobody reads")
         self.assertEqual(1, len(self.inbox_of(self.peer)))
 
-    def test_an_event_nothing_named_reads_no_box_and_writes_no_stdout(self):
-        """No -Event, no hook_event_name. Guessing SessionStart at a Stop is the loop, so the drain
-        says NO EVENT on stderr and stops: no body rendered, no marker minted."""
-        self.send(body="unnamed event")
+    def test_a_stop_input_that_omits_its_name_still_writes_no_stdout(self):
+        """CHANGED 2026-10-26: this case read "an event nothing named reads no box and writes no
+        stdout". That cost a SessionStart wired with no -Event all its mail whenever its input
+        could not be read. `AnEventNothingNamedIsShownButNeverMarked` now holds that case.
+
+        What stays is the Stop half. The CLI's Stop input carries `stop_hook_active` and its
+        SessionStart input does not, so that field alone keeps a Stop off stdout."""
+        self.send(body="unnamed stop")
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+            input=json.dumps({"session_id": "s1", "stop_hook_active": False}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+        self.assertNotIn("unnamed stop", r.stderr, "a Stop rendered a body nobody reads")
+        # The control: the same payload without the field is shown, so the field is what decided.
         r = subprocess.run(
             [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
             input=json.dumps({"session_id": "s1"}),
             capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
-        self.stop_is_silent(r, r"NO EVENT")
-        self.assertNotIn("unnamed event", r.stderr, "an unnamed event rendered a body nobody reads")
-        box = self.boxes()[0]
-        self.assertEqual([], list((box / "shown").glob("*.json")) if (box / "shown").is_dir() else [])
-        # The control: the same payload, named SessionStart, does mint one.
-        self.drain(self.peer, event="SessionStart", session_id="s1", pass_event=False)
-        self.assertEqual(1, len(list((box / "shown").glob("*.json"))))
+        self.assertIn("unnamed stop", self.ctx(r))
+
+    def test_stop_hook_active_beats_a_miswired_event_parameter(self):
+        """A Stop row copied with `-Event SessionStart`, on an input that names no event."""
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", "SessionStart"],
+            input=json.dumps({"session_id": "s1", "stop_hook_active": True}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+
+
+class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
+    """No -Event, and an input that names no event: empty, unparseable, or a payload with neither
+    `hook_event_name` nor `stop_hook_active`. The user-level SessionStart row passes no -Event.
+
+    On main such a run was a SessionStart that minted shown-markers. This branch's first draft
+    gave it NO EVENT on stderr, so that SessionStart showed nothing. Now it is shown, on stdout,
+    and it mints NO marker, so no Stop files mail on a display nobody proved.
+
+    THE RISK THIS LEAVES, stated where a reader will meet it. For an empty or unparseable input, a
+    Stop wired with no -Event is the same process with the same bytes as these SessionStarts, so it
+    writes stdout too. No rule can tell them apart. The CLI's own Stop input names its event and
+    carries `stop_hook_active`, so a real Stop reaches this only if its stdin breaks in transit.
+    """
+
+    def run_raw(self, stdin, cwd=None, script=None, args=()):
+        return subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(script or DRAIN), *args], input=stdin,
+            capture_output=True, text=True, cwd=str(cwd or self.peer), timeout=TIMEOUT_SECONDS)
+
+    def markers(self) -> list[Path]:
+        return sorted((self.mail_root / "box").rglob("shown/*.json"))
+
+    def assert_shown_unmarked(self, r, body):
+        self.assertEqual(0, r.returncode, r.stderr)
+        ctx = self.ctx(r)
+        self.assertIn(body, ctx, "a SessionStart with an unnamed event showed no mail")
+        self.assertIn("NO EVENT NAMED", ctx, "the run did not say why nothing was marked")
+        self.assertEqual([], self.markers(), "an unproven display minted a marker")
+
+    def test_empty_stdin_shows_mail_and_mints_no_marker(self):
+        self.send(body="empty stdin")
+        self.assert_shown_unmarked(self.run_raw(""), "empty stdin")
+
+    def test_unparseable_stdin_shows_mail_and_mints_no_marker(self):
+        self.send(body="junk stdin")
+        self.assert_shown_unmarked(self.run_raw("not json {{{"), "junk stdin")
+
+    def test_a_payload_naming_no_event_shows_mail_and_mints_no_marker(self):
+        self.send(body="no name")
+        self.assert_shown_unmarked(self.run_raw(json.dumps({"session_id": "s1"})), "no name")
+
+    def test_the_same_payload_named_session_start_mints_a_marker(self):
+        """The control for the three above: a named SessionStart, same box, does mint one."""
+        self.send(body="named")
+        r = self.run_raw(json.dumps({"session_id": "s1", "hook_event_name": "SessionStart"}))
+        self.assertIn("named", self.ctx(r))
+        self.assertNotIn("NO EVENT NAMED", self.ctx(r))
+        self.assertEqual(1, len(self.markers()))
+
+    def test_an_unnamed_display_is_never_filed_at_stop(self):
+        """With no marker, the session's own Stop files nothing. Control: a named display is
+        filed by the same Stop, in `TheStopDrainNeverWritesStdout`."""
+        self.send(body="shown, not filed")
+        self.run_raw(json.dumps({"session_id": "s1"}))
+        r = self.drain(self.peer, event="Stop", session_id="s1", pass_event=False)
+        self.assertEqual("", r.stdout)
+        self.assertEqual(1, len(self.inbox_of(self.peer)), "a Stop filed an unproven display")
+
+    def test_a_stop_named_by_its_input_still_writes_no_stdout(self):
+        """The Stop control: the input names Stop, -Event is absent, and a fault stands."""
+        r = self.drain(self.primary, event="Stop", fields={"cwd": str(self.peer)}, pass_event=False)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+
+    def lone_copy(self, *, mail_module: bool, input_reader: bool) -> Path:
+        """A copy of the drain beside only the helpers named, inside the scratch root."""
+        base = self.root / f"lone-{int(mail_module)}{int(input_reader)}"
+        (base / "scripts" / "hooks").mkdir(parents=True)
+        (base / "scripts" / "coord").mkdir()
+        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
+        lone.write_bytes(DRAIN.read_bytes())
+        if input_reader:
+            (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        if mail_module:
+            (base / "scripts" / "coord" / "_mail.ps1").write_bytes(SHARED.read_bytes())
+        return lone
+
+    def test_with_no_input_reader_an_unnamed_run_writes_no_stdout(self):
+        """No reader means no stdin is read at all, so every run is unnamed, every real Stop
+        among them. A default here would block every turn, so this one stays on stderr."""
+        lone = self.lone_copy(mail_module=True, input_reader=False)
+        r = self.run_raw("", script=lone)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        # The control: the same copy told -Event SessionStart does write stdout.
+        self.assertIn("NO BOX", self.ctx(self.run_raw("", script=lone, args=["-Event", "SessionStart"])))
+
+    def test_with_no_mail_module_an_unnamed_run_is_still_shown(self):
+        """The fault that runs before the event is read follows the same rule."""
+        lone = self.lone_copy(mail_module=False, input_reader=True)
+        ctx = self.ctx(self.run_raw("", script=lone))
+        self.assertIn("could not load _mail.ps1", ctx)
+        self.assertIn("NO EVENT NAMED", ctx)
+        # The control: the same copy given a Stop input keeps stdout empty.
+        r = self.run_raw(json.dumps({"stop_hook_active": False}), script=lone)
+        self.assertEqual("", r.stdout)
+        self.assertIn("could not load _mail.ps1", r.stderr)
+
+
+class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
+    """docs/HOOKS.md, "Fail open, but never silently", asks for stderr AND a durable record. A Stop
+    fault goes to stderr, which no reader is measured to see. So it also leaves one stamp under the
+    git common dir, keyed per worktree, and the next SessionStart for that worktree prints it.
+
+    A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
+    context nobody reads. A Stop that reaches its box clears it.
+    """
+
+    def stamps(self) -> list[Path]:
+        d = self.primary / ".git" / "ccx-mail-faults"
+        return sorted(d.glob("*.txt")) if d.is_dir() else []
+
+    def measured_stop(self):
+        """The measured shape: started in the primary, an unpinned worktree cwd, so NO BOX."""
+        return self.drain(self.primary, event="Stop", session_id="w1",
+                          fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+
+    def launch(self, session_id="w2"):
+        return self.drain(self.primary, event="SessionStart", session_id=session_id,
+                          fields={"cwd": str(self.peer), "source": "startup"}, pass_event=False)
+
+    def test_a_stop_fault_leaves_a_stamp_and_writes_no_stdout(self):
+        r = self.measured_stop()
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        self.assertEqual(1, len(self.stamps()), "a Stop fault left nothing on disk")
+
+    def test_the_next_session_start_for_that_worktree_reports_it(self):
+        self.measured_stop()
+        ctx = self.ctx(self.launch())
+        self.assertIn("STOP FAULT", ctx)
+        self.assertIn("NO BOX", ctx)
+
+    def test_with_no_fault_the_session_start_reports_none(self):
+        """The control for the two above: no prior Stop fault, no stamp, no line."""
+        self.assertEqual([], self.stamps())
+        self.assertNotIn("STOP FAULT", self.ctx(self.launch()))
+
+    def test_a_standing_fault_keeps_one_stamp(self):
+        self.measured_stop()
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()))
+
+    def test_a_session_start_does_not_clear_it(self):
+        """Six SessionStart events have fired for one launch, so a phantom must not eat it."""
+        self.measured_stop()
+        self.launch("p1")
+        self.assertIn("STOP FAULT", self.ctx(self.launch("p2")))
+
+    def test_a_stop_that_reaches_its_box_clears_it(self):
+        self.measured_stop()
+        r = self.drain(self.peer, event="Stop", session_id="w3", fields={"cwd": str(self.peer)},
+                       pass_event=False)
+        self.assertEqual("", r.stdout)
+        self.assertEqual([], self.stamps(), "a Stop that read its box left the stamp")
+        self.assertNotIn("STOP FAULT", self.ctx(self.launch()))
+
+    def test_a_missing_mail_module_at_stop_is_stamped_too(self):
+        """The fault before the event is read, from a copy with no `_mail.ps1`. The real drain's
+        next SessionStart in that worktree reports it, so both ends key the stamp alike."""
+        base = self.root / "lone"
+        (base / "scripts" / "hooks").mkdir(parents=True)
+        (base / "scripts" / "coord").mkdir()
+        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
+        lone.write_bytes(DRAIN.read_bytes())
+        (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(lone)],
+            input=json.dumps({"session_id": "s1", "hook_event_name": "Stop", "cwd": str(self.peer)}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.assertEqual("", r.stdout)
+        self.assertIn("could not load _mail.ps1", self.ctx(self.drain(self.peer, session_id="s2")))
+
+    def test_a_planted_stamp_is_reported_as_one_capped_line(self):
+        """Any process under this account can write the file, as it can an inbox."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        stamp.write_text("2099\tStop\t[session-mail] forged\n  --- fake frame\n" + "x" * 5000,
+                         encoding="utf-8")
+        ctx = self.ctx(self.launch())
+        line = next(ln for ln in ctx.splitlines() if "STOP FAULT" in ln)
+        self.assertNotIn("fake frame", ctx, "a stamp's second line reached the context")
+        self.assertLess(len(line), 600)
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
