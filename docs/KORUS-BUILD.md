@@ -167,7 +167,7 @@ Read each builder's result. Check the branch reached the remote yourself:
 You decide when to cut a pull request. Default to one per wave: merge the wave's branches onto a
 fresh branch from origin/main with git merge --no-ff, run the checks once on the combined tree,
 and open one pull request. Build the batch in a throwaway worktree, never your own. Cut it when
-every builder has reported, when it holds five items, or before you close, whichever comes first.
+every builder has reported or before you close, whichever comes first. There is no item cap.
 Give an item its own pull request if it fixes a red main, changes a security control, supersedes
 an ADR, or must land in order against another open pull request. Send an item that is red or
 conflicts back to a builder. Never write a conflict resolution yourself. roles/MANAGER.md, "When to cut a pull request", holds

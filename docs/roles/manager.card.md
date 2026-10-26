@@ -15,7 +15,7 @@ pull request (PR), label it `qa` with the Builder's QA line under it, and hand i
 *When to cut a pull request*, holds the rules.
 
 - Default to one PR per wave, merged in a throwaway worktree and checked as one tree.
-- Cut it when every Builder has reported, at five items, or before you close.
+- Cut it when every Builder has reported, or before you close. No item cap (Owner ruling 2026-10-26).
 - Its own PR: a red-`main` fix, a security control, an ADR supersession, an ordering constraint.
 - An item that is red or conflicts goes back to a Builder. Never write that resolution yourself.
 

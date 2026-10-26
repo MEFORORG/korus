@@ -159,8 +159,14 @@ as much as possible. A merge queue develops. The lander works it down."*
 gate on a new Workflow, in [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts*,
 still binds too.
 
-**Open question for the owner, raised 2026-10-26.** *"As much as possible"* sits beside the
-five-item cut in *When to cut a pull request*. The ruling did not say whether it lifts that cut.
+**The three questions this ruling raised were answered on 2026-10-26.** The owner selected these
+answers in the question dialog, in session.
+
+| Question | The owner's selection |
+| --- | --- |
+| Does *"as much as possible"* lift the five-item cut in *When to cut a pull request*? | *"Remove the cap"*. Batch every item the wave holds. The own-pull-request exceptions stay. |
+| Does the ruling retire section 3's hold on filing ledger rows you cannot land soon? | *"Confirm retired"*. |
+| Does it retire [BUILDER.md](BUILDER.md)'s four-item lane ceiling and its throttle on starts by burn? | *"Retire it"*. Builders work at full speed. The usage holds above are the only brake. |
 
 ### Do not check the pool before you open
 
@@ -256,9 +262,10 @@ measurements.
 | Item | Rule |
 | --- | --- |
 | The default | One pull request per wave. A wave is the set of Builders you dispatched together. |
-| Cut it at the FIRST of | Every Builder in the wave has reported and its branch is on the remote. Five items are ready. You are about to close this instance. |
+| Cut it at the FIRST of | Every Builder in the wave has reported and its branch is on the remote. You are about to close this instance. |
+| **CORRECTED 2026-10-26 by owner ruling: no item cap** | That row also read *"Five items are ready."* The owner selected *"Remove the cap"*. Batch every item the wave holds. *Brief at full speed* records the question. |
 | A Builder still running | About 30 minutes after the rest reported, cut without it. It rides the next batch. |
-| Why five | One red item blocks the whole batch until it is dropped. Five bounds that and keeps the diff readable for the Lander. |
+| **RETIRED 2026-10-26: why five** | It read *"Five bounds that and keeps the diff readable for the Lander."* The trade it named stands: one red item blocks the whole batch until it is dropped. Leaving red and conflicting items out, below, bounds it now. |
 | Its own pull request, never batched | An item that fixes a red `main` or a broken gate: ship it now. An item that changes a security control. |
 | Also its own pull request | An item that reverses a recorded posture or supersedes an ADR; [LANDER.md](LANDER.md) 4i requires its own title. An item that must land in order against another open pull request. |
 | But two items in one wave | Two items that must land in order may share one batch. |
@@ -554,9 +561,9 @@ commit about every 35 minutes, so a pull request that waits overnight wakes behi
 A row landing within about two hours collides with nothing; the same row a day later collides with
 everything.
 
-**RETIRED 2026-10-26, applying *Brief at full speed*.** This read *"So do not cut a ledger row you
-cannot land soon"*. File rows when the work is ready. The ruling named the briefing limit, not this
-row, so the owner may rule otherwise.
+**RETIRED 2026-10-26, applying *Brief at full speed*, and confirmed by the owner the same day.** This
+read *"So do not cut a ledger row you cannot land soon"*. File rows when the work is ready. Asked
+whether the ruling reached this rule, the owner selected *"Confirm retired"*.
 
 **Nothing enforces the path check today.** The claim registry covers items. Until it covers paths,
 this is yours to do by reading, and a brief that names no paths has skipped it rather than passed it.

@@ -711,6 +711,8 @@ class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
             "lander can land",
             "owner ruling 2026-10-26 retired the briefing limit keyed to the Lander's merge rate",
         ),
+        ("five items", "owner ruling 2026-10-26 removed the five-item cut on a batched PR"),
+        ("most you oversee", "owner ruling 2026-10-26 retired the Builder's four-item lane ceiling"),
     ]
 
     def _live_hits(self, text: str) -> list[str]:
@@ -745,6 +747,11 @@ class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
             self._live_hits(planted),
             "the scan did not fire on the exact line that shipped to main, so it guards nothing",
         )
+
+    def test_the_scan_fires_on_the_retired_five_item_cut(self):
+        """The manager card's line before owner ruling 2026-10-26, verbatim."""
+        planted = "- Cut it when every Builder has reported, at five items, or before you close."
+        self.assertTrue(self._live_hits(planted), "the scan did not fire on the retired five-item cut")
 
     def test_the_scan_accepts_a_correctly_retracted_line(self):
         """The negative arm. A retraction names the rule on purpose and must not be flagged."""
