@@ -355,12 +355,13 @@ disabled delivery, helper load failure and catch-all errors all go there.
 What a reader sees of stderr from a hook that exits 0 was not measured. The harness keeps it out of
 the model's context, which is the point; it may show only in debug or verbose output.
 
-So a `Stop` fault also leaves a stamp, one file per worktree under `<git-common-dir>/ccx-mail-faults/`.
-The next `SessionStart` for that worktree prints it on stdout, marked unverified, where a reader is.
+So a `Stop` fault also leaves a stamp, one file per worktree and session under
+`<git-common-dir>/ccx-mail-faults/`. The next `SessionStart` for that worktree prints the newest
+on stdout, marked unverified, where a reader is.
 
-A `SessionStart` never clears the stamp, because a phantom session would clear it unread. A `Stop`
-that reaches its box clears it only if that same session wrote it. A healthy second session in the
-worktree cannot clear a fault the first still meets. A stamp nobody clears ages out in a day.
+A `SessionStart` never clears a stamp, since a phantom session would clear it unread. A `Stop` that
+reaches its box clears only its own session's stamp, so a healthy peer cannot hide a fault that
+stands. A stamp nobody clears is hidden after a day and pruned at the next write.
 
 Delivery off leaves no stamp. It is a switch, every `SessionStart` reports it while it stands, and
 a stamp would report it after it was removed. A drain that started in no checkout, or whose input
@@ -368,7 +369,10 @@ reader would not load, has nowhere to key a stamp, so that `Stop` fault reaches 
 
 An event that nothing names is read as `SessionStart`. That is a hook with no `-Event`, whose
 input is empty, will not parse, or names no event. It shows what it finds and marks nothing shown.
-Under the desktop app, what it finds for a worktree session is NO BOX: only a named launch pins.
+
+What it finds can be the wrong box. With no `cwd` to read, the drain stays where it started, which
+is the primary under the desktop app, so a worktree session is shown the primary's mail. The line
+it prints names the box.
 
 Marking nothing is the price. A `Stop` with the same bytes would write stdout too, since nothing
 tells the two apart. The CLI's own `Stop` input names its event and carries `stop_hook_active`,

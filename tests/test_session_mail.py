@@ -905,13 +905,13 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     def test_the_next_session_start_for_that_worktree_reports_it(self):
         self.measured_stop()
         ctx = self.ctx(self.launch())
-        self.assertIn("STOP FAULT", ctx)
+        self.assertIn("UNSEEN FAULT", ctx)
         self.assertIn("NO BOX", ctx)
 
     def test_with_no_fault_the_session_start_reports_none(self):
         """The control for the two above: no prior Stop fault, no stamp, no line."""
         self.assertEqual([], self.stamps())
-        self.assertNotIn("STOP FAULT", self.ctx(self.launch()))
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
 
     def test_a_standing_fault_keeps_one_stamp(self):
         self.measured_stop()
@@ -922,7 +922,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         """Six SessionStart events have fired for one launch, so a phantom must not eat it."""
         self.measured_stop()
         self.launch("p1")
-        self.assertIn("STOP FAULT", self.ctx(self.launch("p2")))
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p2")))
 
     def test_another_sessions_healthy_stop_does_not_clear_it(self):
         """NO BOX from a missing pin is w1's, not the worktree's. w3 reads the box and must not
@@ -933,6 +933,33 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertEqual("", r.stdout)
         self.assertEqual(1, len(self.stamps()), "one session cleared another session's fault")
 
+    def test_a_second_sessions_passing_fault_does_not_erase_the_first(self):
+        """One file per worktree let w2's one-time fault overwrite w1's standing one, and w2's
+        next healthy Stop then removed it while w1 still faulted."""
+        self.measured_stop()
+        self.drain(self.primary, event="Stop", session_id="w2",
+                   fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+        self.drain(self.peer, event="Stop", session_id="w2", fields={"cwd": str(self.peer)},
+                   pass_event=False)
+        self.assertEqual(1, len(self.stamps()), "w2's healthy Stop removed w1's stamp")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def test_a_stamp_dated_ahead_is_not_shown(self):
+        """Bounded both ways, or a clock set forward would show it forever. The control is every
+        case above, where a fresh stamp is shown."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        ahead = stamp.stat().st_mtime + 365 * 86400
+        os.utime(stamp, (ahead, ahead))
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def test_a_fault_at_another_event_names_that_event(self):
+        """Only a Stop fault is a Stop fault. A named unserved event is stamped under its name."""
+        self.drain(self.peer, event="UserPromptSubmit", session_id="u1", pass_event=False)
+        line = next(ln for ln in self.ctx(self.launch()).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("'UserPromptSubmit'", line)
+        self.assertNotIn("'Stop'", line)
+
     def test_a_stop_by_the_same_session_that_reaches_its_box_clears_it(self):
         self.measured_stop()
         self.assertEqual(1, len(self.stamps()), "no stamp to clear, so this case would pass empty")
@@ -940,7 +967,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                        pass_event=False)
         self.assertEqual("", r.stdout)
         self.assertEqual([], self.stamps(), "a Stop that read its box left the stamp")
-        self.assertNotIn("STOP FAULT", self.ctx(self.launch()))
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
 
     def test_a_missing_mail_module_at_stop_is_stamped_too(self):
         """The fault before the event is read, from a copy with no `_mail.ps1`. The real drain's
@@ -962,7 +989,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
             with self.subTest(planted=planted[:12]):
                 stamp.write_text(planted, encoding="utf-8")
                 ctx = self.ctx(self.launch())
-                line = next(ln for ln in ctx.splitlines() if "STOP FAULT" in ln)
+                line = next(ln for ln in ctx.splitlines() if "UNSEEN FAULT" in ln)
                 self.assertNotIn("fake frame", ctx, "a stamp's second line reached the context")
                 self.assertIn("UNVERIFIED", line)
                 self.assertLess(len(line), 800)
@@ -990,10 +1017,11 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
         ctx = self.ctx(r)
         self.assertIn("line 0", ctx, "nothing was rendered, so the cap below measured nothing")
-        self.assertIn("STOP FAULT", ctx)
+        self.assertIn("UNSEEN FAULT", ctx)
         self.assertIn("NO EVENT NAMED", ctx)
-        # The same tolerance as the cap test above, which this render must not widen. Measured at
-        # this commit: 8,214 bytes for the five plants alone, 8,199 with both lines charged.
+        # The same tolerance as the cap test above, which this render must not widen. Read with
+        # this case's own setup on 2026-10-26: 8,199 bytes at 6f3ef50, and 9,000 with its two
+        # charge lines removed. A second run at the same commit read 8,191 and 8,986.
         self.assertLessEqual(len(ctx.encode("utf-8")),
                              BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
 

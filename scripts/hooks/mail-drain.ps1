@@ -112,8 +112,8 @@ $script:Unproven = $false
 $script:StampLine = $null
 $script:UnprovenLine = (
     "[session-mail] NO EVENT NAMED. Neither -Event nor the hook input named this event, so the " +
-    "drain read it as SessionStart. It marked nothing shown, so no Stop files this display, and " +
-    "the mail shows again next time. Pass -Event SessionStart on this hook.")
+    "drain read it as SessionStart. It marks nothing shown, so no Stop files what it shows, and " +
+    "that mail shows again next time. Pass -Event SessionStart on this hook.")
 
 function Limit-Text {
     <#
@@ -187,18 +187,21 @@ function Get-DrainEvent {
     return $name
 }
 
-function Get-DrainFaultFile {
+function Get-DrainFaultPrefix {
     <#
     .SYNOPSIS
-        The one fault stamp for the worktree that holds $Dir, or $null where none can be placed.
+        The path, with no extension, that this worktree's fault stamps start with. Or $null.
     .DESCRIPTION
-        It lives under the git common dir of the checkout this hook STARTED in, so nothing there can
-        enter a commit. That is the same rule `_hookinput.ps1` uses for its pins, which sit beside it.
-        It keys on the worktree that holds $Dir when that worktree shares the common dir, and on the
-        start checkout otherwise. A hook that started in no checkout has nowhere to put one.
+        ONE STAMP PER (WORKTREE, SESSION): <prefix>.<session hash>.txt. One file per worktree let a
+        second session's passing fault overwrite the first one's standing fault, and then clear it.
 
-        It sits outside the mail root on purpose. The sender creates mail/tmp only when mail/ is
-        missing, so a stamp written there first would leave the sender with no tmp directory.
+        They live under the git common dir of the checkout this hook STARTED in, so nothing there
+        can enter a commit. That is the rule `_hookinput.ps1` uses for its pins, which sit beside
+        them. The key is the worktree that holds $Dir when it shares that common dir, and the start
+        checkout otherwise. A hook that started in no checkout has nowhere to put one.
+
+        Not under the mail root: a stamp is hook state, not mail, so nothing that lists or moves
+        mail meets it.
 
         It calls the `_hookinput.ps1` functions, so where that file did not load there is no stamp.
     #>
@@ -215,9 +218,15 @@ function Get-DrainFaultFile {
         if (-not $root -or -not (Test-CcxSamePath (Get-CcxGitCommonDir $root) $common)) { $root = $script:StartRoot }
         $key = ConvertTo-CcxNormPath $root
         if ($IsWindows) { $key = $key.ToLowerInvariant() }
-        return (Join-Path $common "ccx-mail-faults/$(Get-CcxShortHash $key -Bytes 8).txt")
+        return (Join-Path $common "ccx-mail-faults/$(Get-CcxShortHash $key -Bytes 8)")
     }
     catch { return $null }
+}
+
+function Get-DrainSessionFile {
+    # This session's own stamp under a prefix.
+    param([string] $Prefix)
+    return "$Prefix.$(Get-CcxShortHash $script:DrainSession -Bytes 4).txt"
 }
 
 function ConvertTo-DrainField {
@@ -226,23 +235,55 @@ function ConvertTo-DrainField {
     return Limit-Text -Text ($Text -replace '[\x00-\x1f\x7f]', ' ') -Max $Max
 }
 
-function Save-DrainFault {
-    # One line: when, the event, the session, and the fault, capped. It overwrites, so a fault that
-    # stands at every Stop keeps one file and never grows. It never throws or blocks the exit.
+function ConvertTo-DrainSessionId {
+    # A session id safe to put in a file name or a marker's name.
     param([string] $Text)
+    return (Limit-Text -Text $Text -Max 64) -replace '[^A-Za-z0-9._-]', '-'
+}
+
+$script:StampHours = 24
+function Test-DrainStampFresh {
+    # BOUNDED IN BOTH DIRECTIONS (docs/HOOKS.md). Older than a day is stale, and so is a time more
+    # than fifteen minutes ahead, or a clock set forward would show the stamp forever.
+    param([System.IO.FileInfo] $File)
+    $hours = ([DateTime]::UtcNow - $File.LastWriteTimeUtc).TotalHours
+    return ($hours -le $script:StampHours -and $hours -ge -0.25)
+}
+
+function Save-DrainFault {
+    <#
+    .SYNOPSIS
+        Write this session's stamp: when, the event, the session, and the fault, each capped.
+    .DESCRIPTION
+        It replaces the file in one rename, as `Write-CcxSessionPin` does, so a reader never meets
+        half a stamp. A fault that stands keeps one file. Each write also prunes stale stamps in
+        every worktree, since a removed worktree's Stop never runs to clear its own. It never
+        throws and never blocks the exit.
+    #>
+    param([string] $Text)
+    $tmp = $null
     try {
-        $file = Get-DrainFaultFile $script:FaultAbout
-        if (-not $file) { return }
+        $prefix = Get-DrainFaultPrefix $script:FaultAbout
+        if (-not $prefix) { return }
+        $dir = Split-Path -Parent $prefix
+        $file = Get-DrainSessionFile $prefix
         $line = (@(
                 [DateTimeOffset]::UtcNow.ToString('o'),
                 (ConvertTo-DrainField ([string]$Event) 40),
                 (ConvertTo-DrainField $script:DrainSession 64),
                 (ConvertTo-DrainField $Text 400)
             ) -join "`t")
-        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) -ErrorAction Stop | Out-Null
-        [System.IO.File]::WriteAllText($file, $line, [System.Text.UTF8Encoding]::new($false))
+        New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
+        $tmp = "$file.$PID.tmp"
+        [System.IO.File]::WriteAllText($tmp, $line, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::Move($tmp, $file, $true)
+        $tmp = $null
+        Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+            Where-Object { -not (Test-DrainStampFresh $_) } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
     }
     catch { }
+    finally { if ($tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } }
 }
 
 function Read-DrainFaultFields {
@@ -263,32 +304,32 @@ function Read-DrainFaultFields {
     }
 }
 
-$script:StampHours = 24
 function Read-DrainFault {
     <#
     .SYNOPSIS
-        The stamp for this worktree as one bounded line, or ''. It reads and never deletes.
+        The newest fresh stamp for this worktree as one bounded line, or ''. It never deletes.
     .DESCRIPTION
         NOT CLEARED HERE. One launch has fired six SessionStart events and only one session was
         real, so a phantom could clear the stamp into a context nobody reads. Clear-DrainFault runs
         at a Stop that reaches its box instead.
 
-        A stamp older than a day is not shown. One dated in the future is: a notice is the safe
-        side of a wrong clock.
-
         ANY PROCESS UNDER THIS ACCOUNT CAN WRITE THE FILE, like an inbox. So every field is capped,
         only the first line is read, and the line says it is unverified.
     #>
     try {
-        $file = Get-DrainFaultFile $script:FaultAbout
-        if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) { return '' }
-        $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $file).LastWriteTimeUtc
-        if ($age.TotalHours -gt $script:StampHours) { return '' }
-        $s = Read-DrainFaultFields $file
+        $prefix = Get-DrainFaultPrefix $script:FaultAbout
+        if (-not $prefix) { return '' }
+        $leaf = Split-Path -Leaf $prefix
+        $fresh = @(Get-ChildItem -LiteralPath (Split-Path -Parent $prefix) -Filter "$leaf.*.txt" -File -ErrorAction SilentlyContinue |
+            Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc -Descending)
+        if ($fresh.Count -eq 0) { return '' }
+        $s = Read-DrainFaultFields $fresh[0].FullName
         if (-not $s) { return '' }
-        return ("[session-mail] STOP FAULT (UNVERIFIED: any process under this account can write " +
-            "the stamp). A drain at '$($s.Event)' for this worktree wrote this to stderr only, at " +
-            "$($s.When): $($s.What) It clears at the next Stop of that session that reads this box.")
+        $evt = if ($s.Event) { "'$($s.Event)'" } else { 'an event nothing named' }
+        $more = if ($fresh.Count -gt 1) { " $($fresh.Count - 1) more session(s) here left one too." } else { '' }
+        return ("[session-mail] UNSEEN FAULT (UNVERIFIED: any process under this account can write " +
+            "the stamp). A drain at $evt for this worktree wrote this to stderr only, at " +
+            "$($s.When): $($s.What)$more Each clears at the next Stop of its session that reads this box.")
     }
     catch { return '' }
 }
@@ -302,20 +343,16 @@ function Get-DrainStampLine {
 function Clear-DrainFault {
     <#
     .SYNOPSIS
-        At a Stop that reached its box: remove the stamp if this session wrote it, or if it is stale.
+        At a Stop that reached its box: remove this session's own stamp, and only that.
     .DESCRIPTION
-        ONLY THE SESSION THAT FAULTED CLEARS ITS STAMP. A NO BOX from a missing pin belongs to one
-        session, not to the worktree, so a healthy second session in the same worktree must not
-        clear it while the first still faults. A stamp nobody clears ages out after a day.
+        A NO BOX from a missing pin belongs to one session, not to the worktree, so a healthy
+        second session in the same worktree must not clear it while the first still faults. A stamp
+        nobody clears goes stale after a day and is pruned at the next write.
     #>
     try {
-        $file = Get-DrainFaultFile (Get-Location).ProviderPath
-        if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) { return }
-        $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $file).LastWriteTimeUtc
-        $s = Read-DrainFaultFields $file
-        if ($age.TotalHours -gt $script:StampHours -or -not $s -or $s.Session -eq $script:DrainSession) {
-            Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
-        }
+        $prefix = Get-DrainFaultPrefix (Get-Location).ProviderPath
+        if (-not $prefix) { return }
+        Remove-Item -LiteralPath (Get-DrainSessionFile $prefix) -Force -ErrorAction SilentlyContinue
     }
     catch { }
 }
@@ -330,22 +367,25 @@ catch {
     # first, by the same rule as below. The process exits next, so consuming stdin costs nothing.
     # Where the reader will not load or the read timed out, $Event keeps what -Event said, and an
     # empty one never gets stdout: that is a state every real Stop would share.
-    $reader = $false
-    try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $reader = $true } catch { }
-    if ($reader) {
-        $early = $null
-        $text = Read-CcxHookInput
-        try { $early = $text | ConvertFrom-Json -ErrorAction Stop } catch { }
-        if ($early -is [pscustomobject]) {
-            if ($early.PSObject.Properties['cwd']) { $script:FaultAbout = [string]$early.cwd }
-            if ($early.PSObject.Properties['session_id'] -and $early.session_id) {
-                $script:DrainSession = (Limit-Text -Text ([string]$early.session_id) -Max 64) -replace '[^A-Za-z0-9._-]', '-'
+    try {
+        $reader = $false
+        try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $reader = $true } catch { }
+        if ($reader) {
+            $early = $null
+            $text = Read-CcxHookInput
+            try { $early = $text | ConvertFrom-Json -ErrorAction Stop } catch { }
+            if ($early -is [pscustomobject]) {
+                if ($early.PSObject.Properties['cwd']) { $script:FaultAbout = [string]$early.cwd }
+                if ($early.PSObject.Properties['session_id'] -and $early.session_id) {
+                    $script:DrainSession = ConvertTo-DrainSessionId ([string]$early.session_id)
+                }
             }
+            $named = Get-DrainEvent $early
+            if ($named) { $Event = $named }
+            elseif (-not $Event -and -not $script:CcxHookInputTimedOut) { $Event = 'SessionStart'; $script:Unproven = $true }
         }
-        $named = Get-DrainEvent $early
-        if ($named) { $Event = $named }
-        elseif (-not $Event -and -not $script:CcxHookInputTimedOut) { $Event = 'SessionStart'; $script:Unproven = $true }
     }
+    catch { }
     Write-Drain "[session-mail] The drain could not load _mail.ps1, so no mail was read. This is not an empty box."
     exit 0
 }
@@ -462,7 +502,7 @@ try {
         }
         if ($payload -is [pscustomobject]) {
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {
-                $sessionId = (Limit-Text -Text ([string]$payload.session_id) -Max 64) -replace '[^A-Za-z0-9._-]', '-'
+                $sessionId = ConvertTo-DrainSessionId ([string]$payload.session_id)
                 $script:DrainSession = $sessionId
             }
             if (-not $script:FaultAbout -and $payload.PSObject.Properties['cwd']) {
@@ -594,7 +634,7 @@ try {
     if ($Event -eq 'Stop') {
         # This Stop reached its box, so its own fault no longer stands here. A throw below lands in
         # the outer catch, which writes a fresh stamp.
-        Clear-DrainFault
+        $null = Clear-DrainFault
         $consumed = 0
         foreach ($item in $live) {
             $id = Get-MessageId -File $item.File
