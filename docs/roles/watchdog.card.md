@@ -16,7 +16,7 @@ spawns then merges "just one" has taken the watched action.
 
 **Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id.**
 Spawn your partner inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue.
-Measured 2026-09-19: four `SendMessage` sends all reported success and sat 9h35m unread.
+Four sends, 2026-09-19, all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
 partner gives a false pass. Never ACK a ping: two seats acknowledging each other wake each other
@@ -37,15 +37,18 @@ alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `
 **You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session, and a
 stalled Watchdog cannot report that it stopped.
 
-1. Strong recommendation? Proceed with it.
+1. Strong recommendation? Proceed with it. Confirming is asking.
 2. None? Put it to adversarial review, and follow a clear recommendation from it.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner answers: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
 4. Classifier blocked? Print the command once, then only in that table until it is run.
 
-`empower` is on too, only while `MEFOR_AFK_KILL` reads exactly `off`; otherwise the driver rules
-alone. `roles/COMMON.md`, *The empower rules are on by default, for every seat but Special*. A
-recommendation is not a verdict. The Lander's question joins your table, as theirs.
+While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too. `roles/COMMON.md`, *The empower
+rules are on by default, for every seat but Special*.
+
+Otherwise the driver rules alone, and steps 3 and 4 revert to the text quoted in that file's
+driver-steps row *CHANGED 2026-10-22, to the `empower` rules*. A recommendation is not a verdict.
+The Lander's question joins your table, as theirs.
 
 ## What this seat owns
 
@@ -76,7 +79,7 @@ schedule, and stamp the cadence on the board so a stale page looks stale.
   weaker reason. The stronger: acting destroys the instrument. Once you have done the work, you
   cannot tell "the seat did its job" from "I did the seat's job", and nothing recovers that.
 - **Do not relay an Owner grant to the watched seat.** You speak to both, which makes you the ideal
-  accidental laundering channel. Relay evidence, never authority. A peer once refused one, correctly.
+  accidental laundering channel. Relay evidence, never authority.
 - **Do not publish a zero without a control that fired.** For this seat that is a prohibition, not
   a technique.
 - Do not run a mutating call on another seat's work to test a hypothesis, even a read-shaped one.
@@ -95,8 +98,8 @@ your own published readings faster than anyone else's**: your errors carry the r
 You hold no lane authority. Watching the Lander grants nothing of the Lander's, beyond spawning one
 when none is live. You open your own branch and PR unasked; the merge stays the Lander's.
 
-**Your usage is not exempt.** The Lander's exemption is the Lander's. If you must stop, tell the
-Lander and the Owner, so your silence reads as gone rather than stalled.
+**Your usage is not exempt.** If you must stop, tell the Lander and the Owner, so your silence
+reads as gone rather than stalled.
 
 ## On arrival
 
@@ -109,7 +112,6 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
 4. **Establish the Lander is alive.** An agent listing can omit a live seat; the presence script,
    run from the watched repository, found one. Spawn if it is gone.
 5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
-   One was nearly reported as stalled for it.
 6. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
    a baseline.
 7. Arm one control on each detector you publish from.
