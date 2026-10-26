@@ -4,7 +4,16 @@
     Session-mail drain. Renders mail at SessionStart; consumes it only at Stop.
 
 .DESCRIPTION
-    POSTURE: FAILS OPEN, AND NEVER BLOCKS. Every path exits 0 and returns no permission decision.
+    POSTURE: FAILS OPEN, AND WRITES STDOUT AT SessionStart ONLY. Every path exits 0 and returns no
+    permission decision. At any other event, or one nothing named, each line goes to stderr, which
+    is the hook log, and stdout stays empty. Write-Drain holds that rule for every path.
+
+    CHANGED 2026-10-26: the posture read "FAILS OPEN, AND NEVER BLOCKS", and at Stop it was false.
+    Claude Code reads a Stop hook's additionalContext as a block that re-invokes the model, so exit
+    0 with no decision still blocked. Measured that day: a worktree session with no session pin hit
+    the NO BOX path at every Stop, and the harness reported "A hook blocked the turn from ending 9
+    consecutive times". The turn could not end. Every fault path and the "Filed N message(s)" line
+    wrote stdout at Stop.
 
     SHOW AND CONSUME ARE SPLIT ACROSS TWO EVENTS, and that split is the point. A hook that consumes
     at SessionStart loses state to a session that never really existed: one measured launch produced
@@ -48,7 +57,8 @@
     Stop matcher is a property of a settings file, not of this script.
 
 .PARAMETER Event
-    SessionStart or Stop. Read from stdin's hook_event_name when not given.
+    SessionStart or Stop. Read from stdin's hook_event_name when not given. When neither names one,
+    the drain runs the SessionStart path but writes it to stderr, and mints no marker.
 
 .PARAMETER Anchor
     For a session outside a clone: names WHICH QUEUE to read. It never answers which BOX -- the box
@@ -65,18 +75,38 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # ------------------------------------------------------------------------------ emit, always safely
+# STDOUT IS FOR SessionStart ALONE, AND THIS IS THE ONE PLACE THAT DECIDES IT. At SessionStart,
+# additionalContext is free context for a reader deciding whether mail waits. At Stop it is a wake:
+# Claude Code treats it as a block and re-invokes the model, and a fault that stands (no pin, no
+# queue, delivery off) stands at the next Stop too, so the loop never ends on its own. The header's
+# CHANGED note holds the measurement. Gating each call site would leave the next new path to forget.
+#
+# THE TEST IS EQUALITY WITH SessionStart, NOT INEQUALITY WITH Stop. An event nothing named is
+# treated as not SessionStart: guessing SessionStart at a Stop is the loop, and guessing Stop at a
+# SessionStart costs one line moved to the log. Any other event the drain is wired to later is
+# silent on stdout by the same test, without anyone remembering to add it.
+#
+# THE TEXT STILL GOES SOMEWHERE. stderr reaches the hook log, so a fault at Stop is not silent,
+# only not a wake. $script:Spoke says whether the reader got it, and the render path mints a
+# marker only when it is $true: a marker is the proof of a display, and a line in the log is none.
 $script:Emitted = $false
+$script:Spoke = $false
 function Write-Drain {
     param([string] $Text)
     if ($script:Emitted) { return }
     $script:Emitted = $true
+    if ($Event -ne 'SessionStart') {
+        [Console]::Error.WriteLine($Text)
+        return
+    }
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{
-            hookEventName     = if ($Event) { $Event } else { 'SessionStart' }
+            hookEventName     = 'SessionStart'
             additionalContext = $Text
         }
     }
     [Console]::Out.Write(($payload | ConvertTo-Json -Compress -Depth 6))
+    $script:Spoke = $true
 }
 
 try {
@@ -84,6 +114,22 @@ try {
 }
 catch {
     # A drain that cannot load its own key function must not compute one of its own.
+    #
+    # THIS FAULT COMES BEFORE THE EVENT IS READ, so a hook wired with no -Event has an empty $Event
+    # here, and Write-Drain would send a SessionStart's line to stderr. So read the event, and only
+    # the event, from stdin first. The process exits below, so consuming stdin costs nothing. If the
+    # reader will not load or the input will not parse, $Event stays empty and the line goes to the
+    # log: an unknown event is never given stdout.
+    if (-not $Event) {
+        try {
+            . (Join-Path $PSScriptRoot '_hookinput.ps1')
+            $early = Read-CcxHookInput | ConvertFrom-Json -ErrorAction Stop
+            if ($early -is [pscustomobject] -and $early.PSObject.Properties['hook_event_name']) {
+                $Event = [string]$early.hook_event_name
+            }
+        }
+        catch { }
+    }
     Write-Drain "[session-mail] The drain could not load _mail.ps1, so no mail was read. This is not an empty box."
     exit 0
 }
@@ -215,7 +261,10 @@ try {
         }
     }
     catch { }
-    if (-not $Event) { $Event = 'SessionStart' }
+    # NO DEFAULT EVENT. This line set $Event to SessionStart when nothing named one, which handed
+    # stdout to a Stop whose input could not be read. An unnamed event now takes the SessionStart
+    # path below, because it is not Stop, but Write-Drain sends its text to the log. The cost: a
+    # SessionStart wired with no -Event, whose input reader will not load, reports to the log only.
 
     if ($cwdNote) {
         # NO FALLBACK BOX. The drain still stands where it started, the primary under the desktop app.
@@ -324,7 +373,7 @@ try {
             if ($won) { $consumed++ }
         }
 
-        # STOP SPEAKS ONLY WHEN IT ACTED. Step 8's "the box is empty beats silence" does not reach
+        # STOP NEVER WRITES STDOUT, AND IT LOGS ONLY WHEN IT ACTED. Step 8's "the box is empty beats silence" does not reach
         # this path. That rule serves a reader at SESSION START who is deciding whether mail is
         # waiting. Stop fires at the end of every turn and has no such reader, so a line here
         # narrates the normal state into every turn, forever. docs/HOOKS.md: an occasional-use
@@ -336,8 +385,12 @@ try {
         # the message, and this session then consumes nothing HAVING DISPLAYED IT. Duplicate display
         # is the accepted trade, so the sentence was false in a case the design plans for.
         #
-        # EVERY FAULT PATH ABOVE STILL SPEAKS AT STOP: no queue, no box, delivery off, a helper that
-        # would not load, and the outer catch. Only success with nothing to do is quiet.
+        # CHANGED 2026-10-26: this paragraph read "EVERY FAULT PATH ABOVE STILL SPEAKS AT STOP: no
+        # queue, no box, delivery off, a helper that would not load, and the outer catch. Only
+        # success with nothing to do is quiet." Speaking at Stop was the block the header's CHANGED
+        # note measured. Those faults, and the Filed line below, now reach stderr through
+        # Write-Drain, so the hook log still shows them and the turn still ends. Only success with
+        # nothing to do writes nothing at all.
         if ($consumed -gt 0) {
             Write-Drain "[session-mail] Filed $consumed message(s) this session had already displayed. As of $(Get-CcxMailStamp)."
         }
@@ -423,6 +476,11 @@ try {
     # ------------------------------------------- THE MARKER IS MINTED AFTER THE EMIT, NOT BEFORE
     # It is the proof that a display happened, keyed per (message, session). Minting it earlier is
     # the defect that let one session's receipt back another session's marker.
+    #
+    # AND ONLY WHEN THE EMIT REACHED STDOUT. An event nothing named renders this same text to the
+    # log, where no reader sees it, so a marker minted then would let a later Stop file mail that
+    # was never displayed. Write-Drain sets $script:Spoke.
+    if (-not $script:Spoke) { $rendered.Clear() }
     foreach ($id in $rendered) {
         try {
             Set-Content -LiteralPath (Join-Path $shownDir "${id}__${sessionId}.json") `

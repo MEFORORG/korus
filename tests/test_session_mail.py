@@ -101,9 +101,14 @@ class _LaneCase(unittest.TestCase):
             timeout=TIMEOUT_SECONDS,
         )
 
-    def drain(self, cwd, event="SessionStart", session_id="sess-1", extra=None):
-        payload = {"session_id": session_id, "hook_event_name": event}
-        args = [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", event]
+    def drain(self, cwd, event="SessionStart", session_id="sess-1", extra=None, fields=None,
+              pass_event=True):
+        """`fields` merges into the stdin payload. `pass_event=False` drops `-Event`, so the drain
+        reads the event from stdin the way the user-level wiring runs it."""
+        payload = {"session_id": session_id, "hook_event_name": event, **(fields or {})}
+        args = [self.pwsh, "-NoProfile", "-File", str(DRAIN)]
+        if pass_event:
+            args += ["-Event", event]
         if extra:
             args += extra
         return subprocess.run(
@@ -550,7 +555,7 @@ class SilenceIsNeverAmbiguous(_LaneCase):
         self.assertRegex(self.ctx(self.drain(self.peer)), r"(?i)off|suppress")
 
 
-class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
+class TheStopDrainNeverWritesStdout(_LaneCase):
     """The other half of step 8, and the one the step does NOT cover.
 
     Step 8's rule -- "the box is empty" beats silence -- was written for a reader at SESSION START,
@@ -569,21 +574,47 @@ class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
     it. Step 5 calls that duplicate display the accepted trade, so the sentence was false in a case
     the design plans for.
 
-    STOP IS NOT SILENT. It loses one line: success with nothing to do. Every fault path still
-    speaks, and the last two cases here are what stops a later change from quieting those too.
+    STOP WRITES NOTHING TO STDOUT, NOT EVEN A FAULT. CHANGED 2026-10-26: this paragraph read "STOP
+    IS NOT SILENT. It loses one line: success with nothing to do. Every fault path still speaks",
+    and the last two cases here pinned that. Claude Code reads a Stop hook's additionalContext as a
+    block that re-invokes the model. Measured that day: a worktree session with no session pin hit
+    NO BOX at every Stop, the harness reported "A hook blocked the turn from ending 9 consecutive
+    times", and the turn could not end. A standing fault stands at the next Stop too.
+
+    SO EVERY STOP LINE GOES TO STDERR, the hook log. A fault is still visible to whoever reads the
+    log, and is no longer a wake. Each Stop case below asserts both halves: stdout is EMPTY, and
+    stderr carries the line, so a drain that died before speaking cannot pass as a quiet one.
+
+    EVERY ZERO HERE HAS A CONTROL THAT FIRES (Article V). Each fault case runs the same setup at
+    SessionStart and requires stdout there, so an empty stdout at Stop is the gate and not a drain
+    that writes nothing anywhere.
     """
+
+    def stop_is_silent(self, r, log_pattern=None):
+        """Empty stdout and exit 0. With `log_pattern`, stderr must carry the line too."""
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout, "a Stop wrote stdout, and Claude Code reads that as a block")
+        if log_pattern:
+            self.assertRegex(r.stderr, log_pattern, "the Stop line did not reach the hook log")
+
+    def outside(self) -> dict:
+        """A payload cwd inside no checkout, from a drain started in the primary. NO BOX at either
+        event, because a cwd that resolves to no worktree has no box at launch or after."""
+        return {"cwd": str(self.root)}
 
     def test_a_stop_that_consumed_nothing_says_nothing(self):
         r = self.drain(self.peer, event="Stop", session_id="s1")
-        self.assertEqual(0, r.returncode, r.stderr)
-        self.assertIsNone(self.context(r), "Stop narrates the normal case into every turn")
+        self.stop_is_silent(r)
+        self.assertEqual("", r.stderr.strip(), "Stop narrates the normal case into every turn")
 
-    def test_a_stop_that_consumed_something_still_says_so(self):
-        """The control. Without it the case above passes against a drain silent at every Stop."""
+    def test_a_stop_that_consumed_something_files_it_and_writes_only_the_log(self):
+        """The control for the case above. Without it, that case passes against a drain that never
+        reached Stop's body: here the same path files a message and logs that it did."""
         self.send(body="filed at stop")
         self.drain(self.peer, event="SessionStart", session_id="s1")
-        self.assertRegex(
-            self.ctx(self.drain(self.peer, event="Stop", session_id="s1")), r"(?i)filed")
+        r = self.drain(self.peer, event="Stop", session_id="s1")
+        self.stop_is_silent(r, r"(?i)filed 1 message")
+        self.assertEqual([], self.inbox_of(self.peer), "the Stop logged a filing it did not make")
 
     def test_a_message_a_peer_filed_first_draws_no_claim_of_never_displaying_it(self):
         """The false sentence, pinned. s2 displayed the message; s1 reached Stop first."""
@@ -591,25 +622,76 @@ class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
         self.drain(self.peer, event="SessionStart", session_id="s1")
         self.drain(self.peer, event="SessionStart", session_id="s2")
         self.drain(self.peer, event="Stop", session_id="s1")
-        self.assertIsNone(self.context(self.drain(self.peer, event="Stop", session_id="s2")))
+        r = self.drain(self.peer, event="Stop", session_id="s2")
+        self.stop_is_silent(r)
+        self.assertEqual("", r.stderr.strip())
 
     def test_session_start_still_announces_an_empty_box(self):
         """The asymmetry, stated where a reader tempted to restore the Stop line will see it."""
         self.assertRegex(self.ctx(self.drain(self.peer, event="SessionStart")), r"(?i)no mail|empty")
 
-    def test_a_stop_outside_a_clone_still_speaks(self):
-        """A fault, not a normal state: there is no queue, and nothing was read."""
-        ctx = self.context(self.drain(self.root, event="Stop"))
-        self.assertIsNotNone(ctx, "a Stop with no queue went byte-identical quiet")
-        self.assertRegex(ctx or "", r"(?i)not inside a git|no queue|-Anchor")
+    def test_a_stop_with_no_box_writes_nothing_to_stdout(self):
+        """The measured loop: NO BOX at every Stop. The user-level wiring passes no -Event, so the
+        event comes from stdin here, as it did there."""
+        r = self.drain(self.primary, event="Stop", fields=self.outside(), pass_event=False)
+        self.stop_is_silent(r, r"NO BOX")
 
-    def test_a_stop_with_delivery_off_still_speaks(self):
-        """Suppressed is a state someone has to undo, so it is reported at either event."""
+    def test_the_same_no_box_at_session_start_does_write_stdout(self):
+        """The control. Same start, same payload cwd, same unpassed -Event; only the event differs."""
+        r = self.drain(self.primary, event="SessionStart", fields=self.outside(), pass_event=False)
+        self.assertIn("NO BOX", self.ctx(r))
+
+    def test_a_stop_outside_a_clone_writes_nothing_to_stdout(self):
+        """A fault, not a normal state: there is no queue, and nothing was read."""
+        self.stop_is_silent(
+            self.drain(self.root, event="Stop"), r"(?i)not inside a git|no queue|-Anchor")
+
+    def test_the_same_no_queue_at_session_start_does_write_stdout(self):
+        self.assertRegex(
+            self.ctx(self.drain(self.root, event="SessionStart")), r"(?i)not inside a git|no queue")
+
+    def test_a_stop_with_delivery_off_writes_nothing_to_stdout(self):
+        """Suppressed is a state someone has to undo, so it is reported at either event: on stdout
+        at SessionStart, and in the log at Stop."""
         self.send(body="queued while off")
         (self.mail_root / "OFF").write_text("", encoding="ascii")
-        ctx = self.context(self.drain(self.peer, event="Stop"))
-        self.assertIsNotNone(ctx, "a Stop against a suppressed queue went quiet")
-        self.assertRegex(ctx or "", r"(?i)off|suppress")
+        self.stop_is_silent(self.drain(self.peer, event="Stop"), r"(?i)delivery is off")
+        self.assertRegex(self.ctx(self.drain(self.peer, event="SessionStart")), r"(?i)delivery is off")
+
+    def test_a_drain_that_cannot_load_its_mail_module_writes_nothing_to_stdout_at_stop(self):
+        """The fault that runs BEFORE the drain reads its event. A copy of the hook with no
+        `_mail.ps1` beside it, wired with no -Event, the shape the user-level settings use."""
+        hooks = self.root / "lone" / "scripts" / "hooks"
+        hooks.mkdir(parents=True)
+        (self.root / "lone" / "scripts" / "coord").mkdir()
+        lone = hooks / "mail-drain.ps1"
+        lone.write_bytes(DRAIN.read_bytes())
+        (hooks / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+
+        def run(event):
+            return subprocess.run(
+                [self.pwsh, "-NoProfile", "-File", str(lone)],
+                input=json.dumps({"session_id": "s1", "hook_event_name": event}),
+                capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+
+        self.stop_is_silent(run("Stop"), r"could not load _mail\.ps1")
+        # The control: the same copy at SessionStart reads its event early and keeps stdout.
+        self.assertIn("could not load _mail.ps1", self.ctx(run("SessionStart")))
+
+    def test_an_event_nothing_named_gets_no_stdout_and_no_marker(self):
+        """No -Event, no hook_event_name. Guessing SessionStart at a Stop is the loop, so the drain
+        renders to the log and mints no marker: a line nobody saw is not a display."""
+        self.send(body="unnamed event")
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+            input=json.dumps({"session_id": "s1"}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r, r"unnamed event")
+        box = self.boxes()[0]
+        self.assertEqual([], list((box / "shown").glob("*.json")) if (box / "shown").is_dir() else [])
+        # The control: the same payload, named SessionStart, does mint one.
+        self.drain(self.peer, event="SessionStart", session_id="s1", pass_event=False)
+        self.assertEqual(1, len(list((box / "shown").glob("*.json"))))
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):

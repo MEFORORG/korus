@@ -339,8 +339,17 @@ every hook script has a caller. No per-turn empty-box report is needed.
 An empty consume result also cannot prove nothing was displayed. Two sessions may show the same
 message before the first files it at `Stop` ([step 5](#step-5-split-show-from-consume-across-two-hook-events)).
 
-Keep all fault reports at `Stop`: missing queue or box, disabled delivery, helper load
-failure, and catch-all errors. Remove only the successful empty-work line.
+Write nothing to stdout at `Stop`, not even a fault. Claude Code reads a `Stop` hook's
+`additionalContext` as a block that wakes the model again, so a standing fault blocks every turn.
+
+On 2026-10-26 a worktree session with no session pin hit NO BOX at every `Stop`. The harness
+reported "A hook blocked the turn from ending 9 consecutive times", and the turn could not end.
+
+So `mail-drain.ps1` sends `Stop` fault reports and its "Filed" line to stderr, the hook log. Missing
+queue or box, disabled delivery, helper load failure and catch-all errors all still reach the log.
+
+This page read "Keep all fault reports at `Stop`" until 2026-10-26. The drain followed it, and that
+rule is the block measured above.
 
 ---
 
