@@ -29,6 +29,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
 | You still do not manage the merge queue or the repository | That half of the retired row survives. Leave both to the Lander. |
+| **Brief at full speed (owner ruling 2026-10-26)** | The merge queue never limits briefing; usage holds still do. *Brief at full speed* carries the ruling. |
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
@@ -143,6 +144,38 @@ gh pr comment <N> --body "<the Builder's QA line, verbatim>"
 **A Builder that reports no QA line has not told you the step ran.** `BUILDER.md` 4c permits an empty
 result and requires it be reported, so "nothing found" and "nothing said" are different answers.
 
+### Brief at full speed
+
+**Owner ruling 2026-10-26.** Never hold a brief or shrink a wave for the open pull request count,
+the merge queue's depth, or the Lander's merge rate. Batch each wave, less the own-pull-request items
+in *When to cut a pull request*. The Lander works the queue down.
+
+The owner quoted *"Don't brief more than the Lander can land"*, then ruled: *"This is NEVER a thing
+in our processes. Builders and managers work at full speed. Managers batch work into combined PRs
+as much as possible. A merge queue develops. The lander works it down."*
+
+**The merge queue never limits a start. Usage controls still can, at least these two.** Read each
+where it lives; do not act on a paraphrase. [BUILDER.md](BUILDER.md) 5d links here.
+
+| Control | Where it lives |
+| --- | --- |
+| A Steward's stop on starting | [STEWARD.md](STEWARD.md), *3a. The worse window sets the STATE; only the 5-hour window carries the STOP*, and *3d. A live owner ruling can suspend the stop half without suspending the warning* |
+| The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
+
+A high weekly rung with a low 5-hour rung does not stop briefing (3a). The burn throttle, in the
+third answer below, was a separate limit, and it is retired.
+
+Path contention, in section 3, still shapes what you brief.
+
+**The three questions this ruling raised were answered on 2026-10-26.** The owner selected these
+answers in the question dialog, in session.
+
+| Question | The owner's selection |
+| --- | --- |
+| Does *"as much as possible"* lift the five-item cut in *When to cut a pull request*? | *"Remove the cap"*. Batch every item the wave holds. The own-pull-request exceptions stay. |
+| Does the ruling retire section 3's hold on filing ledger rows you cannot land soon? | *"Confirm retired"*. |
+| Does it retire [BUILDER.md](BUILDER.md)'s four-item lane ceiling and its throttle on starts by burn? | *"Retire it"*. Builders work at full speed. The usage controls above still stop a start. |
+
 ### Do not check the pool before you open
 
 **Open when your own work is ready.** Do not count open pull requests, do not ask the Lander whether
@@ -237,9 +270,10 @@ measurements.
 | Item | Rule |
 | --- | --- |
 | The default | One pull request per wave. A wave is the set of Builders you dispatched together. |
-| Cut it at the FIRST of | Every Builder in the wave has reported and its branch is on the remote. Five items are ready. You are about to close this instance. |
+| Cut it at the FIRST of | Every Builder in the wave has reported and its branch is on the remote. You are about to close this instance. |
+| **CORRECTED 2026-10-26 by owner ruling: no item cap** | That row also read *"Five items are ready."* The owner selected *"Remove the cap"*. Batch every item the wave holds. *Brief at full speed* records the question. |
 | A Builder still running | About 30 minutes after the rest reported, cut without it. It rides the next batch. |
-| Why five | One red item blocks the whole batch until it is dropped. Five bounds that and keeps the diff readable for the Lander. |
+| **RETIRED 2026-10-26: why five** | It read *"Five bounds that and keeps the diff readable for the Lander."* One red item still blocks the batch. Steps 4 and 6 drop the conflicts and reds you catch; a hosted-leg red blocks every item. |
 | Its own pull request, never batched | An item that fixes a red `main` or a broken gate: ship it now. An item that changes a security control. |
 | Also its own pull request | An item that reverses a recorded posture or supersedes an ADR; [LANDER.md](LANDER.md) 4i requires its own title. An item that must land in order against another open pull request. |
 | But two items in one wave | Two items that must land in order may share one batch. |
@@ -365,11 +399,14 @@ What bound that run was the repository. See, in the constitution:
 
 ---
 
-## 2. Never Conflict with the Lander or Clog the Queue
+## 2. Never conflict with the Lander
 
-**The queue half of this heading narrowed on 2026-09-18.** You no longer hold a pull request back on
-what the queue looks like. See *Do not check the pool before you open*. What survives is granularity,
-decided at dispatch in section 2a and at step 9 in *When to cut a pull request*.
+**CORRECTED 2026-10-26 by owner ruling.** This heading read *"Never Conflict with the Lander or Clog
+the Queue"*. The queue half narrowed on 2026-09-18 (*Do not check the pool before you open*) and
+went on 2026-10-26 (*Brief at full speed*).
+
+What survives is granularity, decided at dispatch in section 2a and at step 9 in *When to cut a pull
+request*.
 
 **An engine pull request no longer edits the ledger.** The ledger moved to the vault on 2026-09-13
 (BACKLOG #1250). The Lander writes each banner there after the merge, from the text in the Builder's
@@ -451,6 +488,7 @@ carried here rather than re-derived by this seat.
 | **SUPERSEDED 2026-09-13** | Banners no longer ride with code: the Lander writes them in the vault after the merge. So those 36 no longer touch the ledger at all. |
 | So | Collapsing the 12 moves arrivals from about 9.7/hour to 7.7/hour. **The queue still diverges.** Worth doing, and not a queue fix. |
 | And batching CORRELATES FAILURE | One red check or one conflict blocks every item in the wave, where a bad row today blocks only itself. At heavy oversubscription that is a real trade. |
+| **CORRECTED 2026-10-26 by owner ruling** | *"The queue still diverges"* and *"heavy oversubscription"* treat a growing queue as a Manager's problem. *Brief at full speed* says it is not. The failure-correlation trade stands. |
 | The measurement | Two dispatch waves added 17 pull requests in about 35 minutes. Open non-draft went 35 to 54 in one hour, and **zero** merged in it. **24 of the 54 were DIRTY**, overwhelmingly on the ledger tail. |
 | What those seven actually were | 13 to 69 lines each, of `docs/BACKLOG.md` only. They could have been one pull request. |
 | If an item must be its own pull request | The ledger edit is a FINAL COMMIT, ALONE. Section 2 states that rule, under *put your ledger row in its OWN commit, LAST*. |
@@ -463,19 +501,29 @@ carried here rather than re-derived by this seat.
 | The measured case | A Manager ran `gh pr list` against the vault, read **1** open pull request, and sized a ten-subagent dispatch on it. The engine had **38**. |
 | So | Pass `--repo MEFORORG/MessageFoundry` explicitly on anything you will act on. The vault was renamed to `wshallwshall/MessageFoundry-vault` the same day and the old slug STILL REDIRECTS, so a stale `--repo wshallwshall/MessageFoundry` still answers, and answers about the vault. |
 | **CORRECTED 2026-09-24: the vault's slug is `MEFORORG/MessageFoundry-vault`** | The row above keeps what it said. `gh repo view --json nameWithOwner` in the vault checkout returns `MEFORORG/MessageFoundry-vault`, and `wshallwshall/MessageFoundry-vault` redirects there too. The advice holds: name the repository with `--repo`. |
+| **CORRECTED 2026-10-26 by owner ruling** | *Verify the remote before sizing a wave* and *The measured case* keep what they said. Sizing a wave on an open pull request count is itself retired, on any repository: *Brief at full speed*. The `--repo` lesson stands. |
 | **EXPIRY** | This holds only while the ledger is one file whose new rows land at one tail, and while conflict resolution is serial and manual. |
 | How to check the expiry | Re-examine it if `docs/BACKLOG.md` is split, if a merge driver is adopted for it, or if rows stop being appended in number order. |
 
-**Worked example, 2026-09-05, on when to brief NOTHING.** 62 open non-draft pull requests against a
-merge rate of 2.2 to 2.7 an hour. 29 opened in one three-hour window, or 9.7 an hour. That is a
-utilisation of 3.6 to 5.0.
+**RETIRED 2026-10-26 by owner ruling: the worked example on when to brief NOTHING.** It set a
+work-in-progress limit keyed to the Lander's merge rate. *Brief at full speed* carries the ruling.
 
-**Above 1.0 a queue does not settle at some depth. It grows without bound.** Median age at merge was
-already 15 hours and the oldest open item was two days. **At that point briefing anything new
-subtracts from the fleet's throughput.**
+It reasoned: *"Above 1.0 a queue does not settle at some depth. It grows without bound."* It ended:
+*"At that point briefing anything new subtracts from the fleet's throughput."*
 
-**Why this is a Manager rule and not a Builder one.** A Builder cannot batch its own output: it is
-dispatched against one item and its process ends before any pull request exists.
+**The 2026-09-05 figures stay as a record, not a rule.**
+
+| Figure, 2026-09-05 | Value |
+| --- | --- |
+| Open non-draft pull requests | 62 |
+| Merge rate | 2.2 to 2.7 an hour |
+| Opened | 29 in one three-hour window, or 9.7 an hour |
+| Utilisation | 3.6 to 4.4: opened over merge rate. The retired text gave 3.6 to 5.0, with no instrument for 5.0. |
+| Median age at merge | 15 hours |
+| Oldest open item | Two days |
+
+**Why batching is a Manager rule and not a Builder one.** A Builder cannot batch its own output: it
+is dispatched against one item and its process ends before any pull request exists.
 
 **Granularity is decided at dispatch and at step 9, and nowhere else.** A convention written into a Builder brief
 binds nobody after the fact, because there is nobody left to bind.
@@ -518,12 +566,15 @@ were dirty. Of those trailing by one or none, 0 of 10 were. No misclassification
 The dirty five were 25 to 28 hours old and the clean ten were under two. The fleet lands a ledger
 commit about every 35 minutes, so a pull request that waits overnight wakes behind 30 of them.
 
-**So do not cut a ledger row you cannot land soon.** A row landing within about two hours collides
-with nothing; the same row a day later collides with everything. If a batch cannot land today, do not
-file the rows today.
+A row landing within about two hours collides with nothing; the same row a day later collides with
+everything.
 
-**Nothing enforces this today.** The claim registry covers items. Until it covers paths, this is
-yours to do by reading, and a brief that names no paths has skipped it rather than passed it.
+**RETIRED 2026-10-26 by owner ruling, confirmed the same day.** This read *"So do not cut a ledger
+row you cannot land soon"*. It went on: *"If a batch cannot land today, do not file the rows
+today"*. File rows when the work is ready. The owner selected *"Confirm retired"*.
+
+**Nothing enforces the path check today.** The claim registry covers items. Until it covers paths,
+this is yours to do by reading, and a brief that names no paths has skipped it rather than passed it.
 
 **A claim on a whole batch is necessary, and it is not sufficient.** Take the batch-level claim
 before you dispatch, because a check of per-item claims does not see it. Then, before you cut the

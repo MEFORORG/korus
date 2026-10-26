@@ -15,7 +15,8 @@ pull request (PR), label it `qa` with the Builder's QA line under it, and hand i
 *When to cut a pull request*, holds the rules.
 
 - Default to one PR per wave, merged in a throwaway worktree and checked as one tree.
-- Cut it when every Builder has reported, at five items, or before you close.
+- Cut it when every Builder has reported, or before you close. No item cap (Owner ruling 2026-10-26).
+  Cut without a Builder still running about 30 minutes after the rest reported.
 - Its own PR: a red-`main` fix, a security control, an ADR supersession, an ordering constraint.
 - An item that is red or conflicts goes back to a Builder. Never write that resolution yourself.
 
@@ -47,6 +48,9 @@ before assigning files.
 - Do not check the pool before you open a PR. Owner ruling 2026-09-18, which retired the check that
   told you to. Five Managers all reading "clear" open together, which manufactures the burst the
   check was meant to prevent. Open when your own work is ready.
+- Do not limit briefing by the open PR count, the merge queue's depth, or the Lander's merge rate.
+  Owner ruling 2026-10-26: brief at full speed and batch; the Lander works the queue down. Usage
+  holds still bind. `roles/MANAGER.md`, *Brief at full speed*.
 - Do not assume you are the only Manager. Check other workers' holdings before assigning a file.
 - Never infer an account roster. Only the Owner assigns it.
 

@@ -1237,6 +1237,9 @@ Coordination can order a queue; it cannot widen one. The most expensive mistake 
 to run parallel producers into a serialised queue and then spend the session ordering the pile-up. It
 has happened: 13 PRs merged in one drain while the open count still grew from 3 to 6.
 
+**The remedy is batching, never fewer producers** (owner ruling 2026-10-26). Managers brief at full
+speed; the second table's *Never ask a Manager to brief less* row says so.
+
 | Fact | Consequence |
 | --- | --- |
 | `ci.yml` triggers on `pull_request` and `push: branches: [main]` only | A feature-branch push runs NOTHING of `ci.yml`. Only `branch-leak-scan.yml` fires, and it is small. Unopened branches are nearly free to hold. **CORRECTED 2026-09-23**: this read *"runs NOTHING"*, which ignored that scan. |
@@ -1251,6 +1254,7 @@ has happened: 13 PRs merged in one drain while the open count still grew from 3 
 | Re-measure any cost model | The old docs-only figures (2, 2, 2 and 13 minutes) were measured against an older required set and no longer hold. Re-measure with `max(completedAt) - min(startedAt)` over the REQUIRED contexts only. |
 | Do this | Batch independent code changes into one PR. Keep at most ONE code PR in flight and hold the rest as pushed branches. Serialise only genuine ordering constraints. |
 | Whose decisions that row governs | Yours, in the queue. Since 2026-09-23 it does not govern a Manager's opening: a Manager does not count open PRs before it opens one. |
+| Never ask a Manager to brief less -- ADDED 2026-10-26 | Owner ruling: Managers brief at full speed, and you work the queue down. Batching is this section's remedy, not fewer briefs. [MANAGER.md](MANAGER.md), *Brief at full speed*. |
 | Who batches -- ADDED 2026-09-23 | **The Manager, at step 9.** Owner ruling. Before it, this table said to batch and named no seat to do it, while MANAGER.md said to keep independent changes apart. [MANAGER.md](MANAGER.md), *When to cut a pull request*, now holds the rule. |
 | Do NOT tell Builders "small and independent is the right shape" | That is correct for avoiding CONFLICTS and exactly wrong for a queue rate-limited by PR COUNT. The two pieces of advice look identical at the branch level and diverge only at the PR level. |
 | Batching trap 1 | `git cherry-pick` does not run pre-commit, so batched commits pass no local gate on creation. Run the ledger and backlog checks by hand, plus the affected tests. |

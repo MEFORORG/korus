@@ -46,8 +46,9 @@ a gate, and never mislead a teammate or the owner about what you built.
 **A team building nothing at all is a failure to raise at once, not a quiet lane.** Say so to the
 Manager, the seat that can act on it and the seat that opens the pull request.
 
-**Two to four is the most you oversee, not the least you must reach.** Owner ruling 2026-08-28. See
-*A claim that outlives the work is a slot nobody can see*, which holds the rest of this rule.
+**RETIRED 2026-10-26 by owner ruling: the lane ceiling.** This read *"Two to four is the most you
+oversee, not the least you must reach. Owner ruling 2026-08-28."* Work at full speed. *A claim that
+outlives the work is a slot nobody can see* says what still stops a start.
 
 **This file carries no live state on purpose.** Item numbers, lane assignments, queue tables, pull
 request numbers and "pick up here" lists belong in a dated episode note. See *The role file holds
@@ -109,12 +110,13 @@ Console, and do not wait on one.
 | Where a question actually lands | **In your report to the Manager, which carries it onto the pull request it opens.** Findings on a pull request outlive the session; findings in mail do not. |
 | Why you cannot post it yourself | For a NEW branch the pull request does not exist until you have exited. |
 | The one case where you can | A follow-up brief onto a branch whose pull request is already open. Then the brief names the number, and you comment there as well as reporting. |
-| Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. **Who holds the START THROTTLE now is OPEN.** |
+| Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. |
+| **CORRECTED 2026-10-26 by owner ruling: the START THROTTLE** | The row above also read *"Who holds the START THROTTLE now is OPEN."* The owner retired the throttle, so no seat holds it. 5d says what still stops a start. |
 | Expiry | This retires when the owner names a successor seat or restores one of the three. |
 
-Do not assume the throttle moved to the Manager, and do not read a quiet lane as a throttled one on
-that assumption. Mail waits for the recipient's next turn. See [COMMON.md](COMMON.md), *Mail is a
-mailbox, not a doorbell, and it expires in 72 hours*.
+**Do not assume a quiet lane was throttled.** Since 2026-10-26 only the usage controls in 5d stop a
+start. Mail waits for the recipient's next turn: [fleet-message-a-peer](../.claude/skills/fleet-message-a-peer/SKILL.md),
+*Mail is a mailbox, not a doorbell, and it expires in 72 hours*.
 
 ### If the brief does not answer something you must know, do not guess and do not wait
 
@@ -594,8 +596,8 @@ claim id, a pull request number, a count from `claim.ps1 -List`, a timestamp.
 **Never a self-assessment of effort.** "No -- 1 of 4 moving, 3 blocked on the parser item" is
 checkable; "Mixed, working hard" is not.
 
-**On a "no": say the number and what you can take.** "I hold 2, I can take 2 more, my lane is <x>"
-is actionable; "not enough" is not, to anyone replenishing four lanes.
+**On a "no": say the number and what you can take.** "I hold 2, I can start 3 more now, my lane is <x>"
+is actionable; "not enough" is not, to anyone replenishing lanes.
 
 Reasoning goes in the prose above the table. **A dashboard that has to be read is not a dashboard.**
 
@@ -1270,19 +1272,24 @@ ever fire step 14 on them.
 Release those claims before you exit, and say you did. The same list is in [COMMON.md](COMMON.md),
 *What a Builder still releases*, and in 4b; if the three disagree, COMMON governs.
 
-**An item counts against your four while it is being *worked*, not while its claim is held.**
-Built-and-awaiting-merge is zero occupancy. Say so, so others count it the same way.
+**An item is occupancy while it is being *worked*, not while its claim is held.**
+Built-and-awaiting-merge is zero occupancy. Say so, so others count it the same way. This read
+*"counts against your four"* until 2026-10-26, when the four went.
 
-**And four is the MOST YOU OVERSEE, not the least you must reach.** Owner ruling 2026-08-28: starts
-are throttled by burn, and **that throttle is not yours.**
+**RETIRED 2026-10-26 by owner ruling: the four-item ceiling and the throttle on starts.** This read
+*"four is the MOST YOU OVERSEE"* and *"starts are throttled by burn"*. An owner ruling of 2026-08-28
+set both. Asked about both, the owner selected *"Retire it"*.
 
-The ruling named the DISPATCHER as its holder. That seat was retired 2026-09-01 and the owner has
-not named a successor, so **who holds it is OPEN.** A lane holding four items with one running
-because its starts are held is *compliant*, and should report the reason, not a shortfall.
+That ruling named the Dispatcher as the throttle's holder. After that seat retired on 2026-09-01,
+this file recorded who held it as OPEN.
 
-**So separate the two lanes that both look like "under four".** One is running less because it was
-told to. The other could start something and has not. **This trap is about the second.** Reporting
-the first as a failure buries the second, which is the one worth finding.
+**Work at full speed. Usage controls can still stop a start.** [MANAGER.md](MANAGER.md), *Brief at
+full speed*, points to them; section 8 here covers the Workflow gate. A lane held by one is
+*compliant*, and reports the control, not a shortfall.
+
+**So separate the two quiet lanes.** One is running less because a hold told it to. The other could
+start something and has not. **This trap is about the second.** Reporting the first as a failure
+buries the second, which is the one worth finding.
 
 Measured 2026-08-13: a builder concluded two items into an armed pull request. It correctly could
 not release the claims, and correctly stated both as deliberately held in three places. **Then it
