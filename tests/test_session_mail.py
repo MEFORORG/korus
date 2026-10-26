@@ -23,6 +23,7 @@ reporting zero truncated, because the raw body was charged while the renderer ad
 per line. Every bound below is asserted on what the drain actually wrote.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -949,7 +950,14 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.drain(self.peer, event="Stop", session_id="w2", fields={"cwd": str(self.peer)},
                    pass_event=False)
         self.assertEqual(2, len(self.stamps()), "w2's healthy Stop removed a stamp nobody was shown")
-        self.assertIn("1 more session(s)", self.ctx(self.launch()))
+        # CHANGED 2026-10-26: this read `assertIn("1 more session(s)", ...)`, when only the newest
+        # stamp was shown. Both are shown now.
+        self.assertEqual(2, len(self.fault_lines(self.ctx(self.launch()))))
+
+    def fault_lines(self, ctx: str) -> list[str]:
+        """The display's stamp lines, less the line that counts the stamps it does not show."""
+        return [ln for ln in ctx.splitlines()
+                if ln.startswith("[session-mail] UNSEEN FAULT (UNVERIFIED")]
 
     def test_a_stamp_dated_ahead_is_not_shown(self):
         """Bounded both ways, or a clock set forward would show it forever. The control is every
@@ -1142,6 +1150,185 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         # charge lines removed. A second run at the same commit read 8,191 and 8,986.
         self.assertLessEqual(len(ctx.encode("utf-8")),
                              BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
+
+    # ---- The Lander's hold on PR 245 of 2026-10-26T22:22Z, items 1 to 6. Each case below fails
+    # ---- at eef1a44; the Windows-only ones need a share mode only Windows enforces.
+
+    def faults_dir(self) -> Path:
+        return self.primary / ".git" / "ccx-mail-faults"
+
+    def fault_stop(self, session_id):
+        return self.drain(self.primary, event="Stop", session_id=session_id,
+                          fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+
+    def test_a_fault_after_a_display_is_written_beside_the_shown_stamp(self):
+        """Item 1. A Stop compared the shown stamp, then deleted it by name, and the drain
+        rewrote that one name at every fault, so a fault landing between the two steps was
+        deleted unshown. A stamp is now written once: the shown one stays byte for byte, the new
+        fault gets a file of its own, and the Stop of the session shown the first consumes only
+        that one, through a claim it leaves nothing of."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        shown = {p.name: p.read_bytes() for p in self.stamps()}
+        self.measured_stop()
+        after = {p.name: p.read_bytes() for p in self.stamps()}
+        self.assertEqual(2, len(after), "the new fault was written over the shown stamp")
+        for name, data in shown.items():
+            self.assertEqual(data, after.get(name), "the shown stamp was rewritten")
+        self.healthy_stop("w2")
+        left = self.stamps()
+        self.assertEqual(1, len(left), "the Stop did not consume exactly the stamp it was shown")
+        self.assertNotIn(left[0].name, shown)
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "a claim was left behind")
+
+    def test_a_stamp_rewritten_by_another_process_goes_back_under_its_name(self):
+        """Item 1, the claim's other branch. Something under this account rewrote the shown stamp
+        in place, so the claimed copy is not the version shown, and it goes back."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.write_text("2026-10-26T00:00:00Z\tStop\tw9\t[session-mail] rewritten", encoding="utf-8")
+        self.healthy_stop("w2")
+        self.assertEqual([stamp], self.stamps(), "the rewritten stamp is not back under its name")
+        self.assertIn("rewritten", stamp.read_text(encoding="utf-8"))
+        self.assertEqual([], self.markers())
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "a claim was left behind")
+
+    def test_an_older_fault_is_shown_beside_newer_ones(self):
+        """Item 2. Only the newest stamp was shown, so a fault that kept recurring kept its stamp
+        newest, and an older one waited until it was pruned unshown. Of five stamps a display now
+        shows three, newest first with the oldest among them, marks each, and counts the rest."""
+        for i in range(5):
+            self.fault_stop(f"s{i}")
+        by_age = sorted(self.stamps(), key=lambda p: p.stat().st_mtime_ns)
+        self.assertEqual(5, len(by_age))
+        when = [p.read_text(encoding="utf-8").split("\t")[0] for p in by_age]
+        lines = self.fault_lines(self.ctx(self.launch("w9")))
+        self.assertEqual(3, len(lines), "a display did not show three stamps")
+        self.assertIn(when[-1], lines[0], "the newest is not first")
+        self.assertIn(when[0], lines[-1], "the oldest stamp was held back")
+        self.assertEqual(3, len(self.markers()), "a shown stamp was not marked")
+        self.assertIn("2 more stamp file(s)", self.ctx(self.launch("w8")))
+        self.healthy_stop("w9")
+        self.assertEqual(2, len(self.fault_lines(self.ctx(self.launch("w7")))))
+
+    def test_a_second_fault_of_one_session_does_not_replace_the_first(self):
+        """Item 3. A session kept one stamp, rewritten by each fault, so a second fault replaced
+        a first nobody had been shown."""
+        self.measured_stop()
+        self.drain(self.peer, event="UserPromptSubmit", session_id="w1", pass_event=False)
+        self.assertEqual(2, len(self.stamps()), "the second fault replaced the first")
+        ctx = self.ctx(self.launch())
+        self.assertIn("NO BOX", ctx)
+        self.assertIn("'UserPromptSubmit'", ctx)
+
+    def test_a_session_keeps_a_bounded_count_of_stamps(self):
+        """Item 3's bound. A session keeps five; a sixth fault drops the oldest, and says so."""
+        for i in range(6):
+            r = self.drain(self.peer, event=f"Ev{i}", session_id="w1", pass_event=False)
+        self.assertEqual(5, len(self.stamps()))
+        self.assertIn("DROPPED A FAULT STAMP NO SESSION WAS SHOWN", r.stderr)
+        self.assertNotIn("'Ev0'", "\n".join(p.read_text(encoding="utf-8") for p in self.stamps()))
+
+    @unittest.skipUnless(os.name == "nt", "only Windows enforces a share mode on an open file")
+    def test_a_stamp_a_writer_holds_open_is_still_shown(self):
+        """Item 4. A display opened a stamp sharing read only. That blocked a peer's rename and
+        delete, and it refused a file another handle held for writing, which is what this case
+        holds: such a stamp was skipped."""
+        self.measured_stop()
+        with open(self.stamps()[0], "a", encoding="utf-8"):
+            ctx = self.ctx(self.launch("w2"))
+        self.assertIn("UNSEEN FAULT", ctx, "a stamp held open for writing was not read")
+
+    @unittest.skipUnless(os.name == "nt", "only Windows refuses to rename an open file")
+    def test_a_shown_stamp_held_open_at_its_stop_is_consumed_at_the_next(self):
+        """Item 4, the Manager's finding 4. A Stop that could not remove a shown stamp removed its
+        marker anyway, so no later Stop could consume it. Now the claim is retried, the marker
+        stays, the Stop says so on stderr, and the session's next Stop consumes the stamp."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        with open(self.stamps()[0], "rb"):
+            r = self.healthy_stop("w2")
+        self.assertIn("COULD NOT BE CLAIMED", r.stderr)
+        self.assertEqual(1, len(self.markers()), "the marker went while the stamp stayed")
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the next Stop of the session shown it left it")
+
+    def test_a_read_only_marker_is_still_replaced(self):
+        """Item 4, the Manager's finding 1: the write had no remove-then-rewrite fallback, so a
+        read-only file it had to replace kept its old content. Here a marker naming the wrong
+        version is rewritten by the next display, and the Stop then consumes the stamp."""
+        self.measured_stop()
+        self.ctx(self.launch("w2"))
+        marker = self.markers()[0]
+        marker.write_text("0" * 16, encoding="ascii")
+        os.chmod(marker, 0o444)
+        self.addCleanup(lambda: marker.exists() and os.chmod(marker, 0o666))
+        self.ctx(self.launch("w2"))
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the stale read-only marker was not replaced")
+
+    def test_a_stamp_pruned_unshown_says_so_on_stderr(self):
+        """Item 5. A stamp past either bound was pruned silently. One no session was shown is a
+        fault nobody read, so its prune now says so on stderr, never stdout."""
+        for label, shift in (("older than 24 hours", -2 * 86400),
+                             ("dated more than 15 minutes ahead", 365 * 86400)):
+            with self.subTest(label):
+                for p in self.faults_dir().glob("*"):
+                    p.unlink()
+                self.measured_stop()
+                stamp = self.stamps()[0]
+                moved = stamp.stat().st_mtime + shift
+                os.utime(stamp, (moved, moved))
+                r = self.fault_stop("w2")
+                self.assertEqual("", r.stdout)
+                self.assertIn("PRUNED A FAULT STAMP NO SESSION WAS SHOWN, " + label, r.stderr)
+                self.assertFalse(stamp.exists())
+
+    def test_a_shown_stamp_is_pruned_with_no_note(self):
+        """The control for the case above: a stamp a session was shown is not a lost fault."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        old = stamp.stat().st_mtime - 2 * 86400
+        os.utime(stamp, (old, old))
+        r = self.fault_stop("w3")
+        self.assertFalse(stamp.exists(), "the stale stamp was not pruned, so this measured nothing")
+        self.assertNotIn("PRUNED", r.stderr)
+
+    def test_a_marker_that_cannot_be_written_says_so(self):
+        """Item 5. The display's line says the stamp clears at the next Stop, and a failed marker
+        write made that false with no word anywhere."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        blocker = stamp.with_name(stamp.name + ".shown-" + session_hash("w2"))
+        blocker.mkdir()
+        (blocker / "x").write_text("x", encoding="ascii")
+        r = self.launch("w2")
+        self.assertIn("UNSEEN FAULT", self.ctx(r))
+        self.assertIn("SHOWN BUT NOT MARKED", r.stderr)
+
+    def test_a_stamp_that_cannot_be_written_says_so(self):
+        """Item 5. A failed stamp write left the fault on stderr with no word that it had no
+        stamp. A file where the stamp directory goes makes every write fail."""
+        self.faults_dir().write_text("in the way", encoding="ascii")
+        r = self.measured_stop()
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        self.assertIn("THIS FAULT LEFT NO STAMP", r.stderr)
+
+    def test_stamps_and_markers_key_on_an_eight_byte_session_hash(self):
+        """Item 6. The session hash was four bytes, where the prefix and the pins use eight, so
+        two sessions could share one, and one's Stop consume a stamp only the other was shown."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.assertIn("." + session_hash("w1") + ".", self.stamps()[0].name)
+        self.assertTrue(self.markers()[0].name.endswith(".shown-" + session_hash("w2")))
+
+
+def session_hash(session_id: str) -> str:
+    """The drain's session key: the first eight bytes of SHA-256 over the id, as hex."""
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:16]
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
