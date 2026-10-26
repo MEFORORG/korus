@@ -699,28 +699,44 @@ class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
     to make, and the card supplies an authoritative-sounding reason. `docs/ROLE-CARDS.md` names the
     mechanism -- a card is injected at SessionStart, so it outranks the document that corrects it.
 
-    NARROW ON PURPOSE. This guards one retired rule by name rather than pretending to a general
-    test, because no registry of retired rules exists to check against. Widen it by adding a row
-    when the next rule retires, and the pair below keeps it honest meanwhile.
+    NARROW ON PURPOSE. This guards named retired rules rather than pretending to a general test,
+    because no registry of retired rules exists to check against. Widen it by adding a row when the
+    next rule retires. Every row carries its own planted live line, and the positive control below
+    runs each one, so no pattern can be added without a control.
     """
 
-    #: (pattern, why it is retired). Matched case-insensitively, line by line.
+    #: (pattern, why it is retired, a live line it must catch). Matched case-insensitively, line by
+    #: line. The planted line is the rule as it was last stated live, so the control is real text.
     RETIRED = [
-        ("reviewed", "the `reviewed` merge gate was removed 2026-09-04; an unlabelled PR merges"),
+        (
+            "reviewed",
+            "the `reviewed` merge gate was removed 2026-09-04; an unlabelled PR merges",
+            "- **Merge an unlabelled PR.** `reviewed` is the gate, so re-check after any push.",
+        ),
         (
             "lander can land",
             "owner ruling 2026-10-26 retired the briefing limit keyed to the Lander's merge rate",
+            "- **Brief more than the Lander can land.**",
         ),
-        ("five items", "owner ruling 2026-10-26 removed the five-item cut on a batched PR"),
-        ("most you oversee", "owner ruling 2026-10-26 retired the Builder's four-item lane ceiling"),
+        (
+            "five items",
+            "owner ruling 2026-10-26 removed the five-item cut on a batched PR",
+            "- Cut it when every Builder has reported, at five items, or before you close.",
+        ),
+        (
+            "most you oversee",
+            "owner ruling 2026-10-26 retired the Builder's four-item lane ceiling",
+            "**Two to four is the most you oversee, not the least you must reach.** Owner ruling 2026-08-28.",
+        ),
     ]
 
-    def _live_hits(self, text: str) -> list[str]:
+    def _live_hits(self, text: str, patterns: list[str] | None = None) -> list[str]:
         """Lines naming a retired rule without marking it retired."""
+        wanted = [row[0] for row in self.RETIRED] if patterns is None else patterns
         out = []
         for line in text.splitlines():
             low = line.lower()
-            for pattern, _ in self.RETIRED:
+            for pattern in wanted:
                 if pattern in low and "retired" not in low and "read *\"" not in line:
                     out.append(line.strip())
         return out
@@ -737,21 +753,20 @@ class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
             "a role card names a retired rule without marking it retired:\n"
             + "\n".join(f"  {name}: {h}" for name, hs in offenders.items() for h in hs)
             + "\n\nThe reasons: "
-            + "; ".join(why for _, why in self.RETIRED),
+            + "; ".join(why for _, why, _ in self.RETIRED),
         )
 
     def test_the_scan_fires_on_the_shape_it_exists_to_catch(self):
-        """The positive control. Without it, a pattern that matches nothing passes silently."""
-        planted = "- **Merge an unlabelled PR.** `reviewed` is the gate, so re-check after any push."
-        self.assertTrue(
-            self._live_hits(planted),
-            "the scan did not fire on the exact line that shipped to main, so it guards nothing",
-        )
+        """The positive control, per row. Without it, a pattern that matches nothing passes silently.
 
-    def test_the_scan_fires_on_the_retired_five_item_cut(self):
-        """The manager card's line before owner ruling 2026-10-26, verbatim."""
-        planted = "- Cut it when every Builder has reported, at five items, or before you close."
-        self.assertTrue(self._live_hits(planted), "the scan did not fire on the retired five-item cut")
+        Each planted line must fire on ITS OWN pattern, so a row whose pattern has a typo goes red
+        even when another row's pattern happens to match the same line."""
+        for pattern, _, planted in self.RETIRED:
+            with self.subTest(pattern=pattern):
+                self.assertTrue(
+                    self._live_hits(planted, [pattern]),
+                    f"the scan for {pattern!r} did not fire on its planted live line, so it guards nothing",
+                )
 
     def test_the_scan_accepts_a_correctly_retracted_line(self):
         """The negative arm. A retraction names the rule on purpose and must not be flagged."""

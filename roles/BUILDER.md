@@ -47,8 +47,8 @@ a gate, and never mislead a teammate or the owner about what you built.
 Manager, the seat that can act on it and the seat that opens the pull request.
 
 **RETIRED 2026-10-26 by owner ruling: the lane ceiling.** This read *"Two to four is the most you
-oversee, not the least you must reach."* Work at full speed. *A claim that outlives the work is a
-slot nobody can see* names the two usage controls that still stop a start.
+oversee, not the least you must reach. Owner ruling 2026-08-28."* Work at full speed. *A claim that
+outlives the work is a slot nobody can see* says what still stops a start.
 
 **This file carries no live state on purpose.** Item numbers, lane assignments, queue tables, pull
 request numbers and "pick up here" lists belong in a dated episode note. See *The role file holds
@@ -111,12 +111,12 @@ Console, and do not wait on one.
 | Why you cannot post it yourself | For a NEW branch the pull request does not exist until you have exited. |
 | The one case where you can | A follow-up brief onto a branch whose pull request is already open. Then the brief names the number, and you comment there as well as reporting. |
 | Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. |
-| **CORRECTED 2026-10-26 by owner ruling: the START THROTTLE** | This row also read *"Who holds the START THROTTLE now is OPEN."* The owner retired the throttle, so no seat holds it. 5d names the two usage controls that still stop a start. |
+| **CORRECTED 2026-10-26 by owner ruling: the START THROTTLE** | This row also read *"Who holds the START THROTTLE now is OPEN."* The owner retired the throttle, so no seat holds it. 5d says what still stops a start. |
 | Expiry | This retires when the owner names a successor seat or restores one of the three. |
 
-**Do not read a quiet lane as a throttled one.** Since 2026-10-26 nothing holds a start but a usage
-control. Mail waits for the recipient's next turn. See [COMMON.md](COMMON.md), *Mail is a mailbox,
-not a doorbell, and it expires in 72 hours*.
+**Do not assume a quiet lane was throttled.** Since 2026-10-26 no seat throttles your starts,
+though the usage controls 5d points to still stop one. Mail waits for the recipient's next turn. See
+[COMMON.md](COMMON.md), *Mail is a mailbox, not a doorbell, and it expires in 72 hours*.
 
 ### If the brief does not answer something you must know, do not guess and do not wait
 
@@ -596,7 +596,7 @@ claim id, a pull request number, a count from `claim.ps1 -List`, a timestamp.
 **Never a self-assessment of effort.** "No -- 1 of 4 moving, 3 blocked on the parser item" is
 checkable; "Mixed, working hard" is not.
 
-**On a "no": say the number and what you can take.** "I hold 2, I can take 2 more, my lane is <x>"
+**On a "no": say the number and what you can take.** "I hold 2, I can take more now, my lane is <x>"
 is actionable; "not enough" is not, to anyone replenishing lanes.
 
 Reasoning goes in the prose above the table. **A dashboard that has to be read is not a dashboard.**
@@ -1277,20 +1277,15 @@ Built-and-awaiting-merge is zero occupancy. Say so, so others count it the same 
 *"counts against your four"* until 2026-10-26, when the four went.
 
 **RETIRED 2026-10-26 by owner ruling: the four-item ceiling and the throttle on starts.** This read
-*"four is the MOST YOU OVERSEE"*. An owner ruling of 2026-08-28 added *"starts are throttled by
-burn"*. Asked about both, the owner selected *"Retire it"*.
+*"four is the MOST YOU OVERSEE"* and *"starts are throttled by burn"*. An owner ruling of 2026-08-28
+set both. Asked about both, the owner selected *"Retire it"*.
 
 That ruling named the Dispatcher as the throttle's holder. Nobody held it after that seat retired on
 2026-09-01.
 
-**Work at full speed. Two usage controls still stop a start.**
-
-| Control | Where it lives |
-| --- | --- |
-| A Steward's HOLD NEW WORK | [STEWARD.md](STEWARD.md), *3g. What each state asks for* |
-| The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
-
-A lane running less because one of them fired is *compliant*. It reports the hold, not a shortfall.
+**Work at full speed. Usage controls still stop a start.** [MANAGER.md](MANAGER.md), *Brief at full
+speed*, holds the one list of them. A lane running less because one fired is *compliant*. It
+reports the control, not a shortfall.
 
 **So separate the two quiet lanes.** One is running less because a hold told it to. The other could
 start something and has not. **This trap is about the second.** Reporting the first as a failure
