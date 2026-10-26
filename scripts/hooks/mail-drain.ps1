@@ -427,7 +427,8 @@ function Save-DrainFault {
             foreach ($d in @($mine | Sort-Object { -not (Test-DrainShownAny $_.FullName) }, LastWriteTimeUtc | Select-Object -First $over)) {
                 $unshown = -not (Test-DrainShownAny $d.FullName)
                 if ((Remove-DrainFile $d.FullName) -and $unshown) {
-                    Write-DrainNote "DROPPED A FAULT STAMP NO SESSION WAS SHOWN ($($d.Name)): this session holds $($script:StampsPerSession) at most, and a newer fault took its place."
+                    Write-DrainNote ("DROPPED A FAULT STAMP NO SESSION WAS SHOWN ($($d.Name)): this session " +
+                        "holds $($script:StampsPerSession) at most, and a newer fault took its place.")
                 }
             }
         }
@@ -662,7 +663,8 @@ function Clear-DrainShownFault {
                     $want = (Read-DrainHead $m.FullName 64).Trim()
                     if ($want -and $want -eq (Get-DrainStampIdentity (Read-DrainHead $claim 2048))) {
                         if (-not (Remove-DrainFile $claim)) {
-                            Write-DrainNote "A SHOWN FAULT STAMP COULD NOT BE DELETED ($name). It is left under a claim name no display reads, and is pruned within a day."
+                            Write-DrainNote ("A SHOWN FAULT STAMP COULD NOT BE DELETED ($name). It is left under " +
+                                "a claim name no display reads, and is pruned within a day.")
                         }
                     }
                     else {
@@ -676,7 +678,9 @@ function Clear-DrainShownFault {
             }
             catch {
                 # A claimed copy goes back under its own name, or no display would read it again.
-                if ($claimed -and [System.IO.File]::Exists($claim)) { try { [System.IO.File]::Move($claim, $stamp, $false) } catch { } }
+                if ($claimed -and [System.IO.File]::Exists($claim)) {
+                    try { [System.IO.File]::Move($claim, $stamp, $false) } catch { }
+                }
                 $keepMarker = $true
                 Write-DrainNote "A SHOWN FAULT STAMP WAS NOT CONSUMED ($name): $($_.Exception.Message). It shows again."
             }

@@ -876,11 +876,12 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
 
 class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     """docs/HOOKS.md, "Fail open, but never silently", asks for stderr AND a durable record. A Stop
-    fault goes to stderr, which no reader is measured to see. So it also leaves one stamp under the
-    git common dir, keyed per worktree, and the next SessionStart for that worktree prints it.
+    fault goes to stderr, which no reader is measured to see. So it also leaves a stamp under the
+    git common dir, keyed per worktree and session, and the next SessionStart for that worktree
+    prints it, with up to two others.
 
     A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
-    context nobody reads. It marks the stamp it showed as shown to its own session, and every Stop
+    context nobody reads. It marks each stamp it showed as shown to its own session, and every Stop
     of that session clears it, one that faults or meets delivery off included. Delivery off is a
     switch, not a fault, and leaves none.
 
