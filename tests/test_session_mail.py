@@ -1033,14 +1033,16 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     def test_a_rewrite_with_the_shown_write_time_still_survives(self):
         """The marker names the content shown, not the write time. A rewrite given back the
         shown time, as a coarse file system or a reset clock would, must not be deleted unshown."""
+        # CHANGED 2026-10-26: the rewrite here was a second measured_stop. The drain now writes a
+        # new file for that, so the case rewrote nothing; the stamp is rewritten in place instead.
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
         stamp = self.stamps()[0]
         shown = stamp.stat().st_mtime_ns
-        self.measured_stop()
+        stamp.write_text(stamp.read_text(encoding="utf-8") + " newer", encoding="utf-8")
         os.utime(stamp, ns=(shown, shown))
         self.healthy_stop("w2")
-        self.assertEqual(1, len(self.stamps()), "a Stop deleted a newer fault with the shown time")
+        self.assertEqual([stamp], self.stamps(), "a Stop deleted a newer fault with the shown time")
 
     def test_an_unreadable_newest_stamp_does_not_hide_the_rest(self):
         """An empty newest file reads as nothing. The next newest is shown instead."""
@@ -1137,6 +1139,11 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.measured_stop()
         stamp = self.stamps()[0]
         stamp.write_text("2099\tStop\tw1\t" + "Z" * 2000, encoding="utf-8")
+        # CHANGED 2026-10-26: one stamp, when a display showed one. It shows three and counts the
+        # rest now, so four are planted, in a three-byte character, to charge every line it adds.
+        for i in range(3):
+            stamp.with_name(f"{stamp.name.split('.')[0]}.planted{i}.txt").write_text(
+                "2099\tStop\tw1\t" + chr(0x20AC) * 2000, encoding="utf-8")
         for i in range(5):
             self.plant(("line %d\n" % i) * 2000)
         r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
@@ -1144,7 +1151,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
         ctx = self.ctx(r)
         self.assertIn("line 0", ctx, "nothing was rendered, so the cap below measured nothing")
-        self.assertIn("UNSEEN FAULT", ctx)
+        self.assertEqual(3, len(self.fault_lines(ctx)))
+        self.assertIn("1 more stamp file(s)", ctx)
         self.assertIn("NO EVENT NAMED", ctx)
         # The same tolerance as the cap test above, which this render must not widen. Read with
         # this case's own setup on 2026-10-26: 8,199 bytes at 6f3ef50, and 9,000 with its two
@@ -1153,7 +1161,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                              BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
 
     # ---- The Lander's hold on PR 245 of 2026-10-26T22:22Z, items 1 to 6. Each case below fails
-    # ---- at eef1a44; the Windows-only ones need a share mode only Windows enforces.
+    # ---- at eef1a44 on Windows, except the two whose docstrings name them as controls. The
+    # ---- read-only marker case fails there on Windows only, since POSIX renames over a 0444 file.
 
     def faults_dir(self) -> Path:
         return self.primary / ".git" / "ccx-mail-faults"
@@ -1183,8 +1192,9 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "a claim was left behind")
 
     def test_a_stamp_rewritten_by_another_process_goes_back_under_its_name(self):
-        """Item 1, the claim's other branch. Something under this account rewrote the shown stamp
-        in place, so the claimed copy is not the version shown, and it goes back."""
+        """Item 1, the claim's other branch, and a control: eef1a44 kept such a stamp too.
+        Something under this account rewrote the shown stamp in place, so the claimed copy is not
+        the version shown, and it goes back."""
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
         stamp = self.stamps()[0]
@@ -1224,12 +1234,28 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("'UserPromptSubmit'", ctx)
 
     def test_a_session_keeps_a_bounded_count_of_stamps(self):
-        """Item 3's bound. A session keeps five; a sixth fault drops the oldest, and says so."""
+        """Item 3's bound. A session keeps five. With none shown, a sixth fault drops the newest
+        unshown one and says so, so faults whose text varies cannot evict an older one-time one."""
         for i in range(6):
             r = self.drain(self.peer, event=f"Ev{i}", session_id="w1", pass_event=False)
         self.assertEqual(5, len(self.stamps()))
         self.assertIn("DROPPED A FAULT STAMP NO SESSION WAS SHOWN", r.stderr)
-        self.assertNotIn("'Ev0'", "\n".join(p.read_text(encoding="utf-8") for p in self.stamps()))
+        held = "\n".join(p.read_text(encoding="utf-8") for p in self.stamps())
+        self.assertIn("\tEv0\t", held, "the oldest fault was evicted")
+        self.assertIn("\tEv5\t", held, "the newest fault was not written")
+        self.assertNotIn("\tEv4\t", held)
+
+    def test_a_claim_a_dead_stop_left_is_put_back_and_consumed(self):
+        """Item 1. A Stop that dies between its claim and its delete leaves the stamp under a claim
+        name no display reads. The next Stop of that session puts it back, then consumes it."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.rename(stamp.with_name(stamp.name + ".claim-" + session_hash("w2") + "-99999996"))
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the stranded claim was not consumed")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "the claim was left")
+        self.assertEqual([], self.markers())
 
     @unittest.skipUnless(os.name == "nt", "only Windows enforces a share mode on an open file")
     def test_a_stamp_a_writer_holds_open_is_still_shown(self):

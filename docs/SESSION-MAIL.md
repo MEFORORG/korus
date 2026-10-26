@@ -357,7 +357,7 @@ the model's context, which is the point; it may show only in debug or verbose ou
 
 So a `Stop` fault also leaves a stamp under `<git-common-dir>/ccx-mail-faults/`, keyed by worktree
 and session. Each fault gets its own file, written once. A standing fault adds none while its stamp
-is unshown. A session keeps five; a sixth drops its oldest, shown ones first.
+is unshown. A session keeps five. A sixth drops its oldest shown one, or else its newest unshown.
 
 The next `SessionStart` for that worktree prints up to three stamps on stdout, one line each,
 marked unverified, where a reader is. They run newest first, and the oldest is always among them,

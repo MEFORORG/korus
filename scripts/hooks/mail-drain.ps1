@@ -240,11 +240,23 @@ function New-DrainStampPath {
         compared a shown stamp and then deleted it could delete a rewrite that landed between the
         two steps. A stamp is now WRITTEN ONCE and never rewritten, so a marker names exactly one
         version, and the drain's own write can never land inside a Stop's compare and delete.
-        The version leads with the UTC time to 100 ns, so names sort in write order.
+        The version leads with the UTC time to 100 ns, in the invariant culture, so versions sort
+        in write order; Get-DrainStampOrder reads it back.
     #>
     param([string] $Prefix)
-    $version = [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfffffff') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $now = [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfffffff', [System.Globalization.CultureInfo]::InvariantCulture)
+    $version = $now + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
     return "$Prefix.$(Get-DrainSessionHash).$version.txt"
+}
+
+function Get-DrainStampOrder {
+    # A stamp's version, the name's second-to-last part: the tie-break when two write times are
+    # equal on a coarse file system. The session hash comes earlier in the name, so the whole name
+    # would order two sessions by hash instead.
+    param([System.IO.FileInfo] $File)
+    $parts = $File.Name -split '\.'
+    if ($parts.Count -ge 2) { return $parts[-2] }
+    return ''
 }
 
 function Write-DrainNote {
@@ -315,21 +327,23 @@ function Write-DrainFileAtomic {
     .SYNOPSIS
         Write a file in one rename, as `Write-CcxSessionPin` does, so a reader never meets half of it.
     .DESCRIPTION
-        -New: the name must not exist yet, and an existing file is never replaced.
+        On Windows another handle on the file, a reader or an indexer, makes a rename fail, so it
+        retries as that function does, eight times 25 ms apart.
 
-        Otherwise it replaces. On Windows a reader holding the file open makes the rename fail, so
-        it retries as that function does, eight times 25 ms apart. Then, as that function does, it
-        removes the old file and renames once more, so a file whose own state blocked the rename,
-        read-only say, is still replaced. It throws when that fails too; each caller catches.
+        -New: the name must not exist yet, and an existing file is never replaced. It throws after
+        the last retry.
+
+        Otherwise it replaces. After the retries, as that function does, it removes the old file
+        and renames once more, so a file whose own state blocked the rename, read-only say, is
+        still replaced. It throws when that fails too. Each caller catches.
     #>
     param([string] $Path, [string] $Text, [switch] $New)
     $tmp = "$Path.$PID.$([guid]::NewGuid().ToString('N').Substring(0, 8)).tmp"
     try {
         [System.IO.File]::WriteAllText($tmp, $Text, [System.Text.UTF8Encoding]::new($false))
-        if ($New) { [System.IO.File]::Move($tmp, $Path, $false); $tmp = $null; return }
         foreach ($attempt in 1..8) {
-            try { [System.IO.File]::Move($tmp, $Path, $true); $tmp = $null; return }
-            catch { Start-Sleep -Milliseconds 25 }
+            try { [System.IO.File]::Move($tmp, $Path, (-not $New)); $tmp = $null; return }
+            catch { if ($New -and $attempt -eq 8) { throw }; Start-Sleep -Milliseconds 25 }
         }
         [void](Remove-DrainFile $Path)
         [System.IO.File]::Move($tmp, $Path, $false)
@@ -347,10 +361,22 @@ function Get-DrainFiles {
     Get-ChildItem -LiteralPath $Dir -Filter $Filter -File -ErrorAction SilentlyContinue
 }
 
-function Test-DrainShownAny {
-    # Whether any session holds a shown-marker for this stamp.
-    param([string] $Stamp)
-    return (@(Get-DrainFiles (Split-Path -Parent $Stamp) "$(Split-Path -Leaf $Stamp).shown-*").Count -gt 0)
+function Get-DrainShownSet {
+    <#
+    .SYNOPSIS
+        The names of the stamps in $Dir that some session holds a shown-marker for, read once.
+    .DESCRIPTION
+        Only a whole marker name counts, <stamp>.shown-<hex>, so a marker's stranded temp file,
+        <stamp>.shown-<hex>.<pid>.<guid>.tmp, does not make a stamp nobody marked read as shown.
+        Read BEFORE a prune deletes anything: a stale marker deleted ahead of its stale stamp would
+        otherwise make that stamp read as never shown. Linux lists a directory unsorted.
+    #>
+    param([string] $Dir)
+    $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($f in @(Get-DrainFiles $Dir '*.shown-*')) {
+        if ($f.Name -match '^(.+\.txt)\.shown-[0-9a-f]+$') { [void]$set.Add($Matches[1]) }
+    }
+    return , $set
 }
 
 function Remove-DrainStaleFiles {
@@ -359,13 +385,18 @@ function Remove-DrainStaleFiles {
         Prune every file here past the freshness bound, in every worktree's prefix.
     .DESCRIPTION
         A stamp no session was shown is a fault nobody read, so its prune says so on stderr, with
-        the fault it held. CHANGED 2026-10-26: every prune was silent.
+        the fault it held. So does the prune of a claimed copy a Stop that died left behind.
+        CHANGED 2026-10-26: every prune was silent.
     #>
     param([string] $Dir)
+    $shown = Get-DrainShownSet $Dir
     foreach ($f in @(Get-DrainFiles $Dir '*')) {
         if (Test-DrainStampFresh $f) { continue }
         $note = $null
-        if ($f.Name.EndsWith('.txt') -and -not (Test-DrainShownAny $f.FullName)) {
+        $base = if ($f.Name.EndsWith('.txt')) { $f.Name }
+                elseif ($f.Name -match '^(.+\.txt)\.claim-[0-9a-f]+-\d+$') { $Matches[1] }
+                else { $null }
+        if ($base -and -not $shown.Contains($base)) {
             $why = if ($f.LastWriteTimeUtc -gt [DateTime]::UtcNow) { 'dated more than 15 minutes ahead' }
                    else { "older than $($script:StampHours) hours" }
             $s = $null
@@ -387,18 +418,21 @@ function Save-DrainFault {
         that meets the fault writes a new one, which waits for its own display.
 
         BOUNDED: a session keeps at most $script:StampsPerSession. A new fault past that drops the
-        session's oldest, a shown one first, and an unshown drop says so on stderr.
+        session's oldest shown stamp, and with none shown, its NEWEST unshown one, saying so on
+        stderr. Not the oldest: a fault whose text varies, an exception message say, fills the
+        places with variants, and dropping the oldest would evict a one-time fault behind them.
 
         Each write also prunes stale stamps in every worktree, since a removed worktree's sessions
         never run to clear their own. It never throws and never blocks the exit. A write that fails,
-        or a drain with no checkout to key one in, says so on stderr. CHANGED 2026-10-26: both were
-        silent.
+        or a drain with nowhere to key one, says so on stderr. CHANGED 2026-10-26: both were silent.
     #>
     param([string] $Text)
+    $dir = $null
     try {
         $prefix = Get-DrainFaultPrefix $script:FaultAbout
         if (-not $prefix) {
-            Write-DrainNote "THIS FAULT LEFT NO STAMP: the drain has no checkout to keep one in, so the line above is its only record."
+            Write-DrainNote ("THIS FAULT LEFT NO STAMP: the drain started in no checkout, or its input reader " +
+                "did not load, so it has nowhere to keep one. The line above is its only record.")
             return
         }
         $dir = Split-Path -Parent $prefix
@@ -410,34 +444,39 @@ function Save-DrainFault {
                 (ConvertTo-DrainField $Text 400)
             ) -join "`t")
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
+        $shown = Get-DrainShownSet $dir
         $mine = @(Get-DrainFiles $dir "$(Split-Path -Leaf $prefix).$(Get-DrainSessionHash).*.txt" |
-            Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc, Name)
+            Where-Object { Test-DrainStampFresh $_ })
         $key = Get-DrainFaultKey $evt (ConvertTo-DrainWhat $Text)
+        $standing = $false
         foreach ($m in $mine) {
+            if ($shown.Contains($m.Name)) { continue }
             $s = $null
             try { $s = Read-DrainFaultFields $m.FullName } catch { }
-            if ($s -and (Get-DrainFaultKey $s.Event $s.What) -eq $key -and -not (Test-DrainShownAny $m.FullName)) {
-                Remove-DrainStaleFiles $dir
-                return
-            }
+            if ($s -and (Get-DrainFaultKey $s.Event $s.What) -eq $key) { $standing = $true; break }
         }
-        $over = $mine.Count - ($script:StampsPerSession - 1)
-        if ($over -gt 0) {
-            # $false sorts first, so the shown stamps go before any nobody has read.
-            foreach ($d in @($mine | Sort-Object { -not (Test-DrainShownAny $_.FullName) }, LastWriteTimeUtc | Select-Object -First $over)) {
-                $unshown = -not (Test-DrainShownAny $d.FullName)
-                if ((Remove-DrainFile $d.FullName) -and $unshown) {
-                    Write-DrainNote ("DROPPED A FAULT STAMP NO SESSION WAS SHOWN ($($d.Name)): this session " +
-                        "holds $($script:StampsPerSession) at most, and a newer fault took its place.")
+        if (-not $standing) {
+            $over = $mine.Count - ($script:StampsPerSession - 1)
+            if ($over -gt 0) {
+                $order = @(@($mine | Where-Object { $shown.Contains($_.Name) } |
+                            Sort-Object LastWriteTimeUtc, { Get-DrainStampOrder $_ }) +
+                        @($mine | Where-Object { -not $shown.Contains($_.Name) } |
+                            Sort-Object LastWriteTimeUtc, { Get-DrainStampOrder $_ } -Descending))
+                foreach ($d in @($order | Select-Object -First $over)) {
+                    if ((Remove-DrainFile $d.FullName) -and -not $shown.Contains($d.Name)) {
+                        Write-DrainNote ("DROPPED A FAULT STAMP NO SESSION WAS SHOWN ($($d.Name)): this session " +
+                            "holds $($script:StampsPerSession) at most, and a newer fault took its place.")
+                    }
                 }
             }
+            Write-DrainFileAtomic -New (New-DrainStampPath $prefix) $line
         }
-        Write-DrainFileAtomic -New (New-DrainStampPath $prefix) $line
-        Remove-DrainStaleFiles $dir
     }
     catch {
         Write-DrainNote "THIS FAULT LEFT NO STAMP: the stamp write failed ($($_.Exception.Message)), so the line above is its only record."
     }
+    # Apart from the write, so a prune that throws is never reported as a stamp not written.
+    if ($dir) { try { Remove-DrainStaleFiles $dir } catch { } }
 }
 
 function Read-DrainHead {
@@ -449,8 +488,11 @@ function Read-DrainHead {
     $buf = [char[]]::new($Max)
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $fs = [System.IO.FileStream]::new($File, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-    $reader = [System.IO.StreamReader]::new($fs, [System.Text.UTF8Encoding]::new($false))
-    try { $n = $reader.Read($buf, 0, $buf.Length) } finally { $reader.Dispose() }
+    try {
+        $reader = [System.IO.StreamReader]::new($fs, [System.Text.UTF8Encoding]::new($false))
+        $n = $reader.Read($buf, 0, $buf.Length)
+    }
+    finally { $fs.Dispose() }
     if ($n -le 0) { return '' }
     return [string]::new($buf, 0, $n)
 }
@@ -527,7 +569,7 @@ function Read-DrainFault {
         if (-not $prefix) { return '' }
         $leaf = Split-Path -Leaf $prefix
         $fresh = @(Get-DrainFiles (Split-Path -Parent $prefix) "$leaf.*.txt" |
-            Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc, Name -Descending)
+            Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc, { Get-DrainStampOrder $_ } -Descending)
         $picked = [System.Collections.Generic.List[object]]::new()
         $reads = 0
         $i = 0
@@ -650,6 +692,17 @@ function Clear-DrainShownFault {
             $keepMarker = $false
             $claimed = $false
             try {
+                # A Stop that died between its claim and its delete or put-back left the stamp under
+                # a claim name no display reads. Put a dead process's claim back first, so this
+                # Stop claims it afresh rather than drop the marker with the stamp out of sight.
+                if (-not [System.IO.File]::Exists($stamp)) {
+                    foreach ($c in @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*")) {
+                        if ($c.Name -notmatch '\.claim-[0-9a-f]+-(\d+)$') { continue }
+                        $owner = [int]$Matches[1]
+                        if ($owner -eq $PID -or (Get-Process -Id $owner -ErrorAction SilentlyContinue)) { continue }
+                        try { [System.IO.File]::Move($c.FullName, $stamp, $false); break } catch { }
+                    }
+                }
                 foreach ($attempt in 1..8) {
                     if (-not [System.IO.File]::Exists($stamp)) { break }
                     try { [System.IO.File]::Move($stamp, $claim, $false); $claimed = $true; break }
