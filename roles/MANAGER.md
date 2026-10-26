@@ -29,6 +29,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
 | You still do not manage the merge queue or the repository | That half of the retired row survives. Leave both to the Lander. |
+| **Brief at full speed (owner ruling 2026-10-26)** | Never limit briefing by the open pull request count, the queue's depth, or the Lander's merge rate. Batch into combined pull requests; the Lander works the queue down. Section 2a carries the ruling. |
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
@@ -365,11 +366,15 @@ What bound that run was the repository. See, in the constitution:
 
 ---
 
-## 2. Never Conflict with the Lander or Clog the Queue
+## 2. Never Conflict with the Lander
 
-**The queue half of this heading narrowed on 2026-09-18.** You no longer hold a pull request back on
-what the queue looks like. See *Do not check the pool before you open*. What survives is granularity,
-decided at dispatch in section 2a and at step 9 in *When to cut a pull request*.
+**CORRECTED 2026-10-26 by owner ruling.** This heading read *"Never Conflict with the Lander or Clog
+the Queue"*. A queue of open pull requests is expected, and the Lander works it down. Section 2a,
+under its RETIRED 2026-10-26 note, carries the ruling.
+
+**The queue half of the old heading narrowed on 2026-09-18.** You no longer hold a pull request
+back on what the queue looks like. See *Do not check the pool before you open*. What survives is
+granularity, decided at dispatch in section 2a and at step 9 in *When to cut a pull request*.
 
 **An engine pull request no longer edits the ledger.** The ledger moved to the vault on 2026-09-13
 (BACKLOG #1250). The Lander writes each banner there after the merge, from the text in the Builder's
@@ -459,23 +464,39 @@ carried here rather than re-derived by this seat.
 | The worked example | PR 832 spread its `docs/BACKLOG.md` edits through code commits and needed a hand-resolved merge. |
 | Announce the files the pull requests will CHANGE, never the items' SUBJECTS | A dispatch announce naming `auth/service.py`, `api/app.py` and `config/settings.py` was read downstream as a collision forecast. The pull requests touched `docs/BACKLOG.md` and one test file; those paths were what the items were ABOUT. |
 | So, for a research wave | The changed file is almost always the ledger alone. Say that. |
-| Verify the remote before sizing a wave | `gh` answers plausibly against the wrong repository rather than failing. |
+| Verify the remote before you act on a `gh` read | `gh` answers plausibly against the wrong repository rather than failing. |
 | The measured case | A Manager ran `gh pr list` against the vault, read **1** open pull request, and sized a ten-subagent dispatch on it. The engine had **38**. |
+| **CORRECTED 2026-10-26 by owner ruling** | The row *Verify the remote before you act on a `gh` read* was named *"Verify the remote before sizing a wave"*. The open pull request count is not a dispatch input. Size a wave by its work. |
 | So | Pass `--repo MEFORORG/MessageFoundry` explicitly on anything you will act on. The vault was renamed to `wshallwshall/MessageFoundry-vault` the same day and the old slug STILL REDIRECTS, so a stale `--repo wshallwshall/MessageFoundry` still answers, and answers about the vault. |
 | **CORRECTED 2026-09-24: the vault's slug is `MEFORORG/MessageFoundry-vault`** | The row above keeps what it said. `gh repo view --json nameWithOwner` in the vault checkout returns `MEFORORG/MessageFoundry-vault`, and `wshallwshall/MessageFoundry-vault` redirects there too. The advice holds: name the repository with `--repo`. |
 | **EXPIRY** | This holds only while the ledger is one file whose new rows land at one tail, and while conflict resolution is serial and manual. |
 | How to check the expiry | Re-examine it if `docs/BACKLOG.md` is split, if a merge driver is adopted for it, or if rows stop being appended in number order. |
 
-**Worked example, 2026-09-05, on when to brief NOTHING.** 62 open non-draft pull requests against a
-merge rate of 2.2 to 2.7 an hour. 29 opened in one three-hour window, or 9.7 an hour. That is a
-utilisation of 3.6 to 5.0.
+**RETIRED 2026-10-26 by owner ruling: the worked example on when to brief NOTHING.** It set a
+work-in-progress limit keyed to the Lander's merge rate. It ended: *"At that point briefing anything
+new subtracts from the fleet's throughput."*
 
-**Above 1.0 a queue does not settle at some depth. It grows without bound.** Median age at merge was
-already 15 hours and the oldest open item was two days. **At that point briefing anything new
-subtracts from the fleet's throughput.**
+The owner's words, in session: *"This is NEVER a thing in our processes. Builders and managers work
+at full speed. Managers batch work into combined PRs as much as possible. A merge queue develops.
+The lander works it down."*
 
-**Why this is a Manager rule and not a Builder one.** A Builder cannot batch its own output: it is
-dispatched against one item and its process ends before any pull request exists.
+**The rule now: brief at full speed.** Never hold a brief or shrink a wave for the open pull request
+count, the queue's depth, or the Lander's merge rate. Batch each wave into combined pull requests,
+by *When to cut a pull request*. The Lander works the queue down.
+
+**The 2026-09-05 figures stay as a reading, not a rule.** They are not a dispatch input.
+
+| Reading, 2026-09-05 | Value |
+| --- | --- |
+| Open non-draft pull requests | 62 |
+| Merge rate | 2.2 to 2.7 an hour |
+| Opened | 29 in one three-hour window, or 9.7 an hour |
+| Utilisation | 3.6 to 5.0 |
+| Median age at merge | 15 hours |
+| Oldest open item | Two days |
+
+**Why batching is a Manager rule and not a Builder one.** A Builder cannot batch its own output: it
+is dispatched against one item and its process ends before any pull request exists.
 
 **Granularity is decided at dispatch and at step 9, and nowhere else.** A convention written into a Builder brief
 binds nobody after the fact, because there is nobody left to bind.
