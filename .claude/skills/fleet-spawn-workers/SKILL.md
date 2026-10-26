@@ -98,8 +98,8 @@ bound.** These rows are the part that does not.
 | The outside ladder is a shape to copy, not a size to adopt | Anthropic's write-up of its multi-agent research system keeps the sizing rule in the orchestrator. It calls the lack of one a common failure mode, and records fifty subagents spawned for one simple query. |
 | Its integers do not come with it | The ladder runs from one agent for simple fact-finding, through two to four for a direct comparison, to ten or more for complex research. |
 | The condition that stops them transferring | **Those were measured on research tasks, and the same post says coding parallelises worse.** No number in that ladder has been measured on this fleet. |
-| What bounds YOUR number | The work and your account's usage, never the merge queue. [MANAGER.md](../../../roles/MANAGER.md), *Do not check the pool before you open*, carries the 2026-10-26 owner ruling. |
-| **CORRECTED 2026-10-26** | This row cited *"A Manager's fan-out is bounded by one window and by shared runners"*, a MANAGER.md heading that does not exist. |
+| What bounds YOUR number is in your own playbook | For a Manager, [MANAGER.md](../../../roles/MANAGER.md), *Brief at full speed*: usage holds bound it, and the merge queue does not (owner ruling 2026-10-26). |
+| **CORRECTED 2026-10-26** | The row above cited *"A Manager's fan-out is bounded by one window and by shared runners"*, a MANAGER.md heading that does not exist. |
 | The retired bound | [CONSOLE.md](../../../roles/retired/CONSOLE.md) bounded a fan-out by accounts and by what the Lander could land. That is record, not a live bound. |
 
 ---

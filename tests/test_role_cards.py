@@ -707,6 +707,10 @@ class RetiredRulesDoNotSurviveInACard(unittest.TestCase):
     #: (pattern, why it is retired). Matched case-insensitively, line by line.
     RETIRED = [
         ("reviewed", "the `reviewed` merge gate was removed 2026-09-04; an unlabelled PR merges"),
+        (
+            "lander can land",
+            "owner ruling 2026-10-26 retired the briefing limit keyed to the Lander's merge rate",
+        ),
     ]
 
     def _live_hits(self, text: str) -> list[str]:

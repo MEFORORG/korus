@@ -47,6 +47,9 @@ before assigning files.
 - Do not check the pool before you open a PR. Owner ruling 2026-09-18, which retired the check that
   told you to. Five Managers all reading "clear" open together, which manufactures the burst the
   check was meant to prevent. Open when your own work is ready.
+- Do not limit briefing by the open PR count, the merge queue's depth, or the Lander's merge rate.
+  Owner ruling 2026-10-26: brief at full speed and batch; the Lander works the queue down. Usage
+  holds still bind. `roles/MANAGER.md`, *Brief at full speed*.
 - Do not assume you are the only Manager. Check other workers' holdings before assigning a file.
 - Never infer an account roster. Only the Owner assigns it.
 
