@@ -614,7 +614,8 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
         self.drain(self.peer, event="SessionStart", session_id="s1")
         r = self.drain(self.peer, event="Stop", session_id="s1")
         self.stop_is_silent(r, r"(?i)filed 1 message")
-        self.assertEqual([], self.inbox_of(self.peer), "the Stop logged a filing it did not make")
+        seen = list((self.mail_root / "box").rglob("seen/*.json"))
+        self.assertEqual(1, len(seen), "the Stop logged a filing it did not make")
 
     def test_a_message_a_peer_filed_first_draws_no_claim_of_never_displaying_it(self):
         """The false sentence, pinned. s2 displayed the message; s1 reached Stop first."""
@@ -689,6 +690,23 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
         self.stop_is_silent(run("Stop"), r"could not load _mail\.ps1")
         # The control: the same copy at SessionStart reads its event early and keeps stdout.
         self.assertIn("could not load _mail.ps1", self.ctx(run("SessionStart")))
+
+    def test_the_input_event_wins_over_a_miswired_event_parameter(self):
+        """A Stop row copied from the SessionStart one keeps `-Event SessionStart`. The harness's
+        own hook_event_name says Stop, and it wins, so the copy cannot write stdout at every Stop."""
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", "SessionStart"],
+            input=json.dumps({"session_id": "s1", "hook_event_name": "Stop"}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+
+    def test_another_named_event_reads_no_box(self):
+        """Wired to an event it does not serve, the drain says so and stops: no body rendered."""
+        self.send(body="other event")
+        r = self.drain(self.peer, event="UserPromptSubmit", session_id="s1")
+        self.stop_is_silent(r, r"NO EVENT\. the event 'UserPromptSubmit'")
+        self.assertNotIn("other event", r.stderr, "an unserved event rendered a body nobody reads")
+        self.assertEqual(1, len(self.inbox_of(self.peer)))
 
     def test_an_event_nothing_named_reads_no_box_and_writes_no_stdout(self):
         """No -Event, no hook_event_name. Guessing SessionStart at a Stop is the loop, so the drain
