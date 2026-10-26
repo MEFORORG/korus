@@ -1237,6 +1237,9 @@ Coordination can order a queue; it cannot widen one. The most expensive mistake 
 to run parallel producers into a serialised queue and then spend the session ordering the pile-up. It
 has happened: 13 PRs merged in one drain while the open count still grew from 3 to 6.
 
+**The remedy is batching, never fewer producers** (owner ruling 2026-10-26). Managers brief at full
+speed; the second table's *Never ask a Manager to brief less* row says so.
+
 | Fact | Consequence |
 | --- | --- |
 | `ci.yml` triggers on `pull_request` and `push: branches: [main]` only | A feature-branch push runs NOTHING of `ci.yml`. Only `branch-leak-scan.yml` fires, and it is small. Unopened branches are nearly free to hold. **CORRECTED 2026-09-23**: this read *"runs NOTHING"*, which ignored that scan. |

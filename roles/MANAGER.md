@@ -147,23 +147,25 @@ result and requires it be reported, so "nothing found" and "nothing said" are di
 ### Brief at full speed
 
 **Owner ruling 2026-10-26.** Never hold a brief or shrink a wave for the open pull request count,
-the merge queue's depth, or the Lander's merge rate. Batch each wave into combined pull requests. A
-queue forms, and the Lander works it down.
+the merge queue's depth, or the Lander's merge rate. Batch each wave, less the own-pull-request items
+in *When to cut a pull request*. The Lander works the queue down.
 
 The owner quoted *"Don't brief more than the Lander can land"*, then ruled: *"This is NEVER a thing
 in our processes. Builders and managers work at full speed. Managers batch work into combined PRs
 as much as possible. A merge queue develops. The lander works it down."*
 
-**The queue never limits a start. At least these usage controls still stop one.** They are the
-single list; [BUILDER.md](BUILDER.md) 5d links here.
+**The merge queue never limits a start. Usage controls still can, at least these two.** Read each
+where it lives; do not act on a paraphrase. [BUILDER.md](BUILDER.md) 5d links here.
 
 | Control | Where it lives |
 | --- | --- |
-| A Steward's HOLD NEW WORK, PROTECT AND WRAP or URGENT STOP | [STEWARD.md](STEWARD.md), *3g. What each state asks for* |
+| A Steward's stop on starting | [STEWARD.md](STEWARD.md), *3a. The worse window sets the STATE; only the 5-hour window carries the STOP*, and *3d. A live owner ruling can suspend the stop half without suspending the warning* |
 | The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
 
-The burn throttle in the third answer below was a separate, standing limit on starts. It is
-retired; these controls are not.
+A high weekly rung with a low 5-hour rung does not stop briefing (3a). The burn throttle, in the
+third answer below, was a separate limit, and it is retired.
+
+Path contention, in section 3, still shapes what you brief.
 
 **The three questions this ruling raised were answered on 2026-10-26.** The owner selected these
 answers in the question dialog, in session.

@@ -111,12 +111,12 @@ Console, and do not wait on one.
 | Why you cannot post it yourself | For a NEW branch the pull request does not exist until you have exited. |
 | The one case where you can | A follow-up brief onto a branch whose pull request is already open. Then the brief names the number, and you comment there as well as reporting. |
 | Sections below that still name a Dispatcher or a Console | A record of how the fleet ran, not a live route. |
-| **CORRECTED 2026-10-26 by owner ruling: the START THROTTLE** | This row also read *"Who holds the START THROTTLE now is OPEN."* The owner retired the throttle, so no seat holds it. 5d says what still stops a start. |
+| **CORRECTED 2026-10-26 by owner ruling: the START THROTTLE** | The row above also read *"Who holds the START THROTTLE now is OPEN."* The owner retired the throttle, so no seat holds it. 5d says what still stops a start. |
 | Expiry | This retires when the owner names a successor seat or restores one of the three. |
 
-**Do not assume a quiet lane was throttled.** Since 2026-10-26 no seat throttles your starts,
-though the usage controls 5d points to still stop one. Mail waits for the recipient's next turn. See
-[COMMON.md](COMMON.md), *Mail is a mailbox, not a doorbell, and it expires in 72 hours*.
+**Do not assume a quiet lane was throttled.** Since 2026-10-26 only the usage controls in 5d stop a
+start. Mail waits for the recipient's next turn: [fleet-message-a-peer](../.claude/skills/fleet-message-a-peer/SKILL.md),
+*Mail is a mailbox, not a doorbell, and it expires in 72 hours*.
 
 ### If the brief does not answer something you must know, do not guess and do not wait
 
@@ -596,7 +596,7 @@ claim id, a pull request number, a count from `claim.ps1 -List`, a timestamp.
 **Never a self-assessment of effort.** "No -- 1 of 4 moving, 3 blocked on the parser item" is
 checkable; "Mixed, working hard" is not.
 
-**On a "no": say the number and what you can take.** "I hold 2, I can take more now, my lane is <x>"
+**On a "no": say the number and what you can take.** "I hold 2, I can start 3 more now, my lane is <x>"
 is actionable; "not enough" is not, to anyone replenishing lanes.
 
 Reasoning goes in the prose above the table. **A dashboard that has to be read is not a dashboard.**
@@ -1280,12 +1280,12 @@ Built-and-awaiting-merge is zero occupancy. Say so, so others count it the same 
 *"four is the MOST YOU OVERSEE"* and *"starts are throttled by burn"*. An owner ruling of 2026-08-28
 set both. Asked about both, the owner selected *"Retire it"*.
 
-That ruling named the Dispatcher as the throttle's holder. Nobody held it after that seat retired on
-2026-09-01.
+That ruling named the Dispatcher as the throttle's holder. After that seat retired on 2026-09-01,
+this file recorded who held it as OPEN.
 
-**Work at full speed. Usage controls still stop a start.** [MANAGER.md](MANAGER.md), *Brief at full
-speed*, holds the one list of them. A lane running less because one fired is *compliant*. It
-reports the control, not a shortfall.
+**Work at full speed. Usage controls can still stop a start.** [MANAGER.md](MANAGER.md), *Brief at
+full speed*, points to them; section 8 here covers the Workflow gate. A lane held by one is
+*compliant*, and reports the control, not a shortfall.
 
 **So separate the two quiet lanes.** One is running less because a hold told it to. The other could
 start something and has not. **This trap is about the second.** Reporting the first as a failure
