@@ -29,7 +29,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
 | You still do not manage the merge queue or the repository | That half of the retired row survives. Leave both to the Lander. |
-| **Brief at full speed (owner ruling 2026-10-26)** | Never limit briefing by the open pull request count, the queue's depth, or the Lander's merge rate. Batch into combined pull requests; the Lander works the queue down. Section 2a carries the ruling. |
+| **Brief at full speed (owner ruling 2026-10-26)** | The merge queue never limits briefing. *Do not check the pool before you open* carries the ruling. |
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
@@ -149,6 +149,18 @@ result and requires it be reported, so "nothing found" and "nothing said" are di
 **Open when your own work is ready.** Do not count open pull requests, do not ask the Lander whether
 it has room, and do not hold a finished branch for a quiet window. Holding one for its own wave is
 different, and bounded: *When to cut a pull request*.
+
+**Nor before you brief: brief at full speed (owner ruling 2026-10-26).** Never hold a brief or
+shrink a wave for the open pull request count, the merge queue's depth, or the Lander's merge rate.
+Batch each wave into combined pull requests. A queue forms, and the Lander works it down.
+
+The owner's words, in session: *"This is NEVER a thing in our processes. Builders and managers work
+at full speed. Managers batch work into combined PRs as much as possible. A merge queue develops.
+The lander works it down."*
+
+**The ruling is about the queue, not quota.** The usage hold in [COMMON.md](COMMON.md),
+*Prohibitions that bind before any task starts*, still binds. *When to cut a pull request* still
+sets how a batch is cut.
 
 **Why the pool check was retired 2026-09-18.** Five Managers reading one shared pool all read "clear"
 at the same moment and all open together. The check manufactures the burst it exists to prevent,
@@ -369,8 +381,8 @@ What bound that run was the repository. See, in the constitution:
 ## 2. Never Conflict with the Lander
 
 **CORRECTED 2026-10-26 by owner ruling.** This heading read *"Never Conflict with the Lander or Clog
-the Queue"*. A queue of open pull requests is expected, and the Lander works it down. Section 2a,
-under its RETIRED 2026-10-26 note, carries the ruling.
+the Queue"*. A queue of open pull requests is expected, and the Lander works it down. *Do not check
+the pool before you open* carries the ruling.
 
 **The queue half of the old heading narrowed on 2026-09-18.** You no longer hold a pull request
 back on what the queue looks like. See *Do not check the pool before you open*. What survives is
@@ -456,6 +468,7 @@ carried here rather than re-derived by this seat.
 | **SUPERSEDED 2026-09-13** | Banners no longer ride with code: the Lander writes them in the vault after the merge. So those 36 no longer touch the ledger at all. |
 | So | Collapsing the 12 moves arrivals from about 9.7/hour to 7.7/hour. **The queue still diverges.** Worth doing, and not a queue fix. |
 | And batching CORRELATES FAILURE | One red check or one conflict blocks every item in the wave, where a bad row today blocks only itself. At heavy oversubscription that is a real trade. |
+| **CORRECTED 2026-10-26 by owner ruling** | *"The queue still diverges"* and *"heavy oversubscription"* treat a growing queue as a Manager's problem. It is not: brief at full speed and batch, and the Lander works the queue down. The failure-correlation trade stands. |
 | The measurement | Two dispatch waves added 17 pull requests in about 35 minutes. Open non-draft went 35 to 54 in one hour, and **zero** merged in it. **24 of the 54 were DIRTY**, overwhelmingly on the ledger tail. |
 | What those seven actually were | 13 to 69 lines each, of `docs/BACKLOG.md` only. They could have been one pull request. |
 | If an item must be its own pull request | The ledger edit is a FINAL COMMIT, ALONE. Section 2 states that rule, under *put your ledger row in its OWN commit, LAST*. |
@@ -466,23 +479,18 @@ carried here rather than re-derived by this seat.
 | So, for a research wave | The changed file is almost always the ledger alone. Say that. |
 | Verify the remote before you act on a `gh` read | `gh` answers plausibly against the wrong repository rather than failing. |
 | The measured case | A Manager ran `gh pr list` against the vault, read **1** open pull request, and sized a ten-subagent dispatch on it. The engine had **38**. |
-| **CORRECTED 2026-10-26 by owner ruling** | The row *Verify the remote before you act on a `gh` read* was named *"Verify the remote before sizing a wave"*. The open pull request count is not a dispatch input. Size a wave by its work. |
 | So | Pass `--repo MEFORORG/MessageFoundry` explicitly on anything you will act on. The vault was renamed to `wshallwshall/MessageFoundry-vault` the same day and the old slug STILL REDIRECTS, so a stale `--repo wshallwshall/MessageFoundry` still answers, and answers about the vault. |
 | **CORRECTED 2026-09-24: the vault's slug is `MEFORORG/MessageFoundry-vault`** | The row above keeps what it said. `gh repo view --json nameWithOwner` in the vault checkout returns `MEFORORG/MessageFoundry-vault`, and `wshallwshall/MessageFoundry-vault` redirects there too. The advice holds: name the repository with `--repo`. |
+| **CORRECTED 2026-10-26 by owner ruling** | The row *Verify the remote before you act on a `gh` read* was named *"Verify the remote before sizing a wave"*. The open pull request count is not a dispatch input. The measured case's error was the wrong repository. |
 | **EXPIRY** | This holds only while the ledger is one file whose new rows land at one tail, and while conflict resolution is serial and manual. |
 | How to check the expiry | Re-examine it if `docs/BACKLOG.md` is split, if a merge driver is adopted for it, or if rows stop being appended in number order. |
 
 **RETIRED 2026-10-26 by owner ruling: the worked example on when to brief NOTHING.** It set a
-work-in-progress limit keyed to the Lander's merge rate. It ended: *"At that point briefing anything
-new subtracts from the fleet's throughput."*
+work-in-progress limit keyed to the Lander's merge rate. *Do not check the pool before you open*
+carries the ruling and the rule now.
 
-The owner's words, in session: *"This is NEVER a thing in our processes. Builders and managers work
-at full speed. Managers batch work into combined PRs as much as possible. A merge queue develops.
-The lander works it down."*
-
-**The rule now: brief at full speed.** Never hold a brief or shrink a wave for the open pull request
-count, the queue's depth, or the Lander's merge rate. Batch each wave into combined pull requests,
-by *When to cut a pull request*. The Lander works the queue down.
+It reasoned: *"Above 1.0 a queue does not settle at some depth. It grows without bound."* It ended:
+*"At that point briefing anything new subtracts from the fleet's throughput."*
 
 **The 2026-09-05 figures stay as a reading, not a rule.** They are not a dispatch input.
 
@@ -491,7 +499,7 @@ by *When to cut a pull request*. The Lander works the queue down.
 | Open non-draft pull requests | 62 |
 | Merge rate | 2.2 to 2.7 an hour |
 | Opened | 29 in one three-hour window, or 9.7 an hour |
-| Utilisation | 3.6 to 5.0 |
+| Utilisation, as the retired text gave it | 3.6 to 5.0. Derived, not read; 9.7 over 2.2 gives 4.4. |
 | Median age at merge | 15 hours |
 | Oldest open item | Two days |
 
@@ -539,11 +547,14 @@ were dirty. Of those trailing by one or none, 0 of 10 were. No misclassification
 The dirty five were 25 to 28 hours old and the clean ten were under two. The fleet lands a ledger
 commit about every 35 minutes, so a pull request that waits overnight wakes behind 30 of them.
 
-**So do not cut a ledger row you cannot land soon.** A row landing within about two hours collides
-with nothing; the same row a day later collides with everything. If a batch cannot land today, do not
-file the rows today.
+A row landing within about two hours collides with nothing; the same row a day later collides with
+everything.
 
-**Nothing enforces this today.** The claim registry covers items. Until it covers paths, this is
+**RETIRED 2026-10-26 by owner ruling.** This read *"So do not cut a ledger row you cannot land
+soon"*. It added *"If a batch cannot land today, do not file the rows today"*. File rows when the
+work is ready, batched into one pull request. The Lander works the queue down, conflicts included.
+
+**Nothing enforces the path check today.** The claim registry covers items. Until it covers paths, this is
 yours to do by reading, and a brief that names no paths has skipped it rather than passed it.
 
 **A claim on a whole batch is necessary, and it is not sufficient.** Take the batch-level claim
