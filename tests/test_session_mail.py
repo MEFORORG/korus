@@ -984,14 +984,55 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertEqual(1, len(self.stamps()), "a healthy Stop deleted a stamp nobody was shown")
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
 
+    def markers(self) -> list[Path]:
+        d = self.primary / ".git" / "ccx-mail-faults"
+        return sorted(d.glob("*.txt.shown-*")) if d.is_dir() else []
+
     def test_a_shown_stamp_clears_at_the_stop_of_the_session_shown_it(self):
         """The control for the case above: once w2 was shown it, w2's Stop clears it, and the
         following SessionStart does not show it again."""
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.assertEqual(1, len(self.markers()), "the display marked nothing shown")
         self.healthy_stop("w2")
         self.assertEqual([], self.stamps(), "the Stop of the session shown it left the stamp")
+        self.assertEqual([], self.markers(), "the Stop left its own marker behind")
         self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch("w3")))
+
+    def test_a_shown_session_whose_own_stop_faults_still_consumes_it(self):
+        """Any Stop proves the session was real. w2 was shown w1's stamp, then w2's own Stop met
+        the same NO BOX: w1's stamp goes, and w2's new one is what the next launch shows."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.drain(self.primary, event="Stop", session_id="w2",
+                   fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+        left = self.stamps()
+        self.assertEqual(1, len(left), "w1's shown stamp survived w2's faulting Stop")
+        self.assertIn("\tw2\t", left[0].read_text(encoding="utf-8"), "w2's own new fault was lost")
+        self.assertEqual([], self.markers())
+
+    def test_a_shown_stamp_is_consumed_at_a_stop_under_delivery_off(self):
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.mail_root.mkdir(parents=True, exist_ok=True)
+        (self.mail_root / "OFF").write_text("", encoding="ascii")
+        r = self.healthy_stop("w2")
+        self.assertIn("DELIVERY IS OFF", r.stderr)
+        self.assertEqual([], self.stamps(), "a Stop at delivery off kept a stamp its session saw")
+
+    def test_a_session_start_with_no_session_id_marks_nothing_and_says_so(self):
+        """A named residual, beside the unnamed one below."""
+        self.measured_stop()
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"hook_event_name": "SessionStart", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        line = next(ln for ln in self.ctx(r).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("marks nothing", line)
+        self.assertEqual([], self.markers())
+        # The control: a display that names its session says it clears, and marks.
+        line = next(ln for ln in self.ctx(self.launch("w2")).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("clears at the next Stop", line)
+        self.assertEqual(1, len(self.markers()))
 
     def test_a_phantom_shown_it_does_not_let_another_stop_clear_it(self):
         """p1 is shown it and never reaches a Stop. w3 was never shown it, so w3's Stop keeps it."""
@@ -1018,8 +1059,10 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
                            input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
                            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
-        self.assertIn("UNSEEN FAULT", self.ctx(r))
         self.assertIn("NO EVENT NAMED", self.ctx(r))
+        line = next(ln for ln in self.ctx(r).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("marks nothing", line)
+        self.assertEqual([], self.markers())
         self.healthy_stop("u1")
         self.assertEqual(1, len(self.stamps()), "an unproven display let its Stop clear the stamp")
 
