@@ -110,6 +110,7 @@ $script:FaultAbout = ''
 $script:DrainSession = 'unknown-session'
 $script:Unproven = $false
 $script:StampLine = $null
+$script:StampShown = $null
 $script:UnprovenLine = (
     "[session-mail] NO EVENT NAMED. Neither -Event nor the hook input named this event, so the " +
     "drain read it as SessionStart. It marks nothing shown, so no Stop files what it shows, and " +
@@ -143,9 +144,10 @@ function Write-Drain {
     if ($script:Unproven) { $Text += "`n" + $script:UnprovenLine }
     # A SessionStart that reports a fault of its own leaves the stamp for a later one. A fault that
     # stands at both events would otherwise print twice.
+    $shown = $null
     if ($NotFault) {
         $stamp = Get-DrainStampLine
-        if ($stamp) { $Text += "`n" + $stamp }
+        if ($stamp) { $Text += "`n" + $stamp; $shown = $script:StampShown }
     }
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{
@@ -154,6 +156,8 @@ function Write-Drain {
         }
     }
     [Console]::Out.Write(($payload | ConvertTo-Json -Compress -Depth 6))
+    # AFTER THE EMIT, as a mail marker is: the stamp counts as shown only once it was written out.
+    if ($shown) { Save-DrainShown $shown }
 }
 
 function Get-DrainEvent {
@@ -198,12 +202,14 @@ function Get-DrainFaultPrefix {
         They live under the git common dir of the checkout this hook STARTED in, so nothing there
         can enter a commit. That is the rule `_hookinput.ps1` uses for its pins, which sit beside
         them. The key is the worktree that holds $Dir when it shares that common dir, and the start
-        checkout otherwise. A hook that started in no checkout has nowhere to put one.
+        checkout otherwise.
 
         Not under the mail root: a stamp is hook state, not mail, so nothing that lists or moves
         mail meets it.
 
-        It calls the `_hookinput.ps1` functions, so where that file did not load there is no stamp.
+        A NAMED RESIDUAL, PR 245: SOME FAULTS LEAVE NO STAMP. A hook that started in no checkout
+        has nowhere to put one. It calls the `_hookinput.ps1` functions, so where that file did
+        not load there is none either. Such a Stop fault reaches stderr only.
     #>
     param([string] $Dir)
     try {
@@ -310,8 +316,12 @@ function Read-DrainFault {
         The newest fresh stamp for this worktree as one bounded line, or ''. It never deletes.
     .DESCRIPTION
         NOT CLEARED HERE. One launch has fired six SessionStart events and only one session was
-        real, so a phantom could clear the stamp into a context nobody reads. Clear-DrainFault runs
-        at a Stop that reaches its box instead.
+        real, so a phantom could clear the stamp into a context nobody reads. It records which
+        stamp it shows in $script:StampShown, and Write-Drain marks it shown after the emit.
+
+        ONLY THE NEWEST IS SHOWN, AND ONLY IT IS MARKED. A residual: the others are counted, not
+        shown. Each waits until it is the newest, so a session whose fault stands and keeps its
+        stamp newest can hold an older one back until that one is pruned unshown after a day.
 
         ANY PROCESS UNDER THIS ACCOUNT CAN WRITE THE FILE, like an inbox. So every field is capped,
         only the first line is read, and the line says it is unverified.
@@ -321,15 +331,18 @@ function Read-DrainFault {
         if (-not $prefix) { return '' }
         $leaf = Split-Path -Leaf $prefix
         $fresh = @(Get-ChildItem -LiteralPath (Split-Path -Parent $prefix) -Filter "$leaf.*.txt" -File -ErrorAction SilentlyContinue |
-            Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc -Descending)
+            Where-Object { $_.Name.EndsWith('.txt') -and (Test-DrainStampFresh $_) } |
+            Sort-Object LastWriteTimeUtc -Descending)
         if ($fresh.Count -eq 0) { return '' }
         $s = Read-DrainFaultFields $fresh[0].FullName
         if (-not $s) { return '' }
+        $script:StampShown = [pscustomobject]@{ Path = $fresh[0].FullName; Ticks = $fresh[0].LastWriteTimeUtc.Ticks }
         $evt = if ($s.Event) { "'$($s.Event)'" } else { 'an event nothing named' }
         $more = if ($fresh.Count -gt 1) { " $($fresh.Count - 1) more session(s) here left one too." } else { '' }
         return ("[session-mail] UNSEEN FAULT (UNVERIFIED: any process under this account can write " +
             "the stamp). A drain at $evt for this worktree wrote this to stderr only, at " +
-            "$($s.When): $($s.What)$more Each clears at the next Stop of its session that reads this box.")
+            "$($s.When): $($s.What)$more This one clears when a session shown it reaches a Stop " +
+            "that reads this box.")
     }
     catch { return '' }
 }
@@ -340,19 +353,82 @@ function Get-DrainStampLine {
     return $script:StampLine
 }
 
-function Clear-DrainFault {
+function Get-DrainShownSuffix {
+    # The end of this session's shown-marker name: <stamp file>.shown-<session hash>.
+    return "shown-$(Get-CcxShortHash $script:DrainSession -Bytes 4)"
+}
+
+function Save-DrainShown {
     <#
     .SYNOPSIS
-        At a Stop that reached its box: remove this session's own stamp, and only that.
+        After a SessionStart wrote a stamp out: mark it shown to this session. Never throws.
     .DESCRIPTION
-        A NO BOX from a missing pin belongs to one session, not to the worktree, so a healthy
-        second session in the same worktree must not clear it while the first still faults. A stamp
-        nobody clears goes stale after a day and is pruned at the next write.
+        The marker sits beside the stamp and holds the stamp's write time as it was shown, so a
+        Stop can tell the fault this session saw from one written after. It is pruned with the
+        stamps, by the same day-old rule.
+
+        AN UNNAMED SessionStart MARKS NOTHING, and neither does one with no session id. A residual:
+        that display is unproven, as its mail is, and 'unknown-session' is shared by every run that
+        names none. So such a stamp shows again until a named SessionStart shows it.
+    #>
+    param([object] $Shown)
+    if ($script:Unproven -or $script:DrainSession -eq 'unknown-session') { return }
+    $tmp = $null
+    try {
+        $marker = "$($Shown.Path).$(Get-DrainShownSuffix)"
+        $tmp = "$marker.$PID.tmp"
+        [System.IO.File]::WriteAllText($tmp, [string]$Shown.Ticks, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::Move($tmp, $marker, $true)
+        $tmp = $null
+    }
+    catch { }
+    finally { if ($tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } }
+}
+
+function Clear-DrainShownFault {
+    <#
+    .SYNOPSIS
+        At a Stop that reached its box: remove each stamp a SessionStart of THIS session showed.
+    .DESCRIPTION
+        CHANGED 2026-10-26: this was Clear-DrainFault, and it removed this session's own stamp at
+        every Stop that reached its box. So the next healthy Stop deleted a one-time fault before
+        any SessionStart read it, and that fault was logged nowhere. The Lander measured it on PR
+        245: 1 stamp after the fault Stop, 0 after the healthy one, no UNSEEN FAULT line after.
+
+        A STAMP IS CONSUMED ONLY ONCE IT WAS SHOWN, as mail is. The SessionStart that prints the
+        line marks the stamp shown to its own session, and only that session's Stop removes it. A
+        phantom is shown it and never reaches a Stop, so it removes nothing, and a session never
+        shown it cannot remove it either. Duplicate display is the accepted trade here too.
+
+        A stamp rewritten after the display is kept: its write time no longer matches the marker,
+        so the newer fault waits for its own SessionStart. The compare and the delete are two
+        steps, so a rewrite between them is lost; that window is not closed here.
+
+        The session's own healthy Stop no longer clears its own stamp. A fault that has passed is
+        still shown once, with its time, which is what a one-time fault needs. Each healthy Stop
+        also prunes day-old stamps and markers, so a phantom's marker does not outlive them.
     #>
     try {
         $prefix = Get-DrainFaultPrefix (Get-Location).ProviderPath
         if (-not $prefix) { return }
-        Remove-Item -LiteralPath (Get-DrainSessionFile $prefix) -Force -ErrorAction SilentlyContinue
+        $dir = Split-Path -Parent $prefix
+        $suffix = Get-DrainShownSuffix
+        $mine = @(Get-ChildItem -LiteralPath $dir -Filter "$(Split-Path -Leaf $prefix).*.txt.$suffix" -File -ErrorAction SilentlyContinue)
+        foreach ($m in $mine) {
+            try {
+                $stamp = $m.FullName.Substring(0, $m.FullName.Length - $suffix.Length - 1)
+                $ticks = ([System.IO.File]::ReadAllText($m.FullName)).Trim()
+                $f = Get-Item -LiteralPath $stamp -ErrorAction SilentlyContinue
+                if ($f -and ([string]$f.LastWriteTimeUtc.Ticks -eq $ticks)) {
+                    Remove-Item -LiteralPath $stamp -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch { }
+            Remove-Item -LiteralPath $m.FullName -Force -ErrorAction SilentlyContinue
+        }
+        Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+            Where-Object { -not (Test-DrainStampFresh $_) } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
     }
     catch { }
 }
@@ -632,9 +708,10 @@ try {
 
     # ======================================================================================= Stop
     if ($Event -eq 'Stop') {
-        # This Stop reached its box, so its own fault no longer stands here. A throw below lands in
-        # the outer catch, which writes a fresh stamp.
-        $null = Clear-DrainFault
+        # This Stop reached its box, so it consumes the stamps this session was shown, and only
+        # those. CHANGED 2026-10-26: it cleared this session's own stamp, shown or not. A throw
+        # below lands in the outer catch, which writes a fresh stamp.
+        $null = Clear-DrainShownFault
         $consumed = 0
         foreach ($item in $live) {
             $id = Get-MessageId -File $item.File

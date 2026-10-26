@@ -879,8 +879,12 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     git common dir, keyed per worktree, and the next SessionStart for that worktree prints it.
 
     A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
-    context nobody reads. A Stop that reaches its box clears it, but only a stamp its own session
-    wrote. Delivery off is a switch, not a fault, and leaves none.
+    context nobody reads. It marks the stamp it showed as shown to its own session, and that
+    session's Stop, once it reaches its box, clears it. Delivery off is a switch, not a fault, and
+    leaves none.
+
+    CHANGED 2026-10-26: a Stop that reached its box cleared its own session's stamp, shown or not,
+    so a one-time Stop fault was deleted before any SessionStart showed it.
     """
 
     def stamps(self) -> list[Path]:
@@ -935,14 +939,17 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
 
     def test_a_second_sessions_passing_fault_does_not_erase_the_first(self):
         """One file per worktree let w2's one-time fault overwrite w1's standing one, and w2's
-        next healthy Stop then removed it while w1 still faulted."""
+        next healthy Stop then removed it while w1 still faulted.
+
+        CHANGED 2026-10-26: this case required 1 stamp after w2's healthy Stop, since that Stop
+        removed w2's own. Neither was shown, so both now stay."""
         self.measured_stop()
         self.drain(self.primary, event="Stop", session_id="w2",
                    fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
         self.drain(self.peer, event="Stop", session_id="w2", fields={"cwd": str(self.peer)},
                    pass_event=False)
-        self.assertEqual(1, len(self.stamps()), "w2's healthy Stop removed w1's stamp")
-        self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
+        self.assertEqual(2, len(self.stamps()), "w2's healthy Stop removed a stamp nobody was shown")
+        self.assertIn("1 more session(s)", self.ctx(self.launch()))
 
     def test_a_stamp_dated_ahead_is_not_shown(self):
         """Bounded both ways, or a clock set forward would show it forever. The control is every
@@ -960,14 +967,61 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("'UserPromptSubmit'", line)
         self.assertNotIn("'Stop'", line)
 
-    def test_a_stop_by_the_same_session_that_reaches_its_box_clears_it(self):
-        self.measured_stop()
-        self.assertEqual(1, len(self.stamps()), "no stamp to clear, so this case would pass empty")
-        r = self.drain(self.peer, event="Stop", session_id="w1", fields={"cwd": str(self.peer)},
-                       pass_event=False)
+    def healthy_stop(self, session_id):
+        """A Stop that reaches its box: started in the worktree, its cwd named."""
+        r = self.drain(self.peer, event="Stop", session_id=session_id,
+                       fields={"cwd": str(self.peer)}, pass_event=False)
         self.assertEqual("", r.stdout)
-        self.assertEqual([], self.stamps(), "a Stop that read its box left the stamp")
-        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
+        return r
+
+    def test_a_healthy_stop_keeps_a_stamp_no_session_start_has_shown(self):
+        """The Lander's hold on PR 245, 2026-10-26. CHANGED 2026-10-26: this case read "a Stop by
+        the same session that reaches its box clears it". That Stop deleted the stamp before any
+        SessionStart read it, so a one-time Stop fault was logged nowhere."""
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()), "no stamp, so this case would pass empty")
+        self.healthy_stop("w1")
+        self.assertEqual(1, len(self.stamps()), "a healthy Stop deleted a stamp nobody was shown")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def test_a_shown_stamp_clears_at_the_stop_of_the_session_shown_it(self):
+        """The control for the case above: once w2 was shown it, w2's Stop clears it, and the
+        following SessionStart does not show it again."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the Stop of the session shown it left the stamp")
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch("w3")))
+
+    def test_a_phantom_shown_it_does_not_let_another_stop_clear_it(self):
+        """p1 is shown it and never reaches a Stop. w3 was never shown it, so w3's Stop keeps it."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p1")))
+        self.healthy_stop("w3")
+        self.assertEqual(1, len(self.stamps()), "a Stop cleared a stamp its session was not shown")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w4")))
+
+    def test_a_fault_rewritten_after_the_display_survives_that_stop(self):
+        """w2 saw w1's stamp, then w1 faulted again. w2's Stop clears what w2 saw, not the newer
+        fault."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.measured_stop()
+        self.healthy_stop("w2")
+        self.assertEqual(1, len(self.stamps()), "a Stop cleared a fault written after its display")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w3")))
+
+    def test_an_unnamed_session_start_shows_it_and_marks_nothing(self):
+        """A named residual. A display nothing named is unproven, so it marks nothing, and the
+        same session's Stop keeps the stamp. It shows again until a named display clears it."""
+        self.measured_stop()
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.assertIn("UNSEEN FAULT", self.ctx(r))
+        self.assertIn("NO EVENT NAMED", self.ctx(r))
+        self.healthy_stop("u1")
+        self.assertEqual(1, len(self.stamps()), "an unproven display let its Stop clear the stamp")
 
     def test_a_missing_mail_module_at_stop_is_stamped_too(self):
         """The fault before the event is read, from a copy with no `_mail.ps1`. The real drain's
