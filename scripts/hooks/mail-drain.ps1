@@ -90,38 +90,63 @@ $ErrorActionPreference = 'Stop'
 # queue, delivery off) stands at the next Stop too, so the loop never ends on its own. The header's
 # CHANGED note holds the measurement. Gating each call site would leave the next new path to forget.
 #
-# THE TEST IS EQUALITY WITH SessionStart, NOT INEQUALITY WITH Stop. An event nothing named is
-# treated as not SessionStart: guessing SessionStart at a Stop is the loop, and guessing Stop at a
-# SessionStart costs one line moved to stderr. Any other event the drain is wired to later is
-# silent on stdout by the same test, without anyone remembering to add it.
+# THE TEST IS EQUALITY WITH SessionStart, NOT INEQUALITY WITH Stop. Any other event the drain is
+# wired to later is silent on stdout by the same test, without anyone remembering to add it. An
+# event nothing named reaches here as SessionStart only by Get-DrainEvent's rules, which say what
+# that costs at Stop.
 #
 # THE TEXT STILL GOES SOMEWHERE. stderr stays out of the model's context, so a fault there is not a
 # wake. What a person sees of a hook's stderr at exit 0 was NOT measured here; it may surface only
 # in debug or verbose output, so do not read a quiet transcript as a healthy drain.
 #
-# SO A FAULT OFF STDOUT ALSO LEAVES A STAMP. docs/HOOKS.md, "Fail open, but never silently", asks
-# for stderr AND a durable record. Save-DrainFault writes one, and the next SessionStart for that
-# worktree prints it on stdout, where a reader is. Read-DrainFault says how it clears.
+# SO EVERY LINE OFF STDOUT ALSO LEAVES A STAMP, unless its call says -NotFault. docs/HOOKS.md,
+# "Fail open, but never silently", asks for stderr AND a durable record. Save-DrainFault writes one,
+# and the next SessionStart for that worktree prints it. Stamping is the default for the reason
+# stdout is decided here: a new fault path cannot forget it.
 $script:Emitted = $false
 $script:StartDir = (Get-Location).ProviderPath
+$script:StartCommon = $null
 $script:FaultAbout = ''
+$script:DrainSession = 'unknown-session'
 $script:Unproven = $false
+$script:StampLine = $null
+$script:UnprovenLine = (
+    "[session-mail] NO EVENT NAMED. Neither -Event nor the hook input named this event, so the " +
+    "drain read it as SessionStart. It marked nothing shown, so no Stop files this display, and " +
+    "the mail shows again next time. Pass -Event SessionStart on this hook.")
+
+function Limit-Text {
+    <#
+    .SYNOPSIS
+        Truncate to a character cap, LEADING WITH THE DISCRIMINATOR.
+    .DESCRIPTION
+        docs/SESSION-MAIL.md: a receipt note capped at 80 characters lost the word that told two
+        causes apart, because that word sat at the END of the sentence. Two different failures then
+        wrote identical receipts -- the exact defect the note existed to prevent.
+    #>
+    param([string] $Text, [int] $Max)
+    if ($null -eq $Text) { return '' }
+    $t = ($Text -replace '[\r\n\t]', ' ')
+    if ($t.Length -le $Max) { return $t }
+    return $t.Substring(0, [Math]::Max(0, $Max - 3)) + '...'
+}
+
 function Write-Drain {
-    param([string] $Text, [switch] $Fault)
+    param([string] $Text, [switch] $NotFault)
     if ($script:Emitted) { return }
     $script:Emitted = $true
     if ($Event -ne 'SessionStart') {
         [Console]::Error.WriteLine($Text)
-        if ($Fault) { Save-DrainFault $Text }
+        if (-not $NotFault) { Save-DrainFault $Text }
         return
     }
-    if ($script:Unproven) {
-        $Text += "`n[session-mail] NO EVENT NAMED. Neither -Event nor the hook input named this event, " +
-            "so the drain read it as SessionStart. It marked nothing shown, so no Stop files this " +
-            "display, and the mail shows again next time. Pass -Event SessionStart on this hook."
+    if ($script:Unproven) { $Text += "`n" + $script:UnprovenLine }
+    # A SessionStart that reports a fault of its own leaves the stamp for a later one. A fault that
+    # stands at both events would otherwise print twice.
+    if ($NotFault) {
+        $stamp = Get-DrainStampLine
+        if ($stamp) { $Text += "`n" + $stamp }
     }
-    $stamp = Read-DrainFault
-    if ($stamp) { $Text += "`n" + $stamp }
     $payload = [pscustomobject]@{
         hookSpecificOutput = [pscustomobject]@{
             hookEventName     = 'SessionStart'
@@ -136,21 +161,30 @@ function Get-DrainEvent {
     .SYNOPSIS
         The event the hook input names, or '' when it names none. -Event is the caller's fallback.
     .DESCRIPTION
-        stop_hook_active IS CHECKED FIRST. Read from the CLI 2.1.308 binary on 2026-10-26: its Stop
-        and SubagentStop inputs both carry it, and its SessionStart input does not. So any input
-        holding it is a Stop, whatever else it says, and it never gets stdout.
+        stop_hook_active MARKS A Stop. In the CLI 2.1.308 binary, read 2026-10-26 with
+            grep -a -o -E 'hook_event_name:"(Stop|SubagentStop|SessionStart)",[a-z_]+' claude.exe
+        Stop and SubagentStop each print `stop_hook_active`, and SessionStart prints `source`. The
+        control, the same grep for `stop_hook_active` over notepad.exe, prints nothing.
+
+        So an input holding it and naming no event is a Stop, and one naming SessionStart contradicts
+        itself and is read as neither. Any other name stands, so a SubagentStop still reads no box.
 
         THE RISK THIS LEAVES. With no -Event, an empty, unparseable or unnamed input is read as
         SessionStart and gets stdout. A Stop with such an input would block its turn. For those inputs
         a SessionStart and a Stop are the same bytes, so no rule can tell them apart. The 2.1.308
         Stop input names hook_event_name, so a real Stop reaches that path only if its stdin breaks.
+        A read that timed out is not given that default: the caller checks.
     #>
     param([object] $Payload)
     if ($Payload -isnot [pscustomobject]) { return '' }
     $p = $Payload.PSObject.Properties
-    if ($p['stop_hook_active']) { return 'Stop' }
-    if ($p['hook_event_name'] -and $p['hook_event_name'].Value) { return [string]$p['hook_event_name'].Value }
-    return ''
+    $name = ''
+    if ($p['hook_event_name'] -and $p['hook_event_name'].Value) { $name = [string]$p['hook_event_name'].Value }
+    if ($p['stop_hook_active']) {
+        if (-not $name) { return 'Stop' }
+        if ($name -eq 'SessionStart') { return 'SessionStart with stop_hook_active' }
+    }
+    return $name
 }
 
 function Get-DrainFaultFile {
@@ -171,11 +205,14 @@ function Get-DrainFaultFile {
     param([string] $Dir)
     try {
         if (-not $Dir) { $Dir = (Get-Location).ProviderPath }
-        $startRoot = Get-CcxWorktreeRoot $script:StartDir
-        $common = Get-CcxGitCommonDir $startRoot
+        if (-not $script:StartCommon) {
+            $script:StartRoot = Get-CcxWorktreeRoot $script:StartDir
+            $script:StartCommon = Get-CcxGitCommonDir $script:StartRoot
+        }
+        $common = $script:StartCommon
         if (-not $common) { return $null }
         $root = Get-CcxWorktreeRoot $Dir
-        if (-not $root -or -not (Test-CcxSamePath (Get-CcxGitCommonDir $root) $common)) { $root = $startRoot }
+        if (-not $root -or -not (Test-CcxSamePath (Get-CcxGitCommonDir $root) $common)) { $root = $script:StartRoot }
         $key = ConvertTo-CcxNormPath $root
         if ($IsWindows) { $key = $key.ToLowerInvariant() }
         return (Join-Path $common "ccx-mail-faults/$(Get-CcxShortHash $key -Bytes 8).txt")
@@ -183,53 +220,104 @@ function Get-DrainFaultFile {
     catch { return $null }
 }
 
+function ConvertTo-DrainField {
+    # One field of a stamp: no control character, and capped by Limit-Text.
+    param([string] $Text, [int] $Max)
+    return Limit-Text -Text ($Text -replace '[\x00-\x1f\x7f]', ' ') -Max $Max
+}
+
 function Save-DrainFault {
-    # One line: when, the event, and the fault, capped. It overwrites, so a fault that stands at
-    # every Stop keeps one file and never grows. It never throws, and it never blocks the exit.
+    # One line: when, the event, the session, and the fault, capped. It overwrites, so a fault that
+    # stands at every Stop keeps one file and never grows. It never throws or blocks the exit.
     param([string] $Text)
     try {
         $file = Get-DrainFaultFile $script:FaultAbout
         if (-not $file) { return }
-        $clean = {
-            param([string] $s, [int] $max)
-            $s = $s -replace '[\x00-\x1f]', ' '
-            if ($s.Length -gt $max) { $s = $s.Substring(0, $max - 3) + '...' }
-            $s
-        }
-        $line = "$([DateTimeOffset]::UtcNow.ToString('o'))`t$(& $clean ([string]$Event) 40)`t$(& $clean $Text 400)"
+        $line = (@(
+                [DateTimeOffset]::UtcNow.ToString('o'),
+                (ConvertTo-DrainField ([string]$Event) 40),
+                (ConvertTo-DrainField $script:DrainSession 64),
+                (ConvertTo-DrainField $Text 400)
+            ) -join "`t")
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $file) -ErrorAction Stop | Out-Null
         [System.IO.File]::WriteAllText($file, $line, [System.Text.UTF8Encoding]::new($false))
     }
     catch { }
 }
 
+function Read-DrainFaultFields {
+    # The stamp's four fields, each capped, from at most 2,048 characters of the file. Or $null.
+    param([string] $File)
+    $buf = [char[]]::new(2048)
+    $reader = [System.IO.StreamReader]::new($File, [System.Text.UTF8Encoding]::new($false))
+    try { $n = $reader.Read($buf, 0, $buf.Length) } finally { $reader.Dispose() }
+    if ($n -le 0) { return $null }
+    $first = @([string]::new($buf, 0, $n) -split "`r?`n", 2)[0]
+    $f = @($first -split "`t", 4)
+    while ($f.Count -lt 4) { $f += '' }
+    return [pscustomobject]@{
+        When    = ConvertTo-DrainField $f[0] 40
+        Event   = ConvertTo-DrainField $f[1] 40
+        Session = ConvertTo-DrainField $f[2] 64
+        What    = ConvertTo-DrainField ($f[3] -replace '^\[session-mail\] ', '') 300
+    }
+}
+
+$script:StampHours = 24
 function Read-DrainFault {
     <#
     .SYNOPSIS
         The stamp for this worktree as one bounded line, or ''. It reads and never deletes.
     .DESCRIPTION
         NOT CLEARED HERE. One launch has fired six SessionStart events and only one session was
-        real, so a phantom could clear the stamp into a context nobody reads. A Stop that reaches
-        its box clears it instead: the faults it records cannot be standing there.
+        real, so a phantom could clear the stamp into a context nobody reads. Clear-DrainFault runs
+        at a Stop that reaches its box instead.
 
-        ANY PROCESS UNDER THIS ACCOUNT CAN WRITE THE FILE, like an inbox. So it is cut to one line
-        and capped, and it is framed as a report, never an instruction.
+        A stamp older than a day is not shown. One dated in the future is: a notice is the safe
+        side of a wrong clock.
+
+        ANY PROCESS UNDER THIS ACCOUNT CAN WRITE THE FILE, like an inbox. So every field is capped,
+        only the first line is read, and the line says it is unverified.
     #>
     try {
         $file = Get-DrainFaultFile $script:FaultAbout
         if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) { return '' }
-        $first = [string](Get-Content -LiteralPath $file -TotalCount 1 -ErrorAction Stop)
-        $first = $first -replace '[\x00-\x08\x0a-\x1f]', ' '
-        $parts = @($first -split "`t", 3)
-        while ($parts.Count -lt 3) { $parts += '' }
-        $what = $parts[2] -replace '^\[session-mail\] ', ''
-        if ($what.Length -gt 400) { $what = $what.Substring(0, 397) + '...' }
-        $evt = $parts[1]
-        if ($evt.Length -gt 40) { $evt = $evt.Substring(0, 40) }
-        return ("[session-mail] STOP FAULT. A drain at '$evt' for this worktree wrote this to stderr " +
-            "only, at $($parts[0]): $what It clears at the next Stop that reads this box.")
+        $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $file).LastWriteTimeUtc
+        if ($age.TotalHours -gt $script:StampHours) { return '' }
+        $s = Read-DrainFaultFields $file
+        if (-not $s) { return '' }
+        return ("[session-mail] STOP FAULT (UNVERIFIED: any process under this account can write " +
+            "the stamp). A drain at '$($s.Event)' for this worktree wrote this to stderr only, at " +
+            "$($s.When): $($s.What) It clears at the next Stop of that session that reads this box.")
     }
     catch { return '' }
+}
+
+function Get-DrainStampLine {
+    # Read once, so the render path can charge its bytes to the budget before Write-Drain adds it.
+    if ($null -eq $script:StampLine) { $script:StampLine = Read-DrainFault }
+    return $script:StampLine
+}
+
+function Clear-DrainFault {
+    <#
+    .SYNOPSIS
+        At a Stop that reached its box: remove the stamp if this session wrote it, or if it is stale.
+    .DESCRIPTION
+        ONLY THE SESSION THAT FAULTED CLEARS ITS STAMP. A NO BOX from a missing pin belongs to one
+        session, not to the worktree, so a healthy second session in the same worktree must not
+        clear it while the first still faults. A stamp nobody clears ages out after a day.
+    #>
+    try {
+        $file = Get-DrainFaultFile (Get-Location).ProviderPath
+        if (-not $file -or -not (Test-Path -LiteralPath $file -PathType Leaf)) { return }
+        $age = [DateTime]::UtcNow - (Get-Item -LiteralPath $file).LastWriteTimeUtc
+        $s = Read-DrainFaultFields $file
+        if ($age.TotalHours -gt $script:StampHours -or -not $s -or $s.Session -eq $script:DrainSession) {
+            Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch { }
 }
 
 try {
@@ -240,39 +328,29 @@ catch {
     #
     # THIS FAULT COMES BEFORE THE EVENT IS READ, so read the event, and only the event, from stdin
     # first, by the same rule as below. The process exits next, so consuming stdin costs nothing.
-    # Where the reader will not load, $Event keeps what -Event said, and an empty one never gets
-    # stdout: with no reader, every run is unread, every real Stop among them.
+    # Where the reader will not load or the read timed out, $Event keeps what -Event said, and an
+    # empty one never gets stdout: that is a state every real Stop would share.
     $reader = $false
     try { . (Join-Path $PSScriptRoot '_hookinput.ps1'); $reader = $true } catch { }
     if ($reader) {
         $early = $null
-        try { $early = Read-CcxHookInput | ConvertFrom-Json -ErrorAction Stop } catch { }
-        if ($early -is [pscustomobject] -and $early.PSObject.Properties['cwd']) { $script:FaultAbout = [string]$early.cwd }
+        $text = Read-CcxHookInput
+        try { $early = $text | ConvertFrom-Json -ErrorAction Stop } catch { }
+        if ($early -is [pscustomobject]) {
+            if ($early.PSObject.Properties['cwd']) { $script:FaultAbout = [string]$early.cwd }
+            if ($early.PSObject.Properties['session_id'] -and $early.session_id) {
+                $script:DrainSession = (Limit-Text -Text ([string]$early.session_id) -Max 64) -replace '[^A-Za-z0-9._-]', '-'
+            }
+        }
         $named = Get-DrainEvent $early
         if ($named) { $Event = $named }
-        elseif (-not $Event) { $Event = 'SessionStart'; $script:Unproven = $true }
+        elseif (-not $Event -and -not $script:CcxHookInputTimedOut) { $Event = 'SessionStart'; $script:Unproven = $true }
     }
-    Write-Drain -Fault "[session-mail] The drain could not load _mail.ps1, so no mail was read. This is not an empty box."
+    Write-Drain "[session-mail] The drain could not load _mail.ps1, so no mail was read. This is not an empty box."
     exit 0
 }
 
 $B = $script:CcxMailBounds
-
-function Limit-Text {
-    <#
-    .SYNOPSIS
-        Truncate to a character cap, LEADING WITH THE DISCRIMINATOR.
-    .DESCRIPTION
-        docs/SESSION-MAIL.md: a receipt note capped at 80 characters lost the word that told two
-        causes apart, because that word sat at the END of the sentence. Two different failures then
-        wrote identical receipts -- the exact defect the note existed to prevent.
-    #>
-    param([string] $Text, [int] $Max)
-    if ($null -eq $Text) { return '' }
-    $t = ($Text -replace '[\r\n\t]', ' ')
-    if ($t.Length -le $Max) { return $t }
-    return $t.Substring(0, [Math]::Max(0, $Max - 3)) + '...'
-}
 
 function Format-BodyLines {
     <#
@@ -372,7 +450,9 @@ try {
             try { $entered = Enter-CcxHookSession -Text $raw; $cwdNote = $entered.Reason }
             catch { $cwdNote = "the drain could not read its input's cwd ($($_.Exception.Message))" }
             # A fault stamp keys on the box this drain reads. Where it refused the input's cwd, it
-            # keys on that cwd instead, so the session that met the fault is the one told.
+            # keys on that cwd instead, so the worktree the session names is the one told. After a
+            # `cd` with no pin, that is a sibling: the notice lands there, and its text names both
+            # paths. That is a misplaced notice, never misplaced mail.
             if ($entered -and -not $cwdNote) { $script:FaultAbout = (Get-Location).ProviderPath }
         }
         # No helper means NO BOX below, so stdin is not read: an unbounded read here could only hang.
@@ -383,6 +463,7 @@ try {
         if ($payload -is [pscustomobject]) {
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {
                 $sessionId = (Limit-Text -Text ([string]$payload.session_id) -Max 64) -replace '[^A-Za-z0-9._-]', '-'
+                $script:DrainSession = $sessionId
             }
             if (-not $script:FaultAbout -and $payload.PSObject.Properties['cwd']) {
                 $script:FaultAbout = [string]$payload.cwd
@@ -391,11 +472,15 @@ try {
         # THE INPUT WINS over -Event. The .PARAMETER note says why.
         $named = Get-DrainEvent $payload
         if ($named) { $Event = $named }
-        elseif (-not $Event -and $haveInput) {
+        elseif (-not $Event -and $haveInput -and -not $script:CcxHookInputTimedOut) {
             # CHANGED 2026-10-26: on main, such a run was a SessionStart that minted markers on an
             # unproven display. This change's first draft gave it NO EVENT on stderr instead, so a
             # SessionStart wired with no -Event showed nothing when its input was empty or would not
             # parse. It is now a SessionStart that mints none. Get-DrainEvent states the Stop risk.
+            #
+            # NOT AFTER A TIMED-OUT READ. A pipe held open is what a broken wrapper would do at
+            # every Stop, so a default there could loop. A SessionStart that times out loses only
+            # a NO BOX line, which it would have printed in place of mail anyway.
             $Event = 'SessionStart'
             $script:Unproven = $true
         }
@@ -411,7 +496,7 @@ try {
         # NO FALLBACK BOX. The drain still stands where it started, the primary under the desktop app.
         # Showing that box would write shown-markers for this session, and its Stop would then file
         # the primary session's mail as seen. Reading nothing is safe; reading the wrong box loses mail.
-        Write-Drain -Fault (
+        Write-Drain (
             "[session-mail] NO BOX. $cwdNote, so this drain cannot tell which box is this session's " +
             "and NOTHING WAS READ. This is not an empty box. As of $(Get-CcxMailStamp)."
         )
@@ -425,7 +510,7 @@ try {
     if ($Event -notin @('SessionStart', 'Stop')) {
         $what = if ($Event) { "the event '$(Limit-Text -Text $Event -Max 40)' is not SessionStart or Stop" }
                 else { "neither -Event nor the hook input's hook_event_name named an event" }
-        Write-Drain -Fault (
+        Write-Drain (
             "[session-mail] NO EVENT. $what, so NOTHING WAS READ. This is not an empty box. " +
             "As of $(Get-CcxMailStamp)."
         )
@@ -436,7 +521,7 @@ try {
     if (-not $mailRoot) {
         # THE CASE THAT WAS BYTE-IDENTICAL TO A HEALTHY EMPTY CHANNEL. A container of ~25 clones had
         # mail queued to it, nothing was ever delivered, and every send reported success.
-        Write-Drain -Fault (
+        Write-Drain (
             "[session-mail] NO QUEUE. This session is not inside a git clone, so no mail root could " +
             "be resolved and NOTHING WAS READ. This is not an empty box. A directory that CONTAINS " +
             "clones has no common dir. Name the repository whose queue to read by passing -Anchor " +
@@ -446,7 +531,9 @@ try {
     }
 
     if (Test-CcxMailOff -MailRoot $mailRoot) {
-        Write-Drain -Fault (
+        # A SWITCH, NOT A FAULT, so it leaves no stamp. Every SessionStart reports it while it
+        # stands, and a stamp would outlive the switch and report it after someone removed it.
+        Write-Drain -NotFault (
             "[session-mail] DELIVERY IS OFF for this queue, so nothing was rendered. Anything queued " +
             "is still queued and nothing is lost. Remove $(Join-Path $mailRoot 'OFF') to resume. " +
             "As of $(Get-CcxMailStamp)."
@@ -457,7 +544,7 @@ try {
     # THE BOX IS THIS SESSION'S OWN CWD, never the anchor's. An anchor answers which queue.
     $myTree = Get-CcxMailAddressRoot
     if (-not $myTree) {
-        Write-Drain -Fault (
+        Write-Drain (
             "[session-mail] NO BOX. The queue at $mailRoot was found, but this session's own " +
             "directory is not inside a git worktree, so it has no box and NOTHING WAS READ. This is " +
             "not an empty box. As of $(Get-CcxMailStamp)."
@@ -505,13 +592,9 @@ try {
 
     # ======================================================================================= Stop
     if ($Event -eq 'Stop') {
-        # This Stop reached its box, so no fault a stamp records stands here now. Clear it. A throw
-        # below lands in the outer catch, which writes a fresh one.
-        try {
-            $stale = Get-DrainFaultFile (Get-Location).ProviderPath
-            if ($stale) { Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue }
-        }
-        catch { }
+        # This Stop reached its box, so its own fault no longer stands here. A throw below lands in
+        # the outer catch, which writes a fresh stamp.
+        Clear-DrainFault
         $consumed = 0
         foreach ($item in $live) {
             $id = Get-MessageId -File $item.File
@@ -552,12 +635,15 @@ try {
         # queue, no box, delivery off, a helper that would not load, and the outer catch. Only
         # success with nothing to do is quiet." Speaking at Stop was the block the header's CHANGED
         # note measured. Those faults, and the Filed line below, now reach stderr through
-        # Write-Drain, so they stay off stdout and the turn still ends. Each fault also leaves the
-        # stamp Save-DrainFault writes, which the next SessionStart shows. Success with nothing to
-        # do writes nothing at all, and so, as before this change, does an expiry or an unreadable
-        # file met at Stop: those counters are reported by the SessionStart path only.
+        # Write-Drain, so they stay off stdout and the turn still ends. Each fault but delivery off
+        # also leaves the stamp Save-DrainFault writes, which the next SessionStart shows. Success
+        # with nothing to do writes nothing at all.
+        #
+        # SO, AS BEFORE THIS CHANGE, DOES AN EXPIRY OR AN UNREADABLE FILE MET AT Stop, and that one
+        # is a gap. SessionStart reports only the counts it meets itself, so a message that expires
+        # at a Stop is filed under expired/ and reported nowhere. It is not fixed here.
         if ($consumed -gt 0) {
-            Write-Drain "[session-mail] Filed $consumed message(s) this session had already displayed. As of $(Get-CcxMailStamp)."
+            Write-Drain -NotFault "[session-mail] Filed $consumed message(s) this session had already displayed. As of $(Get-CcxMailStamp)."
         }
         exit 0
     }
@@ -577,7 +663,7 @@ try {
     if ($live.Count -eq 0) {
         $text = $header + "No mail. The box is empty, and this line is the proof the drain ran. As of $(Get-CcxMailStamp)."
         if ($notices.Count -gt 0) { $text += "`n" + ($notices -join "`n") }
-        Write-Drain $text
+        Write-Drain -NotFault $text
         exit 0
     }
 
@@ -593,6 +679,10 @@ try {
 
     $budget = $B.BytesPerInjection
     $used = [System.Text.Encoding]::UTF8.GetByteCount(($lines -join "`n"))
+    # Write-Drain adds these after the render, so charge them now: every bound is measured as
+    # rendered, and that includes the lines added last.
+    if ($script:Unproven) { $used += [System.Text.Encoding]::UTF8.GetByteCount($script:UnprovenLine) + 1 }
+    $used += [System.Text.Encoding]::UTF8.GetByteCount((Get-DrainStampLine)) + 1
     $rendered = [System.Collections.Generic.List[string]]::new()
     $deferred = 0
 
@@ -640,7 +730,7 @@ try {
         $lines.Add("$deferred more message(s) DEFERRED to the next drain, not dropped. They stay in the inbox.")
     }
 
-    Write-Drain ($lines -join "`n")
+    Write-Drain -NotFault ($lines -join "`n")
 
     # ------------------------------------------- THE MARKER IS MINTED AFTER THE EMIT, NOT BEFORE
     # It is the proof that a display happened, keyed per (message, session). Minting it earlier is
@@ -670,6 +760,6 @@ try {
     exit 0
 }
 catch {
-    Write-Drain -Fault "[session-mail] The drain failed and delivered nothing: $($_.Exception.Message). This is NOT an empty box."
+    Write-Drain "[session-mail] The drain failed and delivered nothing: $($_.Exception.Message). This is NOT an empty box."
     exit 0
 }

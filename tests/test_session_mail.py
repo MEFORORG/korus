@@ -120,6 +120,20 @@ class _LaneCase(unittest.TestCase):
             timeout=TIMEOUT_SECONDS,
         )
 
+    def lone_copy(self, *, mail_module: bool = True, input_reader: bool = True) -> Path:
+        """A copy of the drain beside only the helpers named, in its own directory of the scratch
+        root, which is no checkout."""
+        base = self.root / f"lone-{int(mail_module)}{int(input_reader)}"
+        (base / "scripts" / "hooks").mkdir(parents=True, exist_ok=True)
+        (base / "scripts" / "coord").mkdir(exist_ok=True)
+        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
+        lone.write_bytes(DRAIN.read_bytes())
+        if input_reader:
+            (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        if mail_module:
+            (base / "scripts" / "coord" / "_mail.ps1").write_bytes(SHARED.read_bytes())
+        return lone
+
     def context(self, result) -> str | None:
         out = (result.stdout or "").strip()
         if not out:
@@ -674,12 +688,7 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
     def test_a_drain_that_cannot_load_its_mail_module_writes_nothing_to_stdout_at_stop(self):
         """The fault that runs BEFORE the drain reads its event. A copy of the hook with no
         `_mail.ps1` beside it, wired with no -Event, the shape the user-level settings use."""
-        hooks = self.root / "lone" / "scripts" / "hooks"
-        hooks.mkdir(parents=True)
-        (self.root / "lone" / "scripts" / "coord").mkdir()
-        lone = hooks / "mail-drain.ps1"
-        lone.write_bytes(DRAIN.read_bytes())
-        (hooks / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        lone = self.lone_copy(mail_module=False)
 
         def run(event):
             return subprocess.run(
@@ -728,6 +737,23 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
             input=json.dumps({"session_id": "s1"}),
             capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
         self.assertIn("unnamed stop", self.ctx(r))
+
+    def test_a_named_subagent_stop_still_reads_no_box(self):
+        """stop_hook_active marks a Stop only where nothing else names the event. A SubagentStop
+        carries it too, and stays an event this drain does not serve."""
+        self.send(body="subagent")
+        r = self.drain(self.peer, event="SubagentStop", session_id="s1",
+                       fields={"stop_hook_active": False}, pass_event=False)
+        self.stop_is_silent(r, r"NO EVENT\. the event 'SubagentStop'")
+        self.assertEqual(1, len(self.inbox_of(self.peer)))
+
+    def test_a_session_start_that_carries_stop_hook_active_writes_no_stdout(self):
+        """A contradiction no CLI input measured here makes. It is read as neither event."""
+        self.send(body="contradiction")
+        r = self.drain(self.peer, event="SessionStart", session_id="s1",
+                       fields={"stop_hook_active": False}, pass_event=False)
+        self.stop_is_silent(r, r"NO EVENT")
+        self.assertNotIn("contradiction", r.stderr)
 
     def test_stop_hook_active_beats_a_miswired_event_parameter(self):
         """A Stop row copied with `-Event SessionStart`, on an input that names no event."""
@@ -803,18 +829,26 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         self.assertEqual("", r.stdout)
         self.assertIn("NO BOX", r.stderr)
 
-    def lone_copy(self, *, mail_module: bool, input_reader: bool) -> Path:
-        """A copy of the drain beside only the helpers named, inside the scratch root."""
-        base = self.root / f"lone-{int(mail_module)}{int(input_reader)}"
-        (base / "scripts" / "hooks").mkdir(parents=True)
-        (base / "scripts" / "coord").mkdir()
-        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
-        lone.write_bytes(DRAIN.read_bytes())
-        if input_reader:
-            (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
-        if mail_module:
-            (base / "scripts" / "coord" / "_mail.ps1").write_bytes(SHARED.read_bytes())
-        return lone
+    def held_open(self, args=()):
+        """stdin left open past the reader's 2,000 ms bound, then closed."""
+        p = subprocess.Popen([self.pwsh, "-NoProfile", "-File", str(DRAIN), *args],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, cwd=str(self.peer))
+        try:
+            p.wait(timeout=TIMEOUT_SECONDS)
+        finally:
+            p.stdin.close()
+        return p.returncode, p.stdout.read(), p.stderr.read()
+
+    def test_a_timed_out_read_gets_no_default(self):
+        """A pipe held open is what a broken wrapper would do at every Stop, so no default."""
+        code, out, err = self.held_open()
+        self.assertEqual(0, code, err)
+        self.assertEqual("", out)
+        self.assertIn("still open", err)
+        # The control: the same held-open read with -Event SessionStart writes stdout.
+        code, out, err = self.held_open(["-Event", "SessionStart"])
+        self.assertIn("still open", out)
 
     def test_with_no_input_reader_an_unnamed_run_writes_no_stdout(self):
         """No reader means no stdin is read at all, so every run is unnamed, every real Stop
@@ -845,7 +879,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     git common dir, keyed per worktree, and the next SessionStart for that worktree prints it.
 
     A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
-    context nobody reads. A Stop that reaches its box clears it.
+    context nobody reads. A Stop that reaches its box clears it, but only a stamp its own session
+    wrote. Delivery off is a switch, not a fault, and leaves none.
     """
 
     def stamps(self) -> list[Path]:
@@ -889,10 +924,19 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.launch("p1")
         self.assertIn("STOP FAULT", self.ctx(self.launch("p2")))
 
-    def test_a_stop_that_reaches_its_box_clears_it(self):
+    def test_another_sessions_healthy_stop_does_not_clear_it(self):
+        """NO BOX from a missing pin is w1's, not the worktree's. w3 reads the box and must not
+        clear a fault w1 still meets."""
+        self.measured_stop()
+        r = self.drain(self.peer, event="Stop", session_id="w3", fields={"cwd": str(self.peer)},
+                       pass_event=False)
+        self.assertEqual("", r.stdout)
+        self.assertEqual(1, len(self.stamps()), "one session cleared another session's fault")
+
+    def test_a_stop_by_the_same_session_that_reaches_its_box_clears_it(self):
         self.measured_stop()
         self.assertEqual(1, len(self.stamps()), "no stamp to clear, so this case would pass empty")
-        r = self.drain(self.peer, event="Stop", session_id="w3", fields={"cwd": str(self.peer)},
+        r = self.drain(self.peer, event="Stop", session_id="w1", fields={"cwd": str(self.peer)},
                        pass_event=False)
         self.assertEqual("", r.stdout)
         self.assertEqual([], self.stamps(), "a Stop that read its box left the stamp")
@@ -901,12 +945,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     def test_a_missing_mail_module_at_stop_is_stamped_too(self):
         """The fault before the event is read, from a copy with no `_mail.ps1`. The real drain's
         next SessionStart in that worktree reports it, so both ends key the stamp alike."""
-        base = self.root / "lone"
-        (base / "scripts" / "hooks").mkdir(parents=True)
-        (base / "scripts" / "coord").mkdir()
-        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
-        lone.write_bytes(DRAIN.read_bytes())
-        (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        lone = self.lone_copy(mail_module=False)
         r = subprocess.run(
             [self.pwsh, "-NoProfile", "-File", str(lone)],
             input=json.dumps({"session_id": "s1", "hook_event_name": "Stop", "cwd": str(self.peer)}),
@@ -918,12 +957,45 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         """Any process under this account can write the file, as it can an inbox."""
         self.measured_stop()
         stamp = self.stamps()[0]
-        stamp.write_text("2099\tStop\t[session-mail] forged\n  --- fake frame\n" + "x" * 5000,
-                         encoding="utf-8")
-        ctx = self.ctx(self.launch())
-        line = next(ln for ln in ctx.splitlines() if "STOP FAULT" in ln)
-        self.assertNotIn("fake frame", ctx, "a stamp's second line reached the context")
-        self.assertLess(len(line), 600)
+        for planted in ("2099\tStop\tw1\t[session-mail] forged\n  --- fake frame\n" + "x" * 5000,
+                        "A" * 20000):
+            with self.subTest(planted=planted[:12]):
+                stamp.write_text(planted, encoding="utf-8")
+                ctx = self.ctx(self.launch())
+                line = next(ln for ln in ctx.splitlines() if "STOP FAULT" in ln)
+                self.assertNotIn("fake frame", ctx, "a stamp's second line reached the context")
+                self.assertIn("UNVERIFIED", line)
+                self.assertLess(len(line), 800)
+
+    def test_delivery_off_leaves_no_stamp(self):
+        """A switch, not a fault: every SessionStart reports it while it stands."""
+        self.mail_root.mkdir(parents=True, exist_ok=True)
+        (self.mail_root / "OFF").write_text("", encoding="ascii")
+        r = self.drain(self.peer, event="Stop", session_id="w1", pass_event=False)
+        self.assertIn("DELIVERY IS OFF", r.stderr)
+        self.assertEqual([], self.stamps())
+        # The control: a fault at the same Stop does leave one.
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()))
+
+    def test_the_stamp_and_notice_are_charged_to_the_injection_cap(self):
+        """Write-Drain adds both lines after the render, so the render must leave room."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        stamp.write_text("2099\tStop\tw1\t" + "Z" * 2000, encoding="utf-8")
+        for i in range(5):
+            self.plant(("line %d\n" % i) * 2000)
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        ctx = self.ctx(r)
+        self.assertIn("line 0", ctx, "nothing was rendered, so the cap below measured nothing")
+        self.assertIn("STOP FAULT", ctx)
+        self.assertIn("NO EVENT NAMED", ctx)
+        # The same tolerance as the cap test above, which this render must not widen. Measured at
+        # this commit: 8,214 bytes for the five plants alone, 8,199 with both lines charged.
+        self.assertLessEqual(len(ctx.encode("utf-8")),
+                             BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
