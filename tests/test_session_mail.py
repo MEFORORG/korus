@@ -791,7 +791,7 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         """With no marker, the session's own Stop files nothing. Control: a named display is
         filed by the same Stop, in `TheStopDrainNeverWritesStdout`."""
         self.send(body="shown, not filed")
-        self.run_raw(json.dumps({"session_id": "s1"}))
+        self.assertIn("shown, not filed", self.ctx(self.run_raw(json.dumps({"session_id": "s1"}))))
         r = self.drain(self.peer, event="Stop", session_id="s1", pass_event=False)
         self.assertEqual("", r.stdout)
         self.assertEqual(1, len(self.inbox_of(self.peer)), "a Stop filed an unproven display")
@@ -891,6 +891,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
 
     def test_a_stop_that_reaches_its_box_clears_it(self):
         self.measured_stop()
+        self.assertEqual(1, len(self.stamps()), "no stamp to clear, so this case would pass empty")
         r = self.drain(self.peer, event="Stop", session_id="w3", fields={"cwd": str(self.peer)},
                        pass_event=False)
         self.assertEqual("", r.stdout)
