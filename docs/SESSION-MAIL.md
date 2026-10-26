@@ -359,13 +359,31 @@ So a `Stop` fault also leaves a stamp, one file per worktree and session under
 `<git-common-dir>/ccx-mail-faults/`. The next `SessionStart` for that worktree prints the newest
 on stdout, marked unverified, where a reader is.
 
-A `SessionStart` never clears a stamp, since a phantom session would clear it unread. A `Stop` that
-reaches its box clears only its own session's stamp, so a healthy peer cannot hide a fault that
-stands. A stamp nobody clears is hidden after a day and pruned at the next write.
+A `SessionStart` never clears a stamp, since a phantom session would clear it unread. It marks the
+stamp it printed as shown to its own session, after the print, as it marks mail.
+
+A `Stop` that reaches its box clears only the stamps its own session was shown. A phantom never
+reaches `Stop`, and a session never shown a stamp cannot clear it. A stamp nobody clears is hidden
+after a day and pruned.
+
+A stamp rewritten after it was shown is kept, because its write time no longer matches the mark.
+So a fault that keeps happening waits for its own `SessionStart`.
+
+This page read "A `Stop` that reaches its box clears only its own session's stamp" until
+2026-10-26. That `Stop` cleared a stamp nobody had been shown, so a one-time fault was logged
+nowhere.
 
 Delivery off leaves no stamp. It is a switch, every `SessionStart` reports it while it stands, and
-a stamp would report it after it was removed. A drain that started in no checkout, or whose input
-reader would not load, has nowhere to key a stamp, so that `Stop` fault reaches stderr only.
+a stamp would report it after it was removed.
+
+The fix ships with three named residuals:
+
+1. Some faults leave no stamp. A drain that started in no checkout, or whose input reader would
+   not load, has nowhere to key one, so that `Stop` fault reaches stderr only.
+2. An unnamed `SessionStart`, below, marks nothing shown: no mail and no stamp. So that stamp
+   shows again until a named `SessionStart` shows it and its session reaches `Stop`.
+3. Only the newest stamp is printed and marked; the line counts the rest. A fault that stands keeps
+   its stamp newest, so an older one can wait until it is pruned unshown after a day.
 
 An event that nothing names is read as `SessionStart`. That is a hook with no `-Event`, whose
 input is empty, will not parse, or names no event. It shows what it finds and marks nothing shown.
