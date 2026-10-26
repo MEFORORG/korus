@@ -232,7 +232,7 @@ function Get-DrainFaultPrefix {
 function Get-DrainSessionFile {
     # This session's own stamp under a prefix.
     param([string] $Prefix)
-    return "$Prefix.$(Get-CcxShortHash $script:DrainSession -Bytes 4).txt"
+    return "$Prefix.$(Get-DrainSessionHash).txt"
 }
 
 function ConvertTo-DrainField {
@@ -258,13 +258,16 @@ function Test-DrainStampFresh {
 
 function Write-DrainFileAtomic {
     # Replace a file in one rename, as `Write-CcxSessionPin` does, so a reader never meets half of
-    # it. It throws; each caller catches.
+    # it. On Windows a reader holding the file open makes the rename fail, so it retries as that
+    # function does, eight times 25 ms apart. It throws on the last failure; each caller catches.
     param([string] $Path, [string] $Text)
     $tmp = "$Path.$PID.tmp"
     try {
         [System.IO.File]::WriteAllText($tmp, $Text, [System.Text.UTF8Encoding]::new($false))
-        [System.IO.File]::Move($tmp, $Path, $true)
-        $tmp = $null
+        foreach ($attempt in 1..8) {
+            try { [System.IO.File]::Move($tmp, $Path, $true); $tmp = $null; break }
+            catch { if ($attempt -eq 8) { throw } ; Start-Sleep -Milliseconds 25 }
+        }
     }
     finally { if ($tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } }
 }
@@ -317,19 +320,22 @@ function Read-DrainHead {
 function Get-DrainStampIdentity {
     <#
     .SYNOPSIS
-        Which version of a stamp this is: its write time and a hash of its bounded head.
+        Which version of a stamp this is: a hash of its bounded head, the bytes that are shown.
     .DESCRIPTION
-        The write time alone is not enough. A file system with coarse times, or a reset time, gives
-        a rewrite the time of the version shown, and a Stop would then delete the newer fault
-        unshown. The head carries the stamp's own time to 100 ns, so the hash tells them apart.
+        Not the write time. A file system with coarse times, or a reset time, gives a rewrite the
+        time of the version shown, and a Stop would then delete the newer fault unshown. The head
+        carries the stamp's own time to 100 ns, so its hash tells two versions apart.
+
+        A SessionStart hashes the very head it displayed, never a second read. A rewrite between
+        two reads would mark the newer version shown, and its Stop would delete it unshown.
     #>
-    param([System.IO.FileInfo] $File)
-    $File.Refresh()
-    return "$($File.LastWriteTimeUtc.Ticks):$(Get-CcxShortHash (Read-DrainHead $File.FullName 2048) -Bytes 8)"
+    param([string] $Head)
+    return Get-CcxShortHash $Head -Bytes 8
 }
 
 function Read-DrainFaultFields {
-    # The stamp's four fields, each capped, from at most 2,048 characters of the file. Or $null.
+    # The stamp's four fields, each capped, from at most 2,048 characters of the file, and the
+    # head they came from. Or $null.
     param([string] $File)
     $head = Read-DrainHead $File 2048
     if (-not $head) { return $null }
@@ -341,6 +347,7 @@ function Read-DrainFaultFields {
         Event   = ConvertTo-DrainField $f[1] 40
         Session = ConvertTo-DrainField $f[2] 64
         What    = ConvertTo-DrainField ($f[3] -replace '^\[session-mail\] ', '') 300
+        Head    = $head
     }
 }
 
@@ -379,10 +386,15 @@ function Read-DrainFault {
         $leaf = Split-Path -Leaf $prefix
         $fresh = @(Get-ChildItem -LiteralPath (Split-Path -Parent $prefix) -Filter "$leaf.*.txt" -File -ErrorAction SilentlyContinue |
             Where-Object { Test-DrainStampFresh $_ } | Sort-Object LastWriteTimeUtc -Descending)
-        if ($fresh.Count -eq 0) { return '' }
-        $s = Read-DrainFaultFields $fresh[0].FullName
+        # The newest stamp that reads. An empty, locked or planted newest one must not hide the rest.
+        $s = $null
+        $pick = $null
+        foreach ($c in $fresh) {
+            try { $s = Read-DrainFaultFields $c.FullName } catch { $s = $null }
+            if ($s) { $pick = $c; break }
+        }
         if (-not $s) { return '' }
-        $script:StampShown = [pscustomobject]@{ Path = $fresh[0].FullName; Id = Get-DrainStampIdentity $fresh[0] }
+        $script:StampShown = [pscustomobject]@{ Path = $pick.FullName; Id = Get-DrainStampIdentity $s.Head }
         $evt = if ($s.Event) { "'$($s.Event)'" } else { 'an event nothing named' }
         $more = if ($fresh.Count -gt 1) { " $($fresh.Count - 1) more session(s) here left one too." } else { '' }
         $clears = if (Test-DrainCanMark) { 'This one clears at the next Stop of this session.' }
@@ -443,7 +455,8 @@ function Clear-DrainShownFault {
 
         IT RUNS AT EVERY Stop, a faulting one or one at delivery off included. Any Stop proves the
         session was real, which is all the display needed. It keys on $script:FaultAbout, the key
-        the SessionStart that showed the stamp used.
+        the SessionStart that showed the stamp used. A Stop that keys on another worktree, after a
+        `cd` with no pin, or that names no session, misses the marker: the stamp shows again.
 
         A shown stamp is consumed even where its fault still stands. A reader was told; the next
         Stop that meets the fault writes a new stamp, and that one waits for its own display.
@@ -460,7 +473,8 @@ function Clear-DrainShownFault {
         foreach ($m in $mine) {
             try {
                 $stamp = Get-Item -LiteralPath $m.FullName.Substring(0, $m.FullName.Length - $suffix.Length - 1) -ErrorAction SilentlyContinue
-                if ($stamp -and ((Read-DrainHead $m.FullName 64).Trim() -eq (Get-DrainStampIdentity $stamp))) {
+                if ($stamp -and ((Read-DrainHead $m.FullName 64).Trim() -eq
+                        (Get-DrainStampIdentity (Read-DrainHead $stamp.FullName 2048)))) {
                     Remove-Item -LiteralPath $stamp.FullName -Force -ErrorAction SilentlyContinue
                 }
             }

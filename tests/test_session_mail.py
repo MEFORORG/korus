@@ -879,9 +879,9 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     git common dir, keyed per worktree, and the next SessionStart for that worktree prints it.
 
     A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
-    context nobody reads. It marks the stamp it showed as shown to its own session, and that
-    session's Stop, once it reaches its box, clears it. Delivery off is a switch, not a fault, and
-    leaves none.
+    context nobody reads. It marks the stamp it showed as shown to its own session, and every Stop
+    of that session clears it, one that faults or meets delivery off included. Delivery off is a
+    switch, not a fault, and leaves none.
 
     CHANGED 2026-10-26: a Stop that reached its box cleared its own session's stamp, shown or not,
     so a one-time Stop fault was deleted before any SessionStart showed it.
@@ -1019,6 +1019,27 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         r = self.healthy_stop("w2")
         self.assertIn("DELIVERY IS OFF", r.stderr)
         self.assertEqual([], self.stamps(), "a Stop at delivery off kept a stamp its session saw")
+        self.assertEqual([], self.markers(), "a Stop at delivery off left its marker behind")
+
+    def test_a_rewrite_with_the_shown_write_time_still_survives(self):
+        """The marker names the content shown, not the write time. A rewrite given back the
+        shown time, as a coarse file system or a reset clock would, must not be deleted unshown."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        shown = stamp.stat().st_mtime_ns
+        self.measured_stop()
+        os.utime(stamp, ns=(shown, shown))
+        self.healthy_stop("w2")
+        self.assertEqual(1, len(self.stamps()), "a Stop deleted a newer fault with the shown time")
+
+    def test_an_unreadable_newest_stamp_does_not_hide_the_rest(self):
+        """An empty newest file reads as nothing. The next newest is shown instead."""
+        self.measured_stop()
+        planted = self.stamps()[0].with_name(self.stamps()[0].name.split(".")[0] + ".planted.txt")
+        planted.write_text("", encoding="ascii")
+        self.assertEqual(2, len(self.stamps()), "the empty stamp is not beside the real one")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
 
     def test_a_session_start_with_no_session_id_marks_nothing_and_says_so(self):
         """A named residual, beside the unnamed one below."""
