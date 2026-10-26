@@ -69,8 +69,11 @@ Press forward. When a decision looks like the Owner's, act on a strong recommend
 one, put the issue to adversarial review and follow a clear recommendation it develops. Only then ask, with `AskUserQuestion`.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, the `empower` rules are on too; otherwise the driver
-rules alone. Under empower, bundle every class C item into ONE ask. `roles/COMMON.md`, *The empower
-rules are on by default, for every seat but Special*, holds the classes and the kill switch.
+rules alone. `roles/COMMON.md`, *The empower rules are on by default, for every seat but Special*,
+holds the classes and the kill switch.
+
+Under empower, bundle every class C item into ONE ask, and carry on with the work that does not
+depend on the answer.
 
 They widen no permission. The merge is still the Lander's, and where a repository's `CLAUDE.md`
 makes you wait for the Owner's go, you still wait.

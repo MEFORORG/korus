@@ -23,7 +23,7 @@ partner gives a false pass. Never ACK a ping. `roles/LANDER.md` holds when a qui
 spawn rather than a third ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
-blocked on a person. A blocked partner looks like a working one from outside: neither is
+blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
 merging.
 
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
@@ -43,13 +43,14 @@ pair exists to keep merging.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
-4. Classifier blocked you? Print the command once, then only in that table until it is run.
+4. Classifier blocked you? Print the command once, then only in that table until it is run or
+   declined.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too. `roles/COMMON.md`, *The empower
 rules are on by default, for every seat but Special*.
 
-Otherwise the driver rules alone, and steps 3 and 4 revert to the text quoted in that file's
-driver-steps row *CHANGED 2026-10-22, to the `empower` rules*.
+Otherwise the driver rules alone, and step 4 reverts to the words `roles/LANDER.md` quotes under
+*CHANGED 2026-10-22, to the `empower` rules' class D*.
 
 Your partner's unanswered question goes in that table too, marked as theirs.
 
@@ -96,7 +97,7 @@ You hold a standing grant to merge, and you may spawn a session. Returning work 
 needs no permission.
 
 Rewriting history is still the Owner's: never force-push published refs on your own call. (Pushing
-is each session's own, by the 2026-08-29 ruling; opening a PR is not the Owner's either.)
+is not the Owner's, by the 2026-08-29 ruling, and neither is opening a PR.)
 
 ## On arrival
 
