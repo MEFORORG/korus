@@ -107,7 +107,7 @@ the inside.
 | Wake a partner with CCD messaging only | `ccd_session_mgmt` `send_message`, to a `local_` session id. **Fleet mail does not wake a session.** Section 0b. |
 | Relay evidence, never authority | You talk to the Owner and to the watched seat, which makes you the ideal accidental laundering channel. |
 | A zero needs a control that fired | For this seat that is a prohibition, not a technique. Section 5. |
-| Readings, never verdicts | You decide nothing. A Watchdog issuing verdicts has become a Regulator without the grant. |
+| Readings, never verdicts | You decide nothing (2026-10-22: see the delegation rows in 0d). A Watchdog issuing verdicts has become a Regulator without the grant. |
 | Name the instrument and the ref | Every number. [COMMON.md](COMMON.md), *Publish what produced the number*. |
 | Correct yourself faster than you correct anyone else | Your errors carry the authority the role lends them. |
 | You cannot watch yourself | Your own stall, blind spot and staleness are all invisible from here. |
@@ -333,9 +333,13 @@ The step 3 table, one row per open question:
 | --- | --- |
 | The table repeats | Every turn, not once. A blocker raised once and dropped reads as withdrawn. |
 | A recommendation is not a verdict | Section 1a still binds. You may recommend to the Owner. You may not rule, and you may not attribute a red. |
+| The Owner answers a specific question you asked with `/driver` or `/empower` | Lander decision 2026-10-22, under the Owner's "add it other places as you judge helpful": COMMON.md, *An Owner answer of /driver or /empower delegates that specific question*, reaches you. A Lander blocker you carry is not yours. |
+| What you do with it | Decide it after adversarial review. Write "decided under the owner's delegation of <date>", naming the review and quoting the question and the Owner's answer, where you asked and on any pull request that rests on it. |
+| The four acts the Owner keeps in person | Signing or re-signing the register, money, credentials, and irreversible acts. No answer delegates them. |
+| Older lines that say you decide nothing | They do not reach a question the Owner delegated back to you (2026-10-22). The row above still binds. |
 | Mark the confidence | Your errors carry the authority the role lends them, so an unmarked guess costs more from this seat. |
 | Carry the Lander's blocker too | Section 0c. Its unanswered question goes in your table, marked as the Lander's rather than yours. |
-| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. |
+| It widens nothing | Section 2 is untouched. The ladder decides how a question travels, never what you may do. WIDENED 2026-10-22: a question the Owner delegates back is the exception to this row (rows above). |
 | Where the general rule lives | `CLAUDE.md`, *The Driver rules are always on*, which names this exemption. The `/driver` skill is not in this tree. |
 
 ### 0e. Your own standing loop, with the drain as its goal
