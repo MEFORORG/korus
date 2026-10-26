@@ -581,9 +581,9 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
     NO BOX at every Stop, the harness reported "A hook blocked the turn from ending 9 consecutive
     times", and the turn could not end. A standing fault stands at the next Stop too.
 
-    SO EVERY STOP LINE GOES TO STDERR, the hook log. A fault is still visible to whoever reads the
-    log, and is no longer a wake. Each Stop case below asserts both halves: stdout is EMPTY, and
-    stderr carries the line, so a drain that died before speaking cannot pass as a quiet one.
+    SO EVERY STOP LINE GOES TO STDERR, which stays out of the model's context. What a person sees of
+    it was not measured. Each Stop case below asserts both halves: stdout is EMPTY, and stderr
+    carries the line, so a drain that died before speaking cannot pass as a quiet one.
 
     EVERY ZERO HERE HAS A CONTROL THAT FIRES (Article V). Each fault case runs the same setup at
     SessionStart and requires stdout there, so an empty stdout at Stop is the gate and not a drain
@@ -630,9 +630,21 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
         """The asymmetry, stated where a reader tempted to restore the Stop line will see it."""
         self.assertRegex(self.ctx(self.drain(self.peer, event="SessionStart")), r"(?i)no mail|empty")
 
+    def test_the_measured_stop_writes_nothing_to_stdout(self):
+        """The measured loop, in its own shape: started in the primary, the payload names a worktree
+        cwd, no pin records it, so NO BOX at every Stop. The user-level wiring passes no -Event, so
+        the event comes from stdin here, as it did there."""
+        r = self.drain(self.primary, event="Stop", fields={"cwd": str(self.peer)}, pass_event=False)
+        self.stop_is_silent(r, r"NO BOX\. no pin records")
+
+    def test_the_measured_shape_at_session_start_does_write_stdout(self):
+        """The control. At launch the same payload is taken, so the box is read and stdout fires."""
+        r = self.drain(self.primary, event="SessionStart", fields={"cwd": str(self.peer)},
+                       pass_event=False)
+        self.assertRegex(self.ctx(r), r"(?i)no mail|empty")
+
     def test_a_stop_with_no_box_writes_nothing_to_stdout(self):
-        """The measured loop: NO BOX at every Stop. The user-level wiring passes no -Event, so the
-        event comes from stdin here, as it did there."""
+        """The other NO BOX reason: a payload cwd inside no checkout."""
         r = self.drain(self.primary, event="Stop", fields=self.outside(), pass_event=False)
         self.stop_is_silent(r, r"NO BOX")
 
@@ -678,15 +690,16 @@ class TheStopDrainNeverWritesStdout(_LaneCase):
         # The control: the same copy at SessionStart reads its event early and keeps stdout.
         self.assertIn("could not load _mail.ps1", self.ctx(run("SessionStart")))
 
-    def test_an_event_nothing_named_gets_no_stdout_and_no_marker(self):
+    def test_an_event_nothing_named_reads_no_box_and_writes_no_stdout(self):
         """No -Event, no hook_event_name. Guessing SessionStart at a Stop is the loop, so the drain
-        renders to the log and mints no marker: a line nobody saw is not a display."""
+        says NO EVENT on stderr and stops: no body rendered, no marker minted."""
         self.send(body="unnamed event")
         r = subprocess.run(
             [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
             input=json.dumps({"session_id": "s1"}),
             capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
-        self.stop_is_silent(r, r"unnamed event")
+        self.stop_is_silent(r, r"NO EVENT")
+        self.assertNotIn("unnamed event", r.stderr, "an unnamed event rendered a body nobody reads")
         box = self.boxes()[0]
         self.assertEqual([], list((box / "shown").glob("*.json")) if (box / "shown").is_dir() else [])
         # The control: the same payload, named SessionStart, does mint one.

@@ -345,8 +345,15 @@ Write nothing to stdout at `Stop`, not even a fault. Claude Code reads a `Stop` 
 On 2026-10-26 a worktree session with no session pin hit NO BOX at every `Stop`. The harness
 reported "A hook blocked the turn from ending 9 consecutive times", and the turn could not end.
 
-So `mail-drain.ps1` sends `Stop` fault reports and its "Filed" line to stderr, the hook log. Missing
-queue or box, disabled delivery, helper load failure and catch-all errors all still reach the log.
+The stdout half is reproduced at `8940b3d`. Started in the primary, with a `Stop` payload naming a
+worktree `cwd`, the drain wrote NO BOX as `additionalContext` to stdout. The block is the harness's
+own message, and its version was not read.
+
+So `mail-drain.ps1` sends `Stop` fault reports and its "Filed" line to stderr. Missing queue or box,
+disabled delivery, helper load failure and catch-all errors all go there.
+
+What a reader sees of stderr from a hook that exits 0 was not measured. The harness keeps it out of
+the model's context, which is the point; it may show only in debug or verbose output.
 
 This page read "Keep all fault reports at `Stop`" until 2026-10-26. The drain followed it, and that
 rule is the block measured above.

@@ -5,15 +5,17 @@
 
 .DESCRIPTION
     POSTURE: FAILS OPEN, AND WRITES STDOUT AT SessionStart ONLY. Every path exits 0 and returns no
-    permission decision. At any other event, or one nothing named, each line goes to stderr, which
-    is the hook log, and stdout stays empty. Write-Drain holds that rule for every path.
+    permission decision. At any other event each line goes to stderr and stdout stays empty. An
+    event nothing named reads no box at all. Write-Drain holds the stdout rule for every path.
 
     CHANGED 2026-10-26: the posture read "FAILS OPEN, AND NEVER BLOCKS", and at Stop it was false.
     Claude Code reads a Stop hook's additionalContext as a block that re-invokes the model, so exit
     0 with no decision still blocked. Measured that day: a worktree session with no session pin hit
     the NO BOX path at every Stop, and the harness reported "A hook blocked the turn from ending 9
     consecutive times". The turn could not end. Every fault path and the "Filed N message(s)" line
-    wrote stdout at Stop.
+    wrote stdout at Stop. The stdout half reproduces at 8940b3d: started in the primary, a Stop
+    payload naming a worktree cwd gets NO BOX as additionalContext. The block is the harness's own
+    report, and its version was not read.
 
     SHOW AND CONSUME ARE SPLIT ACROSS TWO EVENTS, and that split is the point. A hook that consumes
     at SessionStart loses state to a session that never really existed: one measured launch produced
@@ -58,7 +60,7 @@
 
 .PARAMETER Event
     SessionStart or Stop. Read from stdin's hook_event_name when not given. When neither names one,
-    the drain runs the SessionStart path but writes it to stderr, and mints no marker.
+    the drain writes one line to stderr and exits before it resolves a queue or touches a box.
 
 .PARAMETER Anchor
     For a session outside a clone: names WHICH QUEUE to read. It never answers which BOX -- the box
@@ -83,12 +85,14 @@ $ErrorActionPreference = 'Stop'
 #
 # THE TEST IS EQUALITY WITH SessionStart, NOT INEQUALITY WITH Stop. An event nothing named is
 # treated as not SessionStart: guessing SessionStart at a Stop is the loop, and guessing Stop at a
-# SessionStart costs one line moved to the log. Any other event the drain is wired to later is
+# SessionStart costs one line moved to stderr. Any other event the drain is wired to later is
 # silent on stdout by the same test, without anyone remembering to add it.
 #
-# THE TEXT STILL GOES SOMEWHERE. stderr reaches the hook log, so a fault at Stop is not silent,
-# only not a wake. $script:Spoke says whether the reader got it, and the render path mints a
-# marker only when it is $true: a marker is the proof of a display, and a line in the log is none.
+# THE TEXT STILL GOES SOMEWHERE. stderr stays out of the model's context, so a fault there is not a
+# wake. What a person sees of a hook's stderr at exit 0 was NOT measured here; it may surface only
+# in debug or verbose output, so do not read a quiet transcript as a healthy drain. $script:Spoke
+# says whether the reader got the text, and the render path mints a marker only when it is $true:
+# a marker is the proof of a display, and a line on stderr is none.
 $script:Emitted = $false
 $script:Spoke = $false
 function Write-Drain {
@@ -262,9 +266,9 @@ try {
     }
     catch { }
     # NO DEFAULT EVENT. This line set $Event to SessionStart when nothing named one, which handed
-    # stdout to a Stop whose input could not be read. An unnamed event now takes the SessionStart
-    # path below, because it is not Stop, but Write-Drain sends its text to the log. The cost: a
-    # SessionStart wired with no -Event, whose input reader will not load, reports to the log only.
+    # stdout to a Stop whose input could not be read. The cost: a SessionStart wired with no -Event,
+    # whose input reader will not load, reports its NO BOX to stderr only. Passing -Event in the
+    # settings, as settings.example.json does, closes that.
 
     if ($cwdNote) {
         # NO FALLBACK BOX. The drain still stands where it started, the primary under the desktop app.
@@ -273,6 +277,17 @@ try {
         Write-Drain (
             "[session-mail] NO BOX. $cwdNote, so this drain cannot tell which box is this session's " +
             "and NOTHING WAS READ. This is not an empty box. As of $(Get-CcxMailStamp)."
+        )
+        exit 0
+    }
+
+    # AN EVENT NOTHING NAMED READS NO BOX. Rendering it would expire and move mail, and print bodies
+    # to stderr where no reader is; consuming it could file mail nobody saw. So say so and stop.
+    # The NO BOX above still comes first, because its reason names what broke.
+    if (-not $Event) {
+        Write-Drain (
+            "[session-mail] NO EVENT. Neither -Event nor the hook input's hook_event_name named one, " +
+            "so NOTHING WAS READ. This is not an empty box. As of $(Get-CcxMailStamp)."
         )
         exit 0
     }
@@ -389,8 +404,9 @@ try {
         # queue, no box, delivery off, a helper that would not load, and the outer catch. Only
         # success with nothing to do is quiet." Speaking at Stop was the block the header's CHANGED
         # note measured. Those faults, and the Filed line below, now reach stderr through
-        # Write-Drain, so the hook log still shows them and the turn still ends. Only success with
-        # nothing to do writes nothing at all.
+        # Write-Drain, so they stay off stdout and the turn still ends. Success with nothing to do
+        # writes nothing at all, and so, as before this change, does an expiry or an unreadable file
+        # met at Stop: those counters are reported by the SessionStart path only.
         if ($consumed -gt 0) {
             Write-Drain "[session-mail] Filed $consumed message(s) this session had already displayed. As of $(Get-CcxMailStamp)."
         }
@@ -477,9 +493,9 @@ try {
     # It is the proof that a display happened, keyed per (message, session). Minting it earlier is
     # the defect that let one session's receipt back another session's marker.
     #
-    # AND ONLY WHEN THE EMIT REACHED STDOUT. An event nothing named renders this same text to the
-    # log, where no reader sees it, so a marker minted then would let a later Stop file mail that
-    # was never displayed. Write-Drain sets $script:Spoke.
+    # AND ONLY WHEN THE EMIT REACHED STDOUT. A named event that is neither Stop nor SessionStart
+    # renders this same text to stderr, where the model never sees it, so a marker minted then would
+    # let a later Stop file mail that was never displayed. Write-Drain sets $script:Spoke.
     if (-not $script:Spoke) { $rendered.Clear() }
     foreach ($id in $rendered) {
         try {
