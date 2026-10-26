@@ -322,6 +322,10 @@ The ladder, in the Owner's words:
 block at the end of every round. Keep nagging until the Owner runs it or declines."* Those were the
 Owner's words. With empower off, they govern again.
 
+**ADDED 2026-10-26: with empower off, steps 1 and 2 reach no class B or C decision.** It goes in
+the step 3 table until the Owner answers. The engine's `CLAUDE.md` is the source.
+[COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, holds it.
+
 The step 3 table, one row per open question:
 
 | Question | Class | Recommendation | Confidence, and what would change it | Whose |

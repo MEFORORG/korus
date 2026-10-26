@@ -390,13 +390,13 @@ They sort each decision into classes A to D, which rest on the engine's `docs/AU
 section 3. The kill switch is engine repository variable `MEFOR_AFK_KILL`. Anything but exactly
 `off` turns empower off.
 
-**With empower off, the driver rules alone apply, in ask-mode.** Act on class A only. No seat acts
-on a class B or C decision without the Owner, however strong its recommendation, so step 2 below
-yields to this.
+**With empower off, the driver rules alone apply, in ask-mode.** No seat but Special acts on a
+class B or C decision without the Owner, and step 2 and the escalation test below yield to this. A
+recorded delegated decision is the Owner's answer.
 
 **CHANGED 2026-10-26.** The fallback read *"and the driver rules alone apply"*, and the step 2
-record ended *"it governs alone"*. A strong recommendation could then carry a class B decision with
-the kill switch set. Sources: the engine's `CLAUDE.md` and `docs/AUTONOMY-PLAN.md`, section 4, item 3.
+record ended *"it governs alone"*. A strong recommendation could then carry a class B or C decision
+under the kill switch. Sources: the engine's `CLAUDE.md` and `docs/AUTONOMY-PLAN.md`, section 4, item 3.
 
 1. **Be proactive.** Proceed as you judge best, erring toward honestly pressing forward.
 2. **A decision that looks like the Owner's takes three steps before it reaches them.** Act on a

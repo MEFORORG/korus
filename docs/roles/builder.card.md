@@ -55,7 +55,7 @@ Press forward. When a decision looks like the Owner's, act on a strong recommend
 one, put the issue to adversarial review and follow a clear recommendation it develops. Only then ask.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, the `empower` rules are on too. Otherwise act on
-class A only, and ask before any class B or C decision. `roles/COMMON.md`, *The empower rules are
+no class B or C decision without the Owner, and put it in your report. `roles/COMMON.md`, *The empower rules are
 on by default, for every seat but Special*, holds the classes and the kill switch.
 
 They widen no permission, and they move no route. Your question still goes to the seat that

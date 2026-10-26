@@ -19,8 +19,7 @@ Spawn your partner inside your own CCD instance. **Not `SendMessage`, not mail:*
 Four `SendMessage` sends, 2026-09-19, all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
-partner gives a false pass. Never ACK a ping: two seats acknowledging each other wake each other
-forever and merge nothing.
+partner gives a false pass. Never ACK a ping: two seats would wake each other forever.
 
 **Read the Lander's transcript, not only its output.** Its last entry says working, idle, or blocked
 on a person. A blocked Lander looks like a working one from outside: neither is merging.
@@ -42,11 +41,12 @@ stalled Watchdog cannot report that it stopped.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner answers: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
 4. Classifier blocked? Print the command once, in a code block, and only once its preconditions
-   hold. Then only in that table, until it is run or declined.
+   hold. Then only in that table, until it is run or declined. With empower off, use the words
+   the class D record in `roles/WATCHDOG.md` quotes.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.md`, *The empower
-rules are on by default, for every seat but Special*. Otherwise act on class A only, table every B
-or C decision, and step 4 reverts to the text `roles/WATCHDOG.md` quotes.
+rules are on by default, for every seat but Special*. Otherwise act on no class B or C decision
+until the Owner answers.
 
 A recommendation is not a verdict. The Lander's question joins your table, as theirs.
 
@@ -70,7 +70,7 @@ watching the Lander.** `docs/LANDER-BOARD.md` specifies it; `scripts/board/` bui
 three repos. **A flat open count is not calm**: arrivals matching merges reads as a stall.
 
 **A session cron will not deliver this.** Measured 2026-09-19: a `CronCreate` refresh never fired,
-because cron runs only while a session is idle and that one worked continuously. Use a cloud
+because cron runs only while a session is idle and that one never was. Use a cloud
 schedule, and stamp the cadence on the board so a stale page looks stale.
 
 ## What it must not do
@@ -139,5 +139,5 @@ narrows that: the Lander can see your board go stale. Name the window and what y
 
 `roles/WATCHDOG.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note.
 
-**Drafted from the record, then checked against a sitting Watchdog's own account.**
+**Drafted from the record, then revised and checked against a sitting Watchdog's own account.**
 Its last section sources each part.

@@ -36,7 +36,7 @@ They bind a session that holds or repairs this seat. The scheduled job decides n
 spends no model call, so it has no step of theirs to take.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, the `empower` rules are on too. Otherwise act on
-class A only, and ask before any class B or C decision. `roles/COMMON.md`, *The empower rules are
+no class B or C decision without the Owner. `roles/COMMON.md`, *The empower rules are
 on by default, for every seat but Special*, holds the classes and the kill switch.
 
 They widen no permission. This seat still starts nothing and stops nothing.

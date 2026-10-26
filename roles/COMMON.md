@@ -703,13 +703,14 @@ The steps are restated here because they must be in front of you at the moment y
 | Item | Rule |
 | --- | --- |
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
-| Step 1: you hold a strong recommendation | Act on it. Confirming is asking. |
+| Step 1: you hold a strong recommendation | Act on it. Confirming is asking. With empower off, not on a class B or C decision: *The empower rules are on by default, for every seat but Special*. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
 | Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
 | Class C items go in ONE ask | Prepare every open class C item, then bundle them into one ask. Each carries its class, a recommendation, and your confidence with what would change it. Carry on with the work that does not depend on the answer. |
 | A classifier blocked the action | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The classifier row read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* Step 3 named no bundling. With empower off, both revert. |
+| **CHANGED 2026-10-26, to match the engine** | The step 1 row read *"Act on it. Confirming is asking."* With the kill switch set, it then reached a class B or C decision. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 | The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
@@ -769,10 +770,11 @@ in the Builder's own chat the same day.
 | Where the plan says the daily digest | The plan puts class C tables and class D commands in a daily digest, a control in its section 4. Until a digest runs, the `empower` skill's end-of-turn summary carries them. |
 | The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it at the start of each task with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
 | Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs in ask-mode. |
-| What the fallback restores | The driver rules alone, in ask-mode: act on class A only. No seat acts on a class B or C decision without the Owner, however strong its recommendation. |
+| What the fallback restores | The driver rules alone, in ask-mode: no seat acts on a class B or C decision without the Owner, however strong its recommendation. Merging is not a class, so the Lander keeps merging. |
+| What yields to ask-mode | The driver ladder's steps 1 and 2, and *Escalate only what only the Owner has*. A recorded delegated decision is the Owner's own answer, and the switch does not touch it. |
 | The text that reverts | Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
-| **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*, and *What the fallback restores* read *"The driver rules alone."* Driver step 1 could then act on a class B decision with the kill switch set. |
-| The source of record for ask-mode | The engine's `CLAUDE.md`, and its `docs/AUTONOMY-PLAN.md`, section 4, item 3: with the switch set, every class reverts to ask-mode. |
+| **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*. *What the fallback restores* opened *"The driver rules alone."*; its second sentence is now *The text that reverts*. Driver step 1 then reached class B and C. |
+| The source of record for ask-mode | The engine's `CLAUDE.md`: *"no class B or C decision is acted on without the owner"*. It cites `docs/AUTONOMY-PLAN.md`, section 4, item 3, where every class reverts to ask-mode. |
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
 

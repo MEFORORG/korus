@@ -23,7 +23,7 @@ partner gives a false pass. Never ACK a ping. `roles/LANDER.md` holds when a qui
 spawn rather than a third ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
-blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
+blocked on a person. A blocked partner looks like a working one from outside: neither is
 merging.
 
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
@@ -44,11 +44,12 @@ pair exists to keep merging.
 3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
    review failed, a recommendation or why you have none, your confidence and what changes it.
 4. Classifier blocked you? Print the command once, in a code block, and only once its
-   preconditions hold. Then only in that table, until it is run or declined.
+   preconditions hold. Then only in that table, until it is run or declined. With empower off, use
+   the words the class D record in `roles/LANDER.md` quotes.
 
 While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.md`, *The empower
-rules are on by default, for every seat but Special*. Otherwise act on class A only, table every B
-or C decision, and step 4 reverts to the text `roles/LANDER.md` quotes.
+rules are on by default, for every seat but Special*. Otherwise act on no class B or C decision
+until the Owner answers. Merging is not a class.
 
 Your partner's open question goes in that table too, as theirs.
 
@@ -134,7 +135,7 @@ indefinitely. Asked the other way round, `--is-ancestor origin/main HEAD`, it is
 
 A branch based on pre-squash history has a stale merge base, and a clean-looking three-dot diff can
 hide files that will conflict. Fix it by merging trunk into the branch; do not rebase. An ahead
-count does not prove the work is unmerged, and treating it that way has destroyed commits.
+count does not prove the work is unmerged.
 
 ## What this seat does not own
 
