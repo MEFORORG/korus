@@ -38,7 +38,7 @@ refuses rather than exit 12, unless a head elsewhere reads with its tag.
 A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
 head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
 before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
-cannot be read refuses too, as unread (exit 10), when its first 64 KiB hold the round's nonce. A
+cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce. A
 tagless fork here exits 5, unless such an unread fork sits elsewhere: then 10. The same argument
 holds across worktrees: the head elsewhere may be the round's real fork, under a notice this tool
 does not know or displaced, and the readable one here a helper that pasted it. It once exited 0
@@ -75,10 +75,14 @@ without one is refused unless `--no-nonce`. With it, only the Builder's own fork
 inline, misplaced or unpersisted round exits 3, never 0. The nonce also places a fork that records
 no worktree.
 
-WITH A NONCE, `--since` DROPS NOTHING THE NONCE KEEPS. A fork carrying the round's own nonce is
-that round's whatever its time, so an older real fork cannot be cut away from a newer helper.
-An unreadable file whose first 64 KiB hold the nonce is kept the same way, here or elsewhere.
-`--since` still bounds an unreadable file whose first 64 KiB lack it, and a `--no-nonce` search.
+WITH A NONCE, `--since` DROPS ONLY WHAT CANNOT CHANGE THE TAG. A fork here carrying the round's own
+nonce and older than `--since` is dropped only where every fork `--since` keeps here reads with one
+tag and the older one reads with that same tag, so a round retried with its nonce reads. Otherwise
+it stays -- a low round beside a newer xhigh head, a tagless or refused older fork -- so an older
+real fork cannot be cut away from a newer helper. With nothing kept to compare against, it is
+dropped, as on main, and nothing is quoted. A head elsewhere contests whatever its time. An
+unreadable file whose record 0 holds the nonce is kept whatever its time, here or elsewhere;
+`--since` still bounds one whose record 0 lacks it, and a `--no-nonce` search.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -225,7 +229,8 @@ NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your
 AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; with a round nonce, two forks carry it:"
     " a reused nonce, a head pasted in this worktree, or one file read twice while being"
-    " written, and a later run clears only the last; without one, narrow with --since set"
+    " written, and a later run clears only the last; --since set between them clears a reused"
+    " nonce only where both read with one tag; without one, narrow with --since set"
     " before the round, --target or --session"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
@@ -779,7 +784,7 @@ class Scan:
     unread_elsewhere: int = 0
 
 
-#: How much of an unreadable transcript is searched for the round's nonce.
+#: The most of an unreadable record 0 searched for the round's nonce.
 RAW_NONCE_PREFIX = 64 * 1024
 
 #: One JSON string escape: a backslash and u with four hex digits, or a backslash and one character.
@@ -802,10 +807,12 @@ def unescape_json(text: str) -> str:
 
 
 def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
-    """Whether the first RAW_NONCE_PREFIX bytes hold the first nonce of `wanted`, as a whole token.
+    """Whether record 0's raw text -- the first line, up to RAW_NONCE_PREFIX bytes -- holds the
+    first nonce of `wanted`, as a whole token. Never a later record: one that mentions the nonce
+    once made an unread file elsewhere refuse a correct fork (exit 10).
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
-    target line, past its first newline too, so its JSON escapes are decoded before matching. A
+    target line, past an escaped newline too, so its JSON escapes are decoded before matching. A
     file that cannot be opened or read, deleted mid-scan among them, is read as not holding it, as
     on main: --since bounds it by write time, and elsewhere it is out of scope.
     """
@@ -814,7 +821,7 @@ def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
         return False
     try:
         with transcript.open("rb") as fh:
-            text = fh.read(RAW_NONCE_PREFIX).decode("utf-8", errors="replace")
+            text = fh.readline(RAW_NONCE_PREFIX).decode("utf-8", errors="replace")
     except OSError:
         return False
     text = unescape_json(text)
@@ -863,6 +870,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     nonce_elsewhere: list[Fork] = []
     #: Forks whose record 0 could not be read, placed in another worktree by their meta.
     unread_elsewhere = 0
+    #: With a nonce, forks here older than --since, decided after the scan.
+    before_since: list[Fork] = []
     seen: set[tuple[int, int, int, int] | str] = set()
     for root in roots:
         try:
@@ -964,10 +973,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 placed = True
             if placed is False and nonced and fork.tag_shaped:
                 nonce_elsewhere.append(fork)
-            # --since drops an older round. With a nonce, every fork past the target filter carries
-            # this round's own, so it is this round's whatever its time, here or elsewhere: an
-            # older real fork dropped by --since once let a newer helper's tag read at exit 0.
-            if filters.since and not nonced and (fork.time is None or fork.time < filters.since):
+            # --since drops an older round. With a nonce, an older fork here is decided after the
+            # scan, beside what --since keeps: an older real fork dropped once let a newer helper's
+            # low tag read at exit 0, and kept always, a retried round reusing its nonce was exit 7
+            # for good. A head elsewhere was already taken above, to contest.
+            if filters.since and (fork.time is None or fork.time < filters.since):
+                if nonced and placed:
+                    before_since.append(fork)
                 continue
             if placed is None:
                 result.unplaced += 1
@@ -984,6 +996,24 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
                 readable_elsewhere += fork.refusal is None and bool(fork.tag)
+    if before_since:
+        # An older fork here carrying the round's nonce is dropped by --since only where that
+        # cannot change the tag quoted: every fork --since keeps here reads with one tag, and every
+        # older one reads with that same tag, so a round retried with its nonce reads. A low round
+        # beside a newer xhigh head, or a tagless or refused older fork, is kept, and refuses.
+        # With nothing kept here to compare against, the older forks stay dropped, as on main.
+        kept_tags = {fork.tag for fork in result.forks}
+        same_tag = (
+            len(kept_tags) == 1
+            and all(kept_tags)
+            and all(f.refusal is None and f.tag in kept_tags for f in before_since)
+        )
+        if result.forks and not same_tag:
+            for fork in before_since:
+                if fork.refusal is not None:
+                    result.refused[fork.refusal].append(fork)
+                else:
+                    result.forks.append(fork)
     # Beside a fork here, a head elsewhere carrying the round's nonce and a tag-shaped line contests
     # it (exit 16, in main): the head elsewhere may be the round's real fork and the one here a
     # helper that pasted it, and nothing in record 0, its time or the meta tells them apart. PR 244

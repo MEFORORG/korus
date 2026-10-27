@@ -2107,9 +2107,11 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     def test_an_unread_fork_elsewhere_holding_the_nonce_refuses_beside_a_fork_here(self):
         # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
-        # so the helper here read at exit 0. Its raw text holds the nonce, past the first newline
-        # too, so it may be the round's real fork: it refuses as unread.
-        self._unread_elsewhere('{"type": "user", "message": {"content": "(A notice.)\n\n'
+        # so the helper here read at exit 0. Its record 0 holds the nonce, past an escaped newline
+        # too, so it may be the round's real fork: it refuses as unread. The newlines are JSON
+        # escapes, as in a real record 0: a literal one ends record 0, and the Lander's hold on
+        # fbe0e17 was a later record read as if it were record 0.
+        self._unread_elsewhere('{"type": "user", "message": {"content": "(A notice.)\\n\\n'
                                f'Review target: `{self.NONCE} Review this')
         self._helper(self.HERE)
         code, out = self._probe()
@@ -2264,6 +2266,82 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self._write("mine", self._head(), self.HERE)
         self._write("again", self._head(nonce=self.FRESH), self.HERE)
         self._contested(*self._probe())
+
+    # The Lander's two holds on PR 247 at fbe0e17.
+
+    def test_a_later_record_holding_the_nonce_does_not_make_an_unread_file_the_rounds(self):
+        # Hold 1: the raw check scanned 64 KiB, so a file whose record 0 does not parse and whose
+        # record 1 mentions the nonce refused a correct fork with exit 10. Only record 0 is read.
+        later = ('{"type": "user", "mess\n'
+                 f'{{"type": "assistant", "message": "{self.NONCE} mentioned later"}}\n')
+        for name, worktree, call in (("elsewhere", self.B, self._probe),
+                                     ("here, before --since", self.HERE, self._since)):
+            with self.subTest(unread=name):
+                self.projects = Path(self._tmp.name) / ("projects-later-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=later, agent="other")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_control_the_nonce_in_an_unread_record_zero_still_refuses(self):
+        # The same tree with the nonce in record 0 itself, its last line, cut mid-string.
+        record0 = f'{{"type": "user", "message": {{"content": "Review target: `{self.NONCE} Rev'
+        for name, worktree, call in (("elsewhere", self.B, self._probe),
+                                     ("here, before --since", self.HERE, self._since)):
+            with self.subTest(unread=name):
+                self.projects = Path(self._tmp.name) / ("projects-rec0-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=record0, agent="other")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertNotIn("tag:", out)
+
+    def test_since_separates_a_retried_round_that_reused_its_nonce(self):
+        # Hold 2: with a nonce, --since no longer separated two forks carrying it, so a skill call
+        # retried with the same nonce exited 7 for good. An older fork carrying the same tag as
+        # the one --since keeps names no other level, so --since drops it again.
+        self._write("first", self._head(), self.HERE)
+        self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent retry", out)
+        self.assertNotIn("agent first", out)
+        self.assertIn("tag: xhigh effort -> 10 inline angles", out)
+
+    def test_control_without_since_the_retried_round_stays_ambiguous(self):
+        self._write("first", self._head(), self.HERE)
+        self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+
+    def test_since_keeps_an_older_fork_whose_tag_differs_or_is_unread(self):
+        # The review of 22fbe10 stands: an older fork --since would drop is kept wherever dropping
+        # it could change the tag quoted. Here a low real round and a newer xhigh head; a tagless
+        # older fork; and a displaced older head, which refuses whatever reads beside it.
+        cases = (("low then xhigh", self._head(tag=self.TAG_LOW), review_tag.EXIT_AMBIGUOUS),
+                 ("tagless then xhigh", f"Review target: `{self.NONCE} Review this branch's diff`"
+                  "\n\nGo.\n", review_tag.EXIT_AMBIGUOUS),
+                 ("displaced then xhigh", "Run this:\n\n" + self._head(),
+                  review_tag.EXIT_DISPLACED))
+        for name, older, want in cases:
+            with self.subTest(case=name):
+                self.projects = Path(self._tmp.name) / ("projects-keep-" + name.split()[0])
+                self.projects.mkdir()
+                self._write("first", older, self.HERE)
+                self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._since()
+                self.assertEqual(code, want, out)
+                self.assertNotIn("tag:", out)
+
+    def test_control_since_with_only_an_older_nonce_fork_is_no_fork(self):
+        # Nothing at or after --since to compare against: dropped, as on main, which quotes nothing.
+        self._write("first", self._head(), self.HERE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        self.assertNotIn("tag:", out)
 
 
 class OneFileReachedTwiceIsOneFork(Fixture):
