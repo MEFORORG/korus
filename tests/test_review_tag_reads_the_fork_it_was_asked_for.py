@@ -1898,9 +1898,10 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     Nothing in record 0 or the meta tells a real fork from a helper that pasted its head, in one
     worktree or across two. So a head elsewhere carrying the round's nonce contests a fork that
-    reads here, exit 16. PR 244 kept such a head out of scope, because a brief elsewhere then
-    "refused a readable fork for good". A pasted head carries the old round's nonce, so a fresh
-    round clears it; the last two cases hold that."""
+    reads here, exit 16, unless it was written after the fork here. PR 244 kept such a head out of
+    scope, because a brief elsewhere then "refused a readable fork for good". A paste is newer than
+    the fork it copied, so a later brief stays out of scope, and a pasted head carries the old
+    round's nonce, so a fresh round clears the rest; the last cases hold both."""
 
     NONCE = "round-4121abcdef"
     FRESH = "round-4121fedcba"
@@ -1909,20 +1910,23 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
     C = "D:/probe/wt-c"
     TAG_LOW = "low effort \u2192 1 inline angle \u2192 \u22645 findings"
     UNKNOWN = "(A notice a later CLI added, reworded.)"
+    #: The real fork first, then the helper that pasted it.
+    EARLY = "2026-10-24T09:00:00Z"
+    LATE = "2026-10-24T09:05:00Z"
 
     def _head(self, nonce=None, tag=TAG_XHIGH, opening="", tail="You are reviewing ..."):
         return (f"{opening}Review target: `{nonce or self.NONCE} Review this branch's diff`\n\n"
                 f"`{tag}`\n\n{tail}")
 
-    def _write(self, agent, body, cwd, session="s1"):
+    def _write(self, agent, body, cwd, session="s1", timestamp=EARLY):
         write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd=cwd,
-                   timestamp="2026-10-24T09:00:00Z", body=body)
+                   timestamp=timestamp, body=body)
 
     def _real_unknown(self, cwd):
         self._write("bREAL", self._head(opening=self.UNKNOWN + "\n\n"), cwd)
 
     def _helper(self, cwd, tag=TAG_XHIGH):
-        self._write("bHELP", self._head(tag=tag, tail="Helper brief."), cwd)
+        self._write("bHELP", self._head(tag=tag, tail="Helper brief."), cwd, timestamp=self.LATE)
 
     def _probe(self, worktree=None, nonce=None):
         # The probe's call: --target <nonce> --worktree <wt> --any-session --projects-dir --ascii.
@@ -1958,12 +1962,16 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self.assertNotIn("low effort", out)
         self._contested(code, out)
 
-    def test_f1_the_rerun_exit_12_advises_does_not_name_the_helper(self):
+    def test_f1_the_rerun_exit_12_advises_quotes_no_helper_tag(self):
+        # The helper is listed as a candidate, never as the fork read, and its tag never prints.
         self._real_unknown(self.B)
-        self._helper(self.C)
+        self._helper(self.C, tag=self.TAG_LOW)
         code, out = self._probe(worktree=self.C)
         self._contested(code, out)
         self.assertIn("agent bREAL | another worktree", out)
+        self.assertIn("agent bHELP | here", out)
+        self.assertNotIn("fork | ", out)
+        self.assertNotIn("low effort", out)
 
     def test_a_readable_head_elsewhere_contests_a_fork_here_too(self):
         # The same argument with nothing refused: either canonical head could be the round's.
@@ -2007,6 +2015,32 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         code, out = self._probe(nonce=self.FRESH)
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent again", out)
+
+    def test_a_brief_written_after_the_fork_here_stays_out_of_scope(self):
+        # PR 244's rule, where the order can tell: a paste needs the fork it copied, so a head
+        # elsewhere newer than the fork here is a copy of it, not the round's real fork.
+        self._write("mine", self._head(), self.HERE)
+        for name, opening in (("displaced", "Run this:\n\n"), ("unknown", self.UNKNOWN + "\n\n"),
+                              ("canonical", "")):
+            with self.subTest(head=name):
+                self._write("brief" + name, opening + self._head(), self.B, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_control_a_head_elsewhere_at_the_same_time_contests(self):
+        # An order the times cannot tell refuses.
+        self._real_unknown(self.B)
+        self._write("bHELP", self._head(tail="Helper brief."), self.HERE)
+        self._contested(*self._probe())
+
+    def test_a_tagless_head_elsewhere_does_not_contest(self):
+        # A target line alone is no reading, here or elsewhere.
+        self._write("relay", f"Review target: `{self.NONCE} Review this branch's diff`\n\nRelay.",
+                    self.B)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
 
     def test_control_the_old_round_stays_contested(self):
         self._write("brief", "Run this:\n\n" + self._head(), self.B)
