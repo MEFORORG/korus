@@ -23,6 +23,7 @@ reporting zero truncated, because the raw body was charged while the renderer ad
 per line. Every bound below is asserted on what the drain actually wrote.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -101,9 +102,14 @@ class _LaneCase(unittest.TestCase):
             timeout=TIMEOUT_SECONDS,
         )
 
-    def drain(self, cwd, event="SessionStart", session_id="sess-1", extra=None):
-        payload = {"session_id": session_id, "hook_event_name": event}
-        args = [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", event]
+    def drain(self, cwd, event="SessionStart", session_id="sess-1", extra=None, fields=None,
+              pass_event=True):
+        """`fields` merges into the stdin payload. `pass_event=False` drops `-Event`, so the drain
+        reads the event from stdin the way the user-level wiring runs it."""
+        payload = {"session_id": session_id, "hook_event_name": event, **(fields or {})}
+        args = [self.pwsh, "-NoProfile", "-File", str(DRAIN)]
+        if pass_event:
+            args += ["-Event", event]
         if extra:
             args += extra
         return subprocess.run(
@@ -114,6 +120,20 @@ class _LaneCase(unittest.TestCase):
             cwd=str(cwd),
             timeout=TIMEOUT_SECONDS,
         )
+
+    def lone_copy(self, *, mail_module: bool = True, input_reader: bool = True) -> Path:
+        """A copy of the drain beside only the helpers named, in its own directory of the scratch
+        root, which is no checkout."""
+        base = self.root / f"lone-{int(mail_module)}{int(input_reader)}"
+        (base / "scripts" / "hooks").mkdir(parents=True, exist_ok=True)
+        (base / "scripts" / "coord").mkdir(exist_ok=True)
+        lone = base / "scripts" / "hooks" / "mail-drain.ps1"
+        lone.write_bytes(DRAIN.read_bytes())
+        if input_reader:
+            (lone.parent / "_hookinput.ps1").write_bytes((DRAIN.parent / "_hookinput.ps1").read_bytes())
+        if mail_module:
+            (base / "scripts" / "coord" / "_mail.ps1").write_bytes(SHARED.read_bytes())
+        return lone
 
     def context(self, result) -> str | None:
         out = (result.stdout or "").strip()
@@ -550,7 +570,7 @@ class SilenceIsNeverAmbiguous(_LaneCase):
         self.assertRegex(self.ctx(self.drain(self.peer)), r"(?i)off|suppress")
 
 
-class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
+class TheStopDrainNeverWritesStdout(_LaneCase):
     """The other half of step 8, and the one the step does NOT cover.
 
     Step 8's rule -- "the box is empty" beats silence -- was written for a reader at SESSION START,
@@ -569,21 +589,48 @@ class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
     it. Step 5 calls that duplicate display the accepted trade, so the sentence was false in a case
     the design plans for.
 
-    STOP IS NOT SILENT. It loses one line: success with nothing to do. Every fault path still
-    speaks, and the last two cases here are what stops a later change from quieting those too.
+    STOP WRITES NOTHING TO STDOUT, NOT EVEN A FAULT. CHANGED 2026-10-26: this paragraph read "STOP
+    IS NOT SILENT. It loses one line: success with nothing to do. Every fault path still speaks",
+    and the last two cases here pinned that. Claude Code reads a Stop hook's additionalContext as a
+    block that re-invokes the model. Measured that day: a worktree session with no session pin hit
+    NO BOX at every Stop, the harness reported "A hook blocked the turn from ending 9 consecutive
+    times", and the turn could not end. A standing fault stands at the next Stop too.
+
+    SO EVERY STOP LINE GOES TO STDERR, which stays out of the model's context. What a person sees of
+    it was not measured. Each Stop case below asserts both halves: stdout is EMPTY, and stderr
+    carries the line, so a drain that died before speaking cannot pass as a quiet one.
+
+    EVERY ZERO HERE HAS A CONTROL THAT FIRES (Article V). Each fault case runs the same setup at
+    SessionStart and requires stdout there, so an empty stdout at Stop is the gate and not a drain
+    that writes nothing anywhere.
     """
+
+    def stop_is_silent(self, r, log_pattern=None):
+        """Empty stdout and exit 0. With `log_pattern`, stderr must carry the line too."""
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout, "a Stop wrote stdout, and Claude Code reads that as a block")
+        if log_pattern:
+            self.assertRegex(r.stderr, log_pattern, "the Stop line did not reach the hook log")
+
+    def outside(self) -> dict:
+        """A payload cwd inside no checkout, from a drain started in the primary. NO BOX at either
+        event, because a cwd that resolves to no worktree has no box at launch or after."""
+        return {"cwd": str(self.root)}
 
     def test_a_stop_that_consumed_nothing_says_nothing(self):
         r = self.drain(self.peer, event="Stop", session_id="s1")
-        self.assertEqual(0, r.returncode, r.stderr)
-        self.assertIsNone(self.context(r), "Stop narrates the normal case into every turn")
+        self.stop_is_silent(r)
+        self.assertEqual("", r.stderr.strip(), "Stop narrates the normal case into every turn")
 
-    def test_a_stop_that_consumed_something_still_says_so(self):
-        """The control. Without it the case above passes against a drain silent at every Stop."""
+    def test_a_stop_that_consumed_something_files_it_and_writes_only_the_log(self):
+        """The control for the case above. Without it, that case passes against a drain that never
+        reached Stop's body: here the same path files a message and logs that it did."""
         self.send(body="filed at stop")
         self.drain(self.peer, event="SessionStart", session_id="s1")
-        self.assertRegex(
-            self.ctx(self.drain(self.peer, event="Stop", session_id="s1")), r"(?i)filed")
+        r = self.drain(self.peer, event="Stop", session_id="s1")
+        self.stop_is_silent(r, r"(?i)filed 1 message")
+        seen = list((self.mail_root / "box").rglob("seen/*.json"))
+        self.assertEqual(1, len(seen), "the Stop logged a filing it did not make")
 
     def test_a_message_a_peer_filed_first_draws_no_claim_of_never_displaying_it(self):
         """The false sentence, pinned. s2 displayed the message; s1 reached Stop first."""
@@ -591,25 +638,1011 @@ class TheStopDrainSpeaksOnlyWhenItActed(_LaneCase):
         self.drain(self.peer, event="SessionStart", session_id="s1")
         self.drain(self.peer, event="SessionStart", session_id="s2")
         self.drain(self.peer, event="Stop", session_id="s1")
-        self.assertIsNone(self.context(self.drain(self.peer, event="Stop", session_id="s2")))
+        r = self.drain(self.peer, event="Stop", session_id="s2")
+        self.stop_is_silent(r)
+        self.assertEqual("", r.stderr.strip())
 
     def test_session_start_still_announces_an_empty_box(self):
         """The asymmetry, stated where a reader tempted to restore the Stop line will see it."""
         self.assertRegex(self.ctx(self.drain(self.peer, event="SessionStart")), r"(?i)no mail|empty")
 
-    def test_a_stop_outside_a_clone_still_speaks(self):
-        """A fault, not a normal state: there is no queue, and nothing was read."""
-        ctx = self.context(self.drain(self.root, event="Stop"))
-        self.assertIsNotNone(ctx, "a Stop with no queue went byte-identical quiet")
-        self.assertRegex(ctx or "", r"(?i)not inside a git|no queue|-Anchor")
+    def test_the_measured_stop_writes_nothing_to_stdout(self):
+        """The measured loop, in its own shape: started in the primary, the payload names a worktree
+        cwd, no pin records it, so NO BOX at every Stop. The user-level wiring passes no -Event, so
+        the event comes from stdin here, as it did there."""
+        r = self.drain(self.primary, event="Stop", fields={"cwd": str(self.peer)}, pass_event=False)
+        self.stop_is_silent(r, r"NO BOX\. no pin records")
 
-    def test_a_stop_with_delivery_off_still_speaks(self):
-        """Suppressed is a state someone has to undo, so it is reported at either event."""
+    def test_the_measured_shape_at_session_start_does_write_stdout(self):
+        """The control. At launch the same payload is taken, so the box is read and stdout fires."""
+        r = self.drain(self.primary, event="SessionStart", fields={"cwd": str(self.peer)},
+                       pass_event=False)
+        self.assertRegex(self.ctx(r), r"(?i)no mail|empty")
+
+    def test_a_stop_with_no_box_writes_nothing_to_stdout(self):
+        """The other NO BOX reason: a payload cwd inside no checkout."""
+        r = self.drain(self.primary, event="Stop", fields=self.outside(), pass_event=False)
+        self.stop_is_silent(r, r"NO BOX")
+
+    def test_the_same_no_box_at_session_start_does_write_stdout(self):
+        """The control. Same start, same payload cwd, same unpassed -Event; only the event differs."""
+        r = self.drain(self.primary, event="SessionStart", fields=self.outside(), pass_event=False)
+        self.assertIn("NO BOX", self.ctx(r))
+
+    def test_a_stop_outside_a_clone_writes_nothing_to_stdout(self):
+        """A fault, not a normal state: there is no queue, and nothing was read."""
+        self.stop_is_silent(
+            self.drain(self.root, event="Stop"), r"(?i)not inside a git|no queue|-Anchor")
+
+    def test_the_same_no_queue_at_session_start_does_write_stdout(self):
+        self.assertRegex(
+            self.ctx(self.drain(self.root, event="SessionStart")), r"(?i)not inside a git|no queue")
+
+    def test_a_stop_with_delivery_off_writes_nothing_to_stdout(self):
+        """Suppressed is a state someone has to undo, so it is reported at either event: on stdout
+        at SessionStart, and in the log at Stop."""
         self.send(body="queued while off")
         (self.mail_root / "OFF").write_text("", encoding="ascii")
-        ctx = self.context(self.drain(self.peer, event="Stop"))
-        self.assertIsNotNone(ctx, "a Stop against a suppressed queue went quiet")
-        self.assertRegex(ctx or "", r"(?i)off|suppress")
+        self.stop_is_silent(self.drain(self.peer, event="Stop"), r"(?i)delivery is off")
+        self.assertRegex(self.ctx(self.drain(self.peer, event="SessionStart")), r"(?i)delivery is off")
+
+    def test_a_drain_that_cannot_load_its_mail_module_writes_nothing_to_stdout_at_stop(self):
+        """The fault that runs BEFORE the drain reads its event. A copy of the hook with no
+        `_mail.ps1` beside it, wired with no -Event, the shape the user-level settings use."""
+        lone = self.lone_copy(mail_module=False)
+
+        def run(event):
+            return subprocess.run(
+                [self.pwsh, "-NoProfile", "-File", str(lone)],
+                input=json.dumps({"session_id": "s1", "hook_event_name": event}),
+                capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+
+        self.stop_is_silent(run("Stop"), r"could not load _mail\.ps1")
+        # The control: the same copy at SessionStart reads its event early and keeps stdout.
+        self.assertIn("could not load _mail.ps1", self.ctx(run("SessionStart")))
+
+    def test_the_input_event_wins_over_a_miswired_event_parameter(self):
+        """A Stop row copied from the SessionStart one keeps `-Event SessionStart`. The harness's
+        own hook_event_name says Stop, and it wins, so the copy cannot write stdout at every Stop."""
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", "SessionStart"],
+            input=json.dumps({"session_id": "s1", "hook_event_name": "Stop"}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+
+    def test_another_named_event_reads_no_box(self):
+        """Wired to an event it does not serve, the drain says so and stops: no body rendered."""
+        self.send(body="other event")
+        r = self.drain(self.peer, event="UserPromptSubmit", session_id="s1")
+        self.stop_is_silent(r, r"NO EVENT\. the event 'UserPromptSubmit'")
+        self.assertNotIn("other event", r.stderr, "an unserved event rendered a body nobody reads")
+        self.assertEqual(1, len(self.inbox_of(self.peer)))
+
+    def test_a_stop_input_that_omits_its_name_still_writes_no_stdout(self):
+        """CHANGED 2026-10-26: this case read "an event nothing named reads no box and writes no
+        stdout". That cost a SessionStart wired with no -Event all its mail whenever its input
+        could not be read. `AnEventNothingNamedIsShownButNeverMarked` now holds that case.
+
+        What stays is the Stop half. The CLI's Stop input carries `stop_hook_active` and its
+        SessionStart input does not, so that field alone keeps a Stop off stdout."""
+        self.send(body="unnamed stop")
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+            input=json.dumps({"session_id": "s1", "stop_hook_active": False}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+        self.assertNotIn("unnamed stop", r.stderr, "a Stop rendered a body nobody reads")
+        # The control: the same payload without the field is shown, so the field is what decided.
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+            input=json.dumps({"session_id": "s1"}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.assertIn("unnamed stop", self.ctx(r))
+
+    def test_a_named_subagent_stop_still_reads_no_box(self):
+        """stop_hook_active marks a Stop only where nothing else names the event. A SubagentStop
+        carries it too, and stays an event this drain does not serve."""
+        self.send(body="subagent")
+        r = self.drain(self.peer, event="SubagentStop", session_id="s1",
+                       fields={"stop_hook_active": False}, pass_event=False)
+        self.stop_is_silent(r, r"NO EVENT\. the event 'SubagentStop'")
+        self.assertEqual(1, len(self.inbox_of(self.peer)))
+
+    def test_a_session_start_that_carries_stop_hook_active_writes_no_stdout(self):
+        """A contradiction no CLI input measured here makes. It is read as neither event."""
+        self.send(body="contradiction")
+        r = self.drain(self.peer, event="SessionStart", session_id="s1",
+                       fields={"stop_hook_active": False}, pass_event=False)
+        self.stop_is_silent(r, r"NO EVENT")
+        self.assertNotIn("contradiction", r.stderr)
+
+    def test_stop_hook_active_beats_a_miswired_event_parameter(self):
+        """A Stop row copied with `-Event SessionStart`, on an input that names no event."""
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(DRAIN), "-Event", "SessionStart"],
+            input=json.dumps({"session_id": "s1", "stop_hook_active": True}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.stop_is_silent(r)
+
+
+class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
+    """No -Event, and an input that names no event: empty, unparseable, or a payload with neither
+    `hook_event_name` nor `stop_hook_active`. The user-level SessionStart row passes no -Event.
+
+    On main such a run was a SessionStart that minted shown-markers. This branch's first draft
+    gave it NO EVENT on stderr, so that SessionStart showed nothing. Now it is shown, on stdout,
+    and it mints NO marker, so no Stop files mail on a display nobody proved.
+
+    THE RISK THIS LEAVES, stated where a reader will meet it. For an empty or unparseable input, a
+    Stop wired with no -Event is the same process with the same bytes as these SessionStarts, so it
+    writes stdout too. No rule can tell them apart. The CLI's own Stop input names its event and
+    carries `stop_hook_active`, so a real Stop reaches this only if its stdin breaks in transit.
+    """
+
+    def run_raw(self, stdin, cwd=None, script=None, args=()):
+        return subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(script or DRAIN), *args], input=stdin,
+            capture_output=True, text=True, cwd=str(cwd or self.peer), timeout=TIMEOUT_SECONDS)
+
+    def markers(self) -> list[Path]:
+        return sorted((self.mail_root / "box").rglob("shown/*.json"))
+
+    def assert_shown_unmarked(self, r, body):
+        self.assertEqual(0, r.returncode, r.stderr)
+        ctx = self.ctx(r)
+        self.assertIn(body, ctx, "a SessionStart with an unnamed event showed no mail")
+        self.assertIn("NO EVENT NAMED", ctx, "the run did not say why nothing was marked")
+        self.assertEqual([], self.markers(), "an unproven display minted a marker")
+
+    def test_empty_stdin_shows_mail_and_mints_no_marker(self):
+        self.send(body="empty stdin")
+        self.assert_shown_unmarked(self.run_raw(""), "empty stdin")
+
+    def test_unparseable_stdin_shows_mail_and_mints_no_marker(self):
+        self.send(body="junk stdin")
+        self.assert_shown_unmarked(self.run_raw("not json {{{"), "junk stdin")
+
+    def test_a_payload_naming_no_event_shows_mail_and_mints_no_marker(self):
+        self.send(body="no name")
+        self.assert_shown_unmarked(self.run_raw(json.dumps({"session_id": "s1"})), "no name")
+
+    def test_the_same_payload_named_session_start_mints_a_marker(self):
+        """The control for the three above: a named SessionStart, same box, does mint one."""
+        self.send(body="named")
+        r = self.run_raw(json.dumps({"session_id": "s1", "hook_event_name": "SessionStart"}))
+        self.assertIn("named", self.ctx(r))
+        self.assertNotIn("NO EVENT NAMED", self.ctx(r))
+        self.assertEqual(1, len(self.markers()))
+
+    def test_an_unnamed_display_is_never_filed_at_stop(self):
+        """With no marker, the session's own Stop files nothing. Control: a named display is
+        filed by the same Stop, in `TheStopDrainNeverWritesStdout`."""
+        self.send(body="shown, not filed")
+        self.assertIn("shown, not filed", self.ctx(self.run_raw(json.dumps({"session_id": "s1"}))))
+        r = self.drain(self.peer, event="Stop", session_id="s1", pass_event=False)
+        self.assertEqual("", r.stdout)
+        self.assertEqual(1, len(self.inbox_of(self.peer)), "a Stop filed an unproven display")
+
+    def test_a_stop_named_by_its_input_still_writes_no_stdout(self):
+        """The Stop control: the input names Stop, -Event is absent, and a fault stands."""
+        r = self.drain(self.primary, event="Stop", fields={"cwd": str(self.peer)}, pass_event=False)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+
+    def held_open(self, args=()):
+        """stdin left open past the reader's 2,000 ms bound, then closed."""
+        p = subprocess.Popen([self.pwsh, "-NoProfile", "-File", str(DRAIN), *args],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, cwd=str(self.peer))
+        try:
+            p.wait(timeout=TIMEOUT_SECONDS)
+        finally:
+            p.stdin.close()
+        return p.returncode, p.stdout.read(), p.stderr.read()
+
+    def test_a_timed_out_read_gets_no_default(self):
+        """A pipe held open is what a broken wrapper would do at every Stop, so no default."""
+        code, out, err = self.held_open()
+        self.assertEqual(0, code, err)
+        self.assertEqual("", out)
+        self.assertIn("still open", err)
+        # The control: the same held-open read with -Event SessionStart writes stdout.
+        code, out, err = self.held_open(["-Event", "SessionStart"])
+        self.assertIn("still open", out)
+
+    def test_with_no_input_reader_an_unnamed_run_writes_no_stdout(self):
+        """No reader means no stdin is read at all, so every run is unnamed, every real Stop
+        among them. A default here would block every turn, so this one stays on stderr."""
+        lone = self.lone_copy(mail_module=True, input_reader=False)
+        r = self.run_raw("", script=lone)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        # The control: the same copy told -Event SessionStart does write stdout.
+        self.assertIn("NO BOX", self.ctx(self.run_raw("", script=lone, args=["-Event", "SessionStart"])))
+
+    def test_with_no_mail_module_an_unnamed_run_is_still_shown(self):
+        """The fault that runs before the event is read follows the same rule."""
+        lone = self.lone_copy(mail_module=False, input_reader=True)
+        ctx = self.ctx(self.run_raw("", script=lone))
+        self.assertIn("could not load _mail.ps1", ctx)
+        self.assertIn("NO EVENT NAMED", ctx)
+        # The control: the same copy given a Stop input keeps stdout empty.
+        r = self.run_raw(json.dumps({"stop_hook_active": False}), script=lone)
+        self.assertEqual("", r.stdout)
+        self.assertIn("could not load _mail.ps1", r.stderr)
+
+
+class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
+    """docs/HOOKS.md, "Fail open, but never silently", asks for stderr AND a durable record. A Stop
+    fault goes to stderr, which no reader is measured to see. So it also leaves a stamp under the
+    git common dir, keyed per worktree and session, and the next SessionStart for that worktree
+    prints it, with up to two others.
+
+    A SessionStart reads it and never clears it: a phantom SessionStart would clear it into a
+    context nobody reads. It marks each stamp it showed as shown to its own session, and every Stop
+    of that session clears it, one that faults or meets delivery off included. Delivery off is a
+    switch, not a fault, and leaves none.
+
+    CHANGED 2026-10-26: a Stop that reached its box cleared its own session's stamp, shown or not,
+    so a one-time Stop fault was deleted before any SessionStart showed it.
+    """
+
+    def stamps(self) -> list[Path]:
+        d = self.faults_dir()
+        return sorted(d.glob("*.txt")) if d.is_dir() else []
+
+    def measured_stop(self):
+        """The measured shape: started in the primary, an unpinned worktree cwd, so NO BOX."""
+        return self.drain(self.primary, event="Stop", session_id="w1",
+                          fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+
+    def launch(self, session_id="w2"):
+        return self.drain(self.primary, event="SessionStart", session_id=session_id,
+                          fields={"cwd": str(self.peer), "source": "startup"}, pass_event=False)
+
+    def test_a_stop_fault_leaves_a_stamp_and_writes_no_stdout(self):
+        r = self.measured_stop()
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        self.assertEqual(1, len(self.stamps()), "a Stop fault left nothing on disk")
+
+    def test_the_next_session_start_for_that_worktree_reports_it(self):
+        self.measured_stop()
+        ctx = self.ctx(self.launch())
+        self.assertIn("UNSEEN FAULT", ctx)
+        self.assertIn("NO BOX", ctx)
+
+    def test_with_no_fault_the_session_start_reports_none(self):
+        """The control for the two above: no prior Stop fault, no stamp, no line."""
+        self.assertEqual([], self.stamps())
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def test_a_standing_fault_keeps_one_stamp(self):
+        self.measured_stop()
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()))
+
+    def test_a_session_start_does_not_clear_it(self):
+        """Six SessionStart events have fired for one launch, so a phantom must not eat it."""
+        self.measured_stop()
+        self.launch("p1")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p2")))
+
+    def test_another_sessions_healthy_stop_does_not_clear_it(self):
+        """NO BOX from a missing pin is w1's, not the worktree's. w3 reads the box and must not
+        clear a fault w1 still meets."""
+        self.measured_stop()
+        r = self.drain(self.peer, event="Stop", session_id="w3", fields={"cwd": str(self.peer)},
+                       pass_event=False)
+        self.assertEqual("", r.stdout)
+        self.assertEqual(1, len(self.stamps()), "one session cleared another session's fault")
+
+    def test_a_second_sessions_passing_fault_does_not_erase_the_first(self):
+        """One file per worktree let w2's one-time fault overwrite w1's standing one, and w2's
+        next healthy Stop then removed it while w1 still faulted.
+
+        CHANGED 2026-10-26: this case required 1 stamp after w2's healthy Stop, since that Stop
+        removed w2's own. Neither was shown, so both now stay."""
+        self.measured_stop()
+        self.drain(self.primary, event="Stop", session_id="w2",
+                   fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+        self.drain(self.peer, event="Stop", session_id="w2", fields={"cwd": str(self.peer)},
+                   pass_event=False)
+        self.assertEqual(2, len(self.stamps()), "w2's healthy Stop removed a stamp nobody was shown")
+        # CHANGED 2026-10-26: this read `assertIn("1 more session(s)", ...)`, when only the newest
+        # stamp was shown. Both are shown now.
+        self.assertEqual(2, len(self.fault_lines(self.ctx(self.launch()))))
+
+    def fault_lines(self, ctx: str) -> list[str]:
+        """The display's stamp lines, less the line that counts the stamps it does not show."""
+        return [ln for ln in ctx.splitlines()
+                if ln.startswith("[session-mail] UNSEEN FAULT (UNVERIFIED")]
+
+    def test_a_stamp_dated_ahead_is_not_shown(self):
+        """Bounded both ways, or a clock set forward would show it forever. The control is every
+        case above, where a fresh stamp is shown."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        ahead = stamp.stat().st_mtime + 365 * 86400
+        os.utime(stamp, (ahead, ahead))
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def test_a_fault_at_another_event_names_that_event(self):
+        """Only a Stop fault is a Stop fault. A named unserved event is stamped under its name."""
+        self.drain(self.peer, event="UserPromptSubmit", session_id="u1", pass_event=False)
+        line = next(ln for ln in self.ctx(self.launch()).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("'UserPromptSubmit'", line)
+        self.assertNotIn("'Stop'", line)
+
+    def healthy_stop(self, session_id):
+        """A Stop that reaches its box: started in the worktree, its cwd named."""
+        r = self.drain(self.peer, event="Stop", session_id=session_id,
+                       fields={"cwd": str(self.peer)}, pass_event=False)
+        self.assertEqual("", r.stdout)
+        return r
+
+    def test_a_healthy_stop_keeps_a_stamp_no_session_start_has_shown(self):
+        """The Lander's hold on PR 245, 2026-10-26. CHANGED 2026-10-26: this case read "a Stop by
+        the same session that reaches its box clears it". That Stop deleted the stamp before any
+        SessionStart read it, so a one-time Stop fault was logged nowhere."""
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()), "no stamp, so this case would pass empty")
+        self.healthy_stop("w1")
+        self.assertEqual(1, len(self.stamps()), "a healthy Stop deleted a stamp nobody was shown")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
+
+    def markers(self) -> list[Path]:
+        d = self.faults_dir()
+        return sorted(d.glob("*.txt.shown-*")) if d.is_dir() else []
+
+    def test_a_shown_stamp_clears_at_the_stop_of_the_session_shown_it(self):
+        """The control for the case above: once w2 was shown it, w2's Stop clears it, and the
+        following SessionStart does not show it again."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.assertEqual(1, len(self.markers()), "the display marked nothing shown")
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the Stop of the session shown it left the stamp")
+        self.assertEqual([], self.markers(), "the Stop left its own marker behind")
+        self.assertNotIn("UNSEEN FAULT", self.ctx(self.launch("w3")))
+
+    def test_a_shown_session_whose_own_stop_faults_still_consumes_it(self):
+        """Any Stop proves the session was real. w2 was shown w1's stamp, then w2's own Stop met
+        the same NO BOX: w1's stamp goes, and w2's new one is what the next launch shows."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.drain(self.primary, event="Stop", session_id="w2",
+                   fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+        left = self.stamps()
+        self.assertEqual(1, len(left), "w1's shown stamp survived w2's faulting Stop")
+        self.assertIn("\tw2\t", left[0].read_text(encoding="utf-8"), "w2's own new fault was lost")
+        self.assertEqual([], self.markers())
+
+    def test_a_shown_stamp_is_consumed_at_a_stop_under_delivery_off(self):
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.mail_root.mkdir(parents=True, exist_ok=True)
+        (self.mail_root / "OFF").write_text("", encoding="ascii")
+        r = self.healthy_stop("w2")
+        self.assertIn("DELIVERY IS OFF", r.stderr)
+        self.assertEqual([], self.stamps(), "a Stop at delivery off kept a stamp its session saw")
+        self.assertEqual([], self.markers(), "a Stop at delivery off left its marker behind")
+
+    def test_a_rewrite_with_the_shown_write_time_still_survives(self):
+        """The marker names the content shown, not the write time. A rewrite given back the
+        shown time, as a coarse file system or a reset clock would, must not be deleted unshown."""
+        # CHANGED 2026-10-26: the rewrite here was a second measured_stop. The drain now writes a
+        # new file for that, so the case rewrote nothing; the stamp is rewritten in place instead.
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        shown = stamp.stat().st_mtime_ns
+        stamp.write_text(stamp.read_text(encoding="utf-8") + " newer", encoding="utf-8")
+        os.utime(stamp, ns=(shown, shown))
+        self.healthy_stop("w2")
+        self.assertEqual([stamp], self.stamps(), "a Stop deleted a newer fault with the shown time")
+
+    def test_an_unreadable_newest_stamp_does_not_hide_the_rest(self):
+        """An empty newest file reads as nothing. The next newest is shown instead."""
+        self.measured_stop()
+        planted = self.stamps()[0].with_name(self.stamps()[0].name.split(".")[0] + ".planted.txt")
+        planted.write_text("", encoding="ascii")
+        self.assertEqual(2, len(self.stamps()), "the empty stamp is not beside the real one")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+
+    def test_a_session_start_with_no_session_id_marks_nothing_and_says_so(self):
+        """A named residual, beside the unnamed one below."""
+        self.measured_stop()
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"hook_event_name": "SessionStart", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        line = next(ln for ln in self.ctx(r).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("marks nothing", line)
+        self.assertEqual([], self.markers())
+        # The control: a display that names its session says it clears, and marks.
+        line = next(ln for ln in self.ctx(self.launch("w2")).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("clears at the next Stop", line)
+        self.assertEqual(1, len(self.markers()))
+
+    def test_a_phantom_shown_it_does_not_let_another_stop_clear_it(self):
+        """p1 is shown it and never reaches a Stop. w3 was never shown it, so w3's Stop keeps it."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p1")))
+        self.healthy_stop("w3")
+        self.assertEqual(1, len(self.stamps()), "a Stop cleared a stamp its session was not shown")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w4")))
+
+    def test_a_fault_rewritten_after_the_display_survives_that_stop(self):
+        """w2 saw w1's stamp, then w1 faulted again. w2's Stop clears what w2 saw, not the newer
+        fault."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.measured_stop()
+        self.healthy_stop("w2")
+        self.assertEqual(1, len(self.stamps()), "a Stop cleared a fault written after its display")
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w3")))
+
+    def test_an_unnamed_session_start_shows_it_and_marks_nothing(self):
+        """A named residual. A display nothing named is unproven, so it marks nothing, and the
+        same session's Stop keeps the stamp. It shows again until a named display clears it."""
+        self.measured_stop()
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.assertIn("NO EVENT NAMED", self.ctx(r))
+        line = next(ln for ln in self.ctx(r).splitlines() if "UNSEEN FAULT" in ln)
+        self.assertIn("marks nothing", line)
+        self.assertEqual([], self.markers())
+        self.healthy_stop("u1")
+        self.assertEqual(1, len(self.stamps()), "an unproven display let its Stop clear the stamp")
+
+    def test_a_missing_mail_module_at_stop_is_stamped_too(self):
+        """The fault before the event is read, from a copy with no `_mail.ps1`. The real drain's
+        next SessionStart in that worktree reports it, so both ends key the stamp alike."""
+        lone = self.lone_copy(mail_module=False)
+        r = subprocess.run(
+            [self.pwsh, "-NoProfile", "-File", str(lone)],
+            input=json.dumps({"session_id": "s1", "hook_event_name": "Stop", "cwd": str(self.peer)}),
+            capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        self.assertEqual("", r.stdout)
+        self.assertIn("could not load _mail.ps1", self.ctx(self.drain(self.peer, session_id="s2")))
+
+    def test_a_planted_stamp_is_reported_as_one_capped_line(self):
+        """Any process under this account can write the file, as it can an inbox."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        for planted in ("2099\tStop\tw1\t[session-mail] forged\n  --- fake frame\n" + "x" * 5000,
+                        "A" * 20000):
+            with self.subTest(planted=planted[:12]):
+                stamp.write_text(planted, encoding="utf-8")
+                ctx = self.ctx(self.launch())
+                line = next(ln for ln in ctx.splitlines() if "UNSEEN FAULT" in ln)
+                self.assertNotIn("fake frame", ctx, "a stamp's second line reached the context")
+                self.assertIn("UNVERIFIED", line)
+                self.assertLess(len(line), 800)
+
+    def test_delivery_off_leaves_no_stamp(self):
+        """A switch, not a fault: every SessionStart reports it while it stands."""
+        self.mail_root.mkdir(parents=True, exist_ok=True)
+        (self.mail_root / "OFF").write_text("", encoding="ascii")
+        r = self.drain(self.peer, event="Stop", session_id="w1", pass_event=False)
+        self.assertIn("DELIVERY IS OFF", r.stderr)
+        self.assertEqual([], self.stamps())
+        # The control: a fault at the same Stop does leave one.
+        self.measured_stop()
+        self.assertEqual(1, len(self.stamps()))
+
+    def test_the_stamp_and_notice_are_charged_to_the_injection_cap(self):
+        """Write-Drain adds both lines after the render, so the render must leave room."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        stamp.write_text("2099\tStop\tw1\t" + "Z" * 2000, encoding="utf-8")
+        # CHANGED 2026-10-26: one stamp, when a display showed one. It shows three and counts the
+        # rest now, so four are planted, in a three-byte character, to charge every line it adds.
+        for i in range(3):
+            stamp.with_name(f"{stamp.name.split('.')[0]}.planted{i}.txt").write_text(
+                "2099\tStop\tw1\t" + chr(0x20AC) * 2000, encoding="utf-8")
+        for i in range(5):
+            self.plant(("line %d\n" % i) * 2000)
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
+                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        ctx = self.ctx(r)
+        self.assertIn("line 0", ctx, "nothing was rendered, so the cap below measured nothing")
+        self.assertEqual(3, len(self.fault_lines(ctx)))
+        self.assertIn("1 more stamp file(s)", ctx)
+        self.assertIn("NO EVENT NAMED", ctx)
+        # The same tolerance as the cap test above, which this render must not widen. Read with
+        # this case's ONE-STAMP setup on 2026-10-26: 8,199 bytes at 6f3ef50, and 9,000 with its
+        # two charge lines removed; a second run read 8,191 and 8,986. Those figures predate the
+        # four planted stamps above and were not re-read for them.
+        self.assertLessEqual(len(ctx.encode("utf-8")),
+                             BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
+
+    # ---- The Lander's hold on PR 245 of 2026-10-26T22:22Z, items 1 to 6. Each case below fails
+    # ---- at eef1a44 on Windows, except the two whose docstrings name them as controls. The
+    # ---- read-only marker case fails there on Windows only, since POSIX renames over a 0444 file.
+
+    def faults_dir(self) -> Path:
+        return self.primary / ".git" / "ccx-mail-faults"
+
+    def fault_stop(self, session_id):
+        return self.drain(self.primary, event="Stop", session_id=session_id,
+                          fields={"cwd": str(self.peer), "stop_hook_active": False}, pass_event=False)
+
+    def test_a_fault_after_a_display_is_written_beside_the_shown_stamp(self):
+        """Item 1. A Stop compared the shown stamp, then deleted it by name, and the drain
+        rewrote that one name at every fault, so a fault landing between the two steps was
+        deleted unshown. A stamp is now written once: the shown one stays byte for byte, the new
+        fault gets a file of its own, and the Stop of the session shown the first consumes only
+        that one, through a claim it leaves nothing of."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        shown = {p.name: p.read_bytes() for p in self.stamps()}
+        self.measured_stop()
+        after = {p.name: p.read_bytes() for p in self.stamps()}
+        self.assertEqual(2, len(after), "the new fault was written over the shown stamp")
+        for name, data in shown.items():
+            self.assertEqual(data, after.get(name), "the shown stamp was rewritten")
+        self.healthy_stop("w2")
+        left = self.stamps()
+        self.assertEqual(1, len(left), "the Stop did not consume exactly the stamp it was shown")
+        self.assertNotIn(left[0].name, shown)
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "a claim was left behind")
+
+    def test_a_stamp_rewritten_by_another_process_goes_back_under_its_name(self):
+        """Item 1, the claim's other branch, and a control: eef1a44 kept such a stamp too.
+        Something under this account rewrote the shown stamp in place, so the claimed copy is not
+        the version shown, and it goes back."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.write_text("2026-10-26T00:00:00Z\tStop\tw9\t[session-mail] rewritten", encoding="utf-8")
+        self.healthy_stop("w2")
+        self.assertEqual([stamp], self.stamps(), "the rewritten stamp is not back under its name")
+        self.assertIn("rewritten", stamp.read_text(encoding="utf-8"))
+        self.assertEqual([], self.markers())
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "a claim was left behind")
+
+    def test_an_older_fault_is_shown_beside_newer_ones(self):
+        """Item 2. Only the newest stamp was shown, so a fault that kept recurring kept its stamp
+        newest, and an older one waited until it was pruned unshown. Of five stamps a display now
+        shows three, newest first with the oldest among them, marks each, and counts the rest."""
+        for i in range(5):
+            self.fault_stop(f"s{i}")
+        by_age = sorted(self.stamps(), key=lambda p: p.stat().st_mtime_ns)
+        self.assertEqual(5, len(by_age))
+        when = [p.read_text(encoding="utf-8").split("\t")[0] for p in by_age]
+        lines = self.fault_lines(self.ctx(self.launch("w9")))
+        self.assertEqual(3, len(lines), "a display did not show three stamps")
+        self.assertIn(when[-1], lines[0], "the newest is not first")
+        self.assertIn(when[0], lines[-1], "the oldest stamp was held back")
+        self.assertEqual(3, len(self.markers()), "a shown stamp was not marked")
+        self.assertIn("2 more stamp file(s)", self.ctx(self.launch("w8")))
+        self.healthy_stop("w9")
+        self.assertEqual(2, len(self.fault_lines(self.ctx(self.launch("w7")))))
+
+    def test_a_second_fault_of_one_session_does_not_replace_the_first(self):
+        """Item 3. A session kept one stamp, rewritten by each fault, so a second fault replaced
+        a first nobody had been shown."""
+        self.measured_stop()
+        self.drain(self.peer, event="UserPromptSubmit", session_id="w1", pass_event=False)
+        self.assertEqual(2, len(self.stamps()), "the second fault replaced the first")
+        ctx = self.ctx(self.launch())
+        self.assertIn("NO BOX", ctx)
+        self.assertIn("'UserPromptSubmit'", ctx)
+
+    def test_a_session_keeps_a_bounded_count_of_stamps(self):
+        """Item 3's bound. A session keeps five. A sixth fault is written, then the newest of the
+        five before it goes, shown or not, and stderr says so, so faults whose text varies cannot
+        evict an older one-time one."""
+        for i in range(6):
+            r = self.drain(self.peer, event=f"Ev{i}", session_id="w1", pass_event=False)
+        self.assertEqual(5, len(self.stamps()))
+        self.assertIn("DROPPED A FAULT STAMP NO Stop CONSUMED", r.stderr)
+        held = "\n".join(p.read_text(encoding="utf-8") for p in self.stamps())
+        self.assertIn("\tEv0\t", held, "the oldest fault was evicted")
+        self.assertIn("\tEv5\t", held, "the newest fault was not written")
+        self.assertNotIn("\tEv4\t", held)
+
+    def test_a_claim_a_dead_stop_left_is_put_back_and_consumed(self):
+        """Item 1. A Stop that dies between its claim and its delete leaves the stamp under a claim
+        name no display reads. The next Stop of that session puts it back under its own name,
+        which is free here, then claims and consumes it. The case below takes the name."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.rename(stamp.with_name(stamp.name + ".claim-" + session_hash("w2") + "-99999996"))
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the stranded claim was not consumed")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "the claim was left")
+        self.assertEqual([], self.markers())
+
+    def test_a_dead_claim_whose_name_is_taken_goes_back_under_a_new_name(self):
+        """The dead-claim pass ran only while the stamp's name was free. With the name taken, the
+        Stop claimed the file there, put it back, and dropped the marker with no note, so the dead
+        claim sat unread until the day's prune. It now goes back under a new version of the name,
+        in the session's own scheme, and the next display shows it."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        original = stamp.read_text(encoding="utf-8")
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996"))
+        stamp.write_text("2026-10-26T00:00:00Z\tStop\tw9\t[session-mail] occupier", encoding="utf-8")
+        r = self.healthy_stop("w2")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "the dead claim was left under its claim name")
+        self.assertIn("UNDER A NEW NAME", r.stderr)
+        by_text = {p.read_text(encoding="utf-8"): p for p in self.stamps()}
+        self.assertIn(original, by_text, "the dead claim's fault is not under a stamp name")
+        back = by_text[original]
+        self.assertNotEqual(stamp.name, back.name)
+        self.assertTrue(back.name.startswith(stamp.name.split(".")[0] + "." + session_hash("w1") + "."),
+                        "the new name left the stamp scheme or the session that wrote it")
+        self.assertIn("NO BOX", "\n".join(self.fault_lines(self.ctx(self.launch("w3")))))
+
+    def test_a_directory_on_the_stamps_name_sends_a_dead_claim_to_a_new_name(self):
+        """Review round one, finding 1. The name counted as taken only where a FILE held it, so a
+        directory there failed the put-back at every Stop, under a note promising a new name."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        original = stamp.read_text(encoding="utf-8")
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996"))
+        stamp.mkdir()
+        r = self.healthy_stop("w2")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), f"the dead claim was left: {r.stderr}")
+        held = [p.read_text(encoding="utf-8") for p in self.stamps() if p.is_file()]
+        self.assertEqual([original], held, "the dead claim's fault is not under a new stamp name")
+
+    @unittest.skipUnless(os.name == "nt", "only Windows refuses to rename an open file")
+    def test_a_dead_claim_that_cannot_be_put_back_says_so(self):
+        """The dead-claim put-back was one move, and when it failed the note blamed another live
+        process's claim. The claim held open makes every attempt fail, and the note now says the
+        put-back failed, and the marker stays. Review round one: this held a directory where the
+        stamp goes back, and a directory now counts as a taken name, so the claim goes elsewhere."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        claim = stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996")
+        stamp.rename(claim)
+        with open(claim, "rb"):
+            r = self.healthy_stop("w2")
+        self.assertTrue(claim.exists(), "the claim moved, so this measured nothing")
+        self.assertIn("DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP COULD NOT BE PUT BACK", r.stderr)
+        self.assertNotIn("ANOTHER PROCESS", r.stderr, "a failed put-back was blamed on a live claim")
+        self.assertEqual(1, len(self.markers()), "the marker went while the stamp sat under a claim")
+
+    @unittest.skipUnless(os.name == "nt", "only Windows enforces a share mode on an open file")
+    def test_a_stamp_a_writer_holds_open_is_still_shown(self):
+        """Item 4. A display opened a stamp sharing read only. That blocked a peer's rename and
+        delete, and it refused a file another handle held for writing, which is what this case
+        holds: such a stamp was skipped."""
+        self.measured_stop()
+        with open(self.stamps()[0], "a", encoding="utf-8"):
+            ctx = self.ctx(self.launch("w2"))
+        self.assertIn("UNSEEN FAULT", ctx, "a stamp held open for writing was not read")
+
+    @unittest.skipUnless(os.name == "nt", "only Windows refuses to rename an open file")
+    def test_a_shown_stamp_held_open_at_its_stop_is_consumed_at_the_next(self):
+        """Item 4, the Manager's finding 4. A Stop that could not remove a shown stamp removed its
+        marker anyway, so no later Stop could consume it. Now the claim is retried, the marker
+        stays, the Stop says so on stderr, and the session's next Stop consumes the stamp."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        with open(self.stamps()[0], "rb"):
+            r = self.healthy_stop("w2")
+        self.assertIn("COULD NOT BE CLAIMED", r.stderr)
+        self.assertEqual(1, len(self.markers()), "the marker went while the stamp stayed")
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the next Stop of the session shown it left it")
+
+    def test_a_read_only_marker_is_still_replaced(self):
+        """Item 4, the Manager's finding 1: the write had no remove-then-rewrite fallback, so a
+        read-only file it had to replace kept its old content. Here a marker naming the wrong
+        version is rewritten by the next display, and the Stop then consumes the stamp."""
+        self.measured_stop()
+        self.ctx(self.launch("w2"))
+        marker = self.markers()[0]
+        marker.write_text("0" * 16, encoding="ascii")
+        os.chmod(marker, 0o444)
+        self.addCleanup(lambda: marker.exists() and os.chmod(marker, 0o666))
+        self.ctx(self.launch("w2"))
+        self.healthy_stop("w2")
+        self.assertEqual([], self.stamps(), "the stale read-only marker was not replaced")
+
+    def test_a_stamp_pruned_unshown_says_so_on_stderr(self):
+        """Item 5. A stamp past either bound was pruned silently. One no Stop consumed is a fault
+        no session is known to have read, so its prune now says so on stderr, never stdout."""
+        for label, shift in (("older than 24 hours", -2 * 86400),
+                             ("dated more than 15 minutes ahead", 365 * 86400)):
+            with self.subTest(label):
+                for p in self.faults_dir().glob("*"):
+                    p.unlink()
+                self.measured_stop()
+                stamp = self.stamps()[0]
+                moved = stamp.stat().st_mtime + shift
+                os.utime(stamp, (moved, moved))
+                r = self.fault_stop("w2")
+                self.assertEqual("", r.stdout)
+                self.assertIn("PRUNED A FAULT STAMP NO Stop CONSUMED, " + label, r.stderr)
+                self.assertFalse(stamp.exists())
+
+    def test_a_stamp_only_a_phantom_was_shown_is_pruned_with_a_note(self):
+        """A marker proves a SessionStart printed the line, and a phantom's does too. p1 was shown
+        the stamp and never reached a Stop, so its prune is still a fault no Stop consumed.
+        CHANGED 2026-10-26, review round two: this was a control expecting no note."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p1")))
+        stamp = self.stamps()[0]
+        old = stamp.stat().st_mtime - 2 * 86400
+        os.utime(stamp, (old, old))
+        r = self.fault_stop("w3")
+        self.assertFalse(stamp.exists(), "the stale stamp was not pruned, so this measured nothing")
+        self.assertIn("PRUNED A FAULT STAMP NO Stop CONSUMED", r.stderr)
+
+    def test_a_stamp_under_a_live_claim_keeps_its_marker(self):
+        """A claim whose process is alive is not put back, and the stamp is not under its own
+        name. The marker stays, and stderr says so, rather than a silent drop."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('zz')}-{os.getpid()}"))
+        r = self.healthy_stop("w2")
+        self.assertIn("HELD UNDER ANOTHER PROCESS'S CLAIM", r.stderr)
+        self.assertEqual(1, len(self.markers()), "the marker went while a claim held the stamp")
+
+    def test_a_marker_that_cannot_be_written_says_so(self):
+        """Item 5. The display's line says the stamp clears at the next Stop, and a failed marker
+        write made that false with no word anywhere."""
+        self.measured_stop()
+        stamp = self.stamps()[0]
+        blocker = stamp.with_name(stamp.name + ".shown-" + session_hash("w2"))
+        blocker.mkdir()
+        (blocker / "x").write_text("x", encoding="ascii")
+        r = self.launch("w2")
+        self.assertIn("UNSEEN FAULT", self.ctx(r))
+        self.assertIn("SHOWN BUT NOT MARKED", r.stderr)
+
+    def test_a_stamp_that_cannot_be_written_says_so(self):
+        """Item 5. A failed stamp write left the fault on stderr with no word that it had no
+        stamp. A file where the stamp directory goes makes every write fail."""
+        self.faults_dir().write_text("in the way", encoding="ascii")
+        r = self.measured_stop()
+        self.assertEqual("", r.stdout)
+        self.assertIn("NO BOX", r.stderr)
+        self.assertIn("THIS FAULT LEFT NO STAMP", r.stderr)
+
+    # ---- The final review over ea1421c..cb41fab, findings 1 and 5. Each case fails at cb41fab.
+
+    def sub_stop(self, sub):
+        """measured_stop with its cwd in a subdirectory of the peer: the stamp keys on the peer as
+        before, and the NO BOX text names the subdirectory, so a test controls part of it."""
+        d = self.peer / sub
+        d.mkdir(exist_ok=True)
+        return self.drain(self.primary, event="Stop", session_id="w1",
+                          fields={"cwd": str(d), "stop_hook_active": False}, pass_event=False)
+
+    def test_two_faults_alike_but_for_an_inner_as_of_keep_two_stamps(self):
+        """Finding 1. The key removed every "as of" and the word after it, in any case, so "was of
+        TypeA" and "was of TypeB" gave one key, and the second fault was taken for a standing one
+        and got no stamp. Only the trailing "As of" time, as the drain writes it, is removed now.
+        The control: the same fault twice, its As-of time the only difference, keeps one."""
+        for a, b in (("was of TypeA", "was of TypeB"), ("As of TypeA", "As of TypeB")):
+            with self.subTest(a):
+                for p in self.faults_dir().glob("*"):
+                    p.unlink()
+                r = self.sub_stop(a)
+                self.assertIn("NO BOX", r.stderr)
+                self.assertIn(a, self.stamps()[0].read_text(encoding="utf-8"),
+                              "the fault does not carry the subdirectory, so this measured nothing")
+                self.sub_stop(a)
+                self.assertEqual(1, len(self.stamps()), "one standing fault kept two stamps")
+                self.sub_stop(b)
+                self.assertEqual(2, len(self.stamps()), "a different fault was taken for a standing one")
+
+    def test_a_fault_cut_beside_a_surrogate_pair_still_stands(self):
+        """Finding 5. The 400-character cap cut a surrogate pair in half, the half was written as
+        U+FFFD, and the stored text then never matched the fault it was cut from: every Stop that
+        met the fault wrote another stamp. The cut no longer ends on a high surrogate."""
+        cap = int(re.search(r"\$script:FaultChars = (\d+)", t.read(DRAIN)).group(1))
+        last = cap - 4  # the last index the cap keeps before its "..."
+        self.sub_stop("probe")
+        field = self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3]
+        at = field.index("probe")
+        self.assertLess(at, last, "the fault is too long to place a pair at the cap")
+        for p in self.faults_dir().glob("*"):
+            p.unlink()
+        # The high surrogate at the last index the cap keeps.
+        sub = "p" * (last - at) + chr(0x1F600) + "z"
+        self.sub_stop(sub)
+        self.assertTrue(self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3].endswith("..."),
+                        "the fault was not cut, so this measured nothing")
+        self.sub_stop(sub)
+        self.assertEqual(1, len(self.stamps()), "a standing fault cut beside a pair wrote a second stamp")
+
+    def test_stamps_and_markers_key_on_an_eight_byte_session_hash(self):
+        """Item 6. The session hash was four bytes, where the prefix and the pins use eight, so
+        two sessions could share one, and one's Stop consume a stamp only the other was shown."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.assertIn("." + session_hash("w1") + ".", self.stamps()[0].name)
+        self.assertTrue(self.markers()[0].name.endswith(".shown-" + session_hash("w2")))
+
+
+def session_hash(session_id: str) -> str:
+    """The drain's session key: the first eight bytes of SHA-256 over the id, as hex."""
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:16]
+
+
+class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
+    """Finding 3 of the final review over ea1421c..cb41fab. A claimed copy that is not the version
+    shown goes back under its name, and that put-back was one move with no retry. Where it failed
+    the marker was deleted anyway, so the stamp sat under a claim name no display reads until the
+    day's prune. Each case fails at cb41fab.
+
+    NO PROCESS-LEVEL CASE CAN TIME THIS: the put-back follows the claim within one run. So this
+    loads the drain's own functions, without its body, and runs the real Clear-DrainShownFault with
+    Read-DrainHead wrapped: reading the claimed copy puts a file where the stamp goes back, so the
+    move back fails. Only the prefix, the session hash and the identity are stubbed."""
+
+    def setUp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the drain cannot be executed here")
+        self.pwsh: str = pwsh
+        tmp = tempfile.TemporaryDirectory(prefix="ccx-claim-")
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(os.path.realpath(tmp.name))
+
+    def clear(self, mode: str) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+        """One Stop, in a process of its own. "block" and "retry" plant the shown marker and the
+        rewritten stamp, and block the put-back; "retry" lifts the block at the first retry's
+        sleep. "next" is the session's next Stop, on the files a blocked one left. "dead-retry"
+        plants the marker, a dead Stop's claim, and a rewrite holding the stamp's name, with a
+        directory at the new name the claim goes to that the first retry's sleep removes."""
+        def q(p) -> str:
+            return "'" + str(p).replace("'", "''") + "'"
+
+        lines = [
+            "$ErrorActionPreference = 'Stop'",
+            f"$ast = [System.Management.Automation.Language.Parser]::ParseFile({q(DRAIN)}, [ref]$null, [ref]$null)",
+            "foreach ($f in $ast.EndBlock.Statements) {",
+            "    if ($f -is [System.Management.Automation.Language.FunctionDefinitionAst]) {",
+            "        . ([scriptblock]::Create($f.Extent.Text)) } }",
+            f"$script:Prefix = Join-Path {q(self.dir)} 'P'",
+            "$script:Stamp = \"$($script:Prefix).abcd.1.txt\"",
+            "$marker = \"$($script:Stamp).shown-abcd\"",
+            "function Get-DrainFaultPrefix { param([string] $Dir) return $script:Prefix }",
+            "function Get-DrainSessionHash { return 'abcd' }",
+            "function Get-DrainStampIdentity { param([string] $Head) "
+            "if ($Head -like '*rewritten*') { 'id-rewritten' } else { 'id-shown' } }",
+        ]
+        if mode in ("block", "retry"):
+            lines += [
+                "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten\")",
+                "[System.IO.File]::WriteAllText($marker, 'id-shown')",
+                "$script:RealHead = ${function:Read-DrainHead}",
+                "function Read-DrainHead { param([string] $File, [int] $Max)",
+                "    if ($File -like '*.claim-*' -and -not [System.IO.File]::Exists($script:Stamp)) {",
+                "        [System.IO.File]::WriteAllText($script:Stamp, 'in the way') }",
+                "    return & $script:RealHead $File $Max }",
+            ]
+        if mode == "retry":
+            # A retry sleeps between attempts, so a Start-Sleep that removes the blocker lets the
+            # next attempt through.
+            lines.append("function Start-Sleep { param([int] $Milliseconds) "
+                         "[System.IO.File]::Delete($script:Stamp) }")
+        if mode == "dead-retry":
+            # A dead Stop's claim, a rewrite holding the stamp's name, so the claim goes back under
+            # a new version of it, and a directory there that Start-Sleep removes.
+            lines += [
+                "[System.IO.File]::WriteAllText(\"$($script:Stamp).claim-ffff-99999996\", "
+                "\"2026`tStop`tw9`trewritten dead\")",
+                "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten occupier\")",
+                "[System.IO.File]::WriteAllText($marker, 'id-shown')",
+                "$script:Fresh = \"$($script:Prefix).abcd.2.txt\"",
+                "function New-DrainStampPath { param([string] $Prefix, [string] $Hash) return $script:Fresh }",
+                "[void][System.IO.Directory]::CreateDirectory($script:Fresh)",
+                "function Start-Sleep { param([int] $Milliseconds) "
+                "if ([System.IO.Directory]::Exists($script:Fresh)) { [System.IO.Directory]::Delete($script:Fresh) } }",
+            ]
+        lines += [
+            "Clear-DrainShownFault",
+            "\"marker=$([System.IO.File]::Exists($marker))\"",
+            "\"claims=$(@(Get-ChildItem -LiteralPath (Split-Path $marker) -Filter '*.claim-*').Count)\"",
+            "\"stamp=$([System.IO.File]::ReadAllText($script:Stamp))\"",
+        ]
+        ps1 = self.dir / f"run-{mode}.ps1"
+        ps1.write_text("\n".join(lines), encoding="utf-8")
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(ps1)], capture_output=True,
+                           text=True, cwd=str(self.dir), timeout=TIMEOUT_SECONDS)
+        got = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
+        self.assertEqual({"marker", "claims", "stamp"}, set(got), f"the run did not finish: {r.stderr}")
+        return r, got
+
+    def test_a_put_back_that_fails_once_is_retried(self):
+        r, got = self.clear("retry")
+        self.assertEqual("0", got["claims"], "the put-back was not retried, so the stamp sits under a claim")
+        self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
+        self.assertNotIn("COULD NOT BE PUT BACK", r.stderr)
+
+    def test_a_put_back_that_keeps_failing_keeps_the_marker(self):
+        """The marker brings the session's next Stop back to the claim, and once the stamp's name
+        is free that Stop puts the dead process's claim back. Without the marker the stamp waits,
+        unread, for the prune."""
+        r, got = self.clear("block")
+        self.assertEqual("1", got["claims"], "the blocker did not block, so this measured nothing")
+        self.assertEqual("True", got["marker"], "the marker went while the stamp sat under a claim")
+        self.assertIn("COULD NOT BE PUT BACK", r.stderr)
+        (self.dir / "P.abcd.1.txt").unlink()
+        r, got = self.clear("next")
+        self.assertEqual("0", got["claims"], f"the next Stop did not put the claim back: {r.stderr}")
+        self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
+
+    def test_a_dead_claims_put_back_is_retried(self):
+        """The dead-claim put-back was one move with no retry, and a failed one was reported as a
+        live process's claim. It now goes through Restore-DrainClaim, so a block that lifts at
+        the first retry's sleep lets it through."""
+        r, got = self.clear("dead-retry")
+        self.assertEqual("0", got["claims"], f"the dead claim's put-back was not retried: {r.stderr}")
+        self.assertIn("occupier", got["stamp"], "the file holding the stamp's name is not back under it")
+        fresh = self.dir / "P.abcd.2.txt"
+        self.assertTrue(fresh.is_file(), f"the dead claim is not under the new name: {r.stderr}")
+        self.assertIn("rewritten dead", fresh.read_text(encoding="utf-8"))
+        self.assertIn("UNDER A NEW NAME", r.stderr)
+        self.assertNotIn("ANOTHER PROCESS", r.stderr)
+
+
+class AFaultHoldingALoneSurrogateStillStands(unittest.TestCase):
+    """A lone surrogate anywhere in a fault was written as U+FFFD, and the key was taken from the
+    text before the write, so the stored fault never matched it: every Stop that met the fault
+    wrote another stamp. The field is now the text as stored, for the write and the key.
+
+    NO PROCESS-LEVEL CASE CARRIES ONE IN: the JSON reader turns a lone surrogate in the hook input
+    into U+FFFD before the drain sees it, and a payload case passed at 870cf06 that way. A path
+    the file system hands back can hold one. So this loads the drain's functions, as the class
+    above does, and runs the real Save-DrainFault twice on one fault."""
+
+    def test_a_fault_holding_a_lone_surrogate_keeps_one_stamp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the drain cannot be executed here")
+        tmp = tempfile.TemporaryDirectory(prefix="ccx-surrogate-")
+        self.addCleanup(tmp.cleanup)
+        d = Path(os.path.realpath(tmp.name))
+
+        def q(p) -> str:
+            return "'" + str(p).replace("'", "''") + "'"
+
+        lines = [
+            "$ErrorActionPreference = 'Stop'",
+            f"$ast = [System.Management.Automation.Language.Parser]::ParseFile({q(DRAIN)}, [ref]$null, [ref]$null)",
+            "foreach ($f in $ast.EndBlock.Statements) {",
+            "    if ($f -is [System.Management.Automation.Language.FunctionDefinitionAst]) {",
+            "        . ([scriptblock]::Create($f.Extent.Text)) } }",
+            f"$script:Prefix = Join-Path {q(d)} 'P'",
+            "function Get-DrainFaultPrefix { param([string] $Dir) return $script:Prefix }",
+            "function Get-DrainSessionHash { return 'abcd' }",
+            "$script:FaultChars = 400; $script:StampHours = 24; $script:StampsPerSession = 5",
+            "$script:DrainSession = 'w1'",
+            "$Event = 'Stop'",
+            "$text = '[session-mail] NO BOX. a' + [char]0xD800 + 'b'",
+            "Save-DrainFault $text",
+            "Save-DrainFault $text",
+            f"\"stamps=$(@(Get-ChildItem -LiteralPath {q(d)} -Filter 'P.abcd.*.txt').Count)\"",
+        ]
+        ps1 = d / "run.ps1"
+        ps1.write_text("\n".join(lines), encoding="utf-8")
+        r = subprocess.run([pwsh, "-NoProfile", "-File", str(ps1)], capture_output=True, text=True,
+                           cwd=str(d), timeout=TIMEOUT_SECONDS)
+        self.assertIn("stamps=", r.stdout, f"the run did not finish: {r.stderr}")
+        stamps = sorted(d.glob("P.abcd.*.txt"))
+        self.assertTrue(stamps, f"no stamp was written: {r.stderr}")
+        self.assertIn("\ufffd", stamps[0].read_text(encoding="utf-8"),
+                      "the stamp holds no U+FFFD, so this measured nothing")
+        self.assertEqual(1, len(stamps), "a standing fault with a lone surrogate wrote a second stamp")
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
