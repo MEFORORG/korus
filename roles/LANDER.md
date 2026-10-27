@@ -1560,6 +1560,23 @@ percent, and ZERO failures. A cancelled required check can never go green, so th
 The tell was an eviction 50 seconds after queueing, far too fast for any check to have run. That key
 is fixed. **The reading habit it teaches is not repo-specific: no failures is not an all-clear.**
 
+**The converse also holds: a red `merge_group` run does not prove an ejection.**
+
+A failed run on a `pr-N` queue branch does not mean PR N left the queue. The queue can rebuild
+the group, and the rebuilt group can pass. The run's tree also holds the PRs queued ahead, so its
+red says little about PR N's own files. Meanwhile an ejected PR still shows its own checks green.
+
+| Question | Read this |
+| --- | --- |
+| Did PR N leave the queue? | The PR timeline. Count `removed_from_merge_queue` events with no `merged` event at the same instant. |
+| Why did it leave? | Only then, the failed `merge_group` run: `gh run list --event merge_group --workflow CI`. |
+
+Measured 2026-10-04 on the engine. PR 1991's `merge_group` run 37227580761 failed, yet PR 1991
+merged with no removal on its timeline. The control, PR 1988, shows two removals and green checks.
+
+Wiki key `merge-queue/ejection/read-the-merge-group-run`, events 20261004T201345094Z-w6iwi5,
+20261004T220127656Z-4q1fk2 and 20261018T222304052Z-0pq66f.
+
 ### 7d. Ledger-first ordering, and close before you file
 
 | Item | Rule |
