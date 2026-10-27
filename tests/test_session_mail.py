@@ -1446,18 +1446,6 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.sub_stop(sub)
         self.assertEqual(1, len(self.stamps()), "a standing fault cut beside a pair wrote a second stamp")
 
-    def test_a_fault_holding_a_lone_surrogate_still_stands(self):
-        """A lone surrogate anywhere in a fault was written as U+FFFD, and the key was taken from
-        the text before the write, so the stored fault never matched it: every run that met the
-        fault wrote another stamp. The field is now the text as stored, for the write and the key.
-        Here the event name carries the surrogate, so the stored event and fault both hold one."""
-        event = "Ev\ud800x"
-        self.drain(self.peer, event=event, session_id="w1", pass_event=False)
-        self.assertIn("\ufffd", self.stamps()[0].read_text(encoding="utf-8"),
-                      "the stamp holds no U+FFFD, so this measured nothing")
-        self.drain(self.peer, event=event, session_id="w1", pass_event=False)
-        self.assertEqual(1, len(self.stamps()), "a standing fault with a lone surrogate wrote a second stamp")
-
     def test_stamps_and_markers_key_on_an_eight_byte_session_hash(self):
         """Item 6. The session hash was four bytes, where the prefix and the pins use eight, so
         two sessions could share one, and one's Stop consume a stamp only the other was shown."""
@@ -1581,6 +1569,56 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         self.assertEqual("0", got["claims"], f"the dead claim's put-back was not retried: {r.stderr}")
         self.assertIn("rewritten", got["stamp"], "the dead claim is not back under its name")
         self.assertNotIn("ANOTHER PROCESS", r.stderr)
+
+
+class AFaultHoldingALoneSurrogateStillStands(unittest.TestCase):
+    """A lone surrogate anywhere in a fault was written as U+FFFD, and the key was taken from the
+    text before the write, so the stored fault never matched it: every Stop that met the fault
+    wrote another stamp. The field is now the text as stored, for the write and the key.
+
+    NO PROCESS-LEVEL CASE CARRIES ONE IN: the JSON reader turns a lone surrogate in the hook input
+    into U+FFFD before the drain sees it, and a payload case passed at 870cf06 that way. A path
+    the file system hands back can hold one. So this loads the drain's functions, as the class
+    above does, and runs the real Save-DrainFault twice on one fault."""
+
+    def test_a_fault_holding_a_lone_surrogate_keeps_one_stamp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the drain cannot be executed here")
+        tmp = tempfile.TemporaryDirectory(prefix="ccx-surrogate-")
+        self.addCleanup(tmp.cleanup)
+        d = Path(os.path.realpath(tmp.name))
+
+        def q(p) -> str:
+            return "'" + str(p).replace("'", "''") + "'"
+
+        lines = [
+            "$ErrorActionPreference = 'Stop'",
+            f"$ast = [System.Management.Automation.Language.Parser]::ParseFile({q(DRAIN)}, [ref]$null, [ref]$null)",
+            "foreach ($f in $ast.EndBlock.Statements) {",
+            "    if ($f -is [System.Management.Automation.Language.FunctionDefinitionAst]) {",
+            "        . ([scriptblock]::Create($f.Extent.Text)) } }",
+            f"$script:Prefix = Join-Path {q(d)} 'P'",
+            "function Get-DrainFaultPrefix { param([string] $Dir) return $script:Prefix }",
+            "function Get-DrainSessionHash { return 'abcd' }",
+            "$script:FaultChars = 400; $script:StampHours = 24; $script:StampsPerSession = 5",
+            "$script:DrainSession = 'w1'",
+            "$Event = 'Stop'",
+            "$text = '[session-mail] NO BOX. a' + [char]0xD800 + 'b'",
+            "Save-DrainFault $text",
+            "Save-DrainFault $text",
+            f"\"stamps=$(@(Get-ChildItem -LiteralPath {q(d)} -Filter 'P.abcd.*.txt').Count)\"",
+        ]
+        ps1 = d / "run.ps1"
+        ps1.write_text("\n".join(lines), encoding="utf-8")
+        r = subprocess.run([pwsh, "-NoProfile", "-File", str(ps1)], capture_output=True, text=True,
+                           cwd=str(d), timeout=TIMEOUT_SECONDS)
+        self.assertIn("stamps=", r.stdout, f"the run did not finish: {r.stderr}")
+        stamps = sorted(d.glob("P.abcd.*.txt"))
+        self.assertTrue(stamps, f"no stamp was written: {r.stderr}")
+        self.assertIn("\ufffd", stamps[0].read_text(encoding="utf-8"),
+                      "the stamp holds no U+FFFD, so this measured nothing")
+        self.assertEqual(1, len(stamps), "a standing fault with a lone surrogate wrote a second stamp")
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
