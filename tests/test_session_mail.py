@@ -1249,7 +1249,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
 
     def test_a_claim_a_dead_stop_left_is_put_back_and_consumed(self):
         """Item 1. A Stop that dies between its claim and its delete leaves the stamp under a claim
-        name no display reads. The next Stop of that session puts it back, then consumes it."""
+        name no display reads. The next Stop of that session puts it back under its own name,
+        which is free here, then claims and consumes it. The case below takes the name."""
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
         stamp = self.stamps()[0]
@@ -1258,6 +1259,44 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertEqual([], self.stamps(), "the stranded claim was not consumed")
         self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "the claim was left")
         self.assertEqual([], self.markers())
+
+    def test_a_dead_claim_whose_name_is_taken_goes_back_under_a_new_name(self):
+        """The dead-claim pass ran only while the stamp's name was free. With the name taken, the
+        Stop claimed the file there, put it back, and dropped the marker with no note, so the dead
+        claim sat unread until the day's prune. It now goes back under a new version of the name,
+        in the session's own scheme, and the next display shows it."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        original = stamp.read_text(encoding="utf-8")
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996"))
+        stamp.write_text("2026-10-26T00:00:00Z\tStop\tw9\t[session-mail] occupier", encoding="utf-8")
+        r = self.healthy_stop("w2")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), "the dead claim was left under its claim name")
+        self.assertIn("UNDER A NEW NAME", r.stderr)
+        by_text = {p.read_text(encoding="utf-8"): p for p in self.stamps()}
+        self.assertIn(original, by_text, "the dead claim's fault is not under a stamp name")
+        back = by_text[original]
+        self.assertNotEqual(stamp.name, back.name)
+        self.assertTrue(back.name.startswith(stamp.name.split(".")[0] + "." + session_hash("w1") + "."),
+                        "the new name left the stamp scheme or the session that wrote it")
+        self.assertIn("NO BOX", "\n".join(self.fault_lines(self.ctx(self.launch("w3")))))
+
+    def test_a_dead_claim_that_cannot_be_put_back_says_so(self):
+        """The dead-claim put-back was one move, and when it failed the note blamed another live
+        process's claim. A directory where the stamp goes back makes every attempt fail, and the
+        note now says the put-back failed, and the marker stays."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        claim = stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996")
+        stamp.rename(claim)
+        stamp.mkdir()
+        r = self.healthy_stop("w2")
+        self.assertTrue(claim.exists(), "the claim moved, so this measured nothing")
+        self.assertIn("DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP COULD NOT BE PUT BACK", r.stderr)
+        self.assertNotIn("ANOTHER PROCESS", r.stderr, "a failed put-back was blamed on a live claim")
+        self.assertEqual(1, len(self.markers()), "the marker went while the stamp sat under a claim")
 
     @unittest.skipUnless(os.name == "nt", "only Windows enforces a share mode on an open file")
     def test_a_stamp_a_writer_holds_open_is_still_shown(self):
@@ -1407,6 +1446,18 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.sub_stop(sub)
         self.assertEqual(1, len(self.stamps()), "a standing fault cut beside a pair wrote a second stamp")
 
+    def test_a_fault_holding_a_lone_surrogate_still_stands(self):
+        """A lone surrogate anywhere in a fault was written as U+FFFD, and the key was taken from
+        the text before the write, so the stored fault never matched it: every run that met the
+        fault wrote another stamp. The field is now the text as stored, for the write and the key.
+        Here the event name carries the surrogate, so the stored event and fault both hold one."""
+        event = "Ev\ud800x"
+        self.drain(self.peer, event=event, session_id="w1", pass_event=False)
+        self.assertIn("\ufffd", self.stamps()[0].read_text(encoding="utf-8"),
+                      "the stamp holds no U+FFFD, so this measured nothing")
+        self.drain(self.peer, event=event, session_id="w1", pass_event=False)
+        self.assertEqual(1, len(self.stamps()), "a standing fault with a lone surrogate wrote a second stamp")
+
     def test_stamps_and_markers_key_on_an_eight_byte_session_hash(self):
         """Item 6. The session hash was four bytes, where the prefix and the pins use eight, so
         two sessions could share one, and one's Stop consume a stamp only the other was shown."""
@@ -1444,7 +1495,9 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
     def clear(self, mode: str) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
         """One Stop, in a process of its own. "block" and "retry" plant the shown marker and the
         rewritten stamp, and block the put-back; "retry" lifts the block at the first retry's
-        sleep. "next" is the session's next Stop, on the files a blocked one left."""
+        sleep. "next" is the session's next Stop, on the files a blocked one left. "dead-retry"
+        plants the marker and a dead Stop's claim of the rewritten stamp, with a directory where
+        it goes back that the first retry's sleep removes."""
         def q(p) -> str:
             return "'" + str(p).replace("'", "''") + "'"
 
@@ -1462,7 +1515,7 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
             "function Get-DrainStampIdentity { param([string] $Head) "
             "if ($Head -like '*rewritten*') { 'id-rewritten' } else { 'id-shown' } }",
         ]
-        if mode != "next":
+        if mode in ("block", "retry"):
             lines += [
                 "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten\")",
                 "[System.IO.File]::WriteAllText($marker, 'id-shown')",
@@ -1477,6 +1530,16 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
             # next attempt through.
             lines.append("function Start-Sleep { param([int] $Milliseconds) "
                          "[System.IO.File]::Delete($script:Stamp) }")
+        if mode == "dead-retry":
+            # A dead Stop's claim, and a directory where it goes back, which Start-Sleep removes.
+            lines += [
+                "[System.IO.File]::WriteAllText(\"$($script:Stamp).claim-ffff-99999996\", "
+                "\"2026`tStop`tw9`trewritten\")",
+                "[System.IO.File]::WriteAllText($marker, 'id-shown')",
+                "[void][System.IO.Directory]::CreateDirectory($script:Stamp)",
+                "function Start-Sleep { param([int] $Milliseconds) "
+                "if ([System.IO.Directory]::Exists($script:Stamp)) { [System.IO.Directory]::Delete($script:Stamp) } }",
+            ]
         lines += [
             "Clear-DrainShownFault",
             "\"marker=$([System.IO.File]::Exists($marker))\"",
@@ -1509,6 +1572,15 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         r, got = self.clear("next")
         self.assertEqual("0", got["claims"], f"the next Stop did not put the claim back: {r.stderr}")
         self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
+
+    def test_a_dead_claims_put_back_is_retried(self):
+        """The dead-claim put-back was one move with no retry, and a failed one was reported as a
+        live process's claim. It now goes through Restore-DrainClaim, so a block that lifts at
+        the first retry's sleep lets it through."""
+        r, got = self.clear("dead-retry")
+        self.assertEqual("0", got["claims"], f"the dead claim's put-back was not retried: {r.stderr}")
+        self.assertIn("rewritten", got["stamp"], "the dead claim is not back under its name")
+        self.assertNotIn("ANOTHER PROCESS", r.stderr)
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):

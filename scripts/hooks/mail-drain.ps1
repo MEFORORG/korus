@@ -130,7 +130,8 @@ function Limit-Text {
     $t = ($Text -replace '[\r\n\t]', ' ')
     if ($t.Length -le $Max) { return $t }
     # Never end the cut on a high surrogate. Half a pair is written as U+FFFD, so a stored fault
-    # cut there never matched the fault it came from, and never counted as standing.
+    # cut there never matched the fault it came from, and never counted as standing. A lone
+    # surrogate already in the text is ConvertTo-DrainField's to replace, before this cut.
     $n = [Math]::Max(0, $Max - 3)
     if ($n -gt 0 -and [char]::IsHighSurrogate($t[$n - 1])) { $n-- }
     return $t.Substring(0, $n) + '...'
@@ -246,11 +247,14 @@ function New-DrainStampPath {
         version, and the drain's own write can never land inside a Stop's compare and delete.
         The version leads with the UTC time to 100 ns, in the invariant culture, so versions sort
         in write order; Get-DrainStampOrder reads it back.
+
+        -Hash names another session's stamp: a dead Stop's claim put back under a new version of
+        its own name keeps the session that wrote it.
     #>
-    param([string] $Prefix)
+    param([string] $Prefix, [string] $Hash = (Get-DrainSessionHash))
     $now = [DateTime]::UtcNow.ToString('yyyyMMddHHmmssfffffff', [System.Globalization.CultureInfo]::InvariantCulture)
     $version = $now + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
-    return "$Prefix.$(Get-DrainSessionHash).$version.txt"
+    return "$Prefix.$Hash.$version.txt"
 }
 
 function Get-DrainStampOrder {
@@ -271,9 +275,14 @@ function Write-DrainNote {
 }
 
 function ConvertTo-DrainField {
-    # One field of a stamp: no control character, and capped by Limit-Text.
+    # One field of a stamp: no control character, no lone surrogate, and capped by Limit-Text.
+    # The UTF-8 write turns a lone surrogate into U+FFFD, so the round trip here does that first,
+    # and a key built from this text matches what a later read of the stamp sees. CHANGED
+    # 2026-10-26: a fault holding one never matched its own stamp, so it never counted as standing.
     param([string] $Text, [int] $Max)
-    return Limit-Text -Text ($Text -replace '[\x00-\x1f\x7f]', ' ') -Max $Max
+    $utf8 = [System.Text.Encoding]::UTF8
+    $t = $utf8.GetString($utf8.GetBytes($Text))
+    return Limit-Text -Text ($t -replace '[\x00-\x1f\x7f]', ' ') -Max $Max
 }
 
 function ConvertTo-DrainSessionId {
@@ -462,7 +471,8 @@ function Save-DrainFault {
         }
         $dir = Split-Path -Parent $prefix
         $evt = ConvertTo-DrainField ([string]$Event) 40
-        # Cut once: the stored field and the key below must be the same text.
+        # Cut once, lone surrogates already replaced: the stored field and the key below must be
+        # the same text a later read of the stamp sees.
         $field = ConvertTo-DrainField $Text $script:FaultChars
         $line = (@(
                 [DateTimeOffset]::UtcNow.ToString('o'),
@@ -706,33 +716,61 @@ function Clear-DrainShownFault {
         stamp is first renamed to a claim name no display reads and no writer names. Only that
         claimed copy is compared, then deleted if it is the version shown, or renamed back if not.
         The drain no longer rewrites a stamp at all (New-DrainStampPath), so a rewrite here is
-        another process's. A claim that cannot be taken keeps the marker, so the next Stop of this
-        session tries again, and every failure here says so on stderr.
+        another process's. A stamp that cannot be claimed, deleted or put back keeps the marker, so
+        the next Stop of this session tries again, and every failure here says so on stderr.
+
+        A CLAIM A DEAD Stop LEFT GOES BACK FIRST, under the stamp's own name while that is free,
+        and under a new version of that name once something holds it, where no marker names it and
+        a display shows it again. CHANGED 2026-10-26: it went back only while the name was free, in
+        one move, so a taken name left it unread under its claim until the day's prune, and a
+        failed move was reported as a live process's claim.
     #>
     try {
         $prefix = Get-DrainFaultPrefix $script:FaultAbout
         if (-not $prefix) { return }
         $hash = Get-DrainSessionHash
         $suffix = "shown-$hash"
-        $mine = @(Get-DrainFiles (Split-Path -Parent $prefix) "$(Split-Path -Leaf $prefix).*.txt.$suffix")
+        $leaf = Split-Path -Leaf $prefix
+        $mine = @(Get-DrainFiles (Split-Path -Parent $prefix) "$leaf.*.txt.$suffix")
+        # Where a claim is left, what happens next: the next Stop of this session finds its marker
+        # and puts the claim back, as the dead-claim pass below does.
+        $left = ("It is left under a claim name no display reads, and this session's next Stop puts " +
+            "it back, under a new version of its name if that name is taken.")
         foreach ($m in $mine) {
             $stamp = $m.FullName.Substring(0, $m.FullName.Length - $suffix.Length - 1)
             $name = Split-Path -Leaf $stamp
             $claim = "$stamp.claim-$hash-$PID"
             $keepMarker = $false
             $claimed = $false
+            $stuck = $false
             try {
                 # A Stop that died between its claim and its delete or put-back left the stamp under
-                # a claim name no display reads. Put a dead process's claim back first, so this
-                # Stop claims it afresh rather than drop the marker with the stamp out of sight.
-                if (-not [System.IO.File]::Exists($stamp)) {
-                    foreach ($c in @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*")) {
-                        $owner = [long]0
-                        if ($c.Name -notmatch '\.claim-[0-9a-f]+-(\d+)$' -or
-                            -not [long]::TryParse($Matches[1], [ref]$owner)) { continue }
-                        if ($owner -eq $PID -or ($owner -le [int]::MaxValue -and
-                                (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue))) { continue }
-                        try { [System.IO.File]::Move($c.FullName, $stamp, $false); break } catch { }
+                # a claim name no display reads. Put each dead process's claim back first: under the
+                # stamp's own name while that is free, so this Stop claims it afresh, and under a
+                # new version of that name, the session that wrote it kept, once the name is taken.
+                $stampHash = if ($name -match ('^' + [regex]::Escape($leaf) + '\.([^.]+)\.[^.]+\.txt$')) { $Matches[1] }
+                          else { $hash }
+                foreach ($c in @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*")) {
+                    $owner = [long]0
+                    if ($c.Name -notmatch '\.claim-[0-9a-f]+-(\d+)$' -or
+                        -not [long]::TryParse($Matches[1], [ref]$owner)) { continue }
+                    if ($owner -eq $PID -or ($owner -le [int]::MaxValue -and
+                            (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue))) { continue }
+                    $back = $stamp
+                    if ([System.IO.File]::Exists($stamp)) { $back = New-DrainStampPath $prefix $stampHash }
+                    try {
+                        Restore-DrainClaim $c.FullName $back
+                        if ($back -ne $stamp) {
+                            Write-DrainNote ("A DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP ($name) WENT BACK UNDER A " +
+                                "NEW NAME ($(Split-Path -Leaf $back)), since another file holds its own. It shows again.")
+                        }
+                    }
+                    catch {
+                        # Never blamed on a live claim below: this one's owner is gone.
+                        $stuck = $true
+                        $keepMarker = $true
+                        Write-DrainNote ("A DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP COULD NOT BE PUT BACK ($name): " +
+                            "$($_.Exception.Message.TrimEnd('.', ' ')). $left")
                     }
                 }
                 foreach ($attempt in 1..8) {
@@ -747,7 +785,8 @@ function Clear-DrainShownFault {
                     $keepMarker = $true
                     Write-DrainNote "A SHOWN FAULT STAMP COULD NOT BE CLAIMED ($name). It stays, and this session's next Stop tries again."
                 }
-                elseif (-not $claimed -and @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*").Count -gt 0) {
+                elseif (-not $claimed -and -not $stuck -and
+                    @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*").Count -gt 0) {
                     # Gone from its name, but a claim another live process holds still carries it.
                     $keepMarker = $true
                     Write-DrainNote "A SHOWN FAULT STAMP IS HELD UNDER ANOTHER PROCESS'S CLAIM ($name). This session's next Stop looks again."
@@ -757,8 +796,7 @@ function Clear-DrainShownFault {
                     if ($want -and $want -eq (Get-DrainStampIdentity (Read-DrainHead $claim 2048))) {
                         if (-not (Remove-DrainFile $claim)) {
                             $keepMarker = $true
-                            Write-DrainNote ("A SHOWN FAULT STAMP COULD NOT BE DELETED ($name). It is left under a " +
-                                "claim name, and this session's next Stop puts it back and tries again.")
+                            Write-DrainNote "A SHOWN FAULT STAMP COULD NOT BE DELETED ($name). $left"
                         }
                     }
                     else {
@@ -768,23 +806,21 @@ function Clear-DrainShownFault {
                         catch {
                             $keepMarker = $true
                             Write-DrainNote ("A FAULT STAMP REWRITTEN SINCE IT WAS SHOWN COULD NOT BE PUT BACK ($name): " +
-                                "$($_.Exception.Message). It is left under a claim name no display reads. This " +
-                                "session's next Stop puts it back if its name is free.")
+                                "$($_.Exception.Message.TrimEnd('.', ' ')). $left")
                         }
                     }
                 }
             }
             catch {
-                $why = $_.Exception.Message
-                $then = 'It shows again.'
+                $why = $_.Exception.Message.TrimEnd('.', ' ')
                 # A claimed copy goes back under its own name, or no display would read it again.
                 if ($claimed -and [System.IO.File]::Exists($claim)) {
-                    try { Restore-DrainClaim $claim $stamp }
-                    catch {
-                        $then = ("It is left under a claim name no display reads. This session's next Stop " +
-                            "puts it back if its name is free.")
-                    }
+                    try { Restore-DrainClaim $claim $stamp } catch { }
                 }
+                # Said from what is on disk now, so the note promises nothing the files do not hold.
+                $then = if ([System.IO.File]::Exists($claim)) { $left }
+                        elseif ([System.IO.File]::Exists($stamp)) { 'It shows again.' }
+                        else { 'No copy of it is left under its own name or this Stop''s claim.' }
                 $keepMarker = $true
                 Write-DrainNote "A SHOWN FAULT STAMP WAS NOT CONSUMED ($name): $why. $then"
             }

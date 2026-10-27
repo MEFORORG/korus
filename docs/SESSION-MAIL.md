@@ -370,10 +370,14 @@ The next `Stop` of that session clears the stamps it was shown, even a `Stop` th
 delivery off. A phantom never reaches `Stop`, and a session never shown a stamp cannot clear it.
 A stamp nobody clears is hidden after a day and pruned.
 
-The `Stop` first renames a shown stamp to a claim name that no display reads. It compares only
-that claimed copy with the mark, deletes it if it is the version shown, and renames it back if not.
-A stamp it cannot claim, or cannot rename back, keeps its mark, so the session's next `Stop` tries
-again.
+The `Stop` renames a shown stamp to a claim name no display reads, and compares only that copy
+with the mark. It deletes the version shown and renames any other back. A stamp it cannot claim,
+delete or rename back keeps its mark for the session's next `Stop`; a claimed one waits unread
+until then.
+
+The next `Stop` of that session renames a claim left by a dead `Stop` back before it claims. The
+stamp goes back under its own name while that name is free. Once another file holds the name, it
+goes back under a new version of it, which no mark names, so a display shows it again.
 
 A `Stop` that keys on another worktree, after a `cd` with no pin, or that names no session,
 misses the mark. That stamp shows again, which is a duplicate and not a loss.
