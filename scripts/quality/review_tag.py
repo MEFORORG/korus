@@ -36,18 +36,20 @@ pasted it, so the readable one may be the brief. With nothing read here, a refus
 refuses rather than exit 12, unless a head elsewhere reads with its tag.
 
 A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
-head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable --
-refuses the reading, unless its record 0 is newer than the fork here's. The same argument holds
-across worktrees: the head elsewhere may be the round's real fork, under a notice this tool does
-not know or displaced, and the readable one here a helper that pasted it. It once exited 0 there
-and quoted the helper's tag, a `low` one under an `xhigh` round among them. A paste is newer than
-its source, so a brief written after the fork here never contests it, and a later paste cannot
-block a reading already taken. A fresh round clears the rest: a pasted head carries the OLD
-round's nonce, and a nonce matches only as the fork's own. A rerun of this tool does not.
+head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
+before `--since` or after it -- refuses the reading. The same argument holds across worktrees: the
+head elsewhere may be the round's real fork, under a notice this tool does not know or displaced,
+and the readable one here a helper that pasted it. It once exited 0 there and quoted the helper's
+tag, a `low` one under an `xhigh` round among them. Record times do not tell them apart: a helper's
+head can be written before the round, from the caller's own arguments and a documented tag. A
+fresh round clears it: a pasted head carries the OLD round's nonce, and a nonce matches only as
+the fork's own. A rerun of this tool does not, and a head pasted elsewhere later blocks a re-check
+of the old round for good: a refusal, never a wrong tag.
 
 ONE FILE IS ONE FORK. A projects directory reached twice -- two roots naming one directory, or a
 junction or link inside one -- once listed the same fork twice and refused it as ambiguous. A file
-seen already, by its device and inode, is skipped.
+seen already, by its device, inode, size and write time, is skipped. A file still being written
+between two reaches can read as two forks, exit 7, which a later run clears.
 
 A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
 line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
@@ -370,6 +372,8 @@ class Fork:
     #: The first nonce in the fork's arguments: the target line's, or for arguments that may span
     #: lines, the first on any of them. Matched, never printed.
     own_nonce: str = ""
+    #: Any tag-shaped line in record 0. Only such a head elsewhere contests a fork here.
+    tag_shaped: bool = False
 
     @property
     def worktree(self) -> str:
@@ -775,23 +779,6 @@ def file_identity(path: Path) -> tuple[int, int, int, int] | str | None:
     return os.path.normcase(os.path.realpath(path))
 
 
-def contests(elsewhere: Fork, here: Fork) -> bool:
-    """A head elsewhere contests the fork here unless it was written after it.
-
-    A pasted head is always newer than the fork it copied, since the paste needs the fork's text.
-    So a head elsewhere written AFTER the fork here is a copy of it, or another round's, and never
-    the round's real fork beside a helper here: PR 244 kept it out of scope, and so does this. A
-    head elsewhere at or before the fork here may be the real fork, with the one here a helper
-    that pasted it. A time that is missing contests, so an unknown order refuses. Only a head with
-    a tag-shaped line contests: a target line alone is no reading, as a tagless fork here is none.
-    """
-    if elsewhere.refusal is None and not elsewhere.tag:
-        return False
-    if elsewhere.time is None or here.time is None:
-        return True
-    return elsewhere.time <= here.time
-
-
 def place(fork: Fork, want: str | None) -> bool | None:
     """True if the fork ran in `want`, False if elsewhere, None if it records nowhere to place it.
 
@@ -869,6 +856,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if not read.review:
                 continue
             fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
+            fork.tag_shaped = any(is_tag(line) for line in head)
             fork.refusal, fork.notice = read.refusal, read.notice
             if read.candidates and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
@@ -892,8 +880,6 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     )
                 except OSError:
                     pass
-            if filters.since and (fork.time is None or fork.time < filters.since):
-                continue
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
@@ -902,11 +888,15 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # nonce places it, where a worktree cannot.
                 fork.placed_by = "the round nonce (no worktree or cwd recorded)"
                 placed = True
+            if placed is False and nonced and fork.tag_shaped:
+                # Before --since, which drops an older round: a head carrying this round's nonce
+                # is this round's whatever its time, so one elsewhere contests a fork here.
+                nonce_elsewhere.append(fork)
+            if filters.since and (fork.time is None or fork.time < filters.since):
+                continue
             if placed is None:
                 result.unplaced += 1
                 continue
-            if not placed and nonced:
-                nonce_elsewhere.append(fork)
             if placed and fork.refusal is not None:
                 result.refused[fork.refusal].append(fork)
             elif placed:
@@ -919,19 +909,17 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
                 readable_elsewhere += fork.refusal is None and bool(fork.tag)
-    # Beside a fork here, a head elsewhere carrying the round's nonce contests it (exit 16, in
-    # main) unless it was written after the fork here: the head elsewhere may be the round's real
-    # fork and the one here a helper that pasted it, and nothing else in record 0 or the meta tells
-    # them apart. A paste is newer than its source, so a brief written later stays out of scope, as
-    # PR 244 kept it; a fresh round clears the rest, since a pasted head carries the old nonce. With nothing read here, a refused head
+    # Beside a fork here, a head elsewhere carrying the round's nonce and a tag-shaped line contests
+    # it (exit 16, in main): the head elsewhere may be the round's real fork and the one here a
+    # helper that pasted it, and nothing in record 0, its time or the meta tells them apart. PR 244
+    # kept such a head out of scope so a brief elsewhere could not block a reading for good; a
+    # fresh round clears it, since a pasted head carries the old round's nonce. With nothing read here, a refused head
     # elsewhere refuses (14 or 15) rather than send an inline round to --worktree (exit 12) after
     # a helper's brief, unless a head elsewhere reads with its tag: then exit 12 says where, and a
     # rerun there either reads, refuses on what it finds, or is contested by the head it left. A
     # refused head in scope always refuses, never set aside beside a readable fork.
     if result.forks:
-        result.contested = [
-            head for head in nonce_elsewhere if any(contests(head, fork) for fork in result.forks)
-        ]
+        result.contested = nonce_elsewhere
     elif readable_elsewhere:
         result.elsewhere += len(refused_elsewhere)
     else:
@@ -1151,9 +1139,13 @@ def main(argv: list[str] | None = None) -> int:
             for fork in forks:
                 print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | {where}")
                 if args.verbose:
-                    # A path, so behind --verbose: where to look for the head that contests.
+                    # A path and record 0's own words, so behind --verbose: where to look for the
+                    # head that contests, and an unknown notice to measure and add.
                     print(f"review_tag: agent {fork.agent_id} ran in "
                           f"{fork.worktree or fork.cwd or '(absent)'}", file=sys.stderr)
+                    if fork.notice:
+                        print(f'review_tag: agent {fork.agent_id}: the unknown notice opens '
+                              f'"{spell(fork.notice, True)}"', file=sys.stderr)
         return EXIT_CONTESTED
 
     for line in render(result.forks, args.ascii, args.verbose, attributable):

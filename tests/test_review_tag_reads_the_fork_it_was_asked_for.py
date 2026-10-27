@@ -1898,10 +1898,10 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     Nothing in record 0 or the meta tells a real fork from a helper that pasted its head, in one
     worktree or across two. So a head elsewhere carrying the round's nonce contests a fork that
-    reads here, exit 16, unless it was written after the fork here. PR 244 kept such a head out of
-    scope, because a brief elsewhere then "refused a readable fork for good". A paste is newer than
-    the fork it copied, so a later brief stays out of scope, and a pasted head carries the old
-    round's nonce, so a fresh round clears the rest; the last cases hold both."""
+    reads here, exit 16. PR 244 kept such a head out of scope, because a brief elsewhere then
+    "refused a readable fork for good". A pasted head carries the old round's nonce, so a fresh
+    round clears it; the last cases hold that. Record times do not discriminate: code-review
+    round two of this work defeated a time rule with a helper written before the round."""
 
     NONCE = "round-4121abcdef"
     FRESH = "round-4121fedcba"
@@ -1938,8 +1938,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         return code, out.getvalue()
 
     def _contested(self, code, out):
-        self.assertEqual(code, getattr(review_tag, "EXIT_CONTESTED", 16), out)
-        self.assertIn(getattr(review_tag, "CONTESTED_MESSAGE", "(no such message)"), out)
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out)
+        self.assertIn(review_tag.CONTESTED_MESSAGE, out)
         self.assertNotIn("tag:", out, "a contested run printed a quotable tag")
 
     # The fail-open cases.
@@ -2016,23 +2016,60 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
         self.assertIn("agent again", out)
 
-    def test_a_brief_written_after_the_fork_here_stays_out_of_scope(self):
-        # PR 244's rule, where the order can tell: a paste needs the fork it copied, so a head
-        # elsewhere newer than the fork here is a copy of it, not the round's real fork.
-        self._write("mine", self._head(), self.HERE)
+    def test_a_helper_written_before_the_real_fork_still_contests(self):
+        # Round two of this work: a time rule exempted a head elsewhere newer than the fork here.
+        # A helper's head can be written before the round, so the real fork was exempted and the
+        # helper's low tag quoted. Order is not evidence; every order contests.
+        self._write("bHELP", self._head(tag=self.TAG_LOW, tail="Helper brief."), self.HERE)
         for name, opening in (("displaced", "Run this:\n\n"), ("unknown", self.UNKNOWN + "\n\n"),
                               ("canonical", "")):
             with self.subTest(head=name):
-                self._write("brief" + name, opening + self._head(), self.B, timestamp=self.LATE)
+                self._write("real" + name, opening + self._head(), self.B, timestamp=self.LATE)
                 code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_FOUND, out)
-                self.assertIn("agent mine", out)
+                self._contested(code, out)
+                self.assertNotIn("low effort", out)
 
-    def test_control_a_head_elsewhere_at_the_same_time_contests(self):
-        # An order the times cannot tell refuses.
+    def test_since_does_not_drop_the_head_that_contests(self):
+        # Round two of this work: --since between the real fork and the helper dropped the real
+        # fork before it could contest, and the helper's low tag was quoted.
         self._real_unknown(self.B)
-        self._write("bHELP", self._head(tail="Helper brief."), self.HERE)
-        self._contested(*self._probe())
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        out = io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--ascii",
+                "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        self._contested(code, out.getvalue())
+
+    def test_control_since_still_drops_an_older_round_here(self):
+        self._write("old", self._head(nonce=self.FRESH), self.HERE)
+        out = io.StringIO()
+        argv = ["--target", self.FRESH, "--worktree", self.HERE, "--any-session",
+                "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out.getvalue())
+
+    def test_a_tagless_unsplit_head_elsewhere_does_not_contest(self):
+        # Round two of this work: an odd backtick refuses as unsplit with no tag-shaped line, and
+        # a target line alone is no reading, so it does not contest.
+        self._write("relay", f"Review target: `{self.NONCE} Review this branch's diff\n\nRelay.",
+                    self.B)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_verbose_names_the_unknown_notice_that_contests(self):
+        self._real_unknown(self.B)
+        self._helper(self.HERE)
+        out, err = io.StringIO(), io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--verbose",
+                "--projects-dir", str(self.projects)]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main(argv)
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out.getvalue())
+        self.assertIn("the unknown notice opens", err.getvalue())
+        self.assertIn(self.B, err.getvalue())
 
     def test_a_tagless_head_elsewhere_does_not_contest(self):
         # A target line alone is no reading, here or elsewhere.
