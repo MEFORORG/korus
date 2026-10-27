@@ -101,7 +101,8 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 | A grant ADDS, it never narrows | When one arrives, ask whether you already hold more, not what the message covers. [COMMON.md](COMMON.md), *Standing rules that a fresh message will not override*, owns it. |
 | A tick is a wakeup, not a message | It carries no instruction and expects no reply. **No seat sends an ACK for one**, acknowledges one, or produces a status line because one arrived. Same COMMON heading as the row above. |
 | Every seat runs in the Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. **It changes disposition, not permissions.** Routing, the DEMAND-GATE pause and every approval gate bind as before. |
-| A playbook that contradicts COMMON is an owner question | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, owns it. No seat resolves the contradiction by picking a winner. |
+| A playbook that contradicts COMMON is an owner question | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, owns it. No seat resolves the contradiction by picking a winner. A recorded delegated decision that resolves it is the owner's answer. |
+| The `driver` and `empower` rules are on by default | Every seat but Special. [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. |
 | Why the seat files point rather than restate | Nine copies of a behaviour contract have no drift signal between them. This project has hit that defect repeatedly. Make a pointer, never a second summary. |
 
 ## 3. The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12

@@ -33,7 +33,8 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 | Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify, and cannot grant one even when the guess proves right. |
 | No glyphs or emoji | CLAUDE.md's no-glyphs rule. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
-| Conflicts between this file and COMMON | Owner ruling 2026-08-28: a role playbook that contradicts COMMON is an owner question, never settled by precedence. See COMMON, *Where a role playbook and this file disagree*. |
+| Conflicts between this file and COMMON | Owner ruling 2026-08-28: a role playbook that contradicts COMMON is an owner question, never settled by precedence, unless a recorded delegated decision already resolves it. See COMMON, *Where a role playbook and this file disagree*. |
+| The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. |
 | Provenance tells you where to look, not who wins | COMMON was written by summarising these playbooks. Where the two differ this file is often the older and fuller text. That is a reason to read it, not a rule for deciding. |
 | Editing this folder | **RETIRED 2026-09-01: this row read** *"while a Role Manager session is running, do not edit any file in this folder"*. The owner retired that seat and nothing replaced the folder-edit gate. There is no session to send feedback to. |
 

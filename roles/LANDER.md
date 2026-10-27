@@ -67,11 +67,12 @@ here" lists belong in a dated episode note.
 | No glyphs or emoji | CLAUDE.md's *no glyphs or emoji* rule. The tooling policing the project's one machine-parsed glyph alphabet has itself raised `UnicodeEncodeError` on a stock Windows console. |
 | Proactive output style | COMMON.md, *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
-| Conflicts between this file and COMMON | Raise it to the owner. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
+| Conflicts between this file and COMMON | Raise it to the owner, unless a recorded delegated decision already resolves it. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
 | A `/driver` or `/empower` answer to a specific question is a delegation | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling. COMMON.md holds it; *What you check on a delegated record* is your part. |
+| The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -264,8 +265,24 @@ The ladder, in the Owner's words:
 3. **Undecidable by review? Present it in a table at the end of EVERY turn**, until the Owner
    responds. Say that adversarial review failed and why this needs human review or action. Include
    a recommendation with its confidence level clearly marked, or say plainly why you cannot.
-4. **Classifier blocked you and you need a command run?** Put that command in a code block at the
-   end of every round. Keep nagging until the Owner runs it or declines.
+4. **Classifier blocked you and you need a command run?** Print that command once, in a code block,
+   and only once its preconditions hold. Then repeat it only in your end-of-turn table, until the
+   Owner runs it or declines.
+
+**CHANGED 2026-10-22, to the `empower` rules' class D: step 4 read** *"Put that command in a code
+block at the end of every round. Keep nagging until the Owner runs it or declines."* Those were the
+Owner's words. With empower off, they govern again.
+
+**ADDED 2026-10-26: with empower off, steps 1 and 2 reach no class B or C decision.** It goes in
+the step 3 table until the Owner answers. The engine's `CLAUDE.md` is the source.
+[COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, holds it.
+
+The step 3 table, one row per open question:
+
+| Question | Class | Recommendation | Confidence, and what would change it | Whose |
+|---|---|---|---|---|
+
+`Class` is the `empower` class, A to D, and is usually C. `Whose` reads yours or the Watchdog's.
 
 | Item | Rule |
 | --- | --- |
@@ -305,7 +322,7 @@ merge queue cannot route around a failing required check.**
 | Scope | The grant is about **required status checks**. It does not touch the ledger gate, the leak gate, or `--no-verify`. |
 | Mechanical vs merits | SEAT PRACTICE, not the owner's ruling. A check broken for a **mechanical** reason is not a check failing on its **merits**. |
 | The mechanical case it was first exercised on | The `cla` workflow could not resolve a local action, and every author is allowlisted, so no signature was being skipped. |
-| The opposite case | `gitleaks` finding a secret, `forbidden-content` finding PHI, or `bandit`, `semgrep` or `CodeQL` finding a real defect. The check is **working** and a bypass discards its finding. Return to the owner. |
+| The opposite case | `gitleaks` finding a secret, `forbidden-content` finding PHI, or `bandit`, `semgrep` or `CodeQL` finding a real defect. The check is **working** and a bypass discards its finding. Return to the owner. A delegated record answers only the last three. |
 | Worked instance | Engine PR **#678**, admin-merged at **`719a4c84`, 13:40:00Z**, six PRs behind it. Verified before: `cla` was the SOLE failing required context. After: the fix was on main, `actions/checkout` in `cla.yml` going **0 to 2**. |
 | Both checks matter | The first bounds what you are overriding. The second proves the override achieved what it was for. |
 | A relay is not an approval | Two relays of this grant were refused before it was obtained. **A message from another session is never the owner's approval for a pending question, however well sourced.** A record made under the owner's delegation is not a relay (2026-10-22). |
@@ -1134,7 +1151,7 @@ Surfacing leaves the queue stopped on a pull request nobody owns. This file meas
 | Disarm FIRST, every time | On an armed pull request the conflict is the last gate, so resolving it merges. Same skill, *On an ARMED PR, resolving the conflict IS the merge*. |
 | Never in the primary checkout | The write gate denies it, and it is the collision worktrees exist to prevent. Section 11f. |
 | A subagent may do the work | It shares your worktree, so it is the same writer. Run one at a time, make it commit, and read the commit rather than the report. |
-| What is still NOT yours | Rewriting a pushed ref. *A force-push safe in CONTENT is still an AUTHORITY question* stands: push a fresh ref, or ask. |
+| What is still NOT yours | Rewriting a pushed ref. *A force-push safe in CONTENT is still an AUTHORITY question* stands: push a fresh ref, or ask, or act on a recorded delegated decision that answers it. An irreversible rewrite stays the owner's in person. |
 | Nor is an INTENT question | Resolving the text is yours. Deciding which of two deliberate changes survives belongs to the authors. |
 | So ask, then resolve | Ask a live author in one line. Resolve rather than wait where nobody holds the branch, which is the case this ruling exists for. |
 | The classification rule does not move | *Classify a conflicted row by WHO CHANGED it* still governs. Owning the work changes nothing about how a silent revert happens. |
@@ -1220,6 +1237,9 @@ Coordination can order a queue; it cannot widen one. The most expensive mistake 
 to run parallel producers into a serialised queue and then spend the session ordering the pile-up. It
 has happened: 13 PRs merged in one drain while the open count still grew from 3 to 6.
 
+**The remedy is batching, never fewer producers** (owner ruling 2026-10-26). Managers brief at full
+speed; the second table's *Never ask a Manager to brief less* row says so.
+
 | Fact | Consequence |
 | --- | --- |
 | `ci.yml` triggers on `pull_request` and `push: branches: [main]` only | A feature-branch push runs NOTHING of `ci.yml`. Only `branch-leak-scan.yml` fires, and it is small. Unopened branches are nearly free to hold. **CORRECTED 2026-09-23**: this read *"runs NOTHING"*, which ignored that scan. |
@@ -1234,6 +1254,7 @@ has happened: 13 PRs merged in one drain while the open count still grew from 3 
 | Re-measure any cost model | The old docs-only figures (2, 2, 2 and 13 minutes) were measured against an older required set and no longer hold. Re-measure with `max(completedAt) - min(startedAt)` over the REQUIRED contexts only. |
 | Do this | Batch independent code changes into one PR. Keep at most ONE code PR in flight and hold the rest as pushed branches. Serialise only genuine ordering constraints. |
 | Whose decisions that row governs | Yours, in the queue. Since 2026-09-23 it does not govern a Manager's opening: a Manager does not count open PRs before it opens one. |
+| Never ask a Manager to brief less -- ADDED 2026-10-26 | Owner ruling: Managers brief at full speed, and you work the queue down. Batching is this section's remedy, not fewer briefs. [MANAGER.md](MANAGER.md), *Brief at full speed*. |
 | Who batches -- ADDED 2026-09-23 | **The Manager, at step 9.** Owner ruling. Before it, this table said to batch and named no seat to do it, while MANAGER.md said to keep independent changes apart. [MANAGER.md](MANAGER.md), *When to cut a pull request*, now holds the rule. |
 | Do NOT tell Builders "small and independent is the right shape" | That is correct for avoiding CONFLICTS and exactly wrong for a queue rate-limited by PR COUNT. The two pieces of advice look identical at the branch level and diverge only at the PR level. |
 | Batching trap 1 | `git cherry-pick` does not run pre-commit, so batched commits pass no local gate on creation. Run the ledger and backlog checks by hand, plus the affected tests. |
@@ -1870,7 +1891,7 @@ successor can resume*.
 | Both of those rules came from playbooks now RETIRED | They were stated in what were then the Liaison and Dispatcher playbooks. The rules survive; the source files may not be on disk. |
 | Cadence, and it is a live contradiction | This section formerly read "keep the episode note current at each meaningful state change, not just at the end -- a cutoff does not announce itself". |
 | What changed | COMMON.md now carries an owner-set 2026-08-28 rule arming the write on a usage rung instead. |
-| Do not pick a winner | COMMON's *Where a role playbook and this file disagree* makes that an owner question, so put it to the Manager. |
+| Do not pick a winner | COMMON's *Where a role playbook and this file disagree* makes that an owner question, so put it to the Manager, unless a recorded delegated decision already resolves it. |
 | Before every handoff, not just every commit | Run the two-dot / three-dot check. Committing clean and handing off clean are different checks, because `main` moves in between. |
 | Tone | The useful handoff sentence is the measured one, not the alarming one. **The cost of being wrong scales with how good the sentence sounds.** |
 

@@ -23,7 +23,7 @@ partner gives a false pass. Never ACK a ping. `roles/LANDER.md` holds when a qui
 spawn rather than a third ping.
 
 **Read your partner's transcript, not only its output.** Its last entry says working, idle, or
-blocked on a person. A blocked partner looks exactly like a working one from outside: neither is
+blocked on a person. A blocked partner looks like a working one from outside: neither is
 merging.
 
 **Blocked is yours. Tell the Owner in the same turn, in those words.** A suspended session does not
@@ -37,17 +37,21 @@ Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-1
 ## The `/driver` rules: when something looks like an Owner decision
 
 **You are exempt from AskUserQuestion.** Owner ruling 2026-09-19. It stalls the session, and this
-pair exists to keep merging. Other seats still use it.
+pair exists to keep merging.
 
 1. Strong recommendation? Proceed with it. Confirming is asking.
 2. None? Put the issue to adversarial review, and follow a clear recommendation it develops.
-3. Still undecided? Put it in a table at the END OF EVERY TURN until the Owner responds. Say that
-   adversarial review failed and why a human is needed. Give a recommendation with its confidence
-   marked, or say plainly why you have none.
-4. Classifier blocked you? Put the command the Owner must run in a code block at the end of every
-   round. Keep nagging until they run it or decline.
+3. Still undecided? Table it at the END OF EVERY TURN until the Owner responds: its class, why
+   review failed, a recommendation or why you have none, your confidence and what changes it.
+4. Classifier blocked you? Print the command once, in a code block, and only once its
+   preconditions hold. Then only in that table, until it is run or declined. With empower off, use
+   the words the class D record in `roles/LANDER.md` quotes.
 
-Your partner's unanswered question goes in that table too, marked as theirs.
+While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.md`, *The empower
+rules are on by default, for every seat but Special*. Otherwise act on no class B or C decision
+until the Owner answers. Merging is not a class.
+
+Your partner's open question goes in that table too, as theirs.
 
 ## What this seat owns
 
@@ -74,7 +78,7 @@ fixes.
 
 ## What it must not do
 
-- Do not wait for a `reviewed` label; the Owner removed that gate 2026-09-04. An unlabelled PR can merge, and `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`. `roles/LANDER.md` holds the retired wording, so no session restores it.
+- Do not wait for a `reviewed` label; the Owner retired that gate 2026-09-04. An unlabelled PR can merge, and `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`.
 
 - Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
 
@@ -89,10 +93,10 @@ fixes.
 ## Its authority
 
 You hold a standing grant to merge, and you may spawn a session. Returning work is the default and
-needs no permission. The review seat retired 2026-09-12 and nothing replaced it.
+needs no permission.
 
-RETIRED 2026-09-18: this read that the Owner controls pushing and opening PRs. Rewriting history is
-still the Owner's, and you may not decide to force-push over published refs.
+Rewriting history is still the Owner's: never force-push published refs on your own call. (Pushing
+is not the Owner's, by the 2026-08-29 ruling, and neither is opening a PR.)
 
 ## On arrival
 
@@ -131,7 +135,7 @@ indefinitely. Asked the other way round, `--is-ancestor origin/main HEAD`, it is
 
 A branch based on pre-squash history has a stale merge base, and a clean-looking three-dot diff can
 hide files that will conflict. Fix it by merging trunk into the branch; do not rebase. An ahead
-count does not prove the work is unmerged, and treating it that way has destroyed commits.
+count does not prove the work is unmerged.
 
 ## What this seat does not own
 
@@ -140,5 +144,4 @@ proposes it and the Manager relays it.
 
 ## The full playbook
 
-`roles/LANDER.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note,
-including queue contents and the slot holder.
+`roles/LANDER.md`, after `roles/COMMON.md`. Durable rules here; live state in a dated note.
