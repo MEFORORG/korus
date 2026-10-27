@@ -985,7 +985,7 @@ Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 u
 | `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. Inside each project, only its directory is walked. |
-| `--since` | A second filter: drops forks older than it. It needs an offset. Under a nonce it drops an older fork here only where it and every kept fork read with one tag, so a retried round reads; else it refuses. |
+| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. Under a nonce it does not drop a fork carrying that nonce, whatever its time. |
 | `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 

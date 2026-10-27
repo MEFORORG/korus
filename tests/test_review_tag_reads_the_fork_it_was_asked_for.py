@@ -2299,49 +2299,22 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertEqual(code, review_tag.EXIT_UNREAD, out)
                 self.assertNotIn("tag:", out)
 
-    def test_since_separates_a_retried_round_that_reused_its_nonce(self):
-        # Hold 2: with a nonce, --since no longer separated two forks carrying it, so a skill call
-        # retried with the same nonce exited 7 for good. An older fork carrying the same tag as
-        # the one --since keeps names no other level, so --since drops it again.
+    def test_a_round_retried_with_its_nonce_stays_ambiguous_under_since(self):
+        # Hold 2 asked --since to separate two forks sharing one nonce. It is not done, on purpose:
+        # nothing in record 0 tells a retried round from a helper that pasted the round's head, so
+        # dropping the older fork reads the newer one. With differing tags that quoted a helper's
+        # low tag (the 22fbe10 case above); with one tag it names the helper's fork id, the
+        # same-tag set-aside BUILDER.md 4e records as NOT MERGED, and a Manager's re-check without
+        # --since still reads 7. A fresh nonce clears it.
         self._write("first", self._head(), self.HERE)
         self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
         code, out = self._since()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("agent retry", out)
-        self.assertNotIn("agent first", out)
-        self.assertIn("tag: xhigh effort -> 10 inline angles", out)
-
-    def test_control_without_since_the_retried_round_stays_ambiguous(self):
-        self._write("first", self._head(), self.HERE)
-        self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
-        code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
-
-    def test_since_keeps_an_older_fork_whose_tag_differs_or_is_unread(self):
-        # The review of 22fbe10 stands: an older fork --since would drop is kept wherever dropping
-        # it could change the tag quoted. Here a low real round and a newer xhigh head; a tagless
-        # older fork; and a displaced older head, which refuses whatever reads beside it.
-        cases = (("low then xhigh", self._head(tag=self.TAG_LOW), review_tag.EXIT_AMBIGUOUS),
-                 ("tagless then xhigh", f"Review target: `{self.NONCE} Review this branch's diff`"
-                  "\n\nGo.\n", review_tag.EXIT_AMBIGUOUS),
-                 ("displaced then xhigh", "Run this:\n\n" + self._head(),
-                  review_tag.EXIT_DISPLACED))
-        for name, older, want in cases:
-            with self.subTest(case=name):
-                self.projects = Path(self._tmp.name) / ("projects-keep-" + name.split()[0])
-                self.projects.mkdir()
-                self._write("first", older, self.HERE)
-                self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
-                code, out = self._since()
-                self.assertEqual(code, want, out)
-                self.assertNotIn("tag:", out)
-
-    def test_control_since_with_only_an_older_nonce_fork_is_no_fork(self):
-        # Nothing at or after --since to compare against: dropped, as on main, which quotes nothing.
-        self._write("first", self._head(), self.HERE)
-        code, out = self._since()
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
         self.assertNotIn("tag:", out)
+        self._write("fresh", self._head(nonce=self.FRESH), self.HERE, timestamp=self.LATE)
+        code, out = self._since(nonce=self.FRESH)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent fresh", out)
 
 
 class OneFileReachedTwiceIsOneFork(Fixture):
