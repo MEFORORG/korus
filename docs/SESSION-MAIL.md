@@ -359,9 +359,9 @@ So a `Stop` fault also leaves a stamp under `<git-common-dir>/ccx-mail-faults/`,
 and session. Each fault gets its own file, written once. A standing fault adds none while its stamp
 is unshown. A session keeps five, so a sixth fault drops the newest of the five before it.
 
-The next `SessionStart` for that worktree prints up to three stamps on stdout, one line each,
-marked unverified, where a reader is. They run newest first, and the oldest that reads is among them,
-so a fault that keeps recurring cannot hold an older one back. A further line counts the rest.
+The next `SessionStart` for that worktree prints up to three stamps on stdout, where a reader is,
+one line each, marked unverified. Newest lead; the oldest that reads within half the display's read
+bound is among them, so a recurring fault cannot hide an older one. A further line counts the rest.
 
 A `SessionStart` never clears a stamp, since a phantom session would clear it unread. It marks each
 stamp it printed as shown to its own session, after the print, as it marks mail.

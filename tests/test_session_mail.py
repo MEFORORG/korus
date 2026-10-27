@@ -1235,8 +1235,9 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("'UserPromptSubmit'", ctx)
 
     def test_a_session_keeps_a_bounded_count_of_stamps(self):
-        """Item 3's bound. A session keeps five. With none shown, a sixth fault drops the newest
-        unshown one and says so, so faults whose text varies cannot evict an older one-time one."""
+        """Item 3's bound. A session keeps five. A sixth fault is written, then the newest of the
+        five before it goes, shown or not, and stderr says so, so faults whose text varies cannot
+        evict an older one-time one."""
         for i in range(6):
             r = self.drain(self.peer, event=f"Ev{i}", session_id="w1", pass_event=False)
         self.assertEqual(5, len(self.stamps()))
@@ -1358,6 +1359,52 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("NO BOX", r.stderr)
         self.assertIn("THIS FAULT LEFT NO STAMP", r.stderr)
 
+    # ---- The final review over ea1421c..cb41fab, findings 1 and 5. Each case fails at cb41fab.
+
+    def sub_stop(self, sub):
+        """measured_stop with its cwd in a subdirectory of the peer: the stamp keys on the peer as
+        before, and the NO BOX text names the subdirectory, so a test controls part of it."""
+        d = self.peer / sub
+        d.mkdir(exist_ok=True)
+        return self.drain(self.primary, event="Stop", session_id="w1",
+                          fields={"cwd": str(d), "stop_hook_active": False}, pass_event=False)
+
+    def test_two_faults_alike_but_for_an_inner_as_of_keep_two_stamps(self):
+        """Finding 1. The key removed every "as of" and the word after it, in any case, so "was of
+        TypeA" and "was of TypeB" gave one key, and the second fault was taken for a standing one
+        and got no stamp. Only the trailing "As of" time, as the drain writes it, is removed now.
+        The control: the same fault twice, its As-of time the only difference, keeps one."""
+        for a, b in (("was of TypeA", "was of TypeB"), ("As of TypeA", "As of TypeB")):
+            with self.subTest(a):
+                for p in self.faults_dir().glob("*"):
+                    p.unlink()
+                r = self.sub_stop(a)
+                self.assertIn("NO BOX", r.stderr)
+                self.assertIn(a, self.stamps()[0].read_text(encoding="utf-8"),
+                              "the fault does not carry the subdirectory, so this measured nothing")
+                self.sub_stop(a)
+                self.assertEqual(1, len(self.stamps()), "one standing fault kept two stamps")
+                self.sub_stop(b)
+                self.assertEqual(2, len(self.stamps()), "a different fault was taken for a standing one")
+
+    def test_a_fault_cut_beside_a_surrogate_pair_still_stands(self):
+        """Finding 5. The 400-character cap cut a surrogate pair in half, the half was written as
+        U+FFFD, and the stored text then never matched the fault it was cut from: every Stop that
+        met the fault wrote another stamp. The cut no longer ends on a high surrogate."""
+        self.sub_stop("probe")
+        field = self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3]
+        at = field.index("probe")
+        self.assertLess(at, 396, "the fault is too long to place a pair at the cap")
+        for p in self.faults_dir().glob("*"):
+            p.unlink()
+        # The high surrogate at index 396, the last one the cap keeps before its "...".
+        sub = "p" * (396 - at) + chr(0x1F600) + "z"
+        self.sub_stop(sub)
+        self.assertTrue(self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3].endswith("..."),
+                        "the fault was not cut, so this measured nothing")
+        self.sub_stop(sub)
+        self.assertEqual(1, len(self.stamps()), "a standing fault cut beside a pair wrote a second stamp")
+
     def test_stamps_and_markers_key_on_an_eight_byte_session_hash(self):
         """Item 6. The session hash was four bytes, where the prefix and the pins use eight, so
         two sessions could share one, and one's Stop consume a stamp only the other was shown."""
@@ -1370,6 +1417,83 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
 def session_hash(session_id: str) -> str:
     """The drain's session key: the first eight bytes of SHA-256 over the id, as hex."""
     return hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:16]
+
+
+class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
+    """Finding 3 of the final review over ea1421c..cb41fab. A claimed copy that is not the version
+    shown goes back under its name, and that put-back was one move with no retry. Where it failed
+    the marker was deleted anyway, so the stamp sat under a claim name no display reads until the
+    day's prune. Each case fails at cb41fab.
+
+    NO PROCESS-LEVEL CASE CAN TIME THIS: the put-back follows the claim within one run. So this
+    loads the drain's own functions, without its body, and runs the real Clear-DrainShownFault with
+    Read-DrainHead wrapped: reading the claimed copy puts a file where the stamp goes back, so the
+    move back fails. Only the prefix, the session hash and the identity are stubbed."""
+
+    def setUp(self):
+        pwsh = t.find_pwsh()
+        if not pwsh:
+            self.skipTest("pwsh is not on PATH, so the drain cannot be executed here")
+        self.pwsh: str = pwsh
+        tmp = tempfile.TemporaryDirectory(prefix="ccx-claim-")
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(os.path.realpath(tmp.name))
+
+    def clear(self, unblock_on_retry: bool) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+        def q(p) -> str:
+            return "'" + str(p).replace("'", "''") + "'"
+
+        # A retry sleeps between attempts, so a Start-Sleep that removes the blocker lets the next
+        # attempt through.
+        unblock = ("function Start-Sleep { param([int] $Milliseconds) "
+                   "[System.IO.File]::Delete($script:Stamp) }") if unblock_on_retry else ""
+        script = "\n".join([
+            "$ErrorActionPreference = 'Stop'",
+            f"$ast = [System.Management.Automation.Language.Parser]::ParseFile({q(DRAIN)}, [ref]$null, [ref]$null)",
+            "foreach ($f in $ast.EndBlock.Statements) {",
+            "    if ($f -is [System.Management.Automation.Language.FunctionDefinitionAst]) {",
+            "        . ([scriptblock]::Create($f.Extent.Text)) } }",
+            f"$script:Prefix = Join-Path {q(self.dir)} 'P'",
+            "$script:Stamp = \"$($script:Prefix).abcd.1.txt\"",
+            "$marker = \"$($script:Stamp).shown-abcd\"",
+            "function Get-DrainFaultPrefix { param([string] $Dir) return $script:Prefix }",
+            "function Get-DrainSessionHash { return 'abcd' }",
+            "function Get-DrainStampIdentity { param([string] $Head) "
+            "if ($Head -like '*rewritten*') { 'id-rewritten' } else { 'id-shown' } }",
+            "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten\")",
+            "[System.IO.File]::WriteAllText($marker, 'id-shown')",
+            "$script:RealHead = ${function:Read-DrainHead}",
+            "function Read-DrainHead { param([string] $File, [int] $Max)",
+            "    if ($File -like '*.claim-*' -and -not [System.IO.File]::Exists($script:Stamp)) {",
+            "        [System.IO.File]::WriteAllText($script:Stamp, 'in the way') }",
+            "    return & $script:RealHead $File $Max }",
+            unblock,
+            "Clear-DrainShownFault",
+            "\"marker=$([System.IO.File]::Exists($marker))\"",
+            "\"claims=$(@(Get-ChildItem -LiteralPath (Split-Path $marker) -Filter '*.claim-*').Count)\"",
+            "\"stamp=$([System.IO.File]::ReadAllText($script:Stamp))\"",
+        ])
+        ps1 = self.dir / "run.ps1"
+        ps1.write_text(script, encoding="utf-8")
+        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(ps1)], capture_output=True,
+                           text=True, cwd=str(self.dir), timeout=TIMEOUT_SECONDS)
+        got = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
+        self.assertEqual({"marker", "claims", "stamp"}, set(got), f"the run did not finish: {r.stderr}")
+        return r, got
+
+    def test_a_put_back_that_fails_once_is_retried(self):
+        r, got = self.clear(unblock_on_retry=True)
+        self.assertEqual("0", got["claims"], "the put-back was not retried, so the stamp sits under a claim")
+        self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
+        self.assertNotIn("COULD NOT BE PUT BACK", r.stderr)
+
+    def test_a_put_back_that_keeps_failing_keeps_the_marker(self):
+        """The marker brings the session's next Stop back to the claim, which a dead process's
+        claim puts back. Without it the stamp waits, unread, for the prune."""
+        r, got = self.clear(unblock_on_retry=False)
+        self.assertEqual("1", got["claims"], "the blocker did not block, so this measured nothing")
+        self.assertEqual("True", got["marker"], "the marker went while the stamp sat under a claim")
+        self.assertIn("COULD NOT BE PUT BACK", r.stderr)
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
