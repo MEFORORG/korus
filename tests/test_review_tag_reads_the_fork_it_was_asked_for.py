@@ -2063,14 +2063,23 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self.assertNotIn("low effort", out)
 
     def test_control_since_still_drops_a_different_rounds_head(self):
-        # An older head of another round, with its own nonce, is not this round's.
+        # A head of another round that only --since excludes: a --no-nonce search for words both
+        # rounds share. Without --since both match; with it, only the later one does.
         self._write("old", self._head(nonce=self.FRESH), self.HERE)
         self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-        code, out = self._since()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("agent mine", out)
-        code, out = self._since(nonce="round-00000000ab")
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+        argv = ["--target", "Review this branch's diff", "--no-nonce", "--worktree", self.HERE,
+                "--any-session", "--projects-dir", str(self.projects)]
+        for since, want in ((None, review_tag.EXIT_AMBIGUOUS),
+                            ("2026-10-24T09:02:00Z", review_tag.EXIT_NOT_ATTRIBUTABLE)):
+            with self.subTest(since=since):
+                out = io.StringIO()
+                extra = ["--since", since] if since else []
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                    code = review_tag.main(argv + extra)
+                self.assertEqual(code, want, out.getvalue())
+                if since:
+                    self.assertIn("agent mine", out.getvalue())
+                    self.assertNotIn("agent old", out.getvalue())
 
     def test_a_tagless_unsplit_head_elsewhere_does_not_contest(self):
         # Round two of this work: an odd backtick refuses as unsplit with no tag-shaped line, and
@@ -2089,25 +2098,38 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self._helper(self.HERE)
         self._contested(*self._probe())
 
-    def test_an_unread_fork_elsewhere_refuses_beside_a_fork_here(self):
-        # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
-        # so the helper here read at exit 0. Its nonce cannot be read, so it refuses as unread.
+    def _unread_elsewhere(self, content, agent="bREAL"):
         sub = self.projects / "D--probe" / "s1" / "subagents"
-        sub.mkdir(parents=True)
-        (sub / "agent-bREAL.meta.json").write_text(
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / f"agent-{agent}.meta.json").write_text(
             json.dumps({"inheritedWorktreePath": self.B}), encoding="utf-8")
-        (sub / "agent-bREAL.jsonl").write_text('{"type": "user", "mess', encoding="utf-8")
+        (sub / f"agent-{agent}.jsonl").write_text(content, encoding="utf-8")
+
+    def test_an_unread_fork_elsewhere_holding_the_nonce_refuses_beside_a_fork_here(self):
+        # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
+        # so the helper here read at exit 0. Its raw text holds the nonce, past the first newline
+        # too, so it may be the round's real fork: it refuses as unread.
+        self._unread_elsewhere('{"type": "user", "message": {"content": "(A notice.)\n\n'
+                               f'Review target: `{self.NONCE} Review this')
         self._helper(self.HERE)
         code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
         self.assertNotIn("tag:", out)
 
+    def test_an_unrelated_unread_transcript_elsewhere_does_not_refuse(self):
+        # Manager review of 90e52ee: any unreadable transcript elsewhere refused every reading.
+        # Without the round's nonce in its raw text, it is out of scope.
+        for name, content in (("empty", ""), ("truncated", '{"type": "user", "mess'),
+                              ("another round", '{"message": "Review target: `round-00000000ab')):
+            with self.subTest(transcript=name):
+                self._unread_elsewhere(content, agent="other")
+                self._write("mine", self._head(), self.HERE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
     def test_control_an_unread_fork_elsewhere_alone_is_still_no_fork(self):
-        sub = self.projects / "D--probe" / "s1" / "subagents"
-        sub.mkdir(parents=True)
-        (sub / "agent-bREAL.meta.json").write_text(
-            json.dumps({"inheritedWorktreePath": self.B}), encoding="utf-8")
-        (sub / "agent-bREAL.jsonl").write_text('{"type": "user", "mess', encoding="utf-8")
+        self._unread_elsewhere('{"type": "user", "mess')
         code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
