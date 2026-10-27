@@ -223,9 +223,10 @@ NO_NONCE_MESSAGE = (
 )
 NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your arguments"
 AMBIGUOUS_MESSAGE = (
-    "more than one fork could be the one asked for; with a round nonce, it was reused and"
-    " a fresh round is needed; without one, narrow with --since set before the round,"
-    " --target or --session"
+    "more than one fork could be the one asked for; with a round nonce, two forks carry it:"
+    " a reused nonce, a head pasted in this worktree, or one file read twice while being"
+    " written, and a later run clears only the last; without one, narrow with --since set"
+    " before the round, --target or --session"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
@@ -805,7 +806,8 @@ def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
     target line, past its first newline too, so its JSON escapes are decoded before matching. A
-    file that cannot be opened may hold it, so it is counted, failing closed.
+    file that cannot be opened or read, deleted mid-scan among them, is read as not holding it, as
+    on main: --since bounds it by write time, and elsewhere it is out of scope.
     """
     nonces = NONCE_SHAPE.findall(wanted)
     if not nonces:
@@ -814,7 +816,7 @@ def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
         with transcript.open("rb") as fh:
             text = fh.read(RAW_NONCE_PREFIX).decode("utf-8", errors="replace")
     except OSError:
-        return True
+        return False
     text = unescape_json(text)
     return any(found.casefold() == nonces[0].casefold() for found in NONCE_SHAPE.findall(text))
 

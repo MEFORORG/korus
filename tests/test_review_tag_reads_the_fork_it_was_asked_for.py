@@ -2137,8 +2137,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         # A truncated real fork, its record 0 cut mid-string, last written at `written`.
         sub = self.projects / "D--probe" / "s1" / "subagents"
         sub.mkdir(parents=True, exist_ok=True)
-        (sub / f"agent-{agent}.meta.json").write_text(
-            json.dumps({"inheritedWorktreePath": worktree}), encoding="utf-8")
+        meta = {} if worktree is None else {"inheritedWorktreePath": worktree}
+        (sub / f"agent-{agent}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
         transcript = sub / f"agent-{agent}.jsonl"
         if content is None:
             content = ('{"type": "user", "message": {"content": "Review target: `'
@@ -2165,16 +2165,46 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertNotIn("tag:", out)
 
     def test_control_since_still_drops_an_old_unread_file_without_the_nonce(self):
-        # The same tree with another round's nonce in the unread file: --since rules it out.
-        for name, worktree in (("elsewhere", self.B), ("here", self.HERE)):
+        # The same tree with another round's nonce in the unread file: --since alone rules it out,
+        # so each case refuses without --since. Review of 812176d: an "elsewhere" case passed with
+        # or without --since, since an unread file recorded elsewhere without the nonce is out of
+        # scope either way. A file that records no worktree is in scope until --since drops it.
+        for name, worktree in (("no worktree recorded", None), ("here", self.HERE)):
             with self.subTest(old_file=name):
-                self.projects = Path(self._tmp.name) / ("projects-old-" + name)
+                self.projects = Path(self._tmp.name) / ("projects-old-" + name.replace(" ", "-"))
                 self.projects.mkdir()
                 self._unread_at(worktree, "2026-10-24T08:00:00Z",
                                 content='{"message": "Review target: `round-00000000ab Review')
                 self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
                 code, out = self._since()
                 self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_an_unopenable_unread_file_is_read_as_not_holding_the_nonce(self):
+        # Review of 812176d, finding 4: a file that could be stat'ed but not opened was counted as
+        # holding the nonce, so --since no longer bounded it here and it refused elsewhere. As on
+        # main, it is read as not holding it. The open is denied by a mock, since a permission
+        # or a deletion between stat and open is not reliable across platforms. Its content holds
+        # the nonce, so only the failed open can rule it out.
+        real_open = Path.open
+
+        def deny(path, *a, **k):
+            if path.name == "agent-locked.jsonl":
+                raise PermissionError(13, "denied", str(path))
+            return real_open(path, *a, **k)
+
+        for name, worktree, call in (("here, before --since", self.HERE, self._since),
+                                     ("elsewhere", self.B, self._probe)):
+            with self.subTest(locked=name):
+                self.projects = Path(self._tmp.name) / ("projects-locked-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", agent="locked")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                with mock.patch.object(review_tag.Path, "open", autospec=True, side_effect=deny):
+                    code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
                 self.assertIn("agent mine", out)
 
     def test_a_nonce_after_a_json_escape_in_an_unread_fork_is_read(self):
