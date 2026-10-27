@@ -890,7 +890,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     """
 
     def stamps(self) -> list[Path]:
-        d = self.primary / ".git" / "ccx-mail-faults"
+        d = self.faults_dir()
         return sorted(d.glob("*.txt")) if d.is_dir() else []
 
     def measured_stop(self):
@@ -994,7 +994,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch()))
 
     def markers(self) -> list[Path]:
-        d = self.primary / ".git" / "ccx-mail-faults"
+        d = self.faults_dir()
         return sorted(d.glob("*.txt.shown-*")) if d.is_dir() else []
 
     def test_a_shown_stamp_clears_at_the_stop_of_the_session_shown_it(self):
@@ -1155,8 +1155,9 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("1 more stamp file(s)", ctx)
         self.assertIn("NO EVENT NAMED", ctx)
         # The same tolerance as the cap test above, which this render must not widen. Read with
-        # this case's own setup on 2026-10-26: 8,199 bytes at 6f3ef50, and 9,000 with its two
-        # charge lines removed. A second run at the same commit read 8,191 and 8,986.
+        # this case's ONE-STAMP setup on 2026-10-26: 8,199 bytes at 6f3ef50, and 9,000 with its
+        # two charge lines removed; a second run read 8,191 and 8,986. Those figures predate the
+        # four planted stamps above and were not re-read for them.
         self.assertLessEqual(len(ctx.encode("utf-8")),
                              BOUNDS["bytes_per_injection"] + BOUNDS["line_chars"] * 4)
 
@@ -1239,7 +1240,7 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         for i in range(6):
             r = self.drain(self.peer, event=f"Ev{i}", session_id="w1", pass_event=False)
         self.assertEqual(5, len(self.stamps()))
-        self.assertIn("DROPPED A FAULT STAMP NO SESSION WAS SHOWN", r.stderr)
+        self.assertIn("DROPPED A FAULT STAMP NO Stop CONSUMED", r.stderr)
         held = "\n".join(p.read_text(encoding="utf-8") for p in self.stamps())
         self.assertIn("\tEv0\t", held, "the oldest fault was evicted")
         self.assertIn("\tEv5\t", held, "the newest fault was not written")
@@ -1296,8 +1297,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertEqual([], self.stamps(), "the stale read-only marker was not replaced")
 
     def test_a_stamp_pruned_unshown_says_so_on_stderr(self):
-        """Item 5. A stamp past either bound was pruned silently. One no session was shown is a
-        fault nobody read, so its prune now says so on stderr, never stdout."""
+        """Item 5. A stamp past either bound was pruned silently. One no Stop consumed is a fault
+        no session is known to have read, so its prune now says so on stderr, never stdout."""
         for label, shift in (("older than 24 hours", -2 * 86400),
                              ("dated more than 15 minutes ahead", 365 * 86400)):
             with self.subTest(label):
@@ -1309,19 +1310,32 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                 os.utime(stamp, (moved, moved))
                 r = self.fault_stop("w2")
                 self.assertEqual("", r.stdout)
-                self.assertIn("PRUNED A FAULT STAMP NO SESSION WAS SHOWN, " + label, r.stderr)
+                self.assertIn("PRUNED A FAULT STAMP NO Stop CONSUMED, " + label, r.stderr)
                 self.assertFalse(stamp.exists())
 
-    def test_a_shown_stamp_is_pruned_with_no_note(self):
-        """The control for the case above: a stamp a session was shown is not a lost fault."""
+    def test_a_stamp_only_a_phantom_was_shown_is_pruned_with_a_note(self):
+        """A marker proves a SessionStart printed the line, and a phantom's does too. p1 was shown
+        the stamp and never reached a Stop, so its prune is still a fault no Stop consumed.
+        CHANGED 2026-10-26, review round two: this was a control expecting no note."""
         self.measured_stop()
-        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("p1")))
         stamp = self.stamps()[0]
         old = stamp.stat().st_mtime - 2 * 86400
         os.utime(stamp, (old, old))
         r = self.fault_stop("w3")
         self.assertFalse(stamp.exists(), "the stale stamp was not pruned, so this measured nothing")
-        self.assertNotIn("PRUNED", r.stderr)
+        self.assertIn("PRUNED A FAULT STAMP NO Stop CONSUMED", r.stderr)
+
+    def test_a_stamp_under_a_live_claim_keeps_its_marker(self):
+        """A claim whose process is alive is not put back, and the stamp is not under its own
+        name. The marker stays, and stderr says so, rather than a silent drop."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('zz')}-{os.getpid()}"))
+        r = self.healthy_stop("w2")
+        self.assertIn("HELD UNDER ANOTHER PROCESS'S CLAIM", r.stderr)
+        self.assertEqual(1, len(self.markers()), "the marker went while a claim held the stamp")
 
     def test_a_marker_that_cannot_be_written_says_so(self):
         """Item 5. The display's line says the stamp clears at the next Stop, and a failed marker

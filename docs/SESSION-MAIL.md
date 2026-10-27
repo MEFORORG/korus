@@ -357,10 +357,10 @@ the model's context, which is the point; it may show only in debug or verbose ou
 
 So a `Stop` fault also leaves a stamp under `<git-common-dir>/ccx-mail-faults/`, keyed by worktree
 and session. Each fault gets its own file, written once. A standing fault adds none while its stamp
-is unshown. A session keeps five. A sixth drops its oldest shown one, or else its newest unshown.
+is unshown. A session keeps five, so a sixth fault drops the newest of the five before it.
 
 The next `SessionStart` for that worktree prints up to three stamps on stdout, one line each,
-marked unverified, where a reader is. They run newest first, and the oldest is always among them,
+marked unverified, where a reader is. They run newest first, and the oldest that reads is among them,
 so a fault that keeps recurring cannot hold an older one back. A further line counts the rest.
 
 A `SessionStart` never clears a stamp, since a phantom session would clear it unread. It marks each
@@ -385,8 +385,8 @@ This page read "A `Stop` that reaches its box clears only its own session's stam
 2026-10-26. That `Stop` cleared a stamp nobody had been shown, so a one-time fault was logged
 nowhere.
 
-Stderr notes each of these: an unshown stamp pruned, a drop at the cap, a stamp or mark not
-written, and a shown stamp not claimed or deleted. Never stdout, and the exit code does not change.
+Stderr notes each of these: an unconsumed stamp pruned, a drop at the cap, a stamp or mark not
+written, and a shown stamp not claimed or deleted. Never stdout; the exit code holds.
 
 Delivery off leaves no stamp. It is a switch, every `SessionStart` reports it while it stands, and
 a stamp would report it after it was removed.
