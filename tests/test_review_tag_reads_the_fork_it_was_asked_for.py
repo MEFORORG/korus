@@ -1962,7 +1962,7 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self.assertNotIn("low effort", out)
         self._contested(code, out)
 
-    def test_f1_the_rerun_exit_12_advises_quotes_no_helper_tag(self):
+    def test_f1_the_rerun_exit_12_advises_is_contested(self):
         # The helper is listed as a candidate, never as the fork read, and its tag never prints.
         self._real_unknown(self.B)
         self._helper(self.C, tag=self.TAG_LOW)
@@ -2020,10 +2020,14 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         # Round two of this work: a time rule exempted a head elsewhere newer than the fork here.
         # A helper's head can be written before the round, so the real fork was exempted and the
         # helper's low tag quoted. Order is not evidence; every order contests.
-        self._write("bHELP", self._head(tag=self.TAG_LOW, tail="Helper brief."), self.HERE)
         for name, opening in (("displaced", "Run this:\n\n"), ("unknown", self.UNKNOWN + "\n\n"),
                               ("canonical", "")):
             with self.subTest(head=name):
+                # A tree each, so one subtest's head cannot contest for another's.
+                self.projects = Path(self._tmp.name) / ("projects-" + name)
+                self.projects.mkdir()
+                self._write("bHELP", self._head(tag=self.TAG_LOW, tail="Helper brief."),
+                            self.HERE)
                 self._write("real" + name, opening + self._head(), self.B, timestamp=self.LATE)
                 code, out = self._probe()
                 self._contested(code, out)
@@ -2041,14 +2045,32 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
             code = review_tag.main(argv)
         self._contested(code, out.getvalue())
 
-    def test_control_since_still_drops_an_older_round_here(self):
-        self._write("old", self._head(nonce=self.FRESH), self.HERE)
+    def _since(self, nonce=None):
         out = io.StringIO()
-        argv = ["--target", self.FRESH, "--worktree", self.HERE, "--any-session",
-                "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
+        argv = ["--target", nonce or self.NONCE, "--worktree", self.HERE, "--any-session",
+                "--ascii", "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             code = review_tag.main(argv)
-        self.assertEqual(code, review_tag.EXIT_NO_FORK, out.getvalue())
+        return code, out.getvalue()
+
+    def test_since_does_not_drop_an_older_real_fork_here(self):
+        # Manager review of 22fbe10: an older real fork here, a newer low-tag helper here, and
+        # --since between them read exit 0 with the low tag. The nonce keeps both: ambiguous.
+        self._write("bREAL", self._head(), self.HERE)
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("low effort", out)
+
+    def test_control_since_still_drops_a_different_rounds_head(self):
+        # An older head of another round, with its own nonce, is not this round's.
+        self._write("old", self._head(nonce=self.FRESH), self.HERE)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+        code, out = self._since(nonce="round-00000000ab")
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_a_tagless_unsplit_head_elsewhere_does_not_contest(self):
         # Round two of this work: an odd backtick refuses as unsplit with no tag-shaped line, and
@@ -2058,6 +2080,36 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
         code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_a_blockquoted_head_elsewhere_contests(self):
+        # Manager review of 22fbe10: tag_shaped read raw lines while the head was read with a
+        # leading > stripped, so a blockquoted paste elsewhere did not contest.
+        quoted = "\n".join("> " + line for line in self._head().splitlines())
+        self._write("real", "Forwarded:\n\n" + quoted, self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def test_an_unread_fork_elsewhere_refuses_beside_a_fork_here(self):
+        # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
+        # so the helper here read at exit 0. Its nonce cannot be read, so it refuses as unread.
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True)
+        (sub / "agent-bREAL.meta.json").write_text(
+            json.dumps({"inheritedWorktreePath": self.B}), encoding="utf-8")
+        (sub / "agent-bREAL.jsonl").write_text('{"type": "user", "mess', encoding="utf-8")
+        self._helper(self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertNotIn("tag:", out)
+
+    def test_control_an_unread_fork_elsewhere_alone_is_still_no_fork(self):
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True)
+        (sub / "agent-bREAL.meta.json").write_text(
+            json.dumps({"inheritedWorktreePath": self.B}), encoding="utf-8")
+        (sub / "agent-bREAL.jsonl").write_text('{"type": "user", "mess', encoding="utf-8")
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_verbose_names_the_unknown_notice_that_contests(self):
         self._real_unknown(self.B)

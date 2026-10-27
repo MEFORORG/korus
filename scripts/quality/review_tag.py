@@ -37,7 +37,8 @@ refuses rather than exit 12, unless a head elsewhere reads with its tag.
 
 A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
 head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
-before `--since` or after it -- refuses the reading. The same argument holds across worktrees: the
+before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
+cannot be read refuses it too, as unread (exit 10). A tagless fork here still exits 5. The same argument holds across worktrees: the
 head elsewhere may be the round's real fork, under a notice this tool does not know or displaced,
 and the readable one here a helper that pasted it. It once exited 0 there and quoted the helper's
 tag, a `low` one under an `xhigh` round among them. Record times do not tell them apart: a helper's
@@ -72,6 +73,10 @@ its one match. So a Builder puts a fresh nonce in its arguments right after the 
 without one is refused unless `--no-nonce`. With it, only the Builder's own fork can match, and an
 inline, misplaced or unpersisted round exits 3, never 0. The nonce also places a fork that records
 no worktree.
+
+WITH A NONCE, `--since` DROPS NOTHING THE NONCE KEEPS. A fork carrying the round's own nonce is
+that round's whatever its time, so an older real fork cannot be cut away from a newer helper.
+`--since` still bounds the unreadable files, whose nonce cannot be read, and a `--no-nonce` search.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -804,6 +809,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     refused_elsewhere: list[Fork] = []
     readable_elsewhere = 0
     nonce_elsewhere: list[Fork] = []
+    #: Forks whose record 0 could not be read, placed in another worktree by their meta.
+    unread_elsewhere = 0
     seen: set[tuple[int, int, int, int] | str] = set()
     for root in roots:
         try:
@@ -839,8 +846,9 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # Unread is not absent: a fork still being written could be the very run asked
                 # for. Only what proves it is elsewhere rules it out -- a recorded worktree that
                 # differs, or a file last written before --since.
-                if want is not None and fork.worktree and normalize_path(fork.worktree) != want:
-                    continue
+                elsewhere = (
+                    want is not None and fork.worktree and normalize_path(fork.worktree) != want
+                )
                 if filters.since:
                     try:
                         written = dt.datetime.fromtimestamp(
@@ -850,13 +858,20 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                         written = None
                     if written is not None and written < filters.since:
                         continue
+                if elsewhere:
+                    # Out of scope, as before, unless a nonce makes a head elsewhere matter: its
+                    # nonce cannot be read, so it may be the round's real fork, and beside a fork
+                    # here it then refuses as unread, below, rather than vanish.
+                    unread_elsewhere += nonced
+                    continue
                 result.unreadable_files += 1
                 continue
             read = read_head(head)
             if not read.review:
                 continue
             fork.target, fork.tag, fork.own_nonce = read.target, read.tag, read.own_nonce
-            fork.tag_shaped = any(is_tag(line) for line in head)
+            # Stripped as displaced_heads strips them, so a blockquoted paste is tag-shaped too.
+            fork.tag_shaped = any(is_tag(line.lstrip(" \t>")) for line in head)
             fork.refusal, fork.notice = read.refusal, read.notice
             if read.candidates and filters.target:
                 # Any of its target lines may be the fork's own; the one carrying the nonce is.
@@ -889,10 +904,11 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 fork.placed_by = "the round nonce (no worktree or cwd recorded)"
                 placed = True
             if placed is False and nonced and fork.tag_shaped:
-                # Before --since, which drops an older round: a head carrying this round's nonce
-                # is this round's whatever its time, so one elsewhere contests a fork here.
                 nonce_elsewhere.append(fork)
-            if filters.since and (fork.time is None or fork.time < filters.since):
+            # --since drops an older round. With a nonce, every fork past the target filter carries
+            # this round's own, so it is this round's whatever its time, here or elsewhere: an
+            # older real fork dropped by --since once let a newer helper's tag read at exit 0.
+            if filters.since and not nonced and (fork.time is None or fork.time < filters.since):
                 continue
             if placed is None:
                 result.unplaced += 1
@@ -920,6 +936,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     # refused head in scope always refuses, never set aside beside a readable fork.
     if result.forks:
         result.contested = nonce_elsewhere
+        result.unreadable_files += unread_elsewhere
     elif readable_elsewhere:
         result.elsewhere += len(refused_elsewhere)
     else:
@@ -1011,7 +1028,9 @@ def main(argv: list[str] | None = None) -> int:
         "--any-session", action="store_true", help=f"do not default --session from ${SESSION_ENV}"
     )
     parser.add_argument(
-        "--since", help="only forks whose record 0 is at or after this ISO time, with an offset"
+        "--since",
+        help="only forks whose record 0 is at or after this ISO time, with an offset; a fork"
+        " carrying the round's nonce is kept whatever its time",
     )
     parser.add_argument("--ascii", action="store_true", help="print -> and <= instead of the glyphs")
     parser.add_argument("--verbose", action="store_true", help="add session, meta and path columns")

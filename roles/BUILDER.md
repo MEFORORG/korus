@@ -865,8 +865,8 @@ own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
 it refuses too. The readable fork beside it may be a helper's brief that opens with the same target
 line and tag, and nothing in record 0 tells the two apart.
 
-**A head in another worktree with your nonce and a tag refuses a fork here: exit 16.** It may be
-your real fork, and the one here a helper that pasted its head. Record times cannot tell them apart.
+**A head in another worktree with your nonce and a tag refuses a fork here that has a tag: exit
+16.** It may be your real fork, and the one here a helper. A tagless fork here still exits 5.
 
 A pasted head carries the old nonce, so a fresh round clears the block. With nothing read here, a
 refused head elsewhere refuses as 14 or 15. Where a head elsewhere reads with its tag, exit 12
@@ -984,7 +984,7 @@ Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 u
 | `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. Inside each project, only its directory is walked. |
-| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
+| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. A fork carrying your nonce is kept whatever its time. |
 | `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
