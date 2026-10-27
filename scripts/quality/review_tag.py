@@ -32,9 +32,20 @@ added; they are record 0's own words, so they sit behind the flag with the paths
 
 A brief that pastes a whole head is displaced, or below an unknown notice. In scope it refuses,
 whatever fork reads beside it: nothing in record 0 tells the skill's own prompt from a brief that
-pasted it, so the readable one may be the brief. In another worktree it is out of scope beside a
-fork that reads here. With nothing read here it refuses rather than exit 12, unless a head
-elsewhere reads with its tag.
+pasted it, so the readable one may be the brief. With nothing read here, a refused head elsewhere
+refuses rather than exit 12, unless a head elsewhere reads with its tag.
+
+A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, any
+head in another worktree carrying the round's nonce -- refused or readable -- refuses the reading.
+The same argument holds across worktrees: the head elsewhere may be the round's real fork, under a
+notice this tool does not know or displaced, and the readable one here a helper that pasted it. It
+once exited 0 there and quoted the helper's tag, a `low` one under an `xhigh` round among them. A
+fresh round clears it: a pasted head carries the OLD round's nonce, and a nonce matches only as
+the fork's own, so a brief elsewhere cannot block a later round. A rerun of this tool does not.
+
+ONE FILE IS ONE FORK. A projects directory reached twice -- two roots naming one directory, or a
+junction or link inside one -- once listed the same fork twice and refused it as ambiguous. A file
+seen already, by its device and inode, is skipped.
 
 A `finderBudgetHint` line (`This diff is about N lines. Spawn about ...`) may sit between the target
 line and the tag, at 2.1.309 with claude-sonnet-5 at high, xhigh or max and a bare git range as the
@@ -115,6 +126,8 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
    14  a fork in scope carries its target line below text that is not the skill's notices
    15  a fork in scope carries its target line and tag below a notice-shaped line no measured CLI
        writes; --verbose prints its opening words on stderr
+   16  a fork here reads with its tag, but a head in another worktree carries the round's nonce
+       too, so either could be the run asked for; a fresh round clears it
 """
 
 from __future__ import annotations
@@ -145,6 +158,7 @@ EXIT_ELSEWHERE = 12
 EXIT_UNSPLIT = 13
 EXIT_DISPLACED = 14
 EXIT_UNKNOWN_NOTICE = 15
+EXIT_CONTESTED = 16
 
 #: Where --no-nonce prints the tag instead of on a `tag:` line.
 NOT_ATTRIBUTABLE_PREFIX = "  NOT-ATTRIBUTABLE (--no-nonce, not a QA reading): "
@@ -182,6 +196,10 @@ DISPLACED_MESSAGE = (
 UNKNOWN_NOTICE_MESSAGE = (
     "fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes;"
     " --verbose prints its opening words"
+)
+CONTESTED_MESSAGE = (
+    "head(s) in another worktree carry the round's nonce beside the fork here, so either could be"
+    " the one asked for; run the round again with a fresh nonce"
 )
 NO_SELECTOR_MESSAGE = "--target is required; pass the round's nonce, round-<hex>"
 NO_NONCE_MESSAGE = (
@@ -736,6 +754,21 @@ class Scan:
     refused: dict[Refusal, list[Fork]] = field(
         default_factory=lambda: {refusal: [] for refusal in Refusal}
     )
+    #: Beside a fork here, every head in another worktree that carries the round's nonce.
+    contested: list[Fork] = field(default_factory=list)
+
+
+def file_identity(path: Path) -> tuple[int, int] | str | None:
+    """One spelling per file, however it was reached: device and inode, or the resolved path where
+    the platform reports no inode. None where the stat fails, so the fork is never dropped as a
+    duplicate of one it may not be; it is read, and refuses as unread if it cannot be."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    if info.st_ino:
+        return (info.st_dev, info.st_ino)
+    return os.path.normcase(os.path.realpath(path))
 
 
 def place(fork: Fork, want: str | None) -> bool | None:
@@ -762,6 +795,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     nonced = bool(filters.target and NONCE_SHAPE.search(filters.target))
     refused_elsewhere: list[Fork] = []
     readable_elsewhere = 0
+    nonce_elsewhere: list[Fork] = []
+    seen: set[tuple[int, int] | str] = set()
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -776,6 +811,12 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             continue
         files = fork_files(root, result.unreadable_roots, filters.session)
         for transcript in files:
+            # A junction, a link or a second root can reach one file twice; it is one fork.
+            identity = file_identity(transcript)
+            if identity is not None:
+                if identity in seen:
+                    continue
+                seen.add(identity)
             parts = transcript.relative_to(root).parts
             # The walk already kept to the session filter's directory.
             session_id = parts[1] if len(parts) > 1 else ""
@@ -843,6 +884,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             if placed is None:
                 result.unplaced += 1
                 continue
+            if not placed and nonced:
+                nonce_elsewhere.append(fork)
             if placed and fork.refusal is not None:
                 result.refused[fork.refusal].append(fork)
             elif placed:
@@ -855,15 +898,17 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # It carries the caller's nonce and ran elsewhere: found, not absent.
                 result.elsewhere += 1
                 readable_elsewhere += fork.refusal is None and bool(fork.tag)
-    # A head in another worktree is out of scope beside a fork that reads here, as on main, so a
-    # brief elsewhere cannot block a reading for good. With nothing read here, a refused head
+    # Beside a fork here, a head elsewhere carrying the round's nonce contests it (exit 16, in
+    # main): the head elsewhere may be the round's real fork and the one here a helper that pasted
+    # it, and nothing in record 0 or the meta tells them apart. PR 244 kept such a head out of
+    # scope so that a brief elsewhere could not block a reading for good; a fresh round clears it,
+    # since the brief carries the old round's nonce. With nothing read here, a refused head
     # elsewhere refuses (14 or 15) rather than send an inline round to --worktree (exit 12) after
     # a helper's brief, unless a head elsewhere reads with its tag: then exit 12 says where, and a
-    # rerun there either reads or refuses on what it finds. A refused head in scope always refuses,
-    # never set aside beside a readable fork: nothing in record 0 tells the skill's own prompt from
-    # a brief that pasted it, so the readable one may be the brief.
+    # rerun there either reads, refuses on what it finds, or is contested by the head it left. A
+    # refused head in scope always refuses, never set aside beside a readable fork.
     if result.forks:
-        pass
+        result.contested = nonce_elsewhere
     elif readable_elsewhere:
         result.elsewhere += len(refused_elsewhere)
     else:
@@ -1075,6 +1120,14 @@ def main(argv: list[str] | None = None) -> int:
         for fork in result.forks:
             print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | session {fork.session_id}")
         return EXIT_AMBIGUOUS
+    if result.contested and result.forks[0].tag:
+        # Before any row is rendered, so the fork here prints no quotable tag. A tagless fork here
+        # still exits 5: it quotes no tag, so it names no wrong level.
+        print(f"{len(result.contested)} {CONTESTED_MESSAGE}")
+        for fork in result.forks + result.contested:
+            where = "here" if fork in result.forks else "another worktree"
+            print(f"candidate | {stamp(fork.time)} | agent {fork.agent_id} | {where}")
+        return EXIT_CONTESTED
 
     for line in render(result.forks, args.ascii, args.verbose, attributable):
         print(line)

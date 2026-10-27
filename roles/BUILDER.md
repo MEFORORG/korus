@@ -865,9 +865,17 @@ own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
 it refuses too. The readable fork beside it may be a helper's brief that opens with the same target
 line and tag, and nothing in record 0 tells the two apart.
 
-A refused head in another worktree is out of scope beside a fork that reads here. With nothing
-read here, it refuses as 14 or 15 rather than send an inline round to `--worktree`. But where a head
-elsewhere reads with its tag, exit 12 stands.
+**A head in another worktree that carries your nonce refuses a fork that reads here: exit 16.**
+Refused or readable, it may be your real fork, and the one here a helper that pasted its head.
+Run the round again with a fresh nonce: a pasted head carries the old one, so it cannot block the
+new round. With nothing read here, a refused head elsewhere refuses as 14 or 15 rather than send an
+inline round to `--worktree`. But where a head elsewhere reads with its tag, exit 12 stands.
+
+**CHANGED 2026-10-27, vault #4121:** a refused head in another worktree was out of scope beside a
+fork that read here, so a brief elsewhere could not block a reading for good. With the real fork
+under an unknown notice elsewhere and a helper's canonical head here, the tool exited 0 and quoted
+the helper's tag, a `low` one under an `xhigh` round among them. A fresh round now clears that
+block, so it is not for good.
 
 **NOT MERGED: a same-tag set-aside.** An earlier commit of PR 244 set a refused head aside beside a
 readable fork with the same tag, exit 0. A probe put the real fork under an unknown notice, with a
@@ -991,7 +999,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
 | 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
 | 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Only under `--no-nonce`: with a nonce, the nonce places the fork. Never widen with `--any-worktree` to clear it. |
-| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, at least two candidate forks carry it: a reuse, or the same fork under two roots. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, at least two candidate forks carry it, most likely a reused nonce. One file reached twice, under two roots or through a junction, counts once (vault #4121). |
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
@@ -1000,6 +1008,7 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 | 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so where your round ran inline, `(inline, no fork)` still holds. |
 | 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; --verbose prints its opening words` | A refusal that a rerun does not clear. See the refusal row above. Where your round ran inline, `(inline, no fork)` still holds. Report the words under 4d, minus any path. |
+| 16 | `<n> head(s) in another worktree carry the round's nonce beside the fork here, so either could be the one asked for; run the round again with a fresh nonce`, then one `candidate` line each | A refusal that a rerun of the tool does not clear. Run the round again with a fresh nonce, and never paste its head into another session's brief. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.

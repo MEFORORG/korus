@@ -587,8 +587,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
                  review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
                  review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED,
-                 review_tag.EXIT_UNKNOWN_NOTICE, 1, 2}
-        self.assertEqual(len(codes), 16, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_UNKNOWN_NOTICE, review_tag.EXIT_CONTESTED, 1, 2}
+        self.assertEqual(len(codes), 17, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1819,12 +1819,17 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
 
-    def test_r2_a_refused_head_elsewhere_is_out_of_scope_beside_a_fork_here(self):
-        # Review of 30f1c88: a brief in another worktree refused the caller's readable fork for
-        # good, since no rerun put it out of scope. As on main, it is out of scope here.
+    def test_r2_a_refused_head_elsewhere_contests_a_fork_here(self):
+        # CHANGED 2026-10-27, vault #4121: this was out of scope, exit 0. The same files, with the
+        # names swapped, are the real fork displaced elsewhere and a helper's pasted head here, and
+        # exit 0 named the helper. It now refuses, exit 16. Review of 30f1c88 feared a brief
+        # elsewhere refusing the caller's fork for good; a fresh round clears it, as
+        # `TheHeadElsewhereContestsTheForkHere` shows.
         self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
         self._write("mine", self._body())
-        self._found(*self._main()[:2])
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out)
+        self.assertNotIn("tag:", out)
 
     def test_r2_control_a_refused_head_here_still_outranks_exit_12(self):
         self._write("brief", "Run this:\n\n" + self._body())
@@ -1883,6 +1888,188 @@ class ConfigDirNamesTheRoot(Fixture):
                            env_extra={"CLAUDE_CONFIG_DIR": str(self.projects.parent)})
         self.assertEqual(code, review_tag.EXIT_FOUND)
         self.assertIn("eee555", out)
+
+
+class TheHeadElsewhereContestsTheForkHere(Fixture):
+    """Vault #4121. A real fork that refuses in another worktree was out of scope beside a helper's
+    canonical head that read here, so the run exited 0 and named the helper. The cases are the
+    row's probe table, rebuilt from its descriptions: the original probe scripts lived in a
+    scratchpad and are gone. Each fail-open case exited 0 on korus `main` at 20af3e6.
+
+    Nothing in record 0 or the meta tells a real fork from a helper that pasted its head, in one
+    worktree or across two. So a head elsewhere carrying the round's nonce contests a fork that
+    reads here, exit 16. PR 244 kept such a head out of scope, because a brief elsewhere then
+    "refused a readable fork for good". A pasted head carries the old round's nonce, so a fresh
+    round clears it; the last two cases hold that."""
+
+    NONCE = "round-4121abcdef"
+    FRESH = "round-4121fedcba"
+    HERE = "D:/probe/wt"
+    B = "D:/probe/wt-b"
+    C = "D:/probe/wt-c"
+    TAG_LOW = "low effort \u2192 1 inline angle \u2192 \u22645 findings"
+    UNKNOWN = "(A notice a later CLI added, reworded.)"
+
+    def _head(self, nonce=None, tag=TAG_XHIGH, opening="", tail="You are reviewing ..."):
+        return (f"{opening}Review target: `{nonce or self.NONCE} Review this branch's diff`\n\n"
+                f"`{tag}`\n\n{tail}")
+
+    def _write(self, agent, body, cwd, session="s1"):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd=cwd,
+                   timestamp="2026-10-24T09:00:00Z", body=body)
+
+    def _real_unknown(self, cwd):
+        self._write("bREAL", self._head(opening=self.UNKNOWN + "\n\n"), cwd)
+
+    def _helper(self, cwd, tag=TAG_XHIGH):
+        self._write("bHELP", self._head(tag=tag, tail="Helper brief."), cwd)
+
+    def _probe(self, worktree=None, nonce=None):
+        # The probe's call: --target <nonce> --worktree <wt> --any-session --projects-dir --ascii.
+        out = io.StringIO()
+        argv = ["--target", nonce or self.NONCE, "--worktree", worktree or self.HERE,
+                "--any-session", "--projects-dir", str(self.projects), "--ascii"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def _contested(self, code, out):
+        self.assertEqual(code, getattr(review_tag, "EXIT_CONTESTED", 16), out)
+        self.assertIn(getattr(review_tag, "CONTESTED_MESSAGE", "(no such message)"), out)
+        self.assertNotIn("tag:", out, "a contested run printed a quotable tag")
+
+    # The fail-open cases.
+
+    def test_p2_a_real_fork_under_an_unknown_notice_elsewhere_contests_a_helper_here(self):
+        self._real_unknown(self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def test_p2b_a_displaced_real_fork_elsewhere_contests_a_helper_here(self):
+        self._write("bREAL", self._head(opening="Something else first.\n\n"), self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def test_p2c_a_helper_with_another_level_prints_no_tag(self):
+        # The round's target says xhigh; main printed the helper's low tag at exit 0.
+        self._real_unknown(self.B)
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        code, out = self._probe(nonce=f"xhigh {self.NONCE}")
+        self.assertNotIn("low effort", out)
+        self._contested(code, out)
+
+    def test_f1_the_rerun_exit_12_advises_does_not_name_the_helper(self):
+        self._real_unknown(self.B)
+        self._helper(self.C)
+        code, out = self._probe(worktree=self.C)
+        self._contested(code, out)
+        self.assertIn("agent bREAL | another worktree", out)
+
+    def test_a_readable_head_elsewhere_contests_a_fork_here_too(self):
+        # The same argument with nothing refused: either canonical head could be the round's.
+        self._write("bREAL", self._head(), self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    # The controls, whose exits do not change.
+
+    def test_f1_control_the_first_call_is_still_exit_12(self):
+        self._real_unknown(self.B)
+        self._helper(self.C)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    def test_p8_control_a_readable_fork_elsewhere_alone_is_exit_12(self):
+        self._write("bREAL", self._head(), self.B)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    def test_p9_control_a_readable_fork_here_alone_reads(self):
+        self._write("bREAL", self._head(), self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent bREAL", out)
+        self.assertIn("tag: xhigh effort -> 10 inline angles", out)
+
+    def test_p2d_control_a_tagless_helper_is_still_exit_5(self):
+        # A tagless fork quotes no tag, so it names no wrong level.
+        self._real_unknown(self.B)
+        self._write("bHELP", f"Review target: `{self.NONCE} Review this branch's diff`\n\nGo.\n",
+                    self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
+
+    # The trade PR 244 named: a brief elsewhere must not block a reading for good.
+
+    def test_a_fresh_round_clears_a_brief_elsewhere(self):
+        self._write("brief", "Run this:\n\n" + self._head(), self.B)
+        self._write("again", self._head(nonce=self.FRESH), self.HERE)
+        code, out = self._probe(nonce=self.FRESH)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent again", out)
+
+    def test_control_the_old_round_stays_contested(self):
+        self._write("brief", "Run this:\n\n" + self._head(), self.B)
+        self._write("mine", self._head(), self.HERE)
+        self._write("again", self._head(nonce=self.FRESH), self.HERE)
+        self._contested(*self._probe())
+
+
+class OneFileReachedTwiceIsOneFork(Fixture):
+    """Vault #4121 step 8 (#3963's M14): a projects directory reached through a junction listed one
+    fork twice, so a QA tag read exited 7. A file is now one fork however many paths reach it."""
+
+    NONCE = "round-3963abcdef"
+    HERE = "D:/probe/wt"
+
+    def setUp(self):
+        super().setUp()
+        write_fork(self.projects, "s1", "only", f"{self.NONCE} Review x", TAG_XHIGH, shape=CLOUD,
+                   cwd=self.HERE, timestamp="2026-10-24T09:00:00Z", project="D--probe-wt")
+
+    def _main(self, *roots):
+        out = io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--ascii"]
+        for root in roots:
+            argv += ["--projects-dir", str(root)]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def _found(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent only", out)
+
+    def _junction(self, link, target):
+        if os.name != "nt":
+            self.skipTest("a junction is a Windows directory link")
+        made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                              capture_output=True, timeout=TIMEOUT_SECONDS)
+        if made.returncode != 0 or not link.exists():
+            self.skipTest("mklink /J did not make a junction here")
+
+    def test_control_one_root_reads(self):
+        self._found(*self._main(self.projects))
+
+    def test_one_directory_named_twice_is_one_fork(self):
+        self._found(*self._main(self.projects, self.projects / ".." / "projects"))
+
+    def test_a_projects_dir_reached_through_a_junction_is_one_fork(self):
+        link = Path(self._tmp.name) / "projects-link"
+        self._junction(link, self.projects)
+        self._found(*self._main(self.projects, link))
+
+    def test_a_project_junctioned_inside_the_projects_dir_is_one_fork(self):
+        link = self.projects / "D--probe-wt-link"
+        self._junction(link, self.projects / "D--probe-wt")
+        self._found(*self._main(self.projects))
+
+    def test_control_two_files_with_one_nonce_stay_ambiguous(self):
+        # The identity is the file's, not its content's: a copy is a second fork.
+        write_fork(self.projects, "s2", "copy", f"{self.NONCE} Review x", TAG_XHIGH, shape=CLOUD,
+                   cwd=self.HERE, timestamp="2026-10-24T09:00:00Z", project="D--probe-wt")
+        code, out = self._main(self.projects)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
 
 
 if __name__ == "__main__":
