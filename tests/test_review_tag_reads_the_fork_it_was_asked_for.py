@@ -2107,10 +2107,9 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     def test_an_unread_fork_elsewhere_holding_the_nonce_refuses_beside_a_fork_here(self):
         # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
-        # so the helper here read at exit 0. Its record 0 holds the nonce, past an escaped newline
-        # too, so it may be the round's real fork: it refuses as unread. The newlines are JSON
-        # escapes, as in a real record 0: a literal one ends record 0, and the Lander's hold on
-        # fbe0e17 was a later record read as if it were record 0.
+        # so the helper here read at exit 0. Its record 0 holds the nonce below a notice, so it
+        # may be the round's real fork: it refuses as unread. The newlines are JSON escapes, as in
+        # a real record 0. A literal one ends record 0, and no later record is read.
         self._unread_elsewhere('{"type": "user", "message": {"content": "(A notice.)\\n\\n'
                                f'Review target: `{self.NONCE} Review this')
         self._helper(self.HERE)
@@ -2285,11 +2284,29 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertEqual(code, review_tag.EXIT_FOUND, out)
                 self.assertIn("agent mine", out)
 
+    def test_a_later_record_does_not_count_where_only_the_meta_is_unread(self):
+        # The same hold where record 0 parses and the meta does not: record 0 is another round's,
+        # and only record 1 mentions the nonce. At fbe0e17 this refused with exit 10.
+        other = json.dumps({"type": "user", "cwd": self.HERE, "message": {
+            "content": "Review target: `round-00000000ab Review this branch's diff`"}})
+        later = json.dumps({"type": "assistant", "message": f"{self.NONCE} mentioned later"})
+        self._unread_at(self.HERE, "2026-10-24T08:00:00Z", content=f"{other}\n{later}\n",
+                        agent="other")
+        meta = self.projects / "D--probe" / "s1" / "subagents" / "agent-other.meta.json"
+        meta.write_text("{", encoding="utf-8")
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+
     def test_control_the_nonce_in_an_unread_record_zero_still_refuses(self):
-        # The same tree with the nonce in record 0 itself, its last line, cut mid-string.
-        record0 = f'{{"type": "user", "message": {{"content": "Review target: `{self.NONCE} Rev'
-        for name, worktree, call in (("elsewhere", self.B, self._probe),
-                                     ("here, before --since", self.HERE, self._since)):
+        # The nearest shape: the same two records, with the nonce in record 0 itself.
+        record0 = (f'{{"type": "user", "message": {{"content": "Review target: `{self.NONCE} Rev\n'
+                   '{"type": "assistant", "message": "no nonce here"}\n')
+        for name, worktree, call, message in (
+            ("elsewhere", self.B, self._probe, review_tag.UNREAD_ELSEWHERE_MESSAGE),
+            ("here, before --since", self.HERE, self._since, review_tag.UNREAD_MESSAGE),
+        ):
             with self.subTest(unread=name):
                 self.projects = Path(self._tmp.name) / ("projects-rec0-" + name[:4])
                 self.projects.mkdir()
@@ -2297,15 +2314,16 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
                 code, out = call()
                 self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(message, out)
                 self.assertNotIn("tag:", out)
 
     def test_a_round_retried_with_its_nonce_stays_ambiguous_under_since(self):
-        # Hold 2 asked --since to separate two forks sharing one nonce. It is not done, on purpose:
-        # nothing in record 0 tells a retried round from a helper that pasted the round's head, so
-        # dropping the older fork reads the newer one. With differing tags that quoted a helper's
-        # low tag (the 22fbe10 case above); with one tag it names the helper's fork id, the
-        # same-tag set-aside BUILDER.md 4e records as NOT MERGED, and a Manager's re-check without
-        # --since still reads 7. A fresh nonce clears it.
+        # Hold 2 asked --since to separate two forks sharing one nonce. It is not done, on purpose.
+        # Nothing in record 0 tells a retried round from a helper that pasted the round's head.
+        # With differing tags, dropping the older fork quoted a helper's low tag (the 22fbe10 case
+        # above). With one tag, it names the helper's fork id: the same-tag set-aside BUILDER.md 4e
+        # records as NOT MERGED. A Manager's re-check without --since would still read 7. A fresh
+        # nonce clears it.
         self._write("first", self._head(), self.HERE)
         self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
         code, out = self._since()

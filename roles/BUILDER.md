@@ -867,7 +867,7 @@ line and tag, and nothing in record 0 tells the two apart.
 
 **A head in another worktree with your nonce and a tag refuses a fork here that has a tag: exit
 16.** It may be your real fork, and the one here a helper. A tagless fork here exits 5, or 10
-beside an unread fork elsewhere that holds your nonce.
+beside an unread fork elsewhere whose record 0 holds your nonce.
 
 A pasted head carries the old nonce, so a fresh round clears the block. With nothing read here, a
 refused head elsewhere refuses as 14 or 15. Where a head elsewhere reads with its tag, exit 12
