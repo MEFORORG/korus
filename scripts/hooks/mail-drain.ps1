@@ -721,7 +721,7 @@ function Clear-DrainShownFault {
 
         A CLAIM A DEAD Stop LEFT GOES BACK FIRST, under the stamp's own name while that is free,
         and under a new version of that name once something holds it, where no marker names it and
-        a display shows it again. CHANGED 2026-10-26: it went back only while the name was free, in
+        it waits for a display again. CHANGED 2026-10-26: it went back only while the name was free, in
         one move, so a taken name left it unread under its claim until the day's prune, and a
         failed move was reported as a live process's claim.
     #>
@@ -748,7 +748,8 @@ function Clear-DrainShownFault {
                 # a claim name no display reads. Put each dead process's claim back first: under the
                 # stamp's own name while that is free, so this Stop claims it afresh, and under a
                 # new version of that name, the session that wrote it kept, once the name is taken.
-                $stampHash = if ($name -match ('^' + [regex]::Escape($leaf) + '\.([^.]+)\.[^.]+\.txt$')) { $Matches[1] }
+                # The session hash is the name's first part after the prefix, in either scheme.
+                $stampHash = if ($name -match ('^' + [regex]::Escape($leaf) + '\.([^.]+)\.')) { $Matches[1] }
                           else { $hash }
                 foreach ($c in @(Get-DrainFiles (Split-Path -Parent $stamp) "$name.claim-*")) {
                     $owner = [long]0
@@ -756,13 +757,18 @@ function Clear-DrainShownFault {
                         -not [long]::TryParse($Matches[1], [ref]$owner)) { continue }
                     if ($owner -eq $PID -or ($owner -le [int]::MaxValue -and
                             (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue))) { continue }
+                    # Taken by a directory too, which a move onto that name would meet at every Stop.
                     $back = $stamp
-                    if ([System.IO.File]::Exists($stamp)) { $back = New-DrainStampPath $prefix $stampHash }
+                    if ([System.IO.File]::Exists($stamp) -or [System.IO.Directory]::Exists($stamp)) {
+                        $back = New-DrainStampPath $prefix $stampHash
+                    }
                     try {
                         Restore-DrainClaim $c.FullName $back
-                        if ($back -ne $stamp) {
+                        # Restore-DrainClaim returns once the claim name is empty, and a peer's Stop
+                        # may have moved it, so the note waits for the copy to be where it says.
+                        if ($back -ne $stamp -and [System.IO.File]::Exists($back)) {
                             Write-DrainNote ("A DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP ($name) WENT BACK UNDER A " +
-                                "NEW NAME ($(Split-Path -Leaf $back)), since another file holds its own. It shows again.")
+                                "NEW NAME ($(Split-Path -Leaf $back)), since something else holds its own. It waits for a display again.")
                         }
                     }
                     catch {

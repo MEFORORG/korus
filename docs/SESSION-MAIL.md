@@ -376,8 +376,8 @@ delete or rename back keeps its mark for the session's next `Stop`; a claimed on
 until then.
 
 The next `Stop` of that session renames a claim left by a dead `Stop` back before it claims. The
-stamp goes back under its own name while that name is free. Once another file holds the name, it
-goes back under a new version of it, which no mark names, so a display shows it again.
+stamp goes back under its own name while that name is free. Once anything else holds the name, it
+goes back under a new version of it, which no mark names, so it waits for a display again.
 
 A `Stop` that keys on another worktree, after a `cd` with no pin, or that names no session,
 misses the mark. That stamp shows again, which is a duplicate and not a loss.

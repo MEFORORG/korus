@@ -1282,17 +1282,33 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                         "the new name left the stamp scheme or the session that wrote it")
         self.assertIn("NO BOX", "\n".join(self.fault_lines(self.ctx(self.launch("w3")))))
 
+    def test_a_directory_on_the_stamps_name_sends_a_dead_claim_to_a_new_name(self):
+        """Review round one, finding 1. The name counted as taken only where a FILE held it, so a
+        directory there failed the put-back at every Stop, under a note promising a new name."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stamp = self.stamps()[0]
+        original = stamp.read_text(encoding="utf-8")
+        stamp.rename(stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996"))
+        stamp.mkdir()
+        r = self.healthy_stop("w2")
+        self.assertEqual([], list(self.faults_dir().glob("*.claim-*")), f"the dead claim was left: {r.stderr}")
+        held = [p.read_text(encoding="utf-8") for p in self.stamps() if p.is_file()]
+        self.assertEqual([original], held, "the dead claim's fault is not under a new stamp name")
+
+    @unittest.skipUnless(os.name == "nt", "only Windows refuses to rename an open file")
     def test_a_dead_claim_that_cannot_be_put_back_says_so(self):
         """The dead-claim put-back was one move, and when it failed the note blamed another live
-        process's claim. A directory where the stamp goes back makes every attempt fail, and the
-        note now says the put-back failed, and the marker stays."""
+        process's claim. The claim held open makes every attempt fail, and the note now says the
+        put-back failed, and the marker stays. Review round one: this held a directory where the
+        stamp goes back, and a directory now counts as a taken name, so the claim goes elsewhere."""
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
         stamp = self.stamps()[0]
         claim = stamp.with_name(f"{stamp.name}.claim-{session_hash('w2')}-99999996")
         stamp.rename(claim)
-        stamp.mkdir()
-        r = self.healthy_stop("w2")
+        with open(claim, "rb"):
+            r = self.healthy_stop("w2")
         self.assertTrue(claim.exists(), "the claim moved, so this measured nothing")
         self.assertIn("DEAD Stop'S CLAIM ON A SHOWN FAULT STAMP COULD NOT BE PUT BACK", r.stderr)
         self.assertNotIn("ANOTHER PROCESS", r.stderr, "a failed put-back was blamed on a live claim")
@@ -1484,8 +1500,8 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         """One Stop, in a process of its own. "block" and "retry" plant the shown marker and the
         rewritten stamp, and block the put-back; "retry" lifts the block at the first retry's
         sleep. "next" is the session's next Stop, on the files a blocked one left. "dead-retry"
-        plants the marker and a dead Stop's claim of the rewritten stamp, with a directory where
-        it goes back that the first retry's sleep removes."""
+        plants the marker, a dead Stop's claim, and a rewrite holding the stamp's name, with a
+        directory at the new name the claim goes to that the first retry's sleep removes."""
         def q(p) -> str:
             return "'" + str(p).replace("'", "''") + "'"
 
@@ -1519,14 +1535,18 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
             lines.append("function Start-Sleep { param([int] $Milliseconds) "
                          "[System.IO.File]::Delete($script:Stamp) }")
         if mode == "dead-retry":
-            # A dead Stop's claim, and a directory where it goes back, which Start-Sleep removes.
+            # A dead Stop's claim, a rewrite holding the stamp's name, so the claim goes back under
+            # a new version of it, and a directory there that Start-Sleep removes.
             lines += [
                 "[System.IO.File]::WriteAllText(\"$($script:Stamp).claim-ffff-99999996\", "
-                "\"2026`tStop`tw9`trewritten\")",
+                "\"2026`tStop`tw9`trewritten dead\")",
+                "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten occupier\")",
                 "[System.IO.File]::WriteAllText($marker, 'id-shown')",
-                "[void][System.IO.Directory]::CreateDirectory($script:Stamp)",
+                "$script:Fresh = \"$($script:Prefix).abcd.2.txt\"",
+                "function New-DrainStampPath { param([string] $Prefix, [string] $Hash) return $script:Fresh }",
+                "[void][System.IO.Directory]::CreateDirectory($script:Fresh)",
                 "function Start-Sleep { param([int] $Milliseconds) "
-                "if ([System.IO.Directory]::Exists($script:Stamp)) { [System.IO.Directory]::Delete($script:Stamp) } }",
+                "if ([System.IO.Directory]::Exists($script:Fresh)) { [System.IO.Directory]::Delete($script:Fresh) } }",
             ]
         lines += [
             "Clear-DrainShownFault",
@@ -1567,7 +1587,11 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         the first retry's sleep lets it through."""
         r, got = self.clear("dead-retry")
         self.assertEqual("0", got["claims"], f"the dead claim's put-back was not retried: {r.stderr}")
-        self.assertIn("rewritten", got["stamp"], "the dead claim is not back under its name")
+        self.assertIn("occupier", got["stamp"], "the file holding the stamp's name is not back under it")
+        fresh = self.dir / "P.abcd.2.txt"
+        self.assertTrue(fresh.is_file(), f"the dead claim is not under the new name: {r.stderr}")
+        self.assertIn("rewritten dead", fresh.read_text(encoding="utf-8"))
+        self.assertIn("UNDER A NEW NAME", r.stderr)
         self.assertNotIn("ANOTHER PROCESS", r.stderr)
 
 
