@@ -1391,14 +1391,16 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         """Finding 5. The 400-character cap cut a surrogate pair in half, the half was written as
         U+FFFD, and the stored text then never matched the fault it was cut from: every Stop that
         met the fault wrote another stamp. The cut no longer ends on a high surrogate."""
+        cap = int(re.search(r"\$script:FaultChars = (\d+)", t.read(DRAIN)).group(1))
+        last = cap - 4  # the last index the cap keeps before its "..."
         self.sub_stop("probe")
         field = self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3]
         at = field.index("probe")
-        self.assertLess(at, 396, "the fault is too long to place a pair at the cap")
+        self.assertLess(at, last, "the fault is too long to place a pair at the cap")
         for p in self.faults_dir().glob("*"):
             p.unlink()
-        # The high surrogate at index 396, the last one the cap keeps before its "...".
-        sub = "p" * (396 - at) + chr(0x1F600) + "z"
+        # The high surrogate at the last index the cap keeps.
+        sub = "p" * (last - at) + chr(0x1F600) + "z"
         self.sub_stop(sub)
         self.assertTrue(self.stamps()[0].read_text(encoding="utf-8").split("\t", 3)[3].endswith("..."),
                         "the fault was not cut, so this measured nothing")
@@ -1439,15 +1441,14 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.dir = Path(os.path.realpath(tmp.name))
 
-    def clear(self, unblock_on_retry: bool) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+    def clear(self, mode: str) -> tuple[subprocess.CompletedProcess, dict[str, str]]:
+        """One Stop, in a process of its own. "block" and "retry" plant the shown marker and the
+        rewritten stamp, and block the put-back; "retry" lifts the block at the first retry's
+        sleep. "next" is the session's next Stop, on the files a blocked one left."""
         def q(p) -> str:
             return "'" + str(p).replace("'", "''") + "'"
 
-        # A retry sleeps between attempts, so a Start-Sleep that removes the blocker lets the next
-        # attempt through.
-        unblock = ("function Start-Sleep { param([int] $Milliseconds) "
-                   "[System.IO.File]::Delete($script:Stamp) }") if unblock_on_retry else ""
-        script = "\n".join([
+        lines = [
             "$ErrorActionPreference = 'Stop'",
             f"$ast = [System.Management.Automation.Language.Parser]::ParseFile({q(DRAIN)}, [ref]$null, [ref]$null)",
             "foreach ($f in $ast.EndBlock.Statements) {",
@@ -1460,21 +1461,30 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
             "function Get-DrainSessionHash { return 'abcd' }",
             "function Get-DrainStampIdentity { param([string] $Head) "
             "if ($Head -like '*rewritten*') { 'id-rewritten' } else { 'id-shown' } }",
-            "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten\")",
-            "[System.IO.File]::WriteAllText($marker, 'id-shown')",
-            "$script:RealHead = ${function:Read-DrainHead}",
-            "function Read-DrainHead { param([string] $File, [int] $Max)",
-            "    if ($File -like '*.claim-*' -and -not [System.IO.File]::Exists($script:Stamp)) {",
-            "        [System.IO.File]::WriteAllText($script:Stamp, 'in the way') }",
-            "    return & $script:RealHead $File $Max }",
-            unblock,
+        ]
+        if mode != "next":
+            lines += [
+                "[System.IO.File]::WriteAllText($script:Stamp, \"2026`tStop`tw9`trewritten\")",
+                "[System.IO.File]::WriteAllText($marker, 'id-shown')",
+                "$script:RealHead = ${function:Read-DrainHead}",
+                "function Read-DrainHead { param([string] $File, [int] $Max)",
+                "    if ($File -like '*.claim-*' -and -not [System.IO.File]::Exists($script:Stamp)) {",
+                "        [System.IO.File]::WriteAllText($script:Stamp, 'in the way') }",
+                "    return & $script:RealHead $File $Max }",
+            ]
+        if mode == "retry":
+            # A retry sleeps between attempts, so a Start-Sleep that removes the blocker lets the
+            # next attempt through.
+            lines.append("function Start-Sleep { param([int] $Milliseconds) "
+                         "[System.IO.File]::Delete($script:Stamp) }")
+        lines += [
             "Clear-DrainShownFault",
             "\"marker=$([System.IO.File]::Exists($marker))\"",
             "\"claims=$(@(Get-ChildItem -LiteralPath (Split-Path $marker) -Filter '*.claim-*').Count)\"",
             "\"stamp=$([System.IO.File]::ReadAllText($script:Stamp))\"",
-        ])
-        ps1 = self.dir / "run.ps1"
-        ps1.write_text(script, encoding="utf-8")
+        ]
+        ps1 = self.dir / f"run-{mode}.ps1"
+        ps1.write_text("\n".join(lines), encoding="utf-8")
         r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(ps1)], capture_output=True,
                            text=True, cwd=str(self.dir), timeout=TIMEOUT_SECONDS)
         got = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
@@ -1482,18 +1492,23 @@ class ARewrittenStampIsPutBackWithRetries(unittest.TestCase):
         return r, got
 
     def test_a_put_back_that_fails_once_is_retried(self):
-        r, got = self.clear(unblock_on_retry=True)
+        r, got = self.clear("retry")
         self.assertEqual("0", got["claims"], "the put-back was not retried, so the stamp sits under a claim")
         self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
         self.assertNotIn("COULD NOT BE PUT BACK", r.stderr)
 
     def test_a_put_back_that_keeps_failing_keeps_the_marker(self):
-        """The marker brings the session's next Stop back to the claim, which a dead process's
-        claim puts back. Without it the stamp waits, unread, for the prune."""
-        r, got = self.clear(unblock_on_retry=False)
+        """The marker brings the session's next Stop back to the claim, and once the stamp's name
+        is free that Stop puts the dead process's claim back. Without the marker the stamp waits,
+        unread, for the prune."""
+        r, got = self.clear("block")
         self.assertEqual("1", got["claims"], "the blocker did not block, so this measured nothing")
         self.assertEqual("True", got["marker"], "the marker went while the stamp sat under a claim")
         self.assertIn("COULD NOT BE PUT BACK", r.stderr)
+        (self.dir / "P.abcd.1.txt").unlink()
+        r, got = self.clear("next")
+        self.assertEqual("0", got["claims"], f"the next Stop did not put the claim back: {r.stderr}")
+        self.assertIn("rewritten", got["stamp"], "the rewritten stamp is not back under its name")
 
 
 class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):

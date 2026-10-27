@@ -395,8 +395,8 @@ function Get-DrainShownSet {
         Save-DrainFault uses it for one thing: a stamp some session was shown is never the standing
         copy of a fault, so the next Stop that meets that fault writes a new one. It decides no
         drop and no prune note. CHANGED 2026-10-26: this said it was read before a prune, so a
-        stale marker could not make its stamp read as never shown. Since cb41fab no marker decides
-        a drop or a prune, and the stamps it is checked against are fresh, so no prune order matters.
+        stale marker could not make its stamp read as never shown. No marker decides a drop or a
+        prune now, and the stamps it is checked against are fresh, so no prune order matters.
     #>
     param([string] $Dir)
     $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -462,18 +462,20 @@ function Save-DrainFault {
         }
         $dir = Split-Path -Parent $prefix
         $evt = ConvertTo-DrainField ([string]$Event) 40
+        # Cut once: the stored field and the key below must be the same text.
+        $field = ConvertTo-DrainField $Text $script:FaultChars
         $line = (@(
                 [DateTimeOffset]::UtcNow.ToString('o'),
                 $evt,
                 (ConvertTo-DrainField $script:DrainSession 64),
-                (ConvertTo-DrainField $Text $script:FaultChars)
+                $field
             ) -join "`t")
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
         $shown = Get-DrainShownSet $dir
         $mine = @(Get-DrainFiles $dir "$(Split-Path -Leaf $prefix).$(Get-DrainSessionHash).*.txt" |
             Where-Object { Test-DrainStampFresh $_ })
         # The whole stored field, compared case-sensitively, less its trailing time.
-        $key = Get-DrainFaultKey $evt (ConvertTo-DrainField $Text $script:FaultChars)
+        $key = Get-DrainFaultKey $evt $field
         $standing = $false
         foreach ($m in $mine) {
             if ($shown.Contains($m.Name)) { continue }
@@ -766,20 +768,25 @@ function Clear-DrainShownFault {
                         catch {
                             $keepMarker = $true
                             Write-DrainNote ("A FAULT STAMP REWRITTEN SINCE IT WAS SHOWN COULD NOT BE PUT BACK ($name): " +
-                                "$($_.Exception.Message). It is left under a claim name no display reads, and this " +
-                                "session's next Stop puts it back.")
+                                "$($_.Exception.Message). It is left under a claim name no display reads. This " +
+                                "session's next Stop puts it back if its name is free.")
                         }
                     }
                 }
             }
             catch {
                 $why = $_.Exception.Message
+                $then = 'It shows again.'
                 # A claimed copy goes back under its own name, or no display would read it again.
                 if ($claimed -and [System.IO.File]::Exists($claim)) {
-                    try { Restore-DrainClaim $claim $stamp } catch { }
+                    try { Restore-DrainClaim $claim $stamp }
+                    catch {
+                        $then = ("It is left under a claim name no display reads. This session's next Stop " +
+                            "puts it back if its name is free.")
+                    }
                 }
                 $keepMarker = $true
-                Write-DrainNote "A SHOWN FAULT STAMP WAS NOT CONSUMED ($name): $why. It shows again."
+                Write-DrainNote "A SHOWN FAULT STAMP WAS NOT CONSUMED ($name): $why. $then"
             }
             if (-not $keepMarker) { [void](Remove-DrainFile $m.FullName) }
         }

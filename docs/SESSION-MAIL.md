@@ -372,7 +372,8 @@ A stamp nobody clears is hidden after a day and pruned.
 
 The `Stop` first renames a shown stamp to a claim name that no display reads. It compares only
 that claimed copy with the mark, deletes it if it is the version shown, and renames it back if not.
-A stamp it cannot claim keeps its mark, so the session's next `Stop` tries again.
+A stamp it cannot claim, or cannot rename back, keeps its mark, so the session's next `Stop` tries
+again.
 
 A `Stop` that keys on another worktree, after a `cd` with no pin, or that names no session,
 misses the mark. That stamp shows again, which is a duplicate and not a loss.
@@ -386,7 +387,7 @@ This page read "A `Stop` that reaches its box clears only its own session's stam
 nowhere.
 
 Stderr notes each of these: an unconsumed stamp pruned, a drop at the cap, a stamp or mark not
-written, and a shown stamp not claimed or deleted. Never stdout; the exit code holds.
+written, and a shown stamp not claimed, deleted or renamed back. Never stdout; the exit code holds.
 
 Delivery off leaves no stamp. It is a switch, every `SessionStart` reports it while it stands, and
 a stamp would report it after it was removed.
