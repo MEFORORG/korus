@@ -2133,6 +2133,82 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
+    def _unread_at(self, worktree, written, content=None, agent="bREAL"):
+        # A truncated real fork, its record 0 cut mid-string, last written at `written`.
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / f"agent-{agent}.meta.json").write_text(
+            json.dumps({"inheritedWorktreePath": worktree}), encoding="utf-8")
+        transcript = sub / f"agent-{agent}.jsonl"
+        if content is None:
+            content = ('{"type": "user", "message": {"content": "Review target: `'
+                       f'{self.NONCE} Review this')
+        transcript.write_text(content, encoding="utf-8")
+        stamp = review_tag.parse_time(written).timestamp()
+        os.utime(transcript, (stamp, stamp))
+
+    def test_since_does_not_drop_an_unread_fork_holding_the_nonce(self):
+        # Review of 63605f1, H1: --since dropped an unread file by its write time before the raw
+        # nonce check. A truncated real fork written at 08:00, a low-tag helper here at 09:05 and
+        # --since 09:02 read exit 0 with the low tag, the real fork elsewhere or here alike.
+        for name, worktree, want in (("elsewhere", self.B, review_tag.UNREAD_ELSEWHERE_MESSAGE),
+                                     ("here", self.HERE, review_tag.UNREAD_MESSAGE)):
+            with self.subTest(real_fork=name):
+                self.projects = Path(self._tmp.name) / ("projects-since-" + name)
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z")
+                self._helper(self.HERE, tag=self.TAG_LOW)
+                code, out = self._since()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(want, out)
+                self.assertNotIn("low effort", out)
+                self.assertNotIn("tag:", out)
+
+    def test_control_since_still_drops_an_old_unread_file_without_the_nonce(self):
+        # The same tree with another round's nonce in the unread file: --since rules it out.
+        for name, worktree in (("elsewhere", self.B), ("here", self.HERE)):
+            with self.subTest(old_file=name):
+                self.projects = Path(self._tmp.name) / ("projects-old-" + name)
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z",
+                                content='{"message": "Review target: `round-00000000ab Review')
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._since()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_a_nonce_after_a_json_escape_in_an_unread_fork_is_read(self):
+        # Review of 63605f1, H2: the nonce's no-letter left boundary ran over raw JSON, where a
+        # nonce after an escaped newline sits after the letter n, so it never matched and the
+        # helper here read at exit 0. Escapes are decoded first.
+        for name, before in (("newline", "\n"), ("unicode", "\u00a0"), ("tab", "\t")):
+            with self.subTest(escape=name):
+                self.projects = Path(self._tmp.name) / ("projects-escape-" + name)
+                self.projects.mkdir()
+                text = f"Review target: `xhigh{before}{self.NONCE} Review this branch's diff`"
+                record = json.dumps({"type": "user", "message": {"content": text}})
+                self.assertNotIn(before + self.NONCE, record, "the fixture wrote no escape")
+                self._unread_elsewhere(record[: record.index(self.NONCE) + 40])
+                self._helper(self.HERE, tag=self.TAG_LOW)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("low effort", out)
+
+    def test_control_decoding_does_not_widen_the_nonce_match(self):
+        # An escaped backslash then the letter n, and a longer token, are no nonce once decoded.
+        for name, text in (("escaped backslash", f"x\\n{self.NONCE} Review"),
+                           ("longer token", f"x\n{self.NONCE}0 Review"),
+                           ("hyphenated", f"x\nre-{self.NONCE} Review")):
+            with self.subTest(text=name):
+                self.projects = Path(self._tmp.name) / ("projects-wide-" + name.replace(" ", "-"))
+                self.projects.mkdir()
+                record = json.dumps({"type": "user", "message": {"content": text}})
+                self._unread_elsewhere(record[:-3])
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
     def test_verbose_names_the_unknown_notice_that_contests(self):
         self._real_unknown(self.B)
         self._helper(self.HERE)

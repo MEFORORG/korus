@@ -77,7 +77,8 @@ no worktree.
 
 WITH A NONCE, `--since` DROPS NOTHING THE NONCE KEEPS. A fork carrying the round's own nonce is
 that round's whatever its time, so an older real fork cannot be cut away from a newer helper.
-`--since` still bounds the unreadable files, whose nonce cannot be read, and a `--no-nonce` search.
+An unreadable file whose first 64 KiB hold the nonce is kept the same way, here or elsewhere.
+`--since` still bounds an unreadable file whose first 64 KiB lack it, and a `--no-nonce` search.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
 failed `git rev-parse` refuses rather than searching every worktree. A refusal prints no `tag:`
@@ -780,13 +781,31 @@ class Scan:
 #: How much of an unreadable transcript is searched for the round's nonce.
 RAW_NONCE_PREFIX = 64 * 1024
 
+#: One JSON string escape: a backslash and u with four hex digits, or a backslash and one character.
+JSON_ESCAPE = re.compile(r"\\(u[0-9a-fA-F]{4}|.)", re.DOTALL)
+JSON_SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
+
+
+def unescape_json(text: str) -> str:
+    """Decode the JSON string escapes in raw transcript text, in one pass, so an escaped backslash
+    followed by the letter n stays a backslash and an n. In the raw text a nonce right after an
+    escaped newline sits after the letter n, which the nonce's left boundary refuses."""
+
+    def decode(match: re.Match[str]) -> str:
+        escaped = match.group(1)
+        if len(escaped) == 5:
+            return chr(int(escaped[1:], 16))
+        return JSON_SIMPLE_ESCAPES.get(escaped, escaped)
+
+    return JSON_ESCAPE.sub(decode, text)
+
 
 def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
     """Whether the first RAW_NONCE_PREFIX bytes hold the first nonce of `wanted`, as a whole token.
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
-    target line, past its first newline too. A file that cannot be opened may hold it, so it is
-    counted, failing closed.
+    target line, past its first newline too, so its JSON escapes are decoded before matching. A
+    file that cannot be opened may hold it, so it is counted, failing closed.
     """
     nonces = NONCE_SHAPE.findall(wanted)
     if not nonces:
@@ -796,6 +815,7 @@ def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
             text = fh.read(RAW_NONCE_PREFIX).decode("utf-8", errors="replace")
     except OSError:
         return True
+    text = unescape_json(text)
     return any(found.casefold() == nonces[0].casefold() for found in NONCE_SHAPE.findall(text))
 
 
@@ -879,7 +899,13 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 elsewhere = (
                     want is not None and fork.worktree and normalize_path(fork.worktree) != want
                 )
-                if filters.since:
+                # Read before --since: a file whose raw text holds the round's nonce may be that
+                # round's fork whatever its write time, as a readable one is. --since once dropped
+                # an older unread real fork, and a newer helper's low tag read at exit 0.
+                raw_nonce = bool(
+                    nonced and filters.target and raw_holds_nonce(transcript, filters.target)
+                )
+                if filters.since and not raw_nonce:
                     try:
                         written = dt.datetime.fromtimestamp(
                             transcript.stat().st_mtime, tz=dt.timezone.utc
@@ -892,7 +918,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     # Out of scope, as before, unless its raw text holds the caller's nonce: then
                     # it may be the round's real fork, and beside a fork here it refuses as unread,
                     # below, rather than vanish. An unrelated truncated transcript stays out.
-                    if nonced and filters.target and raw_holds_nonce(transcript, filters.target):
+                    if raw_nonce:
                         unread_elsewhere += 1
                     continue
                 result.unreadable_files += 1
