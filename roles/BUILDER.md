@@ -1507,6 +1507,30 @@ Expiry: this stands until those tests stop comparing whole sets, or the engine s
 outbound that fails at start. Check the files above and the `RegistryRunner` start path at engine
 `origin/main`.
 
+### 5l. A slow guard can be a fail-open guard
+
+**When a hook's timeout lets the command run, a slow scan is a deny turned into an allow.** So a
+change that makes a guard slower on large input can weaken the guard, even when every test passes.
+
+One measured case: a PowerShell hook built its output with `StringBuilder.Append(text, start,
+count)` inside a scan loop. Each call cost time in proportion to the whole string, not the slice.
+The loop went quadratic. A 600 KB payload took 2.6 s on the old head and 29.7 s on the new one.
+
+When you rewrite or review a guard hook:
+
+1. Find the hook's timeout and what the harness does when it fires.
+2. Time the new head and the old head on adversarial payloads of hundreds of KB.
+3. Treat a large slowdown as a security finding, not a performance note.
+4. Prefer `Substring` or index arithmetic over `Append` with a start and count on a large string.
+
+| Wiki evidence | |
+| --- | --- |
+| The first form | Event `20261011T030810969Z-xtgi85`. Its text was damaged by the shell. |
+| The first correction | Event `20261011T030841485Z-4kjd6j`, which replaces it. |
+| The rule above | Event `20261017T191358668Z-5cmvkv`, which replaces both. |
+
+Expiry: this stands while any guard hook runs under a timeout that allows the command to proceed.
+
 ---
 
 ## 6. COMMON owns the handoff format; five things are builder-only
