@@ -587,8 +587,8 @@ class EveryMissIsLoudAndDistinct(Fixture):
                  review_tag.EXIT_NO_TOPLEVEL, review_tag.EXIT_NO_SELECTOR, review_tag.EXIT_UNREAD,
                  review_tag.EXIT_NOT_ATTRIBUTABLE, review_tag.EXIT_ELSEWHERE,
                  review_tag.EXIT_UNSPLIT, review_tag.EXIT_DISPLACED,
-                 review_tag.EXIT_UNKNOWN_NOTICE, 1, 2}
-        self.assertEqual(len(codes), 16, "an exit code collides with another, or with 1 or 2")
+                 review_tag.EXIT_UNKNOWN_NOTICE, review_tag.EXIT_CONTESTED, 1, 2}
+        self.assertEqual(len(codes), 17, "an exit code collides with another, or with 1 or 2")
 
 
 class TheFourFailOpensTheLanderFoundAtF3a4a39(Fixture):
@@ -1819,12 +1819,17 @@ class TheRoundTwoFindingsOfPr243(Fixture):
         code, out, _ = self._main()
         self.assertEqual(code, review_tag.EXIT_DISPLACED, out)
 
-    def test_r2_a_refused_head_elsewhere_is_out_of_scope_beside_a_fork_here(self):
-        # Review of 30f1c88: a brief in another worktree refused the caller's readable fork for
-        # good, since no rerun put it out of scope. As on main, it is out of scope here.
+    def test_r2_a_refused_head_elsewhere_contests_a_fork_here(self):
+        # CHANGED 2026-10-27, vault #4121: this was out of scope, exit 0. The same files, with the
+        # names swapped, are the real fork displaced elsewhere and a helper's pasted head here, and
+        # exit 0 named the helper. It now refuses, exit 16. Review of 30f1c88 feared a brief
+        # elsewhere refusing the caller's fork for good; a fresh round clears it, as
+        # `TheHeadElsewhereContestsTheForkHere` shows.
         self._write("brief", "Run this:\n\n" + self._body(), cwd=self.OTHER)
         self._write("mine", self._body())
-        self._found(*self._main()[:2])
+        code, out, _ = self._main()
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out)
+        self.assertNotIn("tag:", out)
 
     def test_r2_control_a_refused_head_here_still_outranks_exit_12(self):
         self._write("brief", "Run this:\n\n" + self._body())
@@ -1883,6 +1888,508 @@ class ConfigDirNamesTheRoot(Fixture):
                            env_extra={"CLAUDE_CONFIG_DIR": str(self.projects.parent)})
         self.assertEqual(code, review_tag.EXIT_FOUND)
         self.assertIn("eee555", out)
+
+
+class TheHeadElsewhereContestsTheForkHere(Fixture):
+    """Vault #4121. A real fork that refuses in another worktree was out of scope beside a helper's
+    canonical head that read here, so the run exited 0 and named the helper. The cases are the
+    row's probe table, rebuilt from its descriptions: the original probe scripts lived in a
+    scratchpad and are gone. Each fail-open case exited 0 on korus `main` at 20af3e6.
+
+    Nothing in record 0 or the meta tells a real fork from a helper that pasted its head, in one
+    worktree or across two. So a head elsewhere carrying the round's nonce contests a fork that
+    reads here, exit 16. PR 244 kept such a head out of scope, because a brief elsewhere then
+    "refused a readable fork for good". A pasted head carries the old round's nonce, so a fresh
+    round clears it; the last cases hold that. Record times do not discriminate: code-review
+    round two of this work defeated a time rule with a helper written before the round."""
+
+    NONCE = "round-4121abcdef"
+    FRESH = "round-4121fedcba"
+    HERE = "D:/probe/wt"
+    B = "D:/probe/wt-b"
+    C = "D:/probe/wt-c"
+    TAG_LOW = "low effort \u2192 1 inline angle \u2192 \u22645 findings"
+    UNKNOWN = "(A notice a later CLI added, reworded.)"
+    #: The real fork first, then the helper that pasted it.
+    EARLY = "2026-10-24T09:00:00Z"
+    LATE = "2026-10-24T09:05:00Z"
+
+    def _head(self, nonce=None, tag=TAG_XHIGH, opening="", tail="You are reviewing ..."):
+        return (f"{opening}Review target: `{nonce or self.NONCE} Review this branch's diff`\n\n"
+                f"`{tag}`\n\n{tail}")
+
+    def _write(self, agent, body, cwd, session="s1", timestamp=EARLY):
+        write_fork(self.projects, session, agent, "", "", shape=CLOUD, cwd=cwd,
+                   timestamp=timestamp, body=body)
+
+    def _real_unknown(self, cwd):
+        self._write("bREAL", self._head(opening=self.UNKNOWN + "\n\n"), cwd)
+
+    def _helper(self, cwd, tag=TAG_XHIGH):
+        self._write("bHELP", self._head(tag=tag, tail="Helper brief."), cwd, timestamp=self.LATE)
+
+    def _probe(self, worktree=None, nonce=None):
+        # The probe's call: --target <nonce> --worktree <wt> --any-session --projects-dir --ascii.
+        out = io.StringIO()
+        argv = ["--target", nonce or self.NONCE, "--worktree", worktree or self.HERE,
+                "--any-session", "--projects-dir", str(self.projects), "--ascii"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def _contested(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out)
+        self.assertIn(review_tag.CONTESTED_MESSAGE, out)
+        self.assertNotIn("tag:", out, "a contested run printed a quotable tag")
+
+    # The fail-open cases.
+
+    def test_p2_a_real_fork_under_an_unknown_notice_elsewhere_contests_a_helper_here(self):
+        self._real_unknown(self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def test_p2b_a_displaced_real_fork_elsewhere_contests_a_helper_here(self):
+        self._write("bREAL", self._head(opening="Something else first.\n\n"), self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def test_p2c_a_helper_with_another_level_prints_no_tag(self):
+        # The round's target says xhigh; main printed the helper's low tag at exit 0.
+        self._real_unknown(self.B)
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        code, out = self._probe(nonce=f"xhigh {self.NONCE}")
+        self.assertNotIn("low effort", out)
+        self._contested(code, out)
+
+    def test_f1_the_rerun_exit_12_advises_is_contested(self):
+        # The helper is listed as a candidate, never as the fork read, and its tag never prints.
+        self._real_unknown(self.B)
+        self._helper(self.C, tag=self.TAG_LOW)
+        code, out = self._probe(worktree=self.C)
+        self._contested(code, out)
+        self.assertIn("agent bREAL | another worktree", out)
+        self.assertIn("agent bHELP | here", out)
+        self.assertNotIn("fork | ", out)
+        self.assertNotIn("low effort", out)
+
+    def test_a_readable_head_elsewhere_contests_a_fork_here_too(self):
+        # The same argument with nothing refused: either canonical head could be the round's.
+        self._write("bREAL", self._head(), self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    # The controls, whose exits do not change.
+
+    def test_f1_control_the_first_call_is_still_exit_12(self):
+        self._real_unknown(self.B)
+        self._helper(self.C)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    def test_p8_control_a_readable_fork_elsewhere_alone_is_exit_12(self):
+        self._write("bREAL", self._head(), self.B)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_ELSEWHERE, out)
+
+    def test_p9_control_a_readable_fork_here_alone_reads(self):
+        self._write("bREAL", self._head(), self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent bREAL", out)
+        self.assertIn("tag: xhigh effort -> 10 inline angles", out)
+
+    def test_p2d_control_a_tagless_helper_is_still_exit_5(self):
+        # A tagless fork quotes no tag, so it names no wrong level.
+        self._real_unknown(self.B)
+        self._write("bHELP", f"Review target: `{self.NONCE} Review this branch's diff`\n\nGo.\n",
+                    self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_NO_TAG, out)
+
+    # The trade PR 244 named: a brief elsewhere must not block a reading for good.
+
+    def test_a_fresh_round_clears_a_brief_elsewhere(self):
+        self._write("brief", "Run this:\n\n" + self._head(), self.B)
+        self._write("again", self._head(nonce=self.FRESH), self.HERE)
+        code, out = self._probe(nonce=self.FRESH)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent again", out)
+
+    def test_a_helper_written_before_the_real_fork_still_contests(self):
+        # Round two of this work: a time rule exempted a head elsewhere newer than the fork here.
+        # A helper's head can be written before the round, so the real fork was exempted and the
+        # helper's low tag quoted. Order is not evidence; every order contests.
+        for name, opening in (("displaced", "Run this:\n\n"), ("unknown", self.UNKNOWN + "\n\n"),
+                              ("canonical", "")):
+            with self.subTest(head=name):
+                # A tree each, so one subtest's head cannot contest for another's.
+                self.projects = Path(self._tmp.name) / ("projects-" + name)
+                self.projects.mkdir()
+                self._write("bHELP", self._head(tag=self.TAG_LOW, tail="Helper brief."),
+                            self.HERE)
+                self._write("real" + name, opening + self._head(), self.B, timestamp=self.LATE)
+                code, out = self._probe()
+                self._contested(code, out)
+                self.assertNotIn("low effort", out)
+
+    def test_since_does_not_drop_the_head_that_contests(self):
+        # Round two of this work: --since between the real fork and the helper dropped the real
+        # fork before it could contest, and the helper's low tag was quoted.
+        self._real_unknown(self.B)
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        out = io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--ascii",
+                "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        self._contested(code, out.getvalue())
+
+    def _since(self, nonce=None):
+        out = io.StringIO()
+        argv = ["--target", nonce or self.NONCE, "--worktree", self.HERE, "--any-session",
+                "--ascii", "--projects-dir", str(self.projects), "--since", "2026-10-24T09:02:00Z"]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def test_since_does_not_drop_an_older_real_fork_here(self):
+        # Manager review of 22fbe10: an older real fork here, a newer low-tag helper here, and
+        # --since between them read exit 0 with the low tag. The nonce keeps both: ambiguous.
+        self._write("bREAL", self._head(), self.HERE)
+        self._helper(self.HERE, tag=self.TAG_LOW)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("low effort", out)
+
+    def test_control_since_still_drops_a_different_rounds_head(self):
+        # A head of another round that only --since excludes: a --no-nonce search for words both
+        # rounds share. Without --since both match; with it, only the later one does.
+        self._write("old", self._head(nonce=self.FRESH), self.HERE)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        argv = ["--target", "Review this branch's diff", "--no-nonce", "--worktree", self.HERE,
+                "--any-session", "--projects-dir", str(self.projects)]
+        for since, want in ((None, review_tag.EXIT_AMBIGUOUS),
+                            ("2026-10-24T09:02:00Z", review_tag.EXIT_NOT_ATTRIBUTABLE)):
+            with self.subTest(since=since):
+                out = io.StringIO()
+                extra = ["--since", since] if since else []
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                    code = review_tag.main(argv + extra)
+                self.assertEqual(code, want, out.getvalue())
+                if since:
+                    self.assertIn("agent mine", out.getvalue())
+                    self.assertNotIn("agent old", out.getvalue())
+
+    def test_a_tagless_unsplit_head_elsewhere_does_not_contest(self):
+        # Round two of this work: an odd backtick refuses as unsplit with no tag-shaped line, and
+        # a target line alone is no reading, so it does not contest.
+        self._write("relay", f"Review target: `{self.NONCE} Review this branch's diff\n\nRelay.",
+                    self.B)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_a_blockquoted_head_elsewhere_contests(self):
+        # Manager review of 22fbe10: tag_shaped read raw lines while the head was read with a
+        # leading > stripped, so a blockquoted paste elsewhere did not contest.
+        quoted = "\n".join("> " + line for line in self._head().splitlines())
+        self._write("real", "Forwarded:\n\n" + quoted, self.B)
+        self._helper(self.HERE)
+        self._contested(*self._probe())
+
+    def _unread_elsewhere(self, content, agent="bREAL"):
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / f"agent-{agent}.meta.json").write_text(
+            json.dumps({"inheritedWorktreePath": self.B}), encoding="utf-8")
+        (sub / f"agent-{agent}.jsonl").write_text(content, encoding="utf-8")
+
+    def test_an_unread_fork_elsewhere_holding_the_nonce_refuses_beside_a_fork_here(self):
+        # Manager review of 22fbe10: a fork elsewhere whose record 0 could not be read was dropped,
+        # so the helper here read at exit 0. Its record 0 holds the nonce below a notice, so it
+        # may be the round's real fork: it refuses as unread. The newlines are JSON escapes, as in
+        # a real record 0. A literal one ends record 0, and no later record is read.
+        self._unread_elsewhere('{"type": "user", "message": {"content": "(A notice.)\\n\\n'
+                               f'Review target: `{self.NONCE} Review this')
+        self._helper(self.HERE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
+    def test_an_unrelated_unread_transcript_elsewhere_does_not_refuse(self):
+        # Manager review of 90e52ee: any unreadable transcript elsewhere refused every reading.
+        # Without the round's nonce in its raw text, it is out of scope.
+        for name, content in (("empty", ""), ("truncated", '{"type": "user", "mess'),
+                              ("another round", '{"message": "Review target: `round-00000000ab')):
+            with self.subTest(transcript=name):
+                self._unread_elsewhere(content, agent="other")
+                self._write("mine", self._head(), self.HERE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_control_an_unread_fork_elsewhere_alone_is_still_no_fork(self):
+        self._unread_elsewhere('{"type": "user", "mess')
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def _unread_at(self, worktree, written, content=None, agent="bREAL"):
+        # A truncated real fork, its record 0 cut mid-string, last written at `written`.
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        meta = {} if worktree is None else {"inheritedWorktreePath": worktree}
+        (sub / f"agent-{agent}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+        transcript = sub / f"agent-{agent}.jsonl"
+        if content is None:
+            content = ('{"type": "user", "message": {"content": "Review target: `'
+                       f'{self.NONCE} Review this')
+        transcript.write_text(content, encoding="utf-8")
+        stamp = review_tag.parse_time(written).timestamp()
+        os.utime(transcript, (stamp, stamp))
+
+    def test_since_does_not_drop_an_unread_fork_holding_the_nonce(self):
+        # Review of 63605f1, H1: --since dropped an unread file by its write time before the raw
+        # nonce check. A truncated real fork written at 08:00, a low-tag helper here at 09:05 and
+        # --since 09:02 read exit 0 with the low tag, the real fork elsewhere or here alike.
+        for name, worktree, want in (("elsewhere", self.B, review_tag.UNREAD_ELSEWHERE_MESSAGE),
+                                     ("here", self.HERE, review_tag.UNREAD_MESSAGE)):
+            with self.subTest(real_fork=name):
+                self.projects = Path(self._tmp.name) / ("projects-since-" + name)
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z")
+                self._helper(self.HERE, tag=self.TAG_LOW)
+                code, out = self._since()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(want, out)
+                self.assertNotIn("low effort", out)
+                self.assertNotIn("tag:", out)
+
+    def test_control_since_still_drops_an_old_unread_file_without_the_nonce(self):
+        # The same tree with another round's nonce in the unread file: --since alone rules it out,
+        # so each case refuses without --since. Review of 812176d: an "elsewhere" case passed with
+        # or without --since, since an unread file recorded elsewhere without the nonce is out of
+        # scope either way. A file that records no worktree is in scope until --since drops it.
+        for name, worktree in (("no worktree recorded", None), ("here", self.HERE)):
+            with self.subTest(old_file=name):
+                self.projects = Path(self._tmp.name) / ("projects-old-" + name.replace(" ", "-"))
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z",
+                                content='{"message": "Review target: `round-00000000ab Review')
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                code, out = self._since()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_an_unopenable_unread_file_is_read_as_not_holding_the_nonce(self):
+        # Review of 812176d, finding 4: a file that could be stat'ed but not opened was counted as
+        # holding the nonce, so --since no longer bounded it here and it refused elsewhere. As on
+        # main, it is read as not holding it. The open is denied by a mock, since a permission
+        # or a deletion between stat and open is not reliable across platforms. Its content holds
+        # the nonce, so only the failed open can rule it out.
+        real_open = Path.open
+
+        def deny(path, *a, **k):
+            if path.name == "agent-locked.jsonl":
+                raise PermissionError(13, "denied", str(path))
+            return real_open(path, *a, **k)
+
+        for name, worktree, call in (("here, before --since", self.HERE, self._since),
+                                     ("elsewhere", self.B, self._probe)):
+            with self.subTest(locked=name):
+                self.projects = Path(self._tmp.name) / ("projects-locked-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", agent="locked")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                with mock.patch.object(review_tag.Path, "open", autospec=True, side_effect=deny):
+                    code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+                self.assertIn("agent mine", out)
+
+    def test_a_nonce_after_a_json_escape_in_an_unread_fork_is_read(self):
+        # Review of 63605f1, H2: the nonce's no-letter left boundary ran over raw JSON, where a
+        # nonce after an escaped newline sits after the letter n, so it never matched and the
+        # helper here read at exit 0. Escapes are decoded first.
+        for name, before in (("newline", "\n"), ("unicode", "\u00a0"), ("tab", "\t")):
+            with self.subTest(escape=name):
+                self.projects = Path(self._tmp.name) / ("projects-escape-" + name)
+                self.projects.mkdir()
+                text = f"Review target: `xhigh{before}{self.NONCE} Review this branch's diff`"
+                record = json.dumps({"type": "user", "message": {"content": text}})
+                self.assertNotIn(before + self.NONCE, record, "the fixture wrote no escape")
+                self._unread_elsewhere(record[: record.index(self.NONCE) + 40])
+                self._helper(self.HERE, tag=self.TAG_LOW)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("low effort", out)
+
+    def test_control_decoding_does_not_widen_the_nonce_match(self):
+        # An escaped backslash then the letter n, and a longer token, are no nonce once decoded.
+        for name, text in (("escaped backslash", f"x\\n{self.NONCE} Review"),
+                           ("longer token", f"x\n{self.NONCE}0 Review"),
+                           ("hyphenated", f"x\nre-{self.NONCE} Review")):
+            with self.subTest(text=name):
+                self.projects = Path(self._tmp.name) / ("projects-wide-" + name.replace(" ", "-"))
+                self.projects.mkdir()
+                record = json.dumps({"type": "user", "message": {"content": text}})
+                self._unread_elsewhere(record[:-3])
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_verbose_names_the_unknown_notice_that_contests(self):
+        self._real_unknown(self.B)
+        self._helper(self.HERE)
+        out, err = io.StringIO(), io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--verbose",
+                "--projects-dir", str(self.projects)]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main(argv)
+        self.assertEqual(code, review_tag.EXIT_CONTESTED, out.getvalue())
+        self.assertIn("the unknown notice opens", err.getvalue())
+        self.assertIn(self.B, err.getvalue())
+
+    def test_a_tagless_head_elsewhere_does_not_contest(self):
+        # A target line alone is no reading, here or elsewhere.
+        self._write("relay", f"Review target: `{self.NONCE} Review this branch's diff`\n\nRelay.",
+                    self.B)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_control_the_old_round_stays_contested(self):
+        self._write("brief", "Run this:\n\n" + self._head(), self.B)
+        self._write("mine", self._head(), self.HERE)
+        self._write("again", self._head(nonce=self.FRESH), self.HERE)
+        self._contested(*self._probe())
+
+    # The Lander's two holds on PR 247 at fbe0e17.
+
+    def test_a_later_record_holding_the_nonce_does_not_make_an_unread_file_the_rounds(self):
+        # Hold 1: the raw check scanned 64 KiB, so a file whose record 0 does not parse and whose
+        # record 1 mentions the nonce refused a correct fork with exit 10. Only record 0 is read.
+        later = ('{"type": "user", "mess\n'
+                 f'{{"type": "assistant", "message": "{self.NONCE} mentioned later"}}\n')
+        for name, worktree, call in (("elsewhere", self.B, self._probe),
+                                     ("here, before --since", self.HERE, self._since)):
+            with self.subTest(unread=name):
+                self.projects = Path(self._tmp.name) / ("projects-later-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=later, agent="other")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_a_later_record_does_not_count_where_only_the_meta_is_unread(self):
+        # The same hold where record 0 parses and the meta does not: record 0 is another round's,
+        # and only record 1 mentions the nonce. At fbe0e17 this refused with exit 10.
+        other = json.dumps({"type": "user", "cwd": self.HERE, "message": {
+            "content": "Review target: `round-00000000ab Review this branch's diff`"}})
+        later = json.dumps({"type": "assistant", "message": f"{self.NONCE} mentioned later"})
+        self._unread_at(self.HERE, "2026-10-24T08:00:00Z", content=f"{other}\n{later}\n",
+                        agent="other")
+        meta = self.projects / "D--probe" / "s1" / "subagents" / "agent-other.meta.json"
+        meta.write_text("{", encoding="utf-8")
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent mine", out)
+
+    def test_control_the_nonce_in_an_unread_record_zero_still_refuses(self):
+        # The nearest shape: the same two records, with the nonce in record 0 itself.
+        record0 = (f'{{"type": "user", "message": {{"content": "Review target: `{self.NONCE} Rev\n'
+                   '{"type": "assistant", "message": "no nonce here"}\n')
+        for name, worktree, call, message in (
+            ("elsewhere", self.B, self._probe, review_tag.UNREAD_ELSEWHERE_MESSAGE),
+            ("here, before --since", self.HERE, self._since, review_tag.UNREAD_MESSAGE),
+        ):
+            with self.subTest(unread=name):
+                self.projects = Path(self._tmp.name) / ("projects-rec0-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=record0, agent="other")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(message, out)
+                self.assertNotIn("tag:", out)
+
+    def test_a_round_retried_with_its_nonce_stays_ambiguous_under_since(self):
+        # Hold 2 asked --since to separate two forks sharing one nonce. It is not done, on purpose.
+        # Nothing in record 0 tells a retried round from a helper that pasted the round's head.
+        # With differing tags, dropping the older fork quoted a helper's low tag (the 22fbe10 case
+        # above). With one tag, it names the helper's fork id: the same-tag set-aside BUILDER.md 4e
+        # records as NOT MERGED. A Manager's re-check without --since would still read 7. A fresh
+        # nonce clears it.
+        self._write("first", self._head(), self.HERE)
+        self._write("retry", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._since()
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
+        self.assertNotIn("tag:", out)
+        self._write("fresh", self._head(nonce=self.FRESH), self.HERE, timestamp=self.LATE)
+        code, out = self._since(nonce=self.FRESH)
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent fresh", out)
+
+
+class OneFileReachedTwiceIsOneFork(Fixture):
+    """Vault #4121 step 8 (#3963's M14): a projects directory reached through a junction listed one
+    fork twice, so a QA tag read exited 7. A file is now one fork however many paths reach it."""
+
+    NONCE = "round-3963abcdef"
+    HERE = "D:/probe/wt"
+
+    def setUp(self):
+        super().setUp()
+        write_fork(self.projects, "s1", "only", f"{self.NONCE} Review x", TAG_XHIGH, shape=CLOUD,
+                   cwd=self.HERE, timestamp="2026-10-24T09:00:00Z", project="D--probe-wt")
+
+    def _main(self, *roots):
+        out = io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--ascii"]
+        for root in roots:
+            argv += ["--projects-dir", str(root)]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            code = review_tag.main(argv)
+        return code, out.getvalue()
+
+    def _found(self, code, out):
+        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+        self.assertIn("agent only", out)
+
+    def _junction(self, link, target):
+        if os.name != "nt":
+            self.skipTest("a junction is a Windows directory link")
+        made = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                              capture_output=True, timeout=TIMEOUT_SECONDS)
+        if made.returncode != 0 or not link.exists():
+            self.skipTest("mklink /J did not make a junction here")
+
+    def test_control_one_root_reads(self):
+        self._found(*self._main(self.projects))
+
+    def test_one_directory_named_twice_is_one_fork(self):
+        self._found(*self._main(self.projects, self.projects / ".." / "projects"))
+
+    def test_a_projects_dir_reached_through_a_junction_is_one_fork(self):
+        link = Path(self._tmp.name) / "projects-link"
+        self._junction(link, self.projects)
+        self._found(*self._main(self.projects, link))
+
+    def test_a_project_junctioned_inside_the_projects_dir_is_one_fork(self):
+        link = self.projects / "D--probe-wt-link"
+        self._junction(link, self.projects / "D--probe-wt")
+        self._found(*self._main(self.projects))
+
+    def test_control_two_files_with_one_nonce_stay_ambiguous(self):
+        # The identity is the file's, not its content's: a copy is a second fork.
+        write_fork(self.projects, "s2", "copy", f"{self.NONCE} Review x", TAG_XHIGH, shape=CLOUD,
+                   cwd=self.HERE, timestamp="2026-10-24T09:00:00Z", project="D--probe-wt")
+        code, out = self._main(self.projects)
+        self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
 
 
 if __name__ == "__main__":
