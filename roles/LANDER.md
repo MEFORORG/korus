@@ -776,6 +776,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | The loop covers labelled reds | Each tick, run `gh pr list --repo MEFORORG/MessageFoundry --label ci-red --state open --limit 200`. At 200 hits, re-read higher. Nothing removes the label on its own. A dry run of engine `scripts/ci/clear_stale_ci_red.py` tells stale from real, ejections included. |
 | Why that read is yours | Only the engine applies the label. The watcher that read it is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
 | A queue ejection waits for the same poll | `failure-signal.yml` labels a PR that the merge queue ejected on a watched red. A red with no PR goes to the issue *Reds with no pull request behind them*; read it each tick. Vault BACKLOG #1403, same decision. |
+| A moved Lander reads its mail by hand | Every pass, where the session entered a worktree after launch. The paragraph under this table opening *A Lander whose session moved* holds the rule. |
 | Why a level and not an edge | `lander-empty-queue`, *An edge-triggered watch reports transitions, and EMPTY is not one*. A drained queue holding a green PR raises no edge. |
 | Pacing the self-paced form | `ScheduleWakeup` clamps the delay to 60 to 3600 seconds. Pick it from what you are waiting on. |
 | A tick is a wakeup | *Standing rules that a fresh message will not override* binds this. Send no ACK, and invent no work to fill a quiet tick. Mark it `noop: true` when nothing moved, `noop: false` on a landing, filed item or finding. |
@@ -797,6 +798,14 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
 | Do NOT stop it on an empty queue, or for usage | Empty is the state it exists to catch: load `lander-empty-queue` and keep looping. *Standing rules* exempts this seat from every throttle call. |
 | EXPIRY | A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger. |
+
+**A Lander whose session moved into a worktree after launch (`EnterWorktree`) reads that
+worktree's mail inbox by hand on every loop pass.** The Stop-hook drain reads only the launch
+checkout's box. Better still, launch the Lander in its own worktree.
+
+A hand read consumes nothing (COMMON.md), so track which messages you have already acted on. Fleet
+wiki note 20261028T173113578Z-rys07h holds the evidence. A seat decision under owner `/driver`
+delegation, 2026-10-28.
 
 **There is no `/goal` command in this harness, and a disk probe cannot prove that.** A search of
 every skills and commands root for `goal` returns zero, and the control on `loop` returns zero too,
