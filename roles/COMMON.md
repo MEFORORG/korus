@@ -323,7 +323,7 @@ their arrival headers. This file has never contained one.
 Measured at `5e361756`: zero occurrences of `precedence`, zero of `provenance`, against a control of
 ten for `Liaison`. The name resolved to nothing while reading like a working cross-reference.
 
-### Your cwd, not your seat, decides which coordination record you touch
+### Your worktree, not your seat, decides which coordination record you touch
 
 Seat record, mailbox, claim and lane level alike. `seat.ps1` keys one record per (worktree, session)
 on purpose: two writers on one file is last-write-wins silently, so one seat role shows as several.
@@ -331,9 +331,17 @@ on purpose: two writers on one file is last-write-wins silently, so one seat rol
 **Read the design as sound and the reading as the hazard: a record answers "a seat once declared
 here", never "a seat is alive here".**
 
-**Mail is the same mechanism.** Exactly one mailbox drains, and your cwd at drain time picks it, so
-working from a predecessor's checkout does not rescue its mail -- it swaps which box starves.
-Measured 2026-08-28: **88 boxes existed and 44 held undrained mail.**
+**Mail is the same mechanism.** Exactly one mailbox drains: the box of the worktree the session
+STARTED in (engine `_hookinput.ps1` rule 3). Measured 2026-08-28: **88 boxes existed and 44 held
+undrained mail.**
+
+Starting from a predecessor's checkout does not rescue its mail -- it swaps which box starves.
+**After `EnterWorktree`, mail to your new worktree is only named, not delivered.** Start the session
+in its worktree.
+
+**CHANGED 2026-10-28, by owner approval.** The first sentence read *"your cwd at drain time picks
+it"*, and it was false. MEFORORG/MessageFoundry#2626 holds the diagnosis. The heading read "Your
+cwd" for the same reason.
 
 Read the `seen` column, not the inbox. A non-empty inbox beside `seen=0` was never drained by the
 hook, which is not the same as never read. Reading a box by hand does not consume it. **Treat
