@@ -571,12 +571,14 @@ the board is titled **Lander Board**. Ask the owner if the listing does not show
 A Watchdog taking the seat restarts the refresh in four steps:
 
 1. **Extract the whole `scripts/board` folder from `origin/main` every time**, into a new empty
-   directory. Stop if `git archive` fails. The `origin/main:scripts/board` form extracts flat.
+   directory. The `&&` chain stops at the first failure, in pwsh 7 and Git Bash alike. The
+   `origin/main:scripts/board` form extracts flat.
 
-       git -C <korus> fetch origin
-       cd <new dir>
-       git -C <korus> archive -o "$PWD/board.tar" origin/main:scripts/board
-       tar -x -f board.tar
+       git -C <korus> fetch origin &&
+         mkdir <new dir> &&
+         cd <new dir> &&
+         git -C <korus> archive -o "$PWD/board.tar" origin/main:scripts/board &&
+         tar -x -f board.tar
 
    **Never run a working tree's copies.**
 2. Run that directory's `refresh.ps1` with an `-OutDir` beside it.
