@@ -66,7 +66,9 @@ last_any = min(sinces) if sinces else None
 
 if last_any is None:
     verdict, vclass = "NO DATA", "warn"
-elif last_any <= 60:
+elif tot["m60"] >= 2:
+    # Owner ruling 2026-10-29: fewer than two merges in the trailing hour is SLOW, however
+    # recent the last one was. One merge in an hour read DRAINING while the hourly chart showed zero.
     verdict, vclass = "DRAINING", "good"
 elif last_any <= 180:
     verdict, vclass = "SLOW", "warn"
