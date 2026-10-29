@@ -669,6 +669,9 @@ costs a full review at `xhigh`.
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
 
+**NARROWED 2026-10-29:** the final review-only round in the table above is not that third round. It
+fixes nothing, so it is not a loop.
+
 **It runs in more than two shapes, and a tag names the one you got -- when a tag comes back.** Copy
 it rather than inferring the shape from what you were granted. Where none comes back, record that.
 
