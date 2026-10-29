@@ -1094,6 +1094,8 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | One question is still with the owner | May you name a finding on the pull request, merge, and file its row after? Asked 2026-10-12. This row is edited when the owner answers. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. A queued row does not count. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
+| A factual error in prose, added 2026-10-29 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control, so it blocks the merge. |
+| The same decision, on a finding you cannot classify | A finding the Lander cannot classify goes to the owner (decision d20261029T165623191-578690). |
 | When you cannot tell which kind a finding is | It goes to the owner. The approved words let you merge when *none* does, and you cannot say that. This is the Lander's reading. |
 | Examples that go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
 | Those examples are not the owner's | The owner named none. They follow from the approved words, *"changes behaviour or weakens a control"*. |

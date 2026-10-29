@@ -627,6 +627,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| A final review-only round, added 2026-10-29 | If the last repair round produced a fix commit, run one more review-only round on the pushed head, fix nothing it finds, ship its findings, and write the QA line as `Rounds: 2 + final review-only` (decision d20261029T165623191-578690). |
 | After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
