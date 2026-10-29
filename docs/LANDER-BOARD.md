@@ -67,9 +67,9 @@ since the last merge, across all repositories:
 
 One merge in an hour reads `SLOW`, not `DRAINING` (owner ruling 2026-10-29).
 
-The pill carries **an age with its anchor** in small type beside it -- `last merge 23m ago as of
-7:50 PM CT`. The label alone is a bucket; the age is the reading behind it, and the anchor is what
-keeps the age honest.
+The pill carries **the merge count and an anchored age** in small type beside it. For example:
+`3 merged in the last 60 min, last merge 23m ago as of 7:50 PM CT`. The label alone is a bucket. The
+count and the age are the readings behind it, and the anchor keeps the age honest.
 
 **Never an UNANCHORED relative age.** Owner instruction 2026-09-19, revised the same day. A bare
 age freezes at render, so a page read an hour later still says `8m ago` and nothing contradicts
