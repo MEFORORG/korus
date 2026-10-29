@@ -218,6 +218,18 @@ carries the scorecard's map*, keeps out of a public place. That section says whe
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
 the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
 
+The Lander decided the rule quoted below under the owner's delegation of 2026-10-29 (decision
+d20261029T015930369-47f7ac). It asked *"Reply OWED A or OWED B"*, the owner answered */driver*,
+and it chose A. The Lander amended the text after review, under the same decision, to correct its
+accuracy.
+
+That record shows no adversarial review. Engine PR 2631 added the script, merged at `4f71d7fd7c`:
+
+> When you ask the Lander to flip or file a ledger row after a merge, put
+> `<!-- lander-ledger-ask rows=#N[,#M] file=K -->` in the PR comment that carries the ask, even if
+> you also send mail; `owed_ledger_acts.py` reads that marker first, and its prose fallback can miss
+> an ask.
+
 ### Open the body with the merge danger and the evidence
 
 **Owner request 2026-10-07.** Every pull request body you open starts with these two blocks, above
