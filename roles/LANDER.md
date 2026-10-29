@@ -616,6 +616,7 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | The default for a non-trivial fix | **Spawn a session.** |
 | Why, and it is the whole argument | **Your subagents die with you.** This is someone else's branch, and a subagent that dies mid-repair leaves a half-fixed tree nobody can find, on work you did not author. |
 | When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
+| A quiet author's held PR, decided 2026-10-29 | It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). That Builder makes only the fixes the hold names. Every other non-trivial fix still goes to a spawned Manager session. |
 | Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
 | Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
 | What this row does NOT reach | **Ledger work.** That goes to a subagent in your own worktree, because a claim is keyed on the worktree path. *7a. Ledger work goes to a SUBAGENT* holds it. |
@@ -1068,7 +1069,7 @@ thirteen hours for a ruling, with green checks.
 
 The Lander put at least four kinds of defect to the owner. Code comments were out of date after a
 dependency bump. One docstring sentence overstated. One check fired late. One refusal message lost
-its prefix. The pull requests list more than that, and this record classifies none of it.
+its prefix. The pull requests list more. *A factual error in prose*, below, now classifies some.
 
 At 16:55Z the owner ruled on them, verbatim: *"merge 2244, 2263, 2282 and 2385; file the defects
 as rows"*. The fourth number is a vault pull request, outside this record. The Lander then
@@ -1094,10 +1095,12 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | One question is still with the owner | May you name a finding on the pull request, merge, and file its row after? Asked 2026-10-12. This row is edited when the owner answers. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. A queued row does not count. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
-| When you cannot tell which kind a finding is | It goes to the owner. The approved words let you merge when *none* does, and you cannot say that. This is the Lander's reading. |
+| A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
+| What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. |
+| When you cannot tell which kind a finding is | It goes to the owner. The approved words let you merge when *none* does, and you cannot say that. This is the Lander's reading, and decision d20261029T165623191-578690 adopts it. |
 | Examples that go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
 | Those examples are not the owner's | The owner named none. They follow from the approved words, *"changes behaviour or weakens a control"*. |
-| The day's four kinds of defect are not examples | The owner said at 16:55Z to merge those pull requests, and the Lander merged them. That ruling classifies no defect, and neither does this record. |
+| The day's four kinds of defect are not examples | The owner said at 16:55Z to merge those pull requests, and the Lander merged them. That ruling classifies no defect. **CHANGED 2026-10-29:** this ended *and neither does this record*; the factual-error row above now classifies prose errors. |
 | What the ruling does not give you | A decline the sweep table bars. A way past review proof. A choice between two authors' deliberate changes, which *4c-quinquies* leaves with the authors. |
 | No review proof at all | That is UNKNOWN, never SKIPPED. CLAUDE.md, *The `qa` label changes nothing about merging*, forbids reading a missing label as a skipped step and forbids holding a pull request for one. |
 | So what an absence buys you | Work, not a wait. Dispatch an `Agent` subagent that runs the `code-review` skill at `xhigh`. Nobody is being waited on, so the pull request is not held for `qa`. |
