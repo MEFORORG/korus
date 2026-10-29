@@ -70,7 +70,7 @@ Read the board as evidence, not as output:
 
 | Reading it gives you | What you do with it |
 | --- | --- |
-| Minutes since the last merge, per repository | The `DRAINING` / `SLOW` / `STALLED` pill, and the duration behind it |
+| Merges in the trailing 60 minutes, and minutes since the last merge | The `DRAINING` / `SLOW` / `STALLED` pill, and the count and duration behind it |
 | Arrivals against merges | Whether a flat open-count hides a queue losing ground |
 | Idle runs rather than idle hours | A baseline for calling a gap abnormal |
 | Open scheduled-run failure issues, and how long each has been open | Measure how long each stays open. Never act on one: the Lander owns scheduled-run reds, owner ruling 2026-09-26 |

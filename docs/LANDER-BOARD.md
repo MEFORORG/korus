@@ -55,18 +55,21 @@ Three things, left to right.
 **The name and one line of subtitle.** Say which seat watches it, so a reader who did not ask for it
 knows who to talk to.
 
-**A status pill with a signal colour**, driven by minutes since the last merge in any repository:
+**A status pill with a signal colour**, driven by merges in the trailing 60 minutes and minutes
+since the last merge, across all repositories:
 
-| Minutes | Label | Colour |
+| Reading | Label | Colour |
 | --- | --- | --- |
-| 60 or fewer | `DRAINING` | good |
-| 61 to 180 | `SLOW` | warning |
-| over 180 | `STALLED` | critical |
+| 2 or more merges in the last 60 minutes | `DRAINING` | good |
+| fewer than 2 merges in the last 60 minutes, last merge 180 or fewer minutes ago | `SLOW` | warning |
+| last merge over 180 minutes ago | `STALLED` | critical |
 | no merge on record | `NO DATA` | warning |
 
-The pill carries **an age with its anchor** in small type beside it -- `last merge 23m ago as of
-7:50 PM CT`. The label alone is a bucket; the age is the reading behind it, and the anchor is what
-keeps the age honest.
+One merge in an hour reads `SLOW`, not `DRAINING` (owner ruling 2026-10-29).
+
+The pill carries **the merge count and an anchored age** in small type beside it. For example:
+`3 merged in the last 60 min, last merge 23m ago as of 7:50 PM CT`. The label alone is a bucket. The
+count and the age are the readings behind it, and the anchor keeps the age honest.
 
 **Never an UNANCHORED relative age.** Owner instruction 2026-09-19, revised the same day. A bare
 age freezes at render, so a page read an hour later still says `8m ago` and nothing contradicts
@@ -76,8 +79,8 @@ A **span** -- how long an idle run lasted -- needs no anchor. It does not age as
 
 **A timestamp in Central time**, with the UTC instant under it and the refresh cadence.
 
-Central is UTC-5 in daylight saving and UTC-6 outside it. Windows `strftime` rejects `%-I`, so
-format the hour by arithmetic rather than a format string. See
+Central is UTC-5 in daylight saving and UTC-6 outside it; `scripts/board/central.py` switches. Windows
+`strftime` rejects `%-I`, so format the hour by arithmetic. See
 [Seven traps](#7-seven-traps-and-every-one-returned-something-that-looked-clean).
 
 ---
@@ -567,9 +570,9 @@ the board is titled **Lander Board**. Ask the owner if the listing does not show
 
 A Watchdog taking the seat restarts the refresh in four steps:
 
-1. **Extract all six from `origin/main` every time**, into your own scratchpad. With
-   `git -C <korus>`: `fetch origin`, then `show origin/main:scripts/board/<file>` for
-   `collect.py`, `series.py`, `build.py`, `template.html`, `refresh.ps1`, `seatstate.py`.
+1. **Extract all seven from `origin/main` every time**, into your scratchpad: `git -C <korus>
+   fetch origin`, then `show origin/main:scripts/board/<file>` for `collect.py`, `series.py`,
+   `build.py`, `central.py`, `template.html`, `refresh.ps1` and `seatstate.py`.
    **Never run a working tree's copies.**
 2. Run the scratchpad `refresh.ps1` with an `-OutDir` beside it.
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
