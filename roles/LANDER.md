@@ -616,7 +616,7 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | The default for a non-trivial fix | **Spawn a session.** |
 | Why, and it is the whole argument | **Your subagents die with you.** This is someone else's branch, and a subagent that dies mid-repair leaves a half-fixed tree nobody can find, on work you did not author. |
 | When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
-| The one exception, decided 2026-10-29 | A held PR whose author has gone quiet may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). Every other non-trivial fix still goes to a spawned session. |
+| A quiet author's held PR, decided 2026-10-29 | It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). That Builder makes only the fixes the hold names. Every other non-trivial fix still goes to a spawned Manager session. |
 | Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
 | Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
 | What this row does NOT reach | **Ledger work.** That goes to a subagent in your own worktree, because a claim is keyed on the worktree path. *7a. Ledger work goes to a SUBAGENT* holds it. |
