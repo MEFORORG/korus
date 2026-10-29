@@ -194,12 +194,6 @@ cards = [
          wide=True),
 ]
 
-since_rows = "".join(
-    '<div class="mrow"><span class="mname">%s</span><span class="mval %s">%s</span></div>'
-    % (esc(r["name"]),
-       "crit" if (r["since"] or 0) > 180 else ("warn" if (r["since"] or 0) > 60 else "good"),
-       r["last_at"]) for r in rows)
-
 
 def chips(entries):
     if not entries:
@@ -609,7 +603,7 @@ out = (tpl
        .replace("{{CT}}", esc(s["generated_ct"]))
        .replace("{{UTC}}", esc(d["generated_utc"]))
        .replace("{{VERDICT}}", verdict).replace("{{VCLASS}}", vclass)
-       .replace("{{SINCE_ANY}}", since_any_pill)
+       .replace("{{SINCE_ANY}}", since_any_pill).replace("{{M60}}", str(tot["m60"]))
        .replace("{{CARDS}}", "".join(cards))
        .replace("{{WINDOW}}", str(s.get("chart_hours", s["window_h"])))
        .replace("{{QUEUE_ROWS}}", queue_rows)
