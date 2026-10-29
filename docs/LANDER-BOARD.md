@@ -79,7 +79,8 @@ A **span** -- how long an idle run lasted -- needs no anchor. It does not age as
 
 **A timestamp in Central time**, with the UTC instant under it and the refresh cadence.
 
-Central is UTC-5 in daylight saving and UTC-6 outside it. Windows `strftime` rejects `%-I`, so
+Central is UTC-5 in daylight saving and UTC-6 outside it, and `scripts/board/central.py` switches
+between them; never fix one offset. Windows `strftime` rejects `%-I`, so
 format the hour by arithmetic rather than a format string. See
 [Seven traps](#7-seven-traps-and-every-one-returned-something-that-looked-clean).
 

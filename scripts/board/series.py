@@ -4,7 +4,7 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
-CT = dt.timezone(dt.timedelta(hours=-5), "CDT")   # Sept 2026 is CDT
+from central import CT  # US Central with daylight saving; see central.py
 HOURS = 48          # the MEASUREMENT window: idle runs and the window rate are read over this
 CHART_HOURS = 24    # the CHART window, owner-set 2026-09-19. A slice of the above, never a re-read
 IDLE_RUN_MIN = 3

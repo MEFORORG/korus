@@ -4,7 +4,7 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
-CT = dt.timezone(dt.timedelta(hours=-5), "CDT")
+from central import CT  # US Central with daylight saving; see central.py
 d = json.load(open(os.path.join(OUT, "data.json"), encoding="utf-8"))
 s = json.load(open(os.path.join(OUT, "series.json"), encoding="utf-8"))
 P = lambda x: dt.datetime.fromisoformat(x.replace("Z", "+00:00"))
