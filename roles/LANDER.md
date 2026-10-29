@@ -814,6 +814,19 @@ because `/loop` is a harness built-in rather than a file.
 A detector that misses the known-good case measures nothing. So the goal rides in the loop's PROMPT,
 quoted above. A seat hunting for `/goal` will find nothing, and should stop hunting.
 
+The owner approved the first sentence below in the engine Manager seat's chat on 2026-10-28.
+The Manager added the second, the hold format, after the Lander adopted that marker under the
+owner's /driver delegation of 2026-10-28 (decision d20261028T175109728-7483fa); text drafted in
+engine PR 2628:
+
+> Every Lander loop pass runs `python scripts/coord/held_pr_turns.py` (engine repo) and re-triages
+> each PR it marks LANDER, reading every comment newer than your last hold, before reporting any PR
+> as held with its author; a hold you remember is not evidence, the script's AUTHOR row is. Write
+> every hold with `<!-- lander-hold head=<full sha> -->` as its first line and `Lander (session ...`
+> as its second, or the script reads it as LANDER.
+
+Engine PR 2628 added the script, merged at `ffb2283333`.
+
 ### 3b-bis. What the loop fixes, what it does not, and how thin the evidence is
 
 Measured by the Watchdog session on the engine repo, 2026-09-18 to 2026-09-19. Attributed here
