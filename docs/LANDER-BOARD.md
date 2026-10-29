@@ -55,14 +55,17 @@ Three things, left to right.
 **The name and one line of subtitle.** Say which seat watches it, so a reader who did not ask for it
 knows who to talk to.
 
-**A status pill with a signal colour**, driven by minutes since the last merge in any repository:
+**A status pill with a signal colour**, driven by merges in the trailing 60 minutes and minutes
+since the last merge, across all repositories:
 
-| Minutes | Label | Colour |
+| Reading | Label | Colour |
 | --- | --- | --- |
-| 60 or fewer | `DRAINING` | good |
-| 61 to 180 | `SLOW` | warning |
-| over 180 | `STALLED` | critical |
+| 2 or more merges in the last 60 minutes | `DRAINING` | good |
+| fewer than 2 merges in the last 60 minutes, last merge 180 or fewer minutes ago | `SLOW` | warning |
+| last merge over 180 minutes ago | `STALLED` | critical |
 | no merge on record | `NO DATA` | warning |
+
+One merge in an hour reads `SLOW`, not `DRAINING` (owner ruling 2026-10-29).
 
 The pill carries **an age with its anchor** in small type beside it -- `last merge 23m ago as of
 7:50 PM CT`. The label alone is a bucket; the age is the reading behind it, and the anchor is what
