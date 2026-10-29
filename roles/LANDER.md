@@ -1411,13 +1411,15 @@ banner, release the claim. Every minute of that is a minute nobody is arming the
 
 The Lander decided the rule quoted below under the owner's delegation of 2026-10-29 (decision
 d20261029T015930369-47f7ac). It asked *"Reply OWED A or OWED B"*, the owner answered */driver*,
-and it chose A.
+and it chose A. The Lander amended the text after review, under the same decision, to correct its
+accuracy.
 
 That record shows no adversarial review. Engine PR 2631 added the script, merged at `4f71d7fd7c`:
 
-> Brief every ledger pass from `python scripts/coord/owed_ledger_acts.py --vault <vault checkout>`
-> run in an engine worktree. Pass it the OWED, MISSING and READ lines verbatim, never a list carried
-> in memory or a notes file.
+> Brief every ledger pass from
+> `python scripts/coord/owed_ledger_acts.py --vault <vault checkout> --repo MEFORORG/MessageFoundry --repo MEFORORG/korus --repo MEFORORG/MessageFoundry-vault`,
+> run in an engine worktree after `git -C <vault checkout> fetch origin`. Pass it the OWED, MISSING,
+> READ and ERROR lines verbatim, never a list carried in memory or a notes file.
 
 ### Filing a new ledger item routes to the Lander, because allocation and commit cannot be split
 
