@@ -87,7 +87,8 @@ n = len(mer)
 # value its gridline really sits at. It used to label 0, half and max: an odd max put a rounded
 # "2" where the line meant 2.5, and an even max left the values between unlabelled.
 mpeak = max(max(mer), 1)
-mstep = 1 if mpeak <= 8 else 2 if mpeak <= 16 else 5
+# Steps run 1, 2, 5, 10, 20, 50 and on, so no peak can crowd the axis past 8 intervals.
+mstep = next(m * 10 ** e for e in range(20) for m in (1, 2, 5) if mpeak <= 8 * m * 10 ** e)
 mmax = ((mpeak + mstep - 1) // mstep) * mstep
 mticks = [i * mstep / mmax for i in range(mmax // mstep + 1)]
 omin, omax = min(opn), max(opn)
@@ -123,7 +124,8 @@ lyl = "".join('<text class="ax lyl" x="%d" y="%.1f">%d</text>'
 # The open-count labels share those gridlines: top, bottom, and the line nearest the middle.
 rmid = min(mticks, key=lambda f: abs(f - .5))
 ryl = "".join('<text class="ax ryl" x="%d" y="%.1f">%d</text>'
-              % (W - PADR + 10, PADT + ih * f + 4, round(ohi - (ohi - olo) * f)) for f in (0, rmid, 1))
+              % (W - PADR + 10, PADT + ih * f + 4, round(ohi - (ohi - olo) * f))
+              for f in sorted({0, rmid, 1}))  # a set: on a two-line axis rmid IS an end
 xtk = "".join('<text class="ax xtk" x="%.1f" y="%d">%s</text>'
               % (bx(i) + bw / 2, H - 13, labels[i]) for i in range(n) if i % 3 == 0 or i == n - 1)
 

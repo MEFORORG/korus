@@ -92,6 +92,19 @@ class MergeAxisLabelsWholeMerges(unittest.TestCase):
     def test_a_large_peak_keeps_the_labels_readable(self):
         self.assertLessEqual(len(labels(render([23, 0]))), 9)
 
+    def test_no_peak_crowds_the_axis(self):
+        """Hold on PR 258: a fixed top step of 5 overlapped its labels above a peak of 85."""
+        for peak in (40, 41, 80, 81, 86, 160, 161, 400, 401, 999, 12345):
+            got = labels(render([peak, 0]))
+            self.assertLessEqual(len(got), 9, peak)
+            self.assertGreaterEqual(max(got), peak)
+
+    def test_the_right_axis_never_prints_one_label_twice(self):
+        """Hold on PR 258: an idle chart's two-line axis printed its bottom right label twice."""
+        for merged in ([0, 0], [1, 0], [2, 0], [5, 0]):
+            ys = re.findall(r'<text class="ax ryl" x="\d+" y="([\d.]+)">', render(merged))
+            self.assertEqual(len(ys), len(set(ys)), merged)
+
     def test_no_merges_at_all_still_draws_an_axis(self):
         self.assertEqual(sorted(labels(render([0, 0]))), [0, 1])
 
