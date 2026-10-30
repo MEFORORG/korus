@@ -1516,28 +1516,30 @@ outbound that fails at start. Check the files above and the `RegistryRunner` sta
 **When a hook's timeout lets the command run, a slow scan is a deny turned into an allow.** So a
 change that makes a guard slower on large input can weaken the guard, even when every test passes.
 
-One measured case, engine PR 2230, under a 15 s timeout. The Lander's whole-hook timing of a 600 KB
-payload read 2.6 s at `b8a4a8aff7` and 29.7 s at `93f2775087`, four commits later. Its review of the
-last commit named two causes: a `StringBuilder.Append(text, start, count)` loop and `Stack.Push`.
+One measured case, engine PR 2230, under a 15 s timeout. The Lander's whole-hook timing of 600 KB of
+deep nests read 2.6 s at `b8a4a8aff7` and 29.7 s at `93f2775087`, four commits later. The last
+commit's review named at least two causes: `StringBuilder.Append(text, start, count)` and `Stack.Push`.
 
 When you rewrite or review a guard hook:
 
-1. Find the hook's timeout and what the harness does when it fires.
-   [`docs/HOOKS.md`](../docs/HOOKS.md) gives the shipped values, not that behaviour.
-2. Time the whole hook, new head and old head, on adversarial payloads up to the cap, or past 1 MB
-   where there is none. Compare each time to the timeout too. 30,000 copies of `commit ` took 31.4 s
-   at the parent of `37ccc9f881` and 32.8 s at it: a small slowdown, and both past 15 s.
+1. Find the hook's wired timeout and what the harness does when it fires.
+   [`docs/HOOKS.md`](../docs/HOOKS.md) gives the shipped values, and
+   [`docs/LIMITS.md`](../docs/LIMITS.md) says a killed hook's edit proceeds.
+2. Time the whole hook, fresh process, several runs, both heads, on adversarial payloads up to the
+   cap and far past it, or past 1 MB with no cap. Compare each time to the timeout too.
+   30,000 copies of `commit ` before a blanket stage read 31.4 s and 32.8 s around `37ccc9f881`:
+   both past 15 s.
 3. Treat a large slowdown, or a time near or past the timeout, as a security finding, not a
-   performance note. PR 2230's cap kept each measured payload under a third of the timeout. Pin the
-   repair with a test that fails on the slow head.
+   performance note. PR 2230's bar was under a third of the timeout. Pin the repair with a test that
+   fails on the slow head, driving the function past the cap if the cap hides it.
 4. If each repair opens another slow path, add a fail-closed length cap before any read or parse
    that grows with input. Engine `6595f4b3e1` denies a command over 65,536 characters unscanned;
    `8bc78b470d` limits the read. A cap limits size, not time, so time the hook at it. Say what it
    refuses.
-5. In PowerShell only, do not pass a large string as a method argument in a loop: use
-   `$text.Substring(start, count)`, not `$sb.Append($text, start, count)`. By `Measure-Command` on
-   pwsh 7.6.9, 2,000 calls on 1 MB took 17.6 s, against 4 ms from C#. 500 `$re.Match($text, $pos)`
-   took 5.5 s.
+5. In pwsh 7, do not loop passing a large string as an argument. Use
+   `$text.Substring(start, count)`, not `$sb.Append($text, start, count)`, and `$m.NextMatch()`, not
+   `$re.Match($text, $pos)`. `Measure-Command`, 2,000 `Append`s on 1 MB: 17.6 s on 7.6.9, 4 ms from
+   C#; PowerShell 5.1 had no such cost.
 
 | Wiki evidence | |
 | --- | --- |
@@ -1545,7 +1547,7 @@ When you rewrite or review a guard hook:
 | The first correction | Event `20261011T030841485Z-4kjd6j`, which replaces it. |
 | The rule above | Event `20261017T191358668Z-5cmvkv`, which replaces both. It holds the fail-open reading, the 600 KB timing and step 2's comparison against the old head. |
 | Added on review | Steps 1, 3, 4 and 5, and step 2's whole-hook timing and comparison to the timeout. No event carries them; read at engine PR 2230. The step 5 timings were measured on 2026-10-30. |
-| Reading the SHAs | PR 2230 squash-merged as `84b4ee0e0c`. The others need `git fetch origin pull/2230/head`. |
+| Reading the SHAs | PR 2230 squash-merged as `84b4ee0e0c`. The others need `git -C <engine clone> fetch origin pull/2230/head`. |
 
 Expiry: this stands while any guard hook runs under a timeout that allows the command to proceed.
 
