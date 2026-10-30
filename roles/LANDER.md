@@ -774,7 +774,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | --- | --- |
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the real gap. |
 | The loop covers scheduled-run reds | The prompt says *poll each queue*. Read the board's *Scheduled runs failing* panel on the same tick. *A scheduled run's red is yours too* holds the duty. |
-| The loop covers labelled reds | Each tick, run `gh pr list --repo MEFORORG/MessageFoundry --label ci-red --state open --limit 200`. At 200 hits, re-read higher. Nothing removes the label on its own. A dry run of engine `scripts/ci/clear_stale_ci_red.py` tells stale from real, except vault #2942. |
+| The loop covers labelled reds | Each tick, run `gh pr list --repo MEFORORG/MessageFoundry --label ci-red --state open --limit 200`. At 200 hits, re-read higher. Nothing removes the label. A dry run of engine `scripts/ci/clear_stale_ci_red.py` tells stale from real, except vault #2942: read `reason`, *7c-ter*. |
 | Why that read is yours | Only the engine applies the label. The watcher that read it is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
 | The label neither proves nor rules out an eviction: *7c-ter* | `failure-signal.yml` labels any watched `merge_group` failure, evicted or not; at least a cancel or dequeue raises nothing. A red with no PR goes to the issue *Reds with no pull request behind them*; read each tick. Vault #1403, same decision. |
 | Finding an eviction each tick | Poll the queue entry of each PR you enqueued: *4j*. |
@@ -1578,17 +1578,20 @@ request's file list, a run history showing no failures, and one failed run.
 | The shape that fools you | An entry EVICTED from the merge queue reads CLEAN or MERGEABLE at PR level, with its head unmoved. |
 | Credit | The own-pre-fix-head refinement is from the session that resolved PR 1030. |
 
-**The queue and pull-request CI share one runner pool, and a starved entry is evicted in silence.**
+**The queue and pull-request CI share one runner pool, so read the pool before you enqueue.**
 
-Measured 2026-09-11 at 22 runs queued against 4 in progress: PR 1036's entry sat 30 minutes and was
-evicted. `main` never moved, and no `gh-readonly-queue` run ever appeared, because its build never
-got a slot. The Lander caused it by refreshing eight PRs at once for an unrelated reason.
+Measured 2026-09-11 at 22 runs queued against 4 in progress, after the Lander refreshed eight PRs at
+once for an unrelated reason.
 
 ```
 gh run list --limit 100 --json status    # compare queued to in_progress BEFORE you enqueue
 ```
 
-**A cancelled required check is a third route to eviction, and it reports zero failures.**
+**CORRECTED 2026-10-30.** This said a starved entry is evicted in silence: PR 1036 sat 30 minutes and
+*"no `gh-readonly-queue` run ever appeared"*. GraphQL and `gh run list` read otherwise. Its entry of
+16:27:33Z had five runs, CI failed, and it left at 16:58:09Z reading `failed_checks`.
+
+**A cancelled required check is a route to eviction, and it reports zero failures.**
 
 `backlog-hygiene.yml` records its own case in its `concurrency` block. The key collapsed to a bare
 string on `merge_group`, so each queue entry cancelled the one before it.
@@ -1607,22 +1610,30 @@ the failed job before you blame PR N's files. The PR head's own rollup cannot sh
 
 | Question | Read this |
 | --- | --- |
-| Is PR N in the queue now? | `merged` and `mergeQueueEntry` below, as engine CLAUDE.md section 5 safeguard step 1 reads them with `autoMergeRequest`. An entry reading `UNMERGEABLE` is not out yet: *4j*. A re-queued PR has past removals and a live entry, so never count. |
-| Did it ever leave? | A `reason` other than `merged` below. REST `issues/<N>/timeline --paginate` lists every removal, the merge's own included, without `reason`. |
+| Is PR N in the queue now? | `merged` and `mergeQueueEntry` below. A non-null `autoMergeRequest` is a deferred request, not an entry: engine CLAUDE.md section 5 safeguard step 1. An entry reading `UNMERGEABLE` is not out yet: *4j*. A re-queued PR has removals and a live entry. |
+| Did it ever leave? | Any `reason` other than `merged` below. |
 | Why did it leave? | That `reason`. At least `failed_checks`, `checks_timed_out`, `merge_conflict` and `manual` occur. |
-| Which check did it? | The run command below, matching `createdAt` to the removal and `pr-N-<oid>` to the entry's `headCommit`. Read the jobs of each run reading failure, cancelled, timed_out or empty: it can still be in progress. No run may mean a starved entry. |
+| Which check did it? | Ask only on `failed_checks` or `checks_timed_out`; never blame a nearby red for `manual` or `merge_conflict`. Run the second command over that removal's window. Read the jobs of each run not reading success or skipped, or at attempt above 1. |
 | Did a re-run hide the red? | A re-run overwrites a run's conclusion and job list. Read `actions/runs/<id>/attempts/<k>/jobs` for each earlier attempt. |
-| The bot says the queue ejected it | `failure-signal.yml` says so on any watched `merge_group` failure, and `clear_stale_ci_red.py` keys on that sentence. PR 1991 got it and never left. Vault #2942. |
+| The bot says the queue ejected it | `failure-signal.yml` says so on any watched `merge_group` failure, and `clear_stale_ci_red.py` keeps the label on that sentence. PR 1991 got it and never left. Vault #2942. |
 
 ```
-gh api graphql -F n=<N> -f query='query($n:Int!){repository(owner:"MEFORORG",name:"MessageFoundry"){pullRequest(number:$n){merged autoMergeRequest{enabledAt} mergeQueueEntry{state headCommit{oid}} timelineItems(itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT],first:100){nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}'
-gh run list --repo MEFORORG/MessageFoundry --event merge_group --created <day before>..<removal day> --limit 1000 --json headBranch,workflowName,conclusion,attempt,databaseId,createdAt,updatedAt --jq '.[] | select(.headBranch | contains("/pr-<N>-"))'
+gh api graphql -F n=<N> -f query='query($n:Int!){repository(owner:"MEFORORG",name:"MessageFoundry"){pullRequest(number:$n){merged autoMergeRequest{enabledAt} mergeQueueEntry{state} timelineItems(itemTypes:[ADDED_TO_MERGE_QUEUE_EVENT,REMOVED_FROM_MERGE_QUEUE_EVENT],first:100){nodes{... on AddedToMergeQueueEvent{createdAt} ... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}'
+gh run list --repo MEFORORG/MessageFoundry --event merge_group --created <added>..<removed> --limit 1000 --json headBranch,workflowName,conclusion,attempt,databaseId,createdAt,updatedAt --jq 'length, (.[] | select(.headBranch | contains("/pr-<N>-")))'
 ```
 
-Give both days as YYYY-MM-DD. A timestamp there returns nothing, which is a failed read and not a
-starved entry. The day before catches a run created before midnight UTC: PR 2474's.
+A timeline node with no `reason` is the add; pair each removal with the add before it. The second
+command prints the count it read first: exactly 1000 means it truncated, so narrow the range. An
+empty conclusion is a run still in progress.
 
-Measured 2026-10-30 on the engine, with those reads. PR 1991's CI run 37227580761 failed, the group
+Measured 2026-10-30 with those reads, on removals since 2026-10-15. All 78 `failed_checks` held a
+non-green run, and so did 18 of 24 `manual` and 18 of 311 `merged`. None of 7 `merge_conflict` held
+a run at all.
+
+Of all 12 `checks_timed_out` in 2642 PRs, each held a run and 4 held no non-green run. No read of
+those two reasons came back empty, so suspect the read first if yours does.
+
+On the engine, PR 1991's CI run 37227580761 failed, the group
 was rebuilt when PR 1988 left ahead of it, and run 37227656315 passed; its one removal reads
 `merged`. The control, PR 1988, reads `failed_checks` twice, then `merged`.
 
