@@ -1589,8 +1589,9 @@ gh run list --repo MEFORORG/MessageFoundry --limit 100 --json status    # compar
 
 **CORRECTED 2026-10-30.** This said a starved entry is evicted in silence: PR 1036 sat 30 minutes and
 *"no `gh-readonly-queue` run ever appeared"*. GraphQL and `gh run list` read otherwise. Its entry of
-16:27:33Z had five runs, CI failed, and it left at 16:58:09Z reading `failed_checks`. A slow entry can still leave:
-the `checks_timed_out` row under *The converse also holds*.
+16:27:33Z had five runs, CI failed, and it left at 16:58:09Z reading `failed_checks`.
+
+A slow entry can still leave: the `checks_timed_out` row under *The converse also holds*.
 
 **A cancelled required check is a route to eviction, and it reports zero failures.**
 
