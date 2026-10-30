@@ -83,7 +83,13 @@ W, H = 900, 300
 PADL, PADR, PADT, PADB = 54, 54, 24, 36
 mer, opn, labels = s["total_merged_per_hour"], s["total_open_per_hour"], s["hours_ct"]
 n = len(mer)
-mmax = max(max(mer), 1)
+# THE MERGE AXIS COUNTS WHOLE MERGES. Its top rounds up to a whole step, so every label names the
+# value its gridline really sits at. It used to label 0, half and max: an odd max put a rounded
+# "2" where the line meant 2.5, and an even max left the values between unlabelled.
+mpeak = max(max(mer), 1)
+mstep = 1 if mpeak <= 8 else 2 if mpeak <= 16 else 5
+mmax = ((mpeak + mstep - 1) // mstep) * mstep
+mticks = [i * mstep / mmax for i in range(mmax // mstep + 1)]
 omin, omax = min(opn), max(opn)
 opad = max(1, round((omax - omin) * 0.15)) if omax > omin else 1
 # THE OPEN-PR AXIS STARTS AT ZERO, deliberately. It is a COUNT, and an axis floored at the
@@ -111,11 +117,13 @@ dots = "".join(
     '<circle class="odot" cx="%.1f" cy="%.1f" r="3.4"><title>%s CT &mdash; %d open</title></circle>'
     % (bx(i) + bw / 2, oy(v), labels[i], v) for i, v in enumerate(opn))
 grid = "".join('<line class="gl" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/>'
-               % (PADL, W - PADR, PADT + ih * f, PADT + ih * f) for f in (0, .25, .5, .75, 1))
+               % (PADL, W - PADR, PADT + ih * f, PADT + ih * f) for f in mticks)
 lyl = "".join('<text class="ax lyl" x="%d" y="%.1f">%d</text>'
-              % (PADL - 10, PADT + ih * f + 4, round(mmax * (1 - f))) for f in (0, .5, 1))
+              % (PADL - 10, PADT + ih * f + 4, round(mmax * (1 - f))) for f in mticks)
+# The open-count labels share those gridlines: top, bottom, and the line nearest the middle.
+rmid = min(mticks, key=lambda f: abs(f - .5))
 ryl = "".join('<text class="ax ryl" x="%d" y="%.1f">%d</text>'
-              % (W - PADR + 10, PADT + ih * f + 4, round(ohi - (ohi - olo) * f)) for f in (0, .5, 1))
+              % (W - PADR + 10, PADT + ih * f + 4, round(ohi - (ohi - olo) * f)) for f in (0, rmid, 1))
 xtk = "".join('<text class="ax xtk" x="%.1f" y="%d">%s</text>'
               % (bx(i) + bw / 2, H - 13, labels[i]) for i in range(n) if i % 3 == 0 or i == n - 1)
 
