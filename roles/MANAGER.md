@@ -218,6 +218,18 @@ carries the scorecard's map*, keeps out of a public place. That section says whe
 request title and the proposed ledger banner text. Use the title or say why you changed it, and carry
 the banner text to the Lander untouched -- you do not edit `docs/BACKLOG.md` either.
 
+The Lander decided the rule quoted below under the owner's delegation of 2026-10-29 (decision
+d20261029T015930369-47f7ac). It asked *"Reply OWED A or OWED B"*, the owner answered */driver*,
+and it chose A. The Lander amended the text after review, under the same decision, to correct its
+accuracy.
+
+That record shows no adversarial review. Engine PR 2631 added the script, merged at `4f71d7fd7c`:
+
+> When you ask the Lander to flip or file a ledger row after a merge, put
+> `<!-- lander-ledger-ask rows=#N[,#M] file=K -->` in the PR comment that carries the ask, even if
+> you also send mail; `owed_ledger_acts.py` reads that marker first, and its prose fallback can miss
+> an ask.
+
 ### Open the body with the merge danger and the evidence
 
 **Owner request 2026-10-07.** Every pull request body you open starts with these two blocks, above
@@ -600,6 +612,8 @@ you can find later: nothing survives the moment you close the instance.
 | **NARROWED 2026-09-22** | The row above ended *"and require the tag back"*. Both QA lines on `MEFORORG/MessageFoundry` 1419 returned none, so the demand can go unmet. Require the level you briefed and the skill's first line verbatim. `BUILDER.md` 4e holds the commands. |
 | `Tag: none returned` is compliant beside the tool's refusal message | Post it as it stands. Check a round by the nonce its note carries: `review_tag.py --target <nonce> --session <id> --worktree <its worktree>` must name the same fork. Post only the `tag:` line. |
 | **CHANGED 2026-10-22** | The row above read *"So `Tag: none returned` is compliant"*, with nothing beside it. `BUILDER.md` 4e now reads the tag from the fork's transcript with `review_tag.py`, so a bare absence no longer says the search ran. |
+| A re-check of a finished round reads exit 16 | Do not post its tag. A head elsewhere carries its nonce, so the reading needs a second look. The Builder cannot re-run that round; brief a fresh one if the tag matters (vault #4121). |
+| Writing a brief that quotes a review round | Never paste a round's head into a brief; `BUILDER.md` 4e, exit 16's row, says why. |
 | Why the review is in this row | A Manager briefing from the seat table alone omits it. Reported 2026-09-18 and not re-measured here: eight Builders briefed that way, none told to review, none reviewed. |
 | **CHANGED 2026-09-18** | That line read *"Push the branch. Open the pull request. Then report."* The opening moved to this seat. **The push did not move**, and it is the half that protects the work. |
 | The last commit message is part of the contract | Require it to carry the proposed pull request title and the proposed ledger banner text. That is what makes the branch self-describing **if you die between the Builder's exit and step 9**. |

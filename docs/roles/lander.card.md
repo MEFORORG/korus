@@ -82,7 +82,7 @@ fixes.
 
 - Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
 
-- Do not repair a non-trivial failure with a subagent. Subagents die with you, and this is someone else's branch. Spawn a session. Ledger work is the exception, below.
+- Never fix a non-trivial failure with a subagent: it dies with you, on another's branch. Spawn a session, except ledger work (below) or a quiet author's held PR (LANDER.md).
 
 - Do not confuse `BEHIND` and `DIRTY`. Four states block a merge, three need different fixes, and `DIRTY` is never force-pushed or routed to a Builder: resolve it by hand.
 

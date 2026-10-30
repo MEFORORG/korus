@@ -496,7 +496,7 @@ check is the only reason the seat that hit this caught its own.**
     how, and what to quote.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
-    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
+    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. If a fix commit landed after the last review that ran, run 4c's final unrepaired round on the pushed head before you report. **As the Manager's
     subagent you do not open the pull request. The Manager does**, and there is no next item. In
     your own session, open it yourself (see the top of this file).
 
@@ -627,6 +627,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| A final unrepaired round, added 2026-10-29 | If a fix commit landed after the last review that ran, run one more round on the pushed head, fix nothing it finds, ship its findings, and write the QA line as `Rounds: 2 + 1 unrepaired` (decision d20261029T165623191-578690). |
 | After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
@@ -667,6 +668,9 @@ costs a full review at `xhigh`.
 
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
+
+**NARROWED 2026-10-29:** the final unrepaired round in the table above is not that third round. It
+fixes nothing, so it is not a loop.
 
 **It runs in more than two shapes, and a tag names the one you got -- when a tag comes back.** Copy
 it rather than inferring the shape from what you were granted. Where none comes back, record that.
@@ -787,7 +791,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Tag, in the inline shape | The tag quoted from your own context, where the skill's prompt landed, then `(inline, no fork)`. There is no fork transcript to read. |
 | Tag, where the fetch failed | `not read: fetch failed`. That is not `none returned`, which says the tool ran and found nothing. |
 | Tag, where the tool refused and running it again does not clear it | `not read: refused, exit <n>`, then its message in quotes. A refusal is not `none returned`: the tool found something it could not tell apart, place or read. |
-| Rounds | 1 or 2. Say 1 only if round one came back empty. |
+| Rounds | 1 or 2. Say 1 only if round one came back empty. Add ` + 1 unrepaired` when 4c's final unrepaired round ran. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
 
 **Never write a level you did not pass as though you had.** That is the inference 4c bans, wearing
@@ -865,9 +869,17 @@ own words. Measured at 2.1.309, from `7443ebd`: 2, 3 and 0.
 it refuses too. The readable fork beside it may be a helper's brief that opens with the same target
 line and tag, and nothing in record 0 tells the two apart.
 
-A refused head in another worktree is out of scope beside a fork that reads here. With nothing
-read here, it refuses as 14 or 15 rather than send an inline round to `--worktree`. But where a head
-elsewhere reads with its tag, exit 12 stands.
+**A head in another worktree with your nonce and a tag refuses a fork here that has a tag: exit
+16.** It may be your real fork, and the one here a helper. A tagless fork here exits 5, or 10
+beside an unread fork elsewhere whose record 0 holds your nonce.
+
+A pasted head carries the old nonce, so a fresh round clears the block. With nothing read here, a
+refused head elsewhere refuses as 14 or 15. Where a head elsewhere reads with its tag, exit 12
+stands.
+
+**CHANGED 2026-10-27, vault #4121:** a refused head in another worktree was out of scope beside a
+fork that read here. With the real fork under an unknown notice elsewhere, a helper's head here was
+read: exit 0, with the helper's tag.
 
 **NOT MERGED: a same-tag set-aside.** An earlier commit of PR 244 set a refused head aside beside a
 readable fork with the same tag, exit 0. A probe put the real fork under an unknown notice, with a
@@ -977,7 +989,7 @@ Control: this branch's own round-one fork, a full xhigh prompt, read at exit 0 u
 | `--target` | REQUIRED. The round's nonce, or your arguments carrying it. A leading level and every skill flag, `--max-findings=all` too, are stripped. A level alone, or no well-formed nonce, is refused, exit 9, unless `--no-nonce`, which no QA line may use. |
 | `--worktree` | Defaults to the current git toplevel, and refuses where there is none. Matched EXACTLY against `inheritedWorktreePath`, else record 0's `cwd`, so a nested worktree is elsewhere. `--any-worktree` is the only widening. |
 | `--session` | Defaults to `$CLAUDE_CODE_SESSION_ID` where that is set. `--any-session` turns the default off. It narrows, and never places a fork: subagent Builders share their Manager's session. Inside each project, only its directory is walked. |
-| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. |
+| `--since` | A second filter: drops forks whose record 0 is older. It needs an offset. Under a nonce it does not drop a fork carrying that nonce, whatever its time. |
 | `--no-nonce` | Allows a target with no nonce. Its answer is never a reading: one match exits 11, tag or none, and a tag prints on a `NOT-ATTRIBUTABLE` line, never `tag:`. Beside a real nonce it changes nothing. |
 | `--ascii` | Prints `->` and `<=` for the two glyphs. Say `ascii spelling` in the note when you quote it. |
 
@@ -991,15 +1003,17 @@ The row prints `placed by:`, naming the meta's path, record 0's `cwd`, or `any w
 | 4 | `a projects directory could not be read; a fork there could be the one asked for` | A refusal, even where the header counts a match. See the refusal row above. |
 | 5 | `the one matching fork carried no tag line`, after a row saying `no tag line in record 0` | `none returned`, with the message. Name the fork id. |
 | 6 | `<n> fork(s) in scope record no worktree, so any could be the one asked for; ...` | Only under `--no-nonce`: with a nonce, the nonce places the fork. Never widen with `--any-worktree` to clear it. |
-| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, at least two candidate forks carry it: a reuse, or the same fork under two roots. |
+| 7 | `more than one fork could be the one asked for; ...`, then one `candidate` line each | Not a result yet. With a nonce, two forks carry it: a reused nonce, a head pasted here, or one file read twice mid-write; a rerun clears only that. Else a fresh round; a third is the Manager's (4c). |
 | 8 | `no git toplevel here; run this from your worktree, or pass --worktree` | Not a result yet. Run it from your worktree, or name it. |
 | 9 | `--target is required; ...`, `--target holds only a level or flags; ...`, or `--target carries no round nonce ...` | Not a result yet. Pass the round's nonce. |
 | 10 | `<n> fork(s) in scope could not be read, so any could be the one asked for; ...` | Not a result yet. A transcript or meta file still being written reads this way; run it again once the round ends. |
+| 10 | `<n> fork(s) in another worktree carry this round's nonce and could not be read, ...` | A refusal. Write `not read: refused, exit 10`, then its message in quotes. |
 | 11 | `not attributable: the target carries no round nonce; ...`, after any `NOT-ATTRIBUTABLE` line | Never quoted, line or tag. Run it again with the round's nonce. |
-| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. Your fork is found; pass its worktree with `--worktree`. A brief there can still make that rerun refuse. |
+| 12 | `<n> fork(s) carry the round's nonce but ran in another worktree; ...` | Not a result yet. A head with your nonce is found; pass its worktree with `--worktree`. It may be a helper's, so that rerun can still refuse. |
 | 13 | `<n> fork(s) in scope may have arguments spanning lines, so no line can be read as the tag; ...` | A refusal, and running the tool again does not clear it. See the refusal row above. A third round is the Manager's call, never this refusal's. |
 | 14 | `<n> fork(s) in scope carry the target line below an opening that is not the skill's notices, so no line can be read as the tag` | A refusal that a rerun does not clear. See the refusal row above. Not `none returned`. A brief pasting the skill's head refuses too, so where your round ran inline, `(inline, no fork)` still holds. |
 | 15 | `<n> fork(s) in scope carry a notice-shaped line above the target line that no measured CLI writes; --verbose prints its opening words` | A refusal that a rerun does not clear. See the refusal row above. Where your round ran inline, `(inline, no fork)` still holds. Report the words under 4d, minus any path. |
+| 16 | `<n> head(s) in another worktree carry the round's nonce beside the fork here, so either could be the one asked for; run the round again with a fresh nonce`, then one `candidate` line each | A refusal a rerun does not clear. Write `not read: refused, exit 16` and its quoted message. A fresh round clears it; after round two, that is the Manager's third round (4c). Never paste a round's head into a brief. |
 
 **CHANGED 2026-10-22, vault #4006.** The `--target` row read *"level and skill flags stripped"*,
 and only from the front, so `--max-findings=all` or a flag after the words read as a miss, exit 3.
