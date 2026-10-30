@@ -496,7 +496,7 @@ check is the only reason the seat that hit this caught its own.**
     how, and what to quote.
 12. **Push, report, and exit.** Your LAST commit message carries the proposed pull request title and
     the proposed ledger banner text **for your item alone**. The Manager may merge your branch into
-    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. **As the Manager's
+    a batch with others, and it reads that message to write your section of the body. Sections 4d and 4e say what the report must hold. If a fix commit landed after the last review that ran, run 4c's final unrepaired round on the pushed head before you report. **As the Manager's
     subagent you do not open the pull request. The Manager does**, and there is no next item. In
     your own session, open it yourself (see the top of this file).
 
@@ -627,6 +627,7 @@ none of them looks for a NEW correctness defect.
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
+| A final unrepaired round, added 2026-10-29 | If a fix commit landed after the last review that ran, run one more round on the pushed head, fix nothing it finds, ship its findings, and write the QA line as `Rounds: 2 + 1 unrepaired` (decision d20261029T165623191-578690). |
 | After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
 | What you leave behind | **The QA line of section 4e.** It is the only trace of this step that a later seat can see. |
 
@@ -667,6 +668,9 @@ costs a full review at `xhigh`.
 
 **A third round is the Manager's call, not yours.** You have one turn, and spending it on a loop with
 no termination condition is how a finished branch fails to reach the remote at all.
+
+**NARROWED 2026-10-29:** the final unrepaired round in the table above is not that third round. It
+fixes nothing, so it is not a loop.
 
 **It runs in more than two shapes, and a tag names the one you got -- when a tag comes back.** Copy
 it rather than inferring the shape from what you were granted. Where none comes back, record that.
@@ -787,7 +791,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Tag, in the inline shape | The tag quoted from your own context, where the skill's prompt landed, then `(inline, no fork)`. There is no fork transcript to read. |
 | Tag, where the fetch failed | `not read: fetch failed`. That is not `none returned`, which says the tool ran and found nothing. |
 | Tag, where the tool refused and running it again does not clear it | `not read: refused, exit <n>`, then its message in quotes. A refusal is not `none returned`: the tool found something it could not tell apart, place or read. |
-| Rounds | 1 or 2. Say 1 only if round one came back empty. |
+| Rounds | 1 or 2. Say 1 only if round one came back empty. Add ` + 1 unrepaired` when 4c's final unrepaired round ran. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
 
 **Never write a level you did not pass as though you had.** That is the inference 4c bans, wearing

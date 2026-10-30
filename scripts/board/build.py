@@ -4,7 +4,7 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("LANDER_BOARD_OUT", HERE)
 
-CT = dt.timezone(dt.timedelta(hours=-5), "CDT")
+from central import CT  # US Central with daylight saving; see central.py
 d = json.load(open(os.path.join(OUT, "data.json"), encoding="utf-8"))
 s = json.load(open(os.path.join(OUT, "series.json"), encoding="utf-8"))
 P = lambda x: dt.datetime.fromisoformat(x.replace("Z", "+00:00"))
@@ -66,7 +66,9 @@ last_any = min(sinces) if sinces else None
 
 if last_any is None:
     verdict, vclass = "NO DATA", "warn"
-elif last_any <= 60:
+elif tot["m60"] >= 2:
+    # Owner ruling 2026-10-29: fewer than two merges in the trailing hour is SLOW, however
+    # recent the last one was. One merge in an hour read DRAINING while the hourly chart showed zero.
     verdict, vclass = "DRAINING", "good"
 elif last_any <= 180:
     verdict, vclass = "SLOW", "warn"
@@ -191,12 +193,6 @@ cards = [
     card("Last merge", vclass, last_any_clock, "", lambda r: r["last_at"], since_say,
          wide=True),
 ]
-
-since_rows = "".join(
-    '<div class="mrow"><span class="mname">%s</span><span class="mval %s">%s</span></div>'
-    % (esc(r["name"]),
-       "crit" if (r["since"] or 0) > 180 else ("warn" if (r["since"] or 0) > 60 else "good"),
-       r["last_at"]) for r in rows)
 
 
 def chips(entries):
@@ -607,7 +603,7 @@ out = (tpl
        .replace("{{CT}}", esc(s["generated_ct"]))
        .replace("{{UTC}}", esc(d["generated_utc"]))
        .replace("{{VERDICT}}", verdict).replace("{{VCLASS}}", vclass)
-       .replace("{{SINCE_ANY}}", since_any_pill)
+       .replace("{{SINCE_ANY}}", since_any_pill).replace("{{M60}}", str(tot["m60"]))
        .replace("{{CARDS}}", "".join(cards))
        .replace("{{WINDOW}}", str(s.get("chart_hours", s["window_h"])))
        .replace("{{QUEUE_ROWS}}", queue_rows)

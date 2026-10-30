@@ -78,7 +78,7 @@ briefed you, and a gap in the brief is still not yours to guess at.
 
 Invoke the `Skill` tool with `skill: "code-review"` at the level the brief names, xhigh by default.
 Apply what you confirm, then run it once more. Stop after two rounds: ship, and hand round-two
-findings to the Manager.
+findings to the Manager. A fix commit after the last review gets one more round, unrepaired.
 
 Keep the skill's first line for your REPORT, whatever it is. It may be a tag, or it may be prose,
 or it may say nothing about the run. `roles/BUILDER.md` 4e holds what was measured.

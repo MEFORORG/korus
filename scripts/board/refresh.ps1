@@ -20,7 +20,7 @@
 
 .PARAMETER SkipCollect
   Re-derive and re-render from the data.json already in OutDir, without calling GitHub. Use it
-  when you changed series.py, build.py or template.html and the data is still fresh.
+  when you changed series.py, build.py, central.py or template.html and the data is still fresh.
 
 .EXAMPLE
   pwsh -NoProfile -File scripts/board/refresh.ps1
