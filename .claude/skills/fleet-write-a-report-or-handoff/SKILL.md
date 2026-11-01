@@ -74,7 +74,7 @@ person who checks. This kind disarms the checker.
 If you write one -- "not on main yet", "that tool is broken", "the queue is empty" -- attach the
 condition that ends it. Re-run it yourself before repeating it.
 
-### The handoff write is armed by a rung, and the weekly meter has no rungs
+### The handoff write is armed by a rung
 
 **Owner-set 2026-08-28: do not update your handoff until a usage rung fires.** Write it after rung 1
 (HOLD NEW WORK) or rung 2 (PROTECT AND WRAP), and not before. When the window resets, go back to not
@@ -82,20 +82,16 @@ updating until another rung 1 or rung 2 fires.
 
 The duty is armed by a rung, not by the clock and not by finishing a task.
 
-**ARMING FIX.** That rule arms the write on a 5-hour rung. **The weekly meter has no rungs and no
-stop authority**, so on any night where weekly exhausts first, the ladder never fires and every
-handoff stays unwritten into the dark.
+**ARMING FIX, RETIRED 2026-10-31.** The rule once armed on a 5-hour rung and the weekly meter had no
+rungs, so a night where weekly exhausted first left every handoff unwritten (measured 2026-08-29). A
+seat widened the trigger to the binding window within a projected hour or two of exhaustion.
 
-Measured 2026-08-29: 5-hour 18, weekly 82, weekly projected to exhaust 17:45-19:15Z while the 5-hour
-ceiling was not due until about 19:40Z. Following the rule literally that night produces exactly the
-loss it exists to prevent.
+The owner ruling of 2026-10-31 gave the weekly window the rungs and removed the five-hour window
+([STEWARD.md](../../../roles/STEWARD.md), *3a*). Rung 1 now fires on the projection, so the widening
+has no subject left. **Write at rung 1 or rung 2.**
 
-**So: write at rung 1 or rung 2, or when the binding window is within a projected hour or two of
-exhaustion -- whichever comes first.** The owner's purpose is unchanged (no redundant writes); only
-the trigger widens to the meter that actually binds.
-
-Found by a seat that broke the rule deliberately and said so in its own artifact's first paragraph,
-rather than let a reader guess whether it forgot or overrode.
+A seat found the widening by breaking the rule deliberately. It said so in its own artifact's first
+paragraph, rather than let a reader guess whether it forgot or overrode.
 
 **The shape is a condition that cannot fire on the path that matters most.** Same family as a
 warning that says do not bother checking, and a panel comparing projections against an
@@ -103,7 +99,7 @@ already-expired instant. The arming condition was not wrong -- it was unreachabl
 existed for.
 
 **When you write a trigger, name the case it must fire in and check the trigger can see that case.**
-This rule's stated premise was "the usage ladder is the warning": true of the 5-hour window,
+This rule's stated premise was "the usage ladder is the warning": true then of the 5-hour window,
 silently false of the weekly one.
 
 **These cadence rows replace "update the episode note at each change of state", which this file
@@ -149,7 +145,7 @@ standing block in a brief all sit under it.
 | Label the KIND of a hold when you hand one over | A mechanical hold and a hold resting on your own judgment inherit differently. Say which yours is. |
 | A deliberate hold carries the deferred content verbatim | Not a pointer to it. A pointer into a session's context does not survive the session, and a release condition alone will not reconstruct the text. |
 | An open-blocker list names the party that can move each item | Without that column, a blocker only one idle seat can move renders the same as one any seat can pick up. |
-| Cadence | *The handoff write is armed by a rung* arms it on a usage rung, widened to the meter that actually binds. Do not restate it here. |
+| Cadence | *The handoff write is armed by a rung* arms it on a usage rung. Do not restate it here. |
 | Before every handoff, not just every commit | Committing clean and handing off clean are different checks, because `main` moves in between. |
 | Tone | The useful handoff sentence is the measured one, not the alarming one. **The cost of being wrong scales with how good the sentence sounds.** |
 

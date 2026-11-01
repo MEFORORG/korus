@@ -63,7 +63,7 @@ none runs this section binds you exactly as written. When one runs, it owns the 
 warning. **You still own the work-at-risk push sweep**, because that is a landing act and lands
 nothing otherwise.
 
-**Purpose:** warn before a 5-hour or weekly cutoff so in-flight work is committed and handed off
+**Purpose:** warn before a weekly cutoff so in-flight work is committed and handed off
 before a session is cut. It is not budget management. The owner runs four accounts and intentionally
 exhausts them weekly, so a high-but-not-near-cutoff reading needs no action.
 
@@ -84,7 +84,7 @@ rate and **no symptom until the cutoff**, and the sessions trusting you lose wor
 | --- | --- |
 | Ask, in words | Put the question to the owner through the Manager. |
 | Never infer it | Not from a hook line, a config file, a session title, or which account you are signed in as. **Inference is what produces the fluent wrong answer.** |
-| What the tooling can and cannot tell you | `python ~/.claude/mefor-usage/usage-now.py` names every account and prints the 5-hour and weekly bands per account. |
+| What the tooling can and cannot tell you | `python ~/.claude/mefor-usage/usage-now.py` names every account and prints the weekly band per account. |
 | Its limit | **It reads the POOLS. It does not tell you which account is YOURS**, and it can return UNKNOWN for an account when a refresh errors. |
 | So | It informs the question and the owner settles it. |
 | Name what you believe when you ask | "I read the account as X; confirm before I start", so the owner checks a claim rather than answering an open question. |
@@ -98,9 +98,7 @@ rate and **no symptom until the cutoff**, and the sessions trusting you lose wor
 | The rule | Over 90 percent, do not create a new Workflow without asking the owner first. |
 | Everything else | Continues at FULL SPEED. The owner's standing rule is never to ration, slow down, or decline work because a number is high. |
 | Why it is the rule most likely to be broken | Nothing else in this playbook mentions it. |
-| Which window | The gate is `max(5-hour, weekly)`, not weekly alone. |
-| The evidence | Across 4,577 samples the 5-hour field was at or above 92 in **303** samples and the weekly in **466**, so the windows fire at genuinely different times. |
-| If you restate this rule | Restate the `max`. |
+| Which window | The weekly window (owner ruling 2026-10-31). |
 | Concurrency, not the number | One Workflow moved the weekly pool by several points on its own. |
 | What that means | With several in flight the pool moves faster than the cache refreshes, so the margin must cover what is committed but not yet visible. |
 
@@ -217,7 +215,7 @@ looks like. **Confirm positively before treating quiet as headroom.**
 | --- | --- |
 | The measured bug | A regex crossed a line boundary and dropped the **weekly** reading whenever a metric line carried no reset time. |
 | What that hid | The affected pool scored band OK and said nothing while sitting at weekly **93 percent**, over the gate. The pool that looked correct was correct only by luck. |
-| The corrected trigger | First recorded as "whenever the 5-hour reads 0.0 percent". An adversarial audit refuted it. |
+| The corrected trigger | First recorded as "whenever the 5-hour reads 0.0 percent", when that window existed. An adversarial audit refuted it. |
 | The refutation | The old pattern loses a metric at 5-hour **93.0 percent** with no zero anywhere. |
 | Why the wrong version was believable | The observed pool had both properties at once, so a coincidence read as a cause, on the very fix meant to close it. |
 | What inheriting it would have cost | Hunting for a condition that does not exist. |

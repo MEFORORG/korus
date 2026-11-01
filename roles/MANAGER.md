@@ -159,10 +159,11 @@ where it lives; do not act on a paraphrase. [BUILDER.md](BUILDER.md) 5d links he
 
 | Control | Where it lives |
 | --- | --- |
-| A Steward's stop on starting | [STEWARD.md](STEWARD.md), *3a. The worse window sets the STATE; only the 5-hour window carries the STOP*, and *3d. A live owner ruling can suspend the stop half without suspending the warning* |
+| A Steward's stop on starting | [STEWARD.md](STEWARD.md), *The three states*, *3a. The weekly window sets the STATE and carries the STOP*, and *3d. A live owner ruling can suspend the stop half without suspending the warning* |
 | The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
 
-A high weekly rung with a low 5-hour rung does not stop briefing (3a). The burn throttle, in the
+A weekly HOLD NEW WORK stops briefing (owner ruling 2026-10-31, replacing the 2026-08-14 ruling). Burn
+rate governs that rung, so a high level with a rate showing room does not. The burn throttle, in the
 third answer below, was a separate limit, and it is retired.
 
 Path contention, in section 3, still shapes what you brief.

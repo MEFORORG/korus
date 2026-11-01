@@ -1613,10 +1613,13 @@ yourself: does this lane get removed, and what must land first.
 ## 8. Usage: one hard stop, and everything else is a lost-work signal
 
 **COMMON carries one hard usage rule and it binds YOUR primary tool: do not start a new `Workflow`
-when `max(5-hour, weekly)` is above 90 percent.** See [COMMON.md](COMMON.md), *A usage number warns
+when the weekly window is above 90 percent.** See [COMMON.md](COMMON.md), *A usage number warns
 about lost work, not about budget*.
 
-It is the one usage number that is a stop rather than a warning. **Re-read the number before each
+HOLD NEW WORK, in section 8a, is the other stop. [STEWARD.md](STEWARD.md), *The three states*, holds
+its triggers.
+
+It is the one usage number that is a stop on its own reading. **Re-read the number before each
 launch, not once at arrival** -- your own fan-outs are what move it. **Everything else about usage
 is a lost-work signal, never a budget signal.** Commit early; do not stop early.
 
@@ -1624,7 +1627,7 @@ Measured on this seat: a Builder that had read the rule **stopped anyway at 78 p
 three hours to reset and four actionable items in hand. You will read a hook telling you to pause
 roughly ten times for every once you read this line.
 
-**Why "do not stop early" is a consequence and not an assertion: the five-hour window is a
+**Why "do not stop early" is a consequence and not an assertion: the weekly window is a
 WALL-CLOCK meter.** It runs whether or not you are building, and a window spent under-loaded is not
 recoverable.
 
