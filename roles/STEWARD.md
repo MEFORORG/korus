@@ -461,9 +461,12 @@ owner may adjust it.
 out inside that time and before the window resets. A run-out projected past the reset is no cutoff.
 A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
 
+A state is read fresh each time. A rate-fired HOLD clears when the projection stops firing it, and
+*A warning that changes behaviour invalidates its own projection* says how to read that.
+
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
-| A rising rate you can state | The projection. Where two legs disagree, quote the band and take its early end. The level 90 does not fire HOLD here. |
+| A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
 | No rate: one sample, a flat burn, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | 98 percent or more | The level, whatever the rate says. |
 
@@ -471,7 +474,7 @@ A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
 That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 ruling. Commit and hand off;
 the stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
 
-**Below 98, a level crossed with a rising rate in hand is not a hold.** The session on branch
+**Below 98, a level crossed with a positive rate in hand is not a hold.** The session on branch
 `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined offered work, with
 the no-rationing paragraph directly beneath its banner. The same misreading is open under this rule.
 
@@ -483,8 +486,8 @@ Recorded rather than replaced silently, because the old numbers are cited elsewh
 Section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
 89/93 against 86/92. Those readings stay true of the dates they name.
 
-**One act reads a state.** The Manager reads the published reading before it writes a launch line.
-Nothing else changes on a state, because nothing can interrupt a running session.
+**One act reads the published state.** The Manager reads it before it writes a launch line. Nothing
+can interrupt a running session, so a running seat learns the state from its own hook.
 
 These levels are the owner's guidance from experience, not a derivation and not a hard mechanism.
 Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
@@ -521,9 +524,9 @@ A field called `state` carrying the literal string "URGENT STOP" reads as a stop
 severity label, and its stop half is gated in a field the reader never sees. A fourth seat
 rediscovered this through the instrument rather than through the document.
 
-**So do not file it as a bug. Read the stop half, never `state`, before you tell anyone to stop.** The
-stop half follows the projection, with `by_level_stop` as its backstop when there is none, and
-`hold_forced` at the level that holds whatever the rate.
+**So do not file it as a bug. Read the hook's ACTION line, never `state`, before you tell anyone to
+stop.** The stop half follows the projection, with `by_level_stop` as its backstop. Neither field is
+in `status.json`.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
 rule is encoded as `STOP_AUTHORITY_WINDOWS`, a frozenset holding `weekly` alone. **It lives outside the
@@ -607,7 +610,7 @@ Split every rung into its two halves, because only one of them is ever contested
 
 | half | what it does | status |
 |---|---|---|
-| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
+| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies once a rung has fired.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
 | **STOP** | hold new work, wind down | **Contested. Read the live ruling.** Never infer it from the number |
 
 | Item | Rule |
@@ -667,6 +670,9 @@ whoever inherits it reads them with it.
 | **HOLD NEW WORK** | No new Workflow, no new item, no new fan-out. Everything already running continues at full speed. This is not a slowdown, it is a stop on *starting*. |
 | **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
 | **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
+
+Where a level alone fired state 2 or 3 with a rate showing room, only the protect half is asked for
+(*The three states*).
 
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 
@@ -758,6 +764,10 @@ Tell the two apart by asking which question is in dispute, not which number is l
 and verified against the installed file, with the thresholds of that date. Compare the installed file
 against *The three states* before you trust it again: rung 1 changed from a level to a rate.
 
+**Read 2026-10-31: the installed `watch.py` suppresses its rate projection, so its banners take the
+no-rate arm.** A banner can print HOLD NEW WORK at 90 with a rate showing room. Publish from the
+ladder and say so, until that suppression is lifted.
+
 The 90 percent Workflow gate is unchanged on its own trigger, and the do-not-ration clause is inline
 on rung 1.
 
@@ -800,7 +810,7 @@ seat. Two consequences, and both cut against the way a per-seat ladder reads.
 | --- | --- |
 | **Agreement between seats is not corroboration** | The Lander's framing is the one to use: *"per-seat usage readings are one measurement quoted many times, not corroboration."* Eight seats reporting 80 percent is one reading, eight times. |
 | Why a sibling cannot confirm you | If it were wrong it would be wrong everywhere at once, in perfect agreement. This is COMMON's *independent operators are not independent instruments*, arriving from the pool rather than from the method. |
-| **A seat cannot lower its own state by working less** | If a sibling is spending the same pool, the level does not come down. Say this when you publish, because the per-seat ladder invites the opposite reading. A seat that idles expecting its own state to improve gains nothing. |
+| **A seat cannot lower its own state by working less** | If a sibling spends the same pool, the level does not come down. Say so when you publish. Only the whole pool's burn can clear a rate-fired HOLD, and nobody asks a seat to slow down (trap 9.3). |
 
 Worked example, from the seat that made the error. The Liaison wrote *"my pool just crossed into
 HOLD NEW WORK"* as though the reading were its own, and built a courtesy on top of it. The courtesy
@@ -1435,7 +1445,7 @@ it is recorded with what it does **not** change.
 | The level still fires, and this is not a downgrade | It triggers the **cheap protect action** -- commit what you have, capture the at-risk sweep. That costs nothing and loses nothing, so a backstop firing is a real trigger and a stop sent on one was correct to send. |
 | What the level stops doing | Halting new work when the burn says there is room. That is the whole change, and it is where the damage was: **2h37m of hold against a 48-minute real wait, by one builder alone.** |
 | The inverted form was propagated by four seats | *"A level beats a rate, always."* One of the four abandoned a correct measurement to adopt it. **If you took "act on the level" from anyone, drop it.** COMMON carries the mechanism, and the reason nobody argued with it. |
-| **The owner ruling of 2026-10-31 keeps this and writes it into the ladder** | HOLD NEW WORK's level of 90 now fires only with no rate. The levels of 94 and 97 still fire, for the protect half. *The three states* holds the triggers. |
+| **The owner ruling of 2026-10-31 keeps this and narrows it** | HOLD NEW WORK's level of 90 now fires only with no rate, so at 90 with room nothing is owed. The levels of 94 and 97 still fire, for the protect half. *The three states* holds the triggers. |
 | The limit that ruling set | At 98 percent or more, HOLD NEW WORK fires whatever the rate says. Rate governs up to there and no further. |
 
 ### 9.8. Confirm the subject before refining the predicate

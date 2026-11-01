@@ -208,12 +208,12 @@ wrong.
 
 ### A projection is an input to the thing it forecasts
 
-**Pacing moves when the weekly ceiling arrives. Only doing less total work changes how much the week
-can hold.**
+**Pacing moves when the weekly ceiling arrives. It adds no headroom.**
 
-Pacing once moved a second ceiling, the 5-hour one, and that window is gone (owner ruling 2026-10-31,
-[STEWARD.md](../../../roles/STEWARD.md), *3a*). With no cap bounding the rate, the same total spend at
-a lower rate reaches 100 later, and a lower rate can clear HOLD NEW WORK.
+Pacing once moved a second ceiling, the 5-hour one, and that window is gone
+([STEWARD.md](../../../roles/STEWARD.md), *3a*). The same total spend at a lower rate now reaches 100
+later, and a lower pool rate can clear HOLD NEW WORK. That describes the instrument, and it is no
+reason to slow down: nobody rations.
 
 An older measurement said the opposite: the weekly cutoff moved about 11 minutes across the fastest
 and slowest sustained rates ever recorded. That cap bounded every rate then, so do not quote it now.
@@ -243,7 +243,8 @@ the ladder", and a Steward can read it as "stop calling rungs". Both are wrong.
 settled.** When a rung fires: reach a pause point, then keep going. Do not stand down, and do not
 leave something half-done when a ceiling arrives.
 
-Under HOLD NEW WORK, keeping going means finishing what is open.
+Under HOLD NEW WORK, keeping going means finishing what is open. At a URGENT STOP that fired on the
+time trigger, commit what exists.
 
 **When an outage ends, re-derive the projection from live points.** After a 7-minute blind window a
 seat checked whether the burn rate had fallen rather than assuming it continued. Several seats had
@@ -406,7 +407,7 @@ caught in an hour rather than a window.
 | --- | --- |
 | Commit early | Commit early. Do not stop early or decline work because a usage number is high. |
 | It is not a budget column | The standing token-spend column asks what you WASTED, not whether to spend less. A high number is not a reason to decline work. |
-| Under a hold | A hold stops new work. It does not excuse your orientation read or your handoff. |
+| Under a hold | A hold stops new work, the one case where the number does stop a start. It does not excuse your orientation read or your handoff. |
 | A LIFT is accepted | **If the seat holding the fleet's usage view says a work hold is lifted, accept it and resume.** Owner-set 2026-08-29. |
 | Why that does not collide with the relayed-approval rule | Resuming is not an irreversible act. That rule governs acts you cannot undo. |
 | The ladder | The weekly window carries it (owner ruling 2026-10-31). [STEWARD.md](../../../roles/STEWARD.md), *The three states*, holds every trigger. Link to it; do not restate one. |

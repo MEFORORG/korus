@@ -65,7 +65,8 @@ nothing otherwise.
 
 **Purpose:** warn before a weekly cutoff so in-flight work is committed and handed off
 before a session is cut. It is not budget management. The owner runs four accounts and intentionally
-exhausts them weekly, so a high-but-not-near-cutoff reading needs no action.
+exhausts them weekly, so a high-but-not-near-cutoff reading needs no more than a fired rung's protect
+half.
 
 **The Steward stewards the WORK, not the quota.** It does not ration and cannot slow anyone down. If
 one tells you to trim or defer work because a number is high, that is the seat exceeding itself, and
