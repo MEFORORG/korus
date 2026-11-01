@@ -62,10 +62,9 @@ disagree, report **UNKNOWN**.
 
 Apply both conditions:
 
-- Check the slow-moving figure, not the fast one. The short-window figure drops to near zero when
-  its window rolls -- 22 percent to 2 percent in one sample -- so it disagrees constantly. The
-  weekly one moves single points per hour, and would have caught the 93-against-5 bug on its first
-  run.
+- Check a slow-moving figure. The weekly one moves single points per hour, and would have caught
+  the 93-against-5 bug on its first run. The short-window figure, while one existed, dropped to near
+  zero when its window rolled -- 22 percent to 2 percent in one sample -- so it disagreed constantly.
 - Sample age is a validity condition. Past a few missed sampling intervals the second source is no
   longer evidence, and the result is **UNKNOWN** with staleness as the reason. It never falls back
   to the unchecked number, which would look exactly like a passed check.

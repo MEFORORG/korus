@@ -46,7 +46,6 @@ async function readSeat($: Api): Promise<string> {
 // Short labels for the rate-limit kinds the session reports (owner instruction 2026-10-02).
 // Any other kind is shown as the session names it.
 const LIMIT_LABELS: ReadonlyMap<string, string> = new Map([
-  ['five_hour', '5h'],
   ['seven_day', '7d'],
 ])
 

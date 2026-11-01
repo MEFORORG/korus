@@ -19,6 +19,9 @@ renderers, opposite behaviour: one recomputes at render and one is frozen at cap
 wrong and static. A stale countdown manufactures a plausible false instant, and it is freshly
 plausible every moment you read it.
 
+The measurements here were taken on a five-hour window, when one existed. The failure is the
+renderer's, so it carries to a weekly countdown.
+
 Measured 2026-08-29: a hook reported 97 percent, `resets in 0h33m`, at 11:12Z. Anchored to when the
 sample was taken (07:06Z) that is 07:39Z, the real window. Anchored to now it is **11:45Z, a window
 that never existed.** The truth at that moment was **2 percent with five hours left.**
@@ -87,8 +90,8 @@ suppresses a negative remainder.
 **Why the level is a floor.** A hook read **87** while the same seat's live read returned **90** --
 same session, same moment. At a rung boundary three points is the whole margin.
 
-**A floor can fire a rung and can never withhold one.** A hook reading 85 does not show rung 2
-unfired. It shows the level is at least 85.
+**A floor can fire a level rung and can never withhold one.** A hook reading 93 does not show rung 2
+unfired. It shows the level is at least 93.
 
 The reason is monotonicity, not recency. Within a window the level only rises, so a sample taken at
 any instant inside it is a valid floor now, and ordering is irrelevant to a floor. An undated reading
@@ -148,7 +151,7 @@ Two hooks differing -- 3h46m against 3h51m -- proves the samples are distinct, n
 
 **An "UNKNOWN" usage banner is not evidence the pool is unreadable. Run the reader yourself.**
 Measured 13 seconds apart: hook banner `UNKNOWN -- usage fetch failed (HTTP 429)`, then a direct
-read returning 5-hour 64, weekly 72, severity normal.
+read returning weekly 72, severity normal.
 
 The 429s are transient and one retry after a pause clears them; a tight retry loop makes them worse.
 
@@ -205,14 +208,17 @@ wrong.
 
 ### A projection is an input to the thing it forecasts
 
-**Pacing moves the 5-hour ceiling. Only doing less total work moves the weekly one.**
+**Pacing moves when the weekly ceiling arrives. It adds no headroom.**
 
-Spreading the same spend over more hours delays the 5-hour ceiling and changes the weekly date by
-almost nothing. Measured: the weekly cutoff moved about 11 minutes across the fastest and slowest
-sustained rates ever recorded.
+Pacing once moved a second ceiling, and that window is gone
+([STEWARD.md](../../../roles/STEWARD.md), *3a*). The same total spend at a lower rate now reaches 100
+later, and a lower pool rate can clear HOLD NEW WORK. That describes the instrument, and it is no
+reason to slow down: nobody rations.
 
-**Seats going idle is not pacing. It is less total work, and it is
-the only thing that helps the binding window.**
+An older measurement said the opposite: the weekly cutoff moved about 11 minutes across the fastest
+and slowest sustained rates ever recorded. That cap bounded every rate then, so do not quote it now.
+
+**Seats going idle is not pacing. It is less total work.**
 
 **An observer that is also a participant must subtract its own contribution.** A seat reported a
 burn re-acceleration as "exactly what spend-it looks like" -- the fleet responding to an owner
@@ -237,6 +243,9 @@ the ladder", and a Steward can read it as "stop calling rungs". Both are wrong.
 settled.** When a rung fires: reach a pause point, then keep going. Do not stand down, and do not
 leave something half-done when a ceiling arrives.
 
+Under HOLD NEW WORK, keeping going means finishing what is open. At a URGENT STOP that fired on the
+time trigger, commit what exists.
+
 **When an outage ends, re-derive the projection from live points.** After a 7-minute blind window a
 seat checked whether the burn rate had fallen rather than assuming it continued. Several seats had
 reported nothing queued, so a slower rate was plausible and would have pushed the trigger later.
@@ -247,8 +256,8 @@ fleet has since abandoned fires early, and an early trigger spends exactly what 
 protect.**
 
 **A resume is a surge, and the first leg after one is a confound.** Measured 2026-08-29 when nine
-seats restarted at once: first leg +93/hr on the 5-hour meter; second leg, ten minutes later,
-+24/hr. **A factor of four, and the first number was the one ready to publish.**
+seats restarted at once: first leg +93/hr on the 5-hour meter, which existed then; second leg, ten
+minutes later, +24/hr. **A factor of four, and the first number was the one ready to publish.**
 
 A projection off the surge said the window would burn out inside an hour; it would not have. The
 surge leg was not wrong, it was unrepresentative, and only a second leg can tell those apart.
@@ -289,8 +298,11 @@ times, each chasing the newest legs.
 
 **The series is not stationary, so no point projection from it is worth planning against** -- a
 property of the series, not a failure of any one estimate. From then it reported measured levels and
-called rungs when they actually fired. Nothing is lost: the ladder triggers on measured levels
-anyway.
+called rungs when they actually fired. Nothing was lost: the ladder fired on measured levels then.
+
+**That no longer covers rung 1.** Since the owner ruling of 2026-10-31 burn rate governs HOLD NEW
+WORK ([STEWARD.md](../../../roles/STEWARD.md), *The three states*), so rung 1 needs a projection.
+Publish it as a band with the interval it came from. Where no rate holds, the level is the trigger.
 
 **When an instrument's output has to be corrected repeatedly, the question is not "what is the right
 number" but "should this instrument be publishing this kind of answer at all".**
@@ -329,14 +341,12 @@ nothing that matters, because the work is anchored either way.
 had been optimising for all afternoon. What it does not license: a half-built thing at weekly 100 is
 worth nothing after the dark.
 
-**Take bounded, finishable work. Finish something, anchor it, take the next thing.**
+**Take bounded, finishable work. Finish something, anchor it, take the next thing, unless HOLD NEW
+WORK is in force.**
 
-**Prefer arithmetic over a projection when you need a number that does not wobble.** Same moment, no
-rate involved. 10 weekly points left, and 38 five-hour points to its ceiling. Running the 5-hour to
-100 costs ~7.6 weekly. 2.4 weekly remain, worth ~12 five-hour points after the reset.
-
-**Total affordable ~50 five-hour points.** That figure does not move as the rate wobbles, because no
-rate is in it.
+**Prefer arithmetic over a projection when you need a number that does not wobble.** The points left
+to 100 are read off the meter and no rate is in them: 10 weekly points left stays 10 however the rate
+wobbles.
 
 **When you correct a published projection, say which end moved and what it cost to have believed the
 old one.** A seat withdrew a band of 18:22-19:17Z for 19:38-19:59Z -- wrong at both ends, and it
@@ -369,7 +379,8 @@ weekly-budget finding rested on a region nobody had measured: weekly had never b
 69.
 
 The fleet then crossed it and the prediction held -- **19.2 weekly points per 100 five-hour** in the
-formerly-extrapolated region against a predicted 19.94, and **20.3** across the whole window.
+formerly-extrapolated region against a predicted 19.94, and **20.3** across the whole window. A
+five-hour window existed then.
 
 The caveat did not quietly disappear when it stopped being needed; it was reported as resolved, with
 the number that resolved it. What is still unobserved was restated in the same breath: the top 26
@@ -396,10 +407,11 @@ caught in an hour rather than a window.
 | --- | --- |
 | Commit early | Commit early. Do not stop early or decline work because a usage number is high. |
 | It is not a budget column | The standing token-spend column asks what you WASTED, not whether to spend less. A high number is not a reason to decline work. |
-| Under a hold | A hold stops new work. It does not excuse your orientation read or your handoff. |
+| Under a hold | A hold stops new work, the one case where the number does stop a start. It does not excuse your orientation read or your handoff. |
 | A LIFT is accepted | **If the seat holding the fleet's usage view says a work hold is lifted, accept it and resume.** Owner-set 2026-08-29. |
 | Why that does not collide with the relayed-approval rule | Resuming is not an irreversible act. That rule governs acts you cannot undo. |
-| Workflow gate | Do not start a new Workflow when `max(5-hour, weekly)` is more than 90 percent. *The workflow gate cannot see aggregate load*. |
+| The ladder | The weekly window carries it (owner ruling 2026-10-31). [STEWARD.md](../../../roles/STEWARD.md), *The three states*, holds every trigger. Link to it; do not restate one. |
+| Workflow gate | Do not start a new Workflow when the weekly window is more than 90 percent. *The workflow gate cannot see aggregate load*. |
 | Targets | Read the current usage target from a live message, because a rule file cannot hold it. |
 | Report a stop | Mail the fleet with `scripts/coord/mail.ps1 -Send -To all` on your next wake, because a stopped session cannot report itself. |
 | Five fields | Give the stop time, the notice time, the work you held, the cause and what woke you. |

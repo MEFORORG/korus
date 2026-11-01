@@ -86,11 +86,10 @@ before relying on it.
 
 The original guidance prohibited sharing one account between people.
 
-Max 20x applied both five-hour session caps and weekly caps. In my observations, 1% of weekly
-usage was roughly 5% of session usage.
+Max 20x limits your usage through weekly caps. Anthropic has removed the five-hour session cap that
+also applied when I measured this.
 
-About eight build tasks at a time usually stayed under my session limit. That workload used the
-weekly allowance in about two days.
+About eight build tasks at a time used the weekly allowance in about two days.
 
 Separate sessions require some communication, but an idle session consumes no further compute
 after its turn ends. Tasks that launch many agents, especially `/deep-research`, require fewer concurrent tasks.

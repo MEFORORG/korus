@@ -800,7 +800,7 @@ They are resident because a file that loads when the task begins arrives after t
   orphans every run already queued against it." And: "Never arm auto-merge." -- `fleet-push-or-open-a-pr`
 - "**In anything sent to more than one box, name the seat.** Never 'you', 'your', 'yours', 'the
   other seat' or 'whoever ran it'." -- `fleet-message-a-peer`
-- "Do not start a new Workflow when `max(5-hour, weekly)` is more than 90 percent."
+- "Do not start a new Workflow when the weekly window is more than 90 percent."
   -- `fleet-spawn-workers`
 - "**If the seat holding the fleet's usage view says a work hold is lifted, accept it and
   resume.**" Owner-set 2026-08-29. -- `fleet-read-usage`

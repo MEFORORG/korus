@@ -88,6 +88,10 @@ The cron reads every account rather than one confirmed pool, so no subject needs
 identifies one. If the banner says *"no record for this session"*, neither the level nor the
 projection means anything until you identify your pool.
 
+**Most of this section was measured while a five-hour window existed.** A dated rate that names no
+meter may be a five-hour rate, and that meter ran about five points for each weekly point. The shape
+of each finding carries to the weekly meter. Re-measure a number on that meter before quoting it.
+
 Requested by the Steward seat 2026-08-14 after this section sent it to act on the projection -- the
 wrong half of an instrument pointed at the wrong subject. Mechanism and general form: *Confirm the
 subject before refining the predicate*.
@@ -107,13 +111,13 @@ outrun the cache the readings come from (COMMON, *The workflow gate cannot see a
 A session comfortable ten minutes ago can be in the urgent band now, with nothing crossed slowly.
 
 So project, do not read. State the rate and the projection when you publish, never a bare percentage.
-*"Pool X, 5-hour at 81 percent, +40 points/hour, about 28 minutes"* is actionable. *"Pool X at 81
+*"Pool X, weekly at 93 percent, +8 points/hour, about 50 minutes"* is actionable. *"Pool X at 93
 percent"* is not.
 
 ### 2a. A rising weekly identifies the live pool; a high level does not
 
 The method is a measurement rather than a lookup: read every account twice, minutes apart, and find
-the one whose weekly rose. Measured 2026-08-14, 27 minutes apart:
+the one whose weekly rose. Measured 2026-08-14, 27 minutes apart, when a five-hour window existed:
 
 | pool | reading | verdict |
 |---|---|---|
@@ -175,7 +179,7 @@ thing?"* the opposite way.
 | Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
-| A level is not a projection | The ladder fires on a measured number, so a wrong rate does not soften a real level. 92 is 92 whatever the runway. |
+| A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
 | When the burn goes flat, publish NO projection | Not a reassuring one. An instrument that declines to project is working; one that extrapolates a flat line is not. |
 
 ### 2d. Proximity to the cap tells you which way your instrument is wrong
@@ -401,7 +405,8 @@ grep -n '^## 2\.\|^### 2h\.\|^## 3\.' roles/STEWARD.md
 A probe whose range contains its own write-up keeps doing this, so cite the narrow scope. The three
 controls all fire there, so the two zeros above sit beside an armed detector.
 
-Measured by one seat, on itself, the night it published two headline rates off mixed legs:
+Measured by one seat, on itself, the night it published two headline rates off mixed legs, when a
+five-hour window existed:
 
 | reading | caller | 5-hour |
 | --- | --- | --- |
@@ -437,88 +442,94 @@ reachable. They must not be the ENDPOINTS OF A SLOPE.**
 
 ## 3. The three states
 
-Each state has two triggers. Whichever fires **first** puts the pool in that state. Time is primary; the
-levels are the backstop.
+**The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
+2026-10-31).** Section 3a records what that ruling replaced.
 
-| State | Time to cutoff | Session (5-hour) | Weekly | What the state means |
-|---|---|---|---|---|
-| **1. HOLD NEW WORK** | 20 minutes | 80 percent | 90 percent | Start nothing new. Finish what is open |
-| **2. PROTECT AND WRAP** | 10 minutes | 86 percent | 94 percent | Commit, write the note, hand off |
-| **3. URGENT STOP** | 5 minutes | 92 percent | 97 percent | Stop now. Commit whatever exists, even half-done |
+Whichever trigger fires **first** puts the pool in that state. Time is primary; the levels are the
+backstop, and HOLD NEW WORK's conditions follow the table.
 
-**The Weekly column names a severity, not an authority. Only the Session column can stop anyone.**
-A weekly-only rung has the protect half and no start-nothing half. Section 3a carries the rest.
+| State | Time to cutoff | Weekly level | What the state means |
+|---|---|---|---|
+| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate; 98 percent or more whatever the rate | Start nothing new. Finish what is open |
+| **2. PROTECT AND WRAP** | 10 minutes | 94 percent | Commit, write the note, hand off |
+| **3. URGENT STOP** | 5 minutes | 97 percent | Stop now. Commit whatever exists, even half-done |
 
-Stated here rather than only in 3a, because a reader of this table does not reach 3a. Four sessions
-have read a weekly crossing as a hold: the seat and PM 3a records, and three more on 2026-09-17.
+**That table is the only statement of HOLD NEW WORK's time trigger. Link to it; do not copy it.** The
+owner may adjust it.
 
-The sharpest of the three is the one where it changed what got done. The session on branch
-`claude/rederive-after-the-tree-moves`, which landed #125, reports declining offered work partly
-because its banner read HOLD NEW WORK -- with the no-rationing paragraph printed directly beneath it.
+**Burn rate governs HOLD NEW WORK.** With a rate, the pool is in HOLD when the rate projects it to run
+out inside that time and before the window resets. A run-out projected past the reset is no cutoff.
+A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
 
-Named at that session's own request, and its own report. It argued an unattributed instance cannot
-be checked, and that being the fourth named instance of a fixable defect beats being an anonymous
-one. The other two are this branch, which published a weekly-85 hold and retracted it, and the
-Manager, which relayed the misreading before correcting it.
+A state is read fresh each time. A rate-fired HOLD clears when the projection stops firing it, and
+*A warning that changes behaviour invalidates its own projection* says how to read that.
 
-**The weekly column read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved it to
-90 / 94 / 97. The session column did not move.
+| Reading | What fires HOLD NEW WORK |
+| --- | --- |
+| A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
+| No rate: one sample, a flat burn, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| 98 percent or more | The level, whatever the rate says. |
+
+**A level of 94 or 97 with a rate showing room still fires its state, for the protect half only.**
+That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 ruling. Commit and hand off;
+the stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
+
+**Below 98, a level crossed with a positive rate in hand is not a hold.** The session on branch
+`claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined offered work, with
+the no-rationing paragraph directly beneath its banner. The same misreading is open under this rule.
+
+**The weekly levels read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved them to
+90 / 94 / 97, and the 2026-10-31 ruling kept those numbers. **Until 2026-10-31 a session column read
+80 / 86 / 92 and rung 1's time trigger read 20 minutes.**
 
 Recorded rather than replaced silently, because the old numbers are cited elsewhere on this page.
 Section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
 89/93 against 86/92. Those readings stay true of the dates they name.
 
-**One act reads a state.** The Manager reads the published reading before it writes a launch line.
-Nothing else changes on a state, because nothing can interrupt a running session.
+**One act reads the published state.** The Manager reads it before it writes a launch line. Nothing
+can interrupt a running session, so a running seat learns the state from its own hook.
 
 These levels are the owner's guidance from experience, not a derivation and not a hard mechanism.
 Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
 
-The percentage columns are OR, not AND. Session at 86 with weekly at 40 is state 2. Weekly at 92 with
-session at 30 is state 2. Take the worse of the two windows -- `max`, never weekly alone, and never
-session alone (COMMON records that an earlier draft said "weekly" and was wrong).
+### 3a. The weekly window sets the STATE and carries the STOP
 
-### 3a. The worse window sets the STATE; only the 5-hour window carries the STOP
+**Owner ruling 2026-10-31, replacing the 2026-08-14 ruling that a weekly rung stops nobody.** Anthropic
+removed the five-hour limit. The weekly window now sets the state and carries the stop on starting, and
+`STOP_AUTHORITY_WINDOWS` holds weekly alone. *The three states* holds the triggers.
 
-A weekly-only rung is a **severity label**. It has the protect half and no start-nothing half at all.
-Weekly at 92 with session at 30 is state 2, and what that publishes is protect, wrap and hand off --
-not an instruction to hold new work.
+**What it replaced.** From 2026-08-14 a weekly rung stopped nobody. Only the 5-hour window carried the
+STOP, a weekly-only rung was a severity label with no start-nothing half, and the state was the worse
+of the two windows. With one window left, that rule is retired whole.
 
-Steward-corrected 2026-08-27, after that seat announced a weekly-85 crossing as a standard ladder hold
-and the PM stopped work on it: *"I conflated the rung's name with its authority."*
-
-The `max` rule in *The three states* stands: `max` still picks the STATE. What it never said is which
-window can stop anyone, and a reader with only that sentence resolves the gap the expensive way.
-
-**It is a findability defect, and that is measured rather than inferred.** Three seats -- the PM,
-the ASVS tracker and one other -- each rediscovered the rule independently inside about one hour on
-2026-08-27, all having read this section.
-
-It was written nowhere in this file. Probes over the flattened text returned **0** for `stop
-authority` and **0** for `severity label`. The controls returned **6** for `hold new work` and **2**
-for `take the worse of the two windows`. Reproduced 2026-08-28 with the same counts.
+**A rung's name still does not settle its authority.** On 2026-08-27 a Steward announced a weekly-85
+crossing as a ladder hold, and the PM stopped work on it. The Steward's words: *"I conflated the
+rung's name with its authority."* The same conflation now arrives as a level read as a hold while a
+rate shows room.
 
 ### 3b. The instrument's `state` field is a severity label, and that is not a defect
 
-`status.json` labels every pool with a `state` field, and it reads "URGENT STOP" on pools at 5-hour 0
-and 2. Reported as the field contradicting the stop rule, then checked against `watch.py`. It is
-correct, and its own comment says why:
+`status.json` labels every pool with a `state` field. On 2026-08-28, when a five-hour window existed,
+it read "URGENT STOP" on pools at 5-hour 0 and 2. Reported as the field contradicting the stop rule,
+then checked against `watch.py`. It was correct, and its own comment then said why:
 
 > `by_level` keeps every window, because the headline and the cheap PROTECT half are owed on any axis;
 > only the START-STOP half is restricted -- gated separately as `by_level_stop`, filtered through
 > `STOP_AUTHORITY_WINDOWS`.
 
-That is *The worse window sets the STATE*'s rule implemented exactly. What is wrong is the name.
+That was the stop rule of its day implemented exactly. What is wrong is the name, and that outlived
+the window.
 
 A field called `state` carrying the literal string "URGENT STOP" reads as a stop order. It is a
 severity label, and its stop half is gated in a field the reader never sees. A fourth seat
 rediscovered this through the instrument rather than through the document.
 
-**So do not file it as a bug and do not change the gating. Read `by_level_stop`, never `state`, before
-you tell anyone to stop.**
+**So do not file it as a bug. Read the hook's ACTION line, never `state`, before you tell anyone to
+stop.** The stop half follows the projection, with `by_level_stop` as its backstop. Neither field is
+in `status.json`.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
-rule is encoded as `STOP_AUTHORITY_WINDOWS`, a frozenset holding `5-hour` alone. **It lives outside the
+rule is encoded as `STOP_AUTHORITY_WINDOWS`, a frozenset holding `weekly` alone. **It lives outside the
 repository, and searching git for it is the wrong instrument:**
 
 ```
@@ -592,11 +603,14 @@ Read the ruling before you tell anyone to stop. On 2026-08-14 the owner ruled to
 through the weekly rungs. Every seat obeying this table literally would then have held new work,
 when the owner had just said not to.
 
+**The owner ruling of 2026-10-31 replaced that one: a weekly rung now carries the stop (3a).** This
+section's rule stands, because a later ruling can suspend the stop half again.
+
 Split every rung into its two halves, because only one of them is ever contested:
 
 | half | what it does | status |
 |---|---|---|
-| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
+| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies once a rung has fired.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
 | **STOP** | hold new work, wind down | **Contested. Read the live ruling.** Never infer it from the number |
 
 | Item | Rule |
@@ -657,17 +671,19 @@ whoever inherits it reads them with it.
 | **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
 | **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
 
+Where a level alone fired state 2 or 3 with a rate showing room, only the protect half is asked for
+(*The three states*).
+
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 
 COMMON, *The workflow gate cannot see aggregate load*, and the Lander playbook carry an older,
-narrower rule: no new Workflow above 90 percent of `max(5-hour, weekly)` without asking the owner.
+narrower rule: no new Workflow above weekly 90 percent without asking the owner.
 
-The ladder here is stricter and fires earlier in every case, because 80/85 is crossed before 90 can
-be. So HOLD NEW WORK is the operative line for a new Workflow, and 90 percent cannot fire first.
+**The gate and HOLD NEW WORK can now fire in either order.** A fast burn reaches HOLD below 90, and a
+slow burn passes 90 with no HOLD at all. Above 90 the gate binds whatever the rate says. Until
+2026-10-31 this section said the ladder always fired first. That arithmetic went with the rule.
 
-**Do not delete the 90 rule on that arithmetic.** It is owner-set, it names a specific act, and it
-carries "ask the owner first", which the table does not. Three reasons the gate sits outside the
-tuning grant, and they do not depend on each other:
+Three reasons the gate sits outside the tuning grant, and they do not depend on each other:
 
 | Reason | Detail |
 | --- | --- |
@@ -683,8 +699,8 @@ within minutes of making it, and kept in their words because the formulation is 
 > minutes and is invisible to that question. I CHECKED WHETHER I COULD AFFORD THE FIRST TOKEN, NOT THE
 > TWELFTH AGENT."*
 
-They followed the procedure: fresh reading, judged against the real pool, `max(25, 46) = 46`, under
-90, launched. Correct procedure, bad outcome -- an instrument answering the adjacent question.
+They followed the procedure: fresh reading, judged against the real pool at 46, under 90, launched.
+Correct procedure, bad outcome -- an instrument answering the adjacent question.
 
 The instruction they followed was this file's own, *"judge each request against a fresh reading, not
 a quoted one"*, written to fix staleness, which it does. It simply answers a different question from
@@ -712,12 +728,20 @@ second only assigns a defect. The arithmetic that makes the gate answerable in t
 points/hour between them; one run cost about as much again. A fan-out is not a marginal cost. It is a
 multiplier on the whole fleet's draw.
 
-**The check, one arithmetic step.** Take the current level. Add roughly **+35 to 40 points/hour per
-12-14 agent run** while in flight, times its expected duration, plus what the fleet is already
-drawing. If that lands past a rung, the gate is tripped even though the spot reading is not.
+**Those rates are five-hour points, measured when that window existed.** The multiplier carries to
+the weekly meter. The points do not.
 
-From that night: at 03:28Z the pool read **46** and the gate was untripped, runs already in flight.
-Another ~+40/hr on an existing ~+117/hr puts the pool at 100 in about twenty minutes, as happened.
+**The check, one arithmetic step.** Take the current weekly level. Add the run's cost per hour while
+in flight, times its expected duration, plus what the fleet is already drawing. If that lands past
+90 percent, the gate is tripped even though the spot reading is not.
+
+The measured cost was **+35 to 40 five-hour points/hour per 12-14 agent run**. At about 20 weekly
+points per 100 five-hour points that is roughly **+7 to 8 weekly points/hour**, a conversion nobody
+has measured directly. Replace it with a weekly reading once one exists.
+
+From that night, in five-hour points: at 03:28Z the pool read **46** and the gate was untripped, runs
+already in flight. Another ~+40/hr on an existing ~+117/hr puts the pool at 100 in about twenty
+minutes, as happened.
 
 **Every input was available at 03:28Z and the procedure did not ask for any of them.**
 
@@ -736,14 +760,18 @@ Tell the two apart by asking which question is in dispute, not which number is l
 
 ### 3i. The ladder wins where the hook disagrees
 
-**Resolved 2026-08-13.** `watch.py` was replaced and independently verified against the installed
-file. It carries three states matching this ladder, and the 5-hour and weekly thresholds of *The
-three states*.
+**Resolved 2026-08-13, and reopened by the owner ruling of 2026-10-31.** `watch.py` was then replaced
+and verified against the installed file, with the thresholds of that date. Compare the installed file
+against *The three states* before you trust it again: rung 1 changed from a level to a rate.
+
+**Read 2026-10-31: the installed `watch.py` suppresses its rate projection, so its banners take the
+no-rate arm.** A banner can print HOLD NEW WORK at 90 with a rate showing room. Publish from the
+ladder and say so, until that suppression is lifted.
 
 The 90 percent Workflow gate is unchanged on its own trigger, and the do-not-ration clause is inline
 on rung 1.
 
-Measured: a pool banded **OK at 85** while the ladder said HOLD NEW WORK. It then ran **85 to 96 in
+Measured: a pool banded **OK at 85** while the ladder of that date said HOLD NEW WORK. It then ran **85 to 96 in
 twenty minutes at +42 points/hour**, with no reset for over two hours. The state whose entire
 purpose is to stop new work never fired, because the instrument did not have it.
 
@@ -782,7 +810,7 @@ seat. Two consequences, and both cut against the way a per-seat ladder reads.
 | --- | --- |
 | **Agreement between seats is not corroboration** | The Lander's framing is the one to use: *"per-seat usage readings are one measurement quoted many times, not corroboration."* Eight seats reporting 80 percent is one reading, eight times. |
 | Why a sibling cannot confirm you | If it were wrong it would be wrong everywhere at once, in perfect agreement. This is COMMON's *independent operators are not independent instruments*, arriving from the pool rather than from the method. |
-| **A seat cannot lower its own state by working less** | If a sibling is spending the same pool, the level does not come down. Say this when you publish, because the per-seat ladder invites the opposite reading. A seat that idles expecting its own state to improve gains nothing. |
+| **A seat cannot lower its own state by working less** | If a sibling spends the same pool, the level does not come down. Say so when you publish. Only the whole pool's burn can clear a rate-fired HOLD, and nobody asks a seat to slow down (trap 9.3). |
 
 Worked example, from the seat that made the error. The Liaison wrote *"my pool just crossed into
 HOLD NEW WORK"* as though the reading were its own, and built a courtesy on top of it. The courtesy
@@ -852,7 +880,7 @@ against a rule that no longer exists: nothing is wrong, nothing is stale, no err
 
 A cron is not on the ladder, so it needs no exemption, no `seats.json` entry and no banner check. *The
 three states* are what it publishes, not something applied to it. Keep reading straight
-through. A watcher that stopped at 86 percent would remove the reading exactly when it is most needed.
+through. A watcher that stopped at 94 percent would remove the reading exactly when it is most needed.
 
 **Retired 2026-09-01: this section previously carried a per-seat exemption**, owner ruling
 2026-08-13. It came with a standup banner check: `SEAT=STEWARD, LADDER NOT APPLIED` against `[ladder
@@ -1050,7 +1078,7 @@ for silence will never report it. Long gaps mean the chain is broken and you are
 Gaps that are too short mean the clock is over-firing. Every tick wakes a seat and spends a turn, so
 a runaway clock burns the very pool this ladder exists to protect.
 
-Measured 2026-08-14: **a burst of sub-minute ticks cost about 9 points of the shared 5-hour pool in
+Measured 2026-08-14: **a burst of sub-minute ticks cost about 9 points of the old 5-hour pool in
 nine minutes**, and was projected to exhaust the window before its own reset. **The monitor becomes
 the load.** State both bounds when you publish the heartbeat, not just the lower one.
 
@@ -1169,7 +1197,7 @@ it: you do not pre-emptively stop, so your protection has to be durability inste
 | --- | --- |
 | Write your note at a rung, not continuously | Owner-set 2026-08-28, and it **replaces** this file's former *"keep your episode note current continuously"* and *"write it after every warning you send"*. Write at rung 1 or rung 2; when the window resets, go back to not writing. |
 | The carve-out was asked for and argued away | The old justification was that a Steward never stands down, so it has no wind-down in which to write. |
-| The exemption is from STOPPING, not from SEEING | Rungs still fire on your pool and you read the same banner as everyone. So *"the ladder is the warning"* holds for you exactly as it does for them, and rung 1 leaves roughly twenty minutes of runway. |
+| The exemption is from STOPPING, not from SEEING | Rungs still fire on your pool and you read the same banner as everyone. So *"the ladder is the warning"* holds for you exactly as it does for them, and rung 1 leaves the runway *The three states* names. |
 | What you record when a rung fires | Pools watched, last reading with its time, which pool is in which state, and who you notified and when. **A successor must be able to resume from the note alone.** That, not your own survival, is the continuity plan. |
 | Stay cheap | You are running while others stop, so keep the watch light: read, project, publish, record. Do not start analysis you would not want interrupted. |
 | **Never launch a multi-agent fan-out** | Measured 2026-08-14, and reported by the seat that did it: a **1.33M-token** workflow run by the watching seat was the cause of the only limit hit that day. |
@@ -1217,8 +1245,8 @@ This entry omitted the parameter until 2026-08-29, so the command as documented 
 **It defeats the *Every row carries its subject* invariant while satisfying it syntactically, which
 is why nothing reports it.**
 
-Measured by a Steward on itself, 2026-08-29. A `-DryRun` of the command as documented produced a
-well-formed row: org `b11dff81...`, account `<EMAIL-REDACTED>`, five_hour 100.0, weekly 98.0. That
+Measured by a Steward on itself, 2026-08-29, when a five-hour window existed. A `-DryRun` of the
+command as documented produced a well-formed row: org `b11dff81...`, account `<EMAIL-REDACTED>`, five_hour 100.0, weekly 98.0. That
 seat's own pool read five_hour 32.0, weekly 7.0.
 
 **The row carried a subject. It carried the wrong one, and the exit code was 0.** The record is
@@ -1264,7 +1292,7 @@ where `exit 0` was the untrustworthy answer. **Exit codes mean what the tool say
 the contract; do not assume the convention.**
 
 **Eighteen rows were backfilled from a transcript and marked `backfill:true`.** They span a complete
-5-hour window: 4 percent at 17:46Z through 97 at 18:54Z, the ceiling, the owner hard stop, and the
+5-hour window, from when one existed: 4 percent at 17:46Z through 97 at 18:54Z, the ceiling, the owner hard stop, and the
 reset at 21:45Z.
 
 That shape is not obtainable any other way, and it is marked so nobody mistakes it for live logging.
@@ -1388,7 +1416,7 @@ about the instruments, and they hold whoever reaches a cold seat.
 | **`lastActivityAt` is not an arrival check** | A success return describes the sending tool, never arrival. The recipient's transcript is the only ground truth, and `mail.ps1 -Status` gives receipts for the mail half. |
 | Its standing is weaker than it looks | The seat that used it reported *"9 of 9 verified"* and then withdrew that claim itself. The field's dismissal rests on a mechanism that was tested and falsified, so it is **ungraded**, not graded weak. |
 | What that field actually did | The 10-minute clock confounds it, and on the one measured outage it showed activity for seats that were deaf. |
-| **Snapshot the overwrite-in-place quantities, and only those** | The pre-roll 5-hour percentage and `seat-tick.state.json` are **replaced**, not appended. Once the window turns, the reading you needed is gone. |
+| **Snapshot the overwrite-in-place quantities, and only those** | The pre-roll percentage and `seat-tick.state.json` are **replaced**, not appended. Once the window turns, the reading you needed is gone. |
 | Transcripts reconstruct fine, so do not build a ritual | A seat that proposed *"capture everything, it is permanently unrecoverable"* refuted itself within the day, by reconstructing twelve seats to the millisecond after the fact. |
 
 ---
@@ -1402,7 +1430,7 @@ about the instruments, and they hold whoever reaches a cold seat.
 | **9.3 Turning into a rationer under pressure** | The pull is strong at states 2 and 3: suggesting someone drop work *feels* like helping. It is outside the seat, contradicts the owner's standing rule, and costs work that had headroom. **You say how long they have; they decide.** |
 | **9.4 A stale reset time reading as a fresh window** | A reset time that has passed means your sample predates the window it describes. Re-read before publishing on it. A crossed reset makes a scary number harmless and a calm number meaningless. |
 | **9.5 Relaying a peer's usage figure** | It carries their pool, their sample time and their instrument. Measure the pool you are reporting on, or attribute the number and its age -- *"as of 4 minutes ago, per session Y"* -- so the recipient can judge it. |
-| **9.6 Escalating on percentage while the rate says otherwise** | The levels are a backstop. If the rate projection and the level disagree, the projection is the one to act on, and say both so the recipient sees the disagreement rather than inheriting your resolution of it. |
+| **9.6 Escalating on percentage while the rate says otherwise** | The levels are a backstop. If the rate projection and the level disagree, *The three states* says which to act on, and say both so the recipient sees the disagreement rather than inheriting your resolution of it. |
 | **9.7 Reporting a quiet seat as DARK** | A live misclassification, 2026-08-14, self-reported: a seat was logged as *"DARK ~3h09m"* with a correct caveat underneath. It was user-driven, healthy, and had missed nothing. |
 | **9.7a Label the column, do not judge in it** | **Label it "no activity for N" and let the reader judge** -- *dark* is a verdict wearing a measurement's clothes. **A correct caveat under an incorrect label is not a correct report.** Labels travel; caveats do not. |
 | **9.7b Clock status is an ATTRIBUTE, never a FILTER** | A seat missing from a tick line is unexplained, not exempt, and filtering it out deletes the one row worth looking at. |
@@ -1417,6 +1445,8 @@ it is recorded with what it does **not** change.
 | The level still fires, and this is not a downgrade | It triggers the **cheap protect action** -- commit what you have, capture the at-risk sweep. That costs nothing and loses nothing, so a backstop firing is a real trigger and a stop sent on one was correct to send. |
 | What the level stops doing | Halting new work when the burn says there is room. That is the whole change, and it is where the damage was: **2h37m of hold against a 48-minute real wait, by one builder alone.** |
 | The inverted form was propagated by four seats | *"A level beats a rate, always."* One of the four abandoned a correct measurement to adopt it. **If you took "act on the level" from anyone, drop it.** COMMON carries the mechanism, and the reason nobody argued with it. |
+| **The owner ruling of 2026-10-31 keeps this and narrows it** | HOLD NEW WORK's level of 90 now fires only with no rate, so at 90 with room nothing is owed. The levels of 94 and 97 still fire, for the protect half. *The three states* holds the triggers. |
+| The limit that ruling set | At 98 percent or more, HOLD NEW WORK fires whatever the rate says. Rate governs up to there and no further. |
 
 ### 9.8. Confirm the subject before refining the predicate
 
@@ -1458,7 +1488,7 @@ subject is UNKNOWN or INFERRED. This one was neither. It was pinned by an owner 
 strongest instrument this seat has, and **the confirmation was correct when made.**
 
 An account switch then moved the fleet, and a true line became a true reading of a pool nobody was
-on.
+on. These are 5-hour readings, measured when that window existed.
 
 | pool | reading | what it meant |
 |---|---|---|
@@ -1487,7 +1517,7 @@ Every standing rule here carries one, per [README.md](README.md).
 | Rule | Stops being right when |
 |---|---|
 | The three states and their levels | The owner recalibrates them, or names a seat to inherit the tuning grant. They are a starting calibration, not a ratified constant; expect them to move |
-| Time triggers 20 / 10 / 5 | Same. A 20-minute warning that routinely arrives too late is evidence, not an inconvenience |
+| The time triggers in *The three states* | Same. A rung 1 warning that routinely arrives too late is evidence, not an inconvenience |
 | The tuning grant is unheld | The owner names a seat to hold it. **Watch the self-inflicted case:** a tuned threshold measured to have made a warning arrive too late presents as the ladder failing rather than as the tuning failing |
 | The 90 percent gate stays owner-set | The owner says otherwise. **Not lifted by the tuning grant** -- it is a decision rule, not a level |
 | Burn rate is primary | Only if a rate becomes unmeasurable; then the levels become primary, and say so in every reading |
@@ -1496,7 +1526,6 @@ Every standing rule here carries one, per [README.md](README.md).
 | A cron is not on the ladder | The owner says otherwise, or the Steward becomes a model-calling seat again |
 | Nobody is owed a restart | A seat can be interrupted mid-run, or a held session can outlive the turn that created it |
 | The cron owns usage watching | **The newest row in `docs/usage/burn-history.jsonl` is older than the tick interval** -- the cron has stopped, and usage watching is the Lander's |
-| The 90 percent Workflow rule is subsumed | It is owner-set; if the levels above are relaxed past 90, it binds again on its own terms |
 | The cold-channel table in *Nobody is owed a restart* | Any Desktop or engine version change. It is build-specific and expected to go stale |
 | The `token-collect.py` absence note in *Log per-seat tokens beside it* | `git cat-file -e origin/main:scripts/coord/token-collect.py` exits 0 |
 | The `seats.json` and cold-channel entries live here | They land in [COMMON.md](COMMON.md), where they belong. They are general seat failures, not this seat's |

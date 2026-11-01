@@ -42,8 +42,7 @@ function engineForStart(
   on: On,
   seat: string | null,
   rateLimits: readonly { kind: string; percentUsed: number }[] = [
-    { kind: 'five_hour', percentUsed: 17.6 },
-    { kind: 'seven_day', percentUsed: 3.2 },
+    { kind: 'seven_day', percentUsed: 17.6 },
   ],
 ): {
   status: () => string | undefined
@@ -110,31 +109,31 @@ test('status line, when on, redraws every minute and after each turn', ON, async
   await $.turn.complete({ answer: 'done', durationMs: 1000, isAborted: false, turnId: 'turn-main', reason: 'answer' })
   await engine.settle()
   expect(engine.usageReads()).toBe(3)
-  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | 7d 3%')
+  expect(engine.status()).toBe('seat manager | ctx 42% | 7d 18%')
 })
 
 test('status line names the seat, context and rate limit', ON, async ($, on) => {
   const engine = engineForStart(on, 'manager\n')
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | 7d 3%')
+  expect(engine.status()).toBe('seat manager | ctx 42% | 7d 18%')
 })
 
 test('status line shows a rate-limit kind it has no short label for as given', ON, async ($, on) => {
   const engine = engineForStart(on, 'manager\n', [
-    { kind: 'five_hour', percentUsed: 17.6 },
-    { kind: 'spend_limit', percentUsed: 40 },
+    { kind: 'seven_day', percentUsed: 17.6 },
+    { kind: 'spend_limit', percentUsed: 40.2 },
   ])
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat manager | ctx 42% | 5h 18% | spend_limit 40%')
+  expect(engine.status()).toBe('seat manager | ctx 42% | 7d 18% | spend_limit 40%')
 })
 
 test('status line reads no seat marker when the file is missing', ON, async ($, on) => {
   const engine = engineForStart(on, null)
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()
-  expect(engine.status()).toBe('seat no seat marker | ctx 42% | 5h 18% | 7d 3%')
+  expect(engine.status()).toBe('seat no seat marker | ctx 42% | 7d 18%')
 })
 
 // The engine beneath the board: which paths exist, and what the script prints. Records every

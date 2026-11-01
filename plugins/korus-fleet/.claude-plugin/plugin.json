@@ -1,6 +1,6 @@
 {
   "name": "korus-fleet",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Read-only: an opt-in status line with seat and usage, and a /fleet pane listing RUNNING seat records from the fleet script's -Json output",
   "author": { "name": "MEFORORG" },
   "types": "./types/index.d.ts",

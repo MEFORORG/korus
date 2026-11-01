@@ -27,6 +27,9 @@ to 7 points. The margin has to cover what is already committed and not yet visib
 **The gate cannot see aggregate load, so every launcher gets a correct yes and the sum is wrong.**
 Measured across two consecutive windows on 2026-08-29, the same shape both times.
 
+Those were five-hour windows, when one existed. Nothing here has measured this shape at a weekly
+reset, so read it as the risk at that reset rather than as its measurement.
+
 Four fan-outs launched within eight minutes of a reset: 12 agents, about 13, 9, about 15. **Every
 one checked the gate and passed honestly at 4 to 6 percent.** Nobody was careless.
 
@@ -42,7 +45,7 @@ see all window.
 
 So the gate is at its most permissive exactly when demand peaks, and a resume broadcast is itself
 the synchronising signal. **If you are launching just after a reset, assume others are too and price
-against the weekly, which does not reset with the 5-hour.**
+the launches together, not yours alone.**
 
 **And the blind spot is not only other seats. It is your own later phases. Count your loop.** A
 per-launch gate reads the launch instant; a multi-phase fan-out spends most of its cost later.
