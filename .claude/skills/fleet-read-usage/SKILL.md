@@ -210,7 +210,7 @@ wrong.
 
 **Pacing moves when the weekly ceiling arrives. It adds no headroom.**
 
-Pacing once moved a second ceiling, the 5-hour one, and that window is gone
+Pacing once moved a second ceiling, and that window is gone
 ([STEWARD.md](../../../roles/STEWARD.md), *3a*). The same total spend at a lower rate now reaches 100
 later, and a lower pool rate can clear HOLD NEW WORK. That describes the instrument, and it is no
 reason to slow down: nobody rations.
