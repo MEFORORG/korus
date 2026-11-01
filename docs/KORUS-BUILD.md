@@ -283,8 +283,8 @@ The gate also fails open. Check its [blind spots](LIMITS.md#what-the-collision-g
 A worker that stops after one brief spends nothing waiting. A session kept open to poll pays for its
 full context on every pass.
 
-This setup exhausts a weekly window in about two days, before the five-hour cap becomes the main
-constraint ([The KORUS framework](KORUS.md)). That is why the framework expects multiple accounts.
+This setup exhausts a weekly window in about two days ([The KORUS framework](KORUS.md)). That is why
+the framework expects multiple accounts.
 
 [Token accounting](TOKEN-ACCOUNTING.md) measures the value of one percent of a weekly window. It also estimates a month's
 cost at published API rates.
