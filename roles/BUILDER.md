@@ -1616,14 +1616,14 @@ yourself: does this lane get removed, and what must land first.
 when the weekly window is above 90 percent.** See [COMMON.md](COMMON.md), *A usage number warns
 about lost work, not about budget*.
 
-HOLD NEW WORK, in section 8a, is the other stop. [STEWARD.md](STEWARD.md), *The three states*, holds
-its triggers.
-
-It is the one usage number that is a stop on its own reading. **Re-read the number before each
+It is the one usage number you read for yourself as a stop. **Re-read the number before each
 launch, not once at arrival** -- your own fan-outs are what move it. **Everything else about usage
 is a lost-work signal, never a budget signal.** Commit early; do not stop early.
 
-Measured on this seat: a Builder that had read the rule **stopped anyway at 78 percent**, with over
+The exception is a published HOLD NEW WORK, in section 8a. [STEWARD.md](STEWARD.md), *The three
+states*, holds its triggers.
+
+Measured on a five-hour window: a Builder that had read the rule **stopped anyway at 78 percent**, with over
 three hours to reset and four actionable items in hand. You will read a hook telling you to pause
 roughly ten times for every once you read this line.
 

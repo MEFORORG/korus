@@ -87,7 +87,7 @@ before relying on it.
 The original guidance prohibited sharing one account between people.
 
 Max 20x limits your usage through weekly caps. Anthropic has removed the five-hour session cap that
-also applied when I took these readings.
+also applied when I measured this.
 
 About eight build tasks at a time used the weekly allowance in about two days.
 

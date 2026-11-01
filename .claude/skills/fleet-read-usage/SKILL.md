@@ -90,7 +90,7 @@ suppresses a negative remainder.
 **Why the level is a floor.** A hook read **87** while the same seat's live read returned **90** --
 same session, same moment. At a rung boundary three points is the whole margin.
 
-**A floor can fire a rung and can never withhold one.** A hook reading 93 does not show rung 2
+**A floor can fire a level rung and can never withhold one.** A hook reading 93 does not show rung 2
 unfired. It shows the level is at least 93.
 
 The reason is monotonicity, not recency. Within a window the level only rises, so a sample taken at
@@ -208,17 +208,17 @@ wrong.
 
 ### A projection is an input to the thing it forecasts
 
-**Only doing less total work moves the weekly ceiling.**
+**Pacing moves when the weekly ceiling arrives. Only doing less total work changes how much the week
+can hold.**
 
 Pacing once moved a second ceiling, the 5-hour one, and that window is gone (owner ruling 2026-10-31,
-[STEWARD.md](../../../roles/STEWARD.md), *3a*). So pacing has no ceiling of its own left to move.
+[STEWARD.md](../../../roles/STEWARD.md), *3a*). With no cap bounding the rate, the same total spend at
+a lower rate reaches 100 later, and a lower rate can clear HOLD NEW WORK.
 
-The measurement behind this rule was taken while that cap bounded every rate: the weekly cutoff moved
-about 11 minutes across the fastest and slowest sustained rates ever recorded. Do not quote it as a
-property of the weekly window alone. Re-measure it.
+An older measurement said the opposite: the weekly cutoff moved about 11 minutes across the fastest
+and slowest sustained rates ever recorded. That cap bounded every rate then, so do not quote it now.
 
-**Seats going idle is not pacing. It is less total work, and it is
-the only thing that helps the weekly window.**
+**Seats going idle is not pacing. It is less total work.**
 
 **An observer that is also a participant must subtract its own contribution.** A seat reported a
 burn re-acceleration as "exactly what spend-it looks like" -- the fleet responding to an owner
@@ -242,6 +242,8 @@ the ladder", and a Steward can read it as "stop calling rungs". Both are wrong.
 **The ladder exists so work is not lost mid-task. Pacing is a different question and it is
 settled.** When a rung fires: reach a pause point, then keep going. Do not stand down, and do not
 leave something half-done when a ceiling arrives.
+
+Under HOLD NEW WORK, keeping going means finishing what is open.
 
 **When an outage ends, re-derive the projection from live points.** After a 7-minute blind window a
 seat checked whether the burn rate had fallen rather than assuming it continued. Several seats had
@@ -338,7 +340,8 @@ nothing that matters, because the work is anchored either way.
 had been optimising for all afternoon. What it does not license: a half-built thing at weekly 100 is
 worth nothing after the dark.
 
-**Take bounded, finishable work. Finish something, anchor it, take the next thing.**
+**Take bounded, finishable work. Finish something, anchor it, take the next thing, unless HOLD NEW
+WORK is in force.**
 
 **Prefer arithmetic over a projection when you need a number that does not wobble.** The points left
 to 100 are read off the meter and no rate is in them: 10 weekly points left stays 10 however the rate

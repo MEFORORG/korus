@@ -445,8 +445,8 @@ reachable. They must not be the ENDPOINTS OF A SLOPE.**
 **The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
 2026-10-31).** Section 3a records what that ruling replaced.
 
-Each state has two triggers. Whichever fires **first** puts the pool in that state. Time is primary; the
-levels are the backstop.
+Whichever trigger fires **first** puts the pool in that state. Time is primary; the levels are the
+backstop, and HOLD NEW WORK's conditions follow the table.
 
 | State | Time to cutoff | Weekly level | What the state means |
 |---|---|---|---|
@@ -463,17 +463,17 @@ A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
 
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
-| A rate you can state | The projection. The level 90 does not fire it. |
+| A rising rate you can state | The projection. Where two legs disagree, quote the band and take its early end. The level 90 does not fire HOLD here. |
 | No rate: one sample, a flat burn, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | 98 percent or more | The level, whatever the rate says. |
 
 **A level of 94 or 97 with a rate showing room still fires its state, for the protect half only.**
-That is *RATE GOVERNS*, section 9.6a, and it is this file's reading of how the 2026-10-31 ruling sits
-beside it. Commit and hand off; the stop on starting waits for HOLD's own triggers.
+That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 ruling. Commit and hand off;
+the stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
 
-**A level crossed with a rate in hand is not a hold.** Under the old rule four sessions read a weekly
-crossing as a hold. One declined offered work because its banner read HOLD NEW WORK, with the
-no-rationing paragraph directly beneath it. The same misreading is open under this rule.
+**Below 98, a level crossed with a rising rate in hand is not a hold.** The session on branch
+`claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined offered work, with
+the no-rationing paragraph directly beneath its banner. The same misreading is open under this rule.
 
 **The weekly levels read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved them to
 90 / 94 / 97, and the 2026-10-31 ruling kept those numbers. **Until 2026-10-31 a session column read
@@ -491,8 +491,8 @@ Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
 
 ### 3a. The weekly window sets the STATE and carries the STOP
 
-**Owner ruling 2026-10-31, replacing the ruling of 2026-08-14.** Anthropic removed the five-hour
-limit. The weekly window now sets the state and carries the stop on starting, and
+**Owner ruling 2026-10-31, replacing the 2026-08-14 ruling that a weekly rung stops nobody.** Anthropic
+removed the five-hour limit. The weekly window now sets the state and carries the stop on starting, and
 `STOP_AUTHORITY_WINDOWS` holds weekly alone. *The three states* holds the triggers.
 
 **What it replaced.** From 2026-08-14 a weekly rung stopped nobody. Only the 5-hour window carried the
@@ -521,8 +521,9 @@ A field called `state` carrying the literal string "URGENT STOP" reads as a stop
 severity label, and its stop half is gated in a field the reader never sees. A fourth seat
 rediscovered this through the instrument rather than through the document.
 
-**So do not file it as a bug and do not change the gating. Read `by_level_stop`, never `state`, before
-you tell anyone to stop.**
+**So do not file it as a bug. Read the stop half, never `state`, before you tell anyone to stop.** The
+stop half follows the projection, with `by_level_stop` as its backstop when there is none, and
+`hold_forced` at the level that holds whatever the rate.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
 rule is encoded as `STOP_AUTHORITY_WINDOWS`, a frozenset holding `weekly` alone. **It lives outside the
@@ -725,8 +726,8 @@ multiplier on the whole fleet's draw.
 the weekly meter. The points do not.
 
 **The check, one arithmetic step.** Take the current weekly level. Add the run's cost per hour while
-in flight, times its expected duration, plus what the fleet is already drawing. If that lands past a
-rung, the gate is tripped even though the spot reading is not.
+in flight, times its expected duration, plus what the fleet is already drawing. If that lands past
+90 percent, the gate is tripped even though the spot reading is not.
 
 The measured cost was **+35 to 40 five-hour points/hour per 12-14 agent run**. At about 20 weekly
 points per 100 five-hour points that is roughly **+7 to 8 weekly points/hour**, a conversion nobody
@@ -1419,7 +1420,7 @@ about the instruments, and they hold whoever reaches a cold seat.
 | **9.3 Turning into a rationer under pressure** | The pull is strong at states 2 and 3: suggesting someone drop work *feels* like helping. It is outside the seat, contradicts the owner's standing rule, and costs work that had headroom. **You say how long they have; they decide.** |
 | **9.4 A stale reset time reading as a fresh window** | A reset time that has passed means your sample predates the window it describes. Re-read before publishing on it. A crossed reset makes a scary number harmless and a calm number meaningless. |
 | **9.5 Relaying a peer's usage figure** | It carries their pool, their sample time and their instrument. Measure the pool you are reporting on, or attribute the number and its age -- *"as of 4 minutes ago, per session Y"* -- so the recipient can judge it. |
-| **9.6 Escalating on percentage while the rate says otherwise** | The levels are a backstop. If the rate projection and the level disagree, the projection is the one to act on, and say both so the recipient sees the disagreement rather than inheriting your resolution of it. |
+| **9.6 Escalating on percentage while the rate says otherwise** | The levels are a backstop. If the rate projection and the level disagree, *The three states* says which to act on, and say both so the recipient sees the disagreement rather than inheriting your resolution of it. |
 | **9.7 Reporting a quiet seat as DARK** | A live misclassification, 2026-08-14, self-reported: a seat was logged as *"DARK ~3h09m"* with a correct caveat underneath. It was user-driven, healthy, and had missed nothing. |
 | **9.7a Label the column, do not judge in it** | **Label it "no activity for N" and let the reader judge** -- *dark* is a verdict wearing a measurement's clothes. **A correct caveat under an incorrect label is not a correct report.** Labels travel; caveats do not. |
 | **9.7b Clock status is an ATTRIBUTE, never a FILTER** | A seat missing from a tick line is unexplained, not exempt, and filtering it out deletes the one row worth looking at. |

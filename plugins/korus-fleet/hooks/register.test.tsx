@@ -122,7 +122,7 @@ test('status line names the seat, context and rate limit', ON, async ($, on) => 
 test('status line shows a rate-limit kind it has no short label for as given', ON, async ($, on) => {
   const engine = engineForStart(on, 'manager\n', [
     { kind: 'seven_day', percentUsed: 17.6 },
-    { kind: 'spend_limit', percentUsed: 40 },
+    { kind: 'spend_limit', percentUsed: 40.2 },
   ])
   await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
   await engine.settle()

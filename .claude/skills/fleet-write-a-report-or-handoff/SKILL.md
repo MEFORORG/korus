@@ -87,8 +87,8 @@ rungs, so a night where weekly exhausted first left every handoff unwritten (mea
 seat widened the trigger to the binding window within a projected hour or two of exhaustion.
 
 The owner ruling of 2026-10-31 gave the weekly window the rungs and removed the five-hour window
-([STEWARD.md](../../../roles/STEWARD.md), *3a*). Rung 1 now fires on the projection, so the widening
-has no subject left. **Write at rung 1 or rung 2.**
+([STEWARD.md](../../../roles/STEWARD.md), *3a*). Rung 1 now sees the case the widening was written
+for, at the shorter lead *The three states* sets. **Write at rung 1 or rung 2.**
 
 A seat found the widening by breaking the rule deliberately. It said so in its own artifact's first
 paragraph, rather than let a reader guess whether it forgot or overrode.
