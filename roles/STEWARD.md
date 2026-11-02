@@ -502,8 +502,8 @@ over the time from the previous tick to the newest read. The cost is that a burs
 slow until its second tick.
 
 **Two ticks or more are rated from its last read,** or from the lookback's oldest read if that is
-newer. Under 4 minutes past its last read, or across the reads inside the lookback, nothing is a
-rate, so the level decides. A later drop starts a new climb.
+newer, which can leave too short a climb to rate. Under 4 minutes past its last read, or across the
+reads inside the lookback, nothing is a rate, so the level decides. A later drop starts a new climb.
 
 **The flat ruling does not state these limits.** Both reads are live, inside the current weekly
 window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
@@ -512,9 +512,9 @@ because `_flat` cannot place that window. It fails safe: the level decides.
 **A measured flat may span a blind window between its reads.** The meter only rises inside a weekly
 window, so equal ends hold.
 
-**A blind window with no equal read after it gives no flat,** and stays no rate unless a later rise
-gives one. `_read_pool` needs the read just taken on the series; `_flat` refuses a newest read past
-`SAMPLE_MAX_AGE`, 900 seconds.
+**A blind window with no equal read after it gives no flat until the new level has held 30 minutes,**
+and stays no rate unless a later read gives one. `_read_pool` needs the read just taken on the
+series; `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900 seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
