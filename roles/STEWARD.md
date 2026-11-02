@@ -439,12 +439,12 @@ and this reading covers each alone.
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
 falsification signal in the table below, because it has no second caller to disagree with.
 
-**These values are true once the vault change is installed.** The window is `BURN_LOOKBACK`,
-`BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's `scripts/coord/watch.py`, whose
-comment holds the rest. The lookback is 60 minutes, and a span under 30 needs two ticks or more.
+**These are true once the vault change is installed:** `BURN_LOOKBACK`, `BURN_MIN_SPAN`,
+`BURN_MIN_TICKS`, `BURN_FLOOR_SPAN` and `BURN_RESET_DROP` in the vault's `scripts/coord/watch.py`,
+whose comment holds the rest. The lookback is 60 minutes, and a span under 30 needs two ticks or more.
 
-Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. The
-owner approved the lift and ruled on the flat.
+Those values are estimator constants the Manager set from a backtest on 2026-11-02. The owner
+approved the lift and ruled on the flat.
 
 **Moving any of these changes when HOLD fires, so it needs the owner,** as *Nobody holds the grant to
 tune these numbers now* says of the numbers. `BURN_MIN_SPAN` also sets the 30 minutes in that flat
@@ -491,7 +491,7 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02), with a reset time | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
+| A measured flat: two successful reads at least 30 minutes apart at an equal level (owner ruling 2026-11-02). Every read between them is equal, and the older sits inside the current weekly window, with a reset time | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
 | No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
 | A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (its pool came from this config root's login). Those checks run for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
@@ -501,8 +501,8 @@ climb. One tick past it is rated from its start, and two or more from its end. T
 burst after idle reads slow until its second tick.
 
 **A reading held flat for 30 minutes or more, with a reset time, reads as a measured flat.** With
-neither that nor a rate, the level decides. The comment on the `BURN_` constants in the vault's
-`scripts/coord/watch.py` holds the limits on all of this.
+neither that nor a rate, the level decides. For the values, see the comment on the `BURN_` constants
+in the vault's `scripts/coord/watch.py`. For the conditions, see `_flat` and `_for_reader` there.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -829,8 +829,8 @@ put `watch.py`'s banners on the no-rate arm.** The lift lands in the vault's cop
 follows it, so this line does not say what is installed.
 
 The installed file is `<HOME>\.claude\mefor-usage\watch.py`. `grep -c 'MEASURED FLAT'` returning 0
-there, with `HOLD NEW WORK` hitting as the control, means the lift is not installed: publish from
-the ladder until the compare reads installed.
+there, with `HOLD NEW WORK` hitting as the control, means the lift is not installed. Publish from
+the ladder and say so until the compare reads installed on each PC.
 
 Otherwise read its HOLD arms against *The three states*. Where they disagree, publish from the
 ladder and say so.
