@@ -176,7 +176,7 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. That field is now the hook's own series (2026-11-02). |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. Where the installed file carries the series, that field is it (3i). |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -487,18 +487,25 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
-| No rate: no positive rate and no measured flat, for example one read, a shorter flat, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
-| A session whose pool was guessed, or whose login disagrees with the reading | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
+| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
+| No positive rate, no measured flat: for example one read, a shorter flat with no rise before it, or a blind window with no later equal read (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| A session whose pool was guessed, or, on the login-record route, whose login disagrees with the reading. That check runs for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
 **A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
-climb, as a drop does: the rate starts at its last read. So a running plateau gives no positive rate
-and reads as a measured flat. Under 30 minutes past one, one tick is no rate: the level decides.
+climb, as a drop does. So a running plateau gives no positive rate and reads as a measured flat,
+inside the limits below.
+
+**One tick past a plateau is rated from the start of that plateau:** one point over the time since
+the previous tick. Two ticks or more are rated from the plateau's last read.
 
 **The flat ruling does not state these limits.** Both reads are live, inside the current weekly
-window, and one caller's, as 2h asks. A blind window after them stays no rate. `_read_pool` needs
-the read just taken on the series, and `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900
+window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
+because `_flat` cannot place that window. It fails safe: the level decides.
+
+**A measured flat may span a blind window between its reads.** The meter only rises inside a
+window, so equal ends hold. A blind window with no equal read after it stays no rate. `_read_pool`
+needs the read just taken on the series; `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900
 seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
@@ -599,7 +606,7 @@ ran a tool that answers "is it in this checkout".
 **A working-tree grep cannot answer a question about every branch, and a control validates the
 instrument, never the question.**
 
-### 3c. Three copies of `watch.py` with no drift signal between them
+### 3c. Three copies of `watch.py`, and only a check you run reports drift
 
 Verified 2026-08-28, all three sha256 `8774beaad29cc280...`:
 
@@ -636,13 +643,19 @@ about the other. That argument for landing exactly one was produced by accident.
 | Why the rule is stated here rather than pointed at | A pointer to `scripts/coord/watch.py` would resolve for one branch holder and nobody else, ever, and would read as a broken link with no explanation. |
 | If you cite the machine at all | Cite the absolute out-of-repo path, and carry *The clock's files live outside the repo* inline. |
 
-**They agreed on 2026-08-28, and nothing tells you the day they stop.** Naming which copy you read
-is not pedantry here; it is the only thing that distinguishes them. This is the verifier-drift class
-the root `CLAUDE.md` already names for the ASVS tool, arriving in a second place.
+Naming which copy you read is not pedantry here; it is the only thing that distinguishes them. This
+is the verifier-drift class the root `CLAUDE.md` already names for the ASVS tool, arriving in a
+second place.
 
-**CORRECTED 2026-11-02: that sentence read *"They agree today"*, and the heading said identical.**
-By `diff`, `RE_REFUSAL` and `--format lines` are in the installed copy and not the vault's at
-`64bd0c709`. The installed file calls that flag load-bearing. The engine-branch copy was not re-read.
+**They agreed on 2026-08-28, and no alarm fires the day they stop.** The vault's
+`scripts/coord/install-usage-watch.ps1 -Check` detects it when run, against a vault ref. It does
+not read the engine-branch copy. This said *"nothing tells you"*, and the heading *"no drift
+signal"*, until 2026-11-02.
+
+**CORRECTED 2026-11-02: the bold line above read *"They agree today"*, and the heading said
+identical.** By `diff`, `RE_REFUSAL` and `--format lines` are in the installed copy and not the
+vault's at `64bd0c709`. The installed file calls that flag load-bearing. The engine-branch copy was
+not re-read.
 
 **The vault copy now sits on the vault's `main`, read 2026-11-02.** The table's *"on a vault branch"*
 keeps what 2026-08-28 measured. So does the row *Why the rule is stated here rather than pointed at*,
@@ -893,9 +906,12 @@ subject question moves down to the row*.
 
 ## 5. Silence is ambiguous, and it fails toward saying nothing
 
-The usage hook prints nothing when the band is OK. That is also what a crash, a stale cache and a
-parse bug print. Measured: a metric line carried no reset time, the affected pool scored band OK and
-**said nothing while sitting at weekly 93 percent, over the gate.**
+The usage hook usually prints nothing when the band is OK. That is also what a crash, a stale cache
+and a parse bug print. Once the 2026-11-02 lift is installed it can print at OK too, at least a
+measured-flat line and a login-mismatch line.
+
+Measured: a metric line carried no reset time, the affected pool scored band OK and **said nothing
+while sitting at weekly 93 percent, over the gate.**
 
 The pool that looked correct was correct only by luck.
 
@@ -1502,7 +1518,7 @@ it is recorded with what it does **not** change.
 | The inverted form was propagated by four seats | *"A level beats a rate, always."* One of the four abandoned a correct measurement to adopt it. **If you took "act on the level" from anyone, drop it.** COMMON carries the mechanism, and the reason nobody argued with it. |
 | **The owner ruling of 2026-10-31 keeps this and narrows it** | HOLD NEW WORK's level of 90 now fires only with no rate, so at 90 with room nothing is owed. The levels of 94 and 97 still fire, for the protect half. *The three states* holds the triggers. |
 | The limit that ruling set | At 98 percent or more, HOLD NEW WORK fires whatever the rate says. Rate governs up to there and no further. |
-| **The owner ruling of 2026-11-02 narrows it again** | A measured flat counts as room below 98, so the level of 90 does not fire on one, and the levels of 94 and 97 fire for the protect half only. *The three states* defines a measured flat. |
+| **The owner ruling of 2026-11-02 narrows it again** | A measured flat counts as room below 98, so the level of 90 does not fire on one. As this file reads it, 94 and 97 fire the protect half only. *The three states* defines a measured flat. |
 
 ### 9.8. Confirm the subject before refining the predicate
 
