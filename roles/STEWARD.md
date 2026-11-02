@@ -439,13 +439,16 @@ and this reading covers each alone.
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
 falsification signal in the table below, because it has no second caller to disagree with.
 
-Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
-`scripts/coord/watch.py`. The lookback is 60 minutes, and a span under 30 needs two ticks or more.
-*The three states* holds the floor and the one slope that reaches past the lookback.
+**These values are true once the vault change is installed.** The window is `BURN_LOOKBACK`,
+`BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's `scripts/coord/watch.py`, whose
+comment holds the rest. The lookback is 60 minutes, and a span under 30 needs two ticks or more.
 
-Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. They
-are not ladder thresholds, so the grant in *Nobody holds the grant to tune these numbers now* does
-not reach them. The owner approved the lift and ruled on the flat.
+Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. The
+owner approved the lift and ruled on the flat.
+
+**`BURN_MIN_SPAN` also sets the 30 minutes in that flat ruling, so moving it needs the owner.** The
+other three are not ladder thresholds, so moving them does not, and the grant in *Nobody holds the
+grant to tune these numbers now* does not reach them.
 
 | Item | Rule |
 | --- | --- |
@@ -494,27 +497,12 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
 **A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
-climb, as a drop does. So a running plateau gives no positive rate and reads as a measured flat,
-inside the limits below.
+climb. One tick past it is rated from its start, and two or more from its end. The cost is that a
+burst after idle reads slow until its second tick.
 
-**One tick past a plateau is rated from the plateau's start, however long ago it ended:** one point
-over the time from the previous tick to the newest read. The cost is that a burst after idle reads
-slow until its second tick.
-
-**Two ticks or more are rated from its last read,** or from the lookback's oldest read if that is
-newer, which can leave too short a climb to rate. Under 4 minutes past its last read, or across the
-reads inside the lookback, nothing is a rate, so the level decides. A later drop starts a new climb.
-
-**The flat ruling does not state these limits.** Both reads are live, inside the current weekly
-window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
-because `_flat` cannot place that window. It fails safe: the level decides.
-
-**A measured flat may span a blind window between its reads.** The meter only rises inside a weekly
-window, so equal ends hold.
-
-**A blind window with no equal read after it gives no flat until the new level has held 30 minutes,**
-and stays no rate unless a later read gives one. `_read_pool` needs the read just taken on the
-series; `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900 seconds.
+**A reading held flat for 30 minutes or more reads as a measured flat.** With neither that nor a
+rate, the level decides. The comment on the `BURN_` constants in the vault's
+`scripts/coord/watch.py` holds the limits on all of this.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -528,7 +516,7 @@ and 2g do not reopen it.
 half only.** That is *RATE GOVERNS*, 9.6a, as this file reads the 2026-10-31 and 2026-11-02 rulings.
 The stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
 
-**Below 98, a level crossed with a positive rate or a measured flat in hand is not a hold.** The
+**Below 98, a level crossed with a positive rate or a measured flat showing room is not a hold.** The
 session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
 offered work, with the no-rationing paragraph beneath its banner. The same misreading stays open.
 

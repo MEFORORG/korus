@@ -242,7 +242,7 @@ Read these together. Alone, each trains a habit the other breaks.
 | Auto-injection | A `SessionStart` plus `UserPromptSubmit` hook injects the band, wired in `~/.claude/settings.json` and each per-account settings file. |
 | Adding or repointing an account | Do NOT edit `watch.py`. It is a **data** edit to `accounts.json`. |
 | The key order | The org uuid keys the row and the account uuid is inside it. It has been inverted before and only a test caught it. |
-| The cache | `status.json` IS the cache. After any mapping change, clear its `pools` key and delete that org's `rate-series/<org>.jsonl` beside it, because its rows belong to the old mapping. |
+| The cache | `status.json` IS the cache. After any mapping change, on each PC, clear its `pools` key and delete `rate-series/<org>.jsonl` beside it for each org whose row moved, because those rows belong to the old mapping. |
 | Why | A stale UNKNOWN after a correct fix looks exactly like a failed fix. |
 | HTTP 400 on refresh | That token is dead and only the owner can revive it. |
 
