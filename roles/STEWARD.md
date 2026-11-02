@@ -432,7 +432,8 @@ sessions trigger those reads but bring no instrument of their own, so a point is
 leg.
 
 **One series is per machine, not across a two-PC fleet.** Two PCs reading one pool hold two series,
-and this reading covers each alone.
+and this reading covers each alone. `status.json`'s `burn` is the same series, so it is no second
+instrument.
 
 **That is an argument from the instrument, and no measurement backs it.** The four-point gap above
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
@@ -489,17 +490,16 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | A positive rate. One from `watch.py`'s series counts: it is one instrument with a window, not a corroborated rate (*There is no single rate*) | The projection. The level 90 does not fire HOLD here. |
 | A measured flat: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
 | No rate: no positive rate and no measured flat, for example one read, a shorter flat, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
-| A session whose pool was guessed, or whose login disagrees with the reading | It gets neither rate nor flat, and stays on the level. |
+| A session whose pool was guessed, or whose login disagrees with the reading | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
-**A positive rate is read first, from the owner's `rate > 0` clause.** A plateau of 30 minutes or
-more ends a climb, as a drop does: the rate comes only from the readings after it. A running
-plateau has no rate and reads as a measured flat. One tick after a plateau is no rate, so the level
-decides.
+**A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
+climb, as a drop does: the rate starts at its last read. So a running plateau gives no positive rate
+and reads as a measured flat. Under 30 minutes past one, one tick is no rate: the level decides.
 
 **This file reads the measured-flat row in two ways the ruling does not state.** Both reads are one
-caller's, as 2h asks of a slope. A blind window after them stays no rate: in the vault's
-`scripts/coord/watch.py`, `_flat` refuses a newest read older than `SAMPLE_MAX_AGE`, 900 seconds.
+caller's, as 2h asks of a slope. A blind window after them stays no rate. `_read_pool` needs the read
+just taken on the series, and `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900 seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -567,8 +567,8 @@ rediscovered this through the instrument rather than through the document.
 stop.** The stop half follows the projection, with `by_level_stop` as its backstop, which a measured
 flat withholds below 98.
 
-**`status.json` holds `burn`, `burn_why` and `flat`, and neither `by_level_stop` nor the ACTION
-line.** CORRECTED 2026-11-02: this read *"Neither field is in `status.json`"*, which was false of
+**`status.json` holds `burn` and `burn_why`, `flat` too once the lift is installed, and neither
+`by_level_stop` nor the ACTION line.** CORRECTED 2026-11-02: this read *"Neither field is in `status.json`"*, which was false of
 `burn`, the projection's field.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
