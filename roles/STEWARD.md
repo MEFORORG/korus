@@ -491,18 +491,18 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: two successful reads at least 30 minutes apart at an equal level (owner ruling 2026-11-02). Every read between them is equal, and the older sits inside the current weekly window, with a reset time | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
+| A measured flat: the newest successful read and an older one at least 30 minutes apart at an equal level (owner ruling 2026-11-02). Every read between is equal, the older sits inside the current weekly window, with a reset time | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
 | No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
-| A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (its pool came from this config root's login). Those checks run for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
+| A session whose pool was guessed, whose root contradicts its own login record, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (pool from this config root's login). Checked per reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
 **A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
 climb. One tick past it is rated from its start, and two or more from its end. The cost is that a
 burst after idle reads slow until its second tick.
 
-**A reading held flat for 30 minutes or more, with a reset time, reads as a measured flat.** With
-neither that nor a rate, the level decides. For the values, see the comment on the `BURN_` constants
-in the vault's `scripts/coord/watch.py`. For the conditions, see `_flat` and `_for_reader` there.
+**A reading flat for 30 minutes or more to the newest read, with a reset time, is a measured flat.**
+With neither that nor a rate, the level decides. The comment on the `BURN_` constants in the vault's
+`scripts/coord/watch.py` has the values; `_flat` and `_for_reader` there have the conditions.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
