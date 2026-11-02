@@ -426,17 +426,25 @@ That is the dangerous shape: a wrong method reaching a right answer is not corre
 answer. **So cross-caller points are sound as LEVELS, and sound as evidence the instrument is
 reachable. They must not be the ENDPOINTS OF A SLOPE.**
 
-**With the 2026-11-02 lift, `watch.py`'s rate series counts as one caller's instrument.** Each pool
-has one series of live API reads, through one tool and one token file. Several sessions trigger those
-reads, but no session brings an instrument of its own, so a point is not a cross-caller leg.
+**With the 2026-11-02 lift, `watch.py`'s rate series counts as one caller's instrument.** On one
+machine, a pool has one series of live API reads, through one tool and one token file. Several
+sessions trigger those reads but bring no instrument of their own, so a point is not a cross-caller
+leg.
+
+**One series is per machine, not across a two-PC fleet.** Two PCs reading one pool hold two series,
+and this reading covers each alone.
 
 **That is an argument from the instrument, and no measurement backs it.** The four-point gap above
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
 falsification signal in the table below, because it cannot disagree with itself.
 
-Its window, from the Manager's lift design of 2026-11-02, read at vault `719330a45`: a lookback of 60
-minutes and a minimum span of 30. A shorter span counts only if two ticks or more moved, and never
-under 4 minutes. A measured flat's 30 minutes is the owner's and does not move with this constant.
+Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
+`scripts/coord/watch.py`: a lookback of 60 minutes and a minimum span of 30. A shorter span counts
+only if two ticks or more moved, and never under 4 minutes.
+
+Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. They
+are not ladder thresholds, so the grant in *Nobody holds the grant to tune these numbers now* does
+not reach them. The owner approved the lift and ruled on the flat.
 
 | Item | Rule |
 | --- | --- |
@@ -462,7 +470,7 @@ backstop, and HOLD NEW WORK's conditions follow the table.
 
 | State | Time to cutoff | Weekly level | What the state means |
 |---|---|---|---|
-| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate and no measured flat; 98 percent or more whatever the rate | Start nothing new. Finish what is open |
+| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate and no measured flat; 98 percent or more whatever the rate, and on a measured flat too | Start nothing new. Finish what is open |
 | **2. PROTECT AND WRAP** | 10 minutes | 94 percent | Commit, write the note, hand off |
 | **3. URGENT STOP** | 5 minutes | 97 percent | Stop now. Commit whatever exists, even half-done |
 
@@ -478,14 +486,20 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
-| A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
+| A positive rate. One from `watch.py`'s series counts: it is one instrument with a window, not a corroborated rate (*There is no single rate*) | The projection. The level 90 does not fire HOLD here. |
 | A measured flat: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
-| No rate: no positive rate and no measured flat, at least one read, equal reads under 30 minutes apart, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
-| 98 percent or more | The level, whatever the rate says. |
+| No rate: no positive rate and no measured flat, for example one read, a shorter flat, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| A session whose pool was guessed, or whose login disagrees with the reading | It gets neither rate nor flat, and stays on the level. |
+| 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
-**This file reads the measured-flat row in three ways the ruling does not state.** A positive rate
-is read first, as `watch.py` does. Both reads are one caller's, as 2h asks of a slope. A blind window
-after them stays no rate, and at vault `719330a45` a newest read past 900 seconds refuses a flat.
+**A positive rate is read first, from the owner's `rate > 0` clause.** A plateau of 30 minutes or
+more ends a climb, as a drop does: the rate comes only from the readings after it. A running
+plateau has no rate and reads as a measured flat. One tick after a plateau is no rate, so the level
+decides.
+
+**This file reads the measured-flat row in two ways the ruling does not state.** Both reads are one
+caller's, as 2h asks of a slope. A blind window after them stays no rate: in the vault's
+`scripts/coord/watch.py`, `_flat` refuses a newest read older than `SAMPLE_MAX_AGE`, 900 seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -493,7 +507,7 @@ measured flat now clears a level-fired HOLD below 98, as a rate showing room doe
 
 **That flat may be HOLD's own effect**, as *A warning that changes behaviour invalidates its own
 projection* describes. This file reads the 2026-11-02 ruling as counting it as room anyway, so 2f
-and 2g do not reopen it. A new rise ends the flat, and the rate row then decides.
+and 2g do not reopen it.
 
 **A level of 94 or 97 with a rate or a measured flat showing room fires its state for the protect
 half only.** That is *RATE GOVERNS*, 9.6a, as this file reads the 2026-10-31 and 2026-11-02 rulings.
@@ -551,8 +565,11 @@ rediscovered this through the instrument rather than through the document.
 
 **So do not file it as a bug. Read the hook's ACTION line, never `state`, before you tell anyone to
 stop.** The stop half follows the projection, with `by_level_stop` as its backstop, which a measured
-flat withholds below 98. Neither field is
-in `status.json`.
+flat withholds below 98.
+
+**`status.json` holds `burn`, `burn_why` and `flat`, and neither `by_level_stop` nor the ACTION
+line.** CORRECTED 2026-11-02: this read *"Neither field is in `status.json`"*, which was false of
+`burn`, the projection's field.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
 rule is encoded as `STOP_AUTHORITY_WINDOWS`, a frozenset holding `weekly` alone. **It lives outside the
