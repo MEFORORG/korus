@@ -176,8 +176,8 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. |
-| The status file's burn field is not new | It carried a rate before the 2026-08-14 suppression. It is null until the 2026-11-02 lift is installed, then the hook's series (3i). |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument, such as your own later samples, over a single interval, however consistent it looked. |
+| The status file's burn field is not new | It carried a rate before the 2026-08-14 suppression. It is null until the 2026-11-02 lift is installed, then the hook's series (3i), so it is no second instrument. |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -446,9 +446,9 @@ comment holds the rest. The lookback is 60 minutes, and a span under 30 needs tw
 Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. The
 owner approved the lift and ruled on the flat.
 
-**`BURN_MIN_SPAN` also sets the 30 minutes in that flat ruling, so moving it needs the owner.** The
-other three are not ladder thresholds, so moving them does not, and the grant in *Nobody holds the
-grant to tune these numbers now* does not reach them.
+**Moving any of these changes when HOLD fires, so it needs the owner,** as *Nobody holds the grant to
+tune these numbers now* says of the numbers. `BURN_MIN_SPAN` also sets the 30 minutes in that flat
+ruling.
 
 | Item | Rule |
 | --- | --- |
@@ -491,7 +491,7 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
+| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02), with a reset time | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
 | No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
 | A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (its pool came from this config root's login). Those checks run for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
@@ -500,8 +500,8 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 climb. One tick past it is rated from its start, and two or more from its end. The cost is that a
 burst after idle reads slow until its second tick.
 
-**A reading held flat for 30 minutes or more reads as a measured flat.** With neither that nor a
-rate, the level decides. The comment on the `BURN_` constants in the vault's
+**A reading held flat for 30 minutes or more, with a reset time, reads as a measured flat.** With
+neither that nor a rate, the level decides. The comment on the `BURN_` constants in the vault's
 `scripts/coord/watch.py` holds the limits on all of this.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
@@ -916,7 +916,7 @@ and a login-mismatch line.
 
 | Item | Rule |
 | --- | --- |
-| Prove your reading is fresh before you rely on quiet | A reading with no timestamp, no reset time or no rate is not a reading. It is an absence. |
+| Prove your reading is fresh before you rely on quiet | A reading with no timestamp, no reset time or no rate is not a reading. It is an absence. A measured flat is the exception to no rate: it counts as room (*The three states*). |
 | When you cannot measure, say so loudly | *"I have no reliable reading for pool X"* is a useful message. Silence from you will be read as "fine". |
 | Never report calm without naming the instrument that produced it | And what that instrument cannot see. |
 | A cause you can name is not a cause you have tested | COMMON's named-cause entry. *"The hook must be quiet because usage is low"* is a hypothesis; check the sample time. |
