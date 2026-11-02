@@ -176,7 +176,7 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. Where the installed file carries the series, that field is it (3i). |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. With the series installed, that field is no second instrument (3i). |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -439,8 +439,9 @@ has no established cause, so nothing shows one tool cannot produce it. A series 
 falsification signal in the table below, because it has no second caller to disagree with.
 
 Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
-`scripts/coord/watch.py`: a lookback of 60 minutes and a minimum span of 30. A shorter span counts
-only if two ticks or more moved, and never under 4 minutes.
+`scripts/coord/watch.py`: a lookback of 60 minutes, which one tick past a plateau may pass (section
+3), and a minimum span of 30. Under that, two ticks or more must move, and nothing counts under 4
+minutes.
 
 Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. They
 are not ladder thresholds, so the grant in *Nobody holds the grant to tune these numbers now* does
@@ -488,7 +489,7 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
 | A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
-| No positive rate, no measured flat: for example one read, a shorter flat with no rise before it, or a blind window with no later equal read (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| No positive rate, no measured flat: for example one read, a shorter flat with no rise before it, or a blind window with no later read (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | A session whose pool was guessed, or, on the login-record route, whose login disagrees with the reading. That check runs for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
@@ -497,16 +498,19 @@ climb, as a drop does. So a running plateau gives no positive rate and reads as 
 inside the limits below.
 
 **One tick past a plateau is rated from the start of that plateau:** one point over the time since
-the previous tick. Two ticks or more are rated from the plateau's last read.
+the previous tick. Two ticks or more are rated from the plateau's last read. Under 4 minutes past
+that read nothing is a rate, so the level decides. A drop after the plateau starts a new climb.
 
 **The flat ruling does not state these limits.** Both reads are live, inside the current weekly
 window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
 because `_flat` cannot place that window. It fails safe: the level decides.
 
 **A measured flat may span a blind window between its reads.** The meter only rises inside a
-window, so equal ends hold. A blind window with no equal read after it stays no rate. `_read_pool`
-needs the read just taken on the series; `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900
-seconds.
+window, so equal ends hold.
+
+**A blind window with no equal read after it gives no flat,** and stays no rate unless a later rise
+gives one. `_read_pool` needs the read just taken on the series; `_flat` refuses a newest read past
+`SAMPLE_MAX_AGE`, 900 seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -643,8 +647,8 @@ about the other. That argument for landing exactly one was produced by accident.
 | Why the rule is stated here rather than pointed at | A pointer to `scripts/coord/watch.py` would resolve for one branch holder and nobody else, ever, and would read as a broken link with no explanation. |
 | If you cite the machine at all | Cite the absolute out-of-repo path, and carry *The clock's files live outside the repo* inline. |
 
-Naming which copy you read is not pedantry here; it is the only thing that distinguishes them. This
-is the verifier-drift class the root `CLAUDE.md` already names for the ASVS tool, arriving in a
+Naming which copy you read is not pedantry here; in a citation it is the only thing that
+distinguishes them. This is the verifier-drift class the root `CLAUDE.md` already names for the ASVS tool, arriving in a
 second place.
 
 **They agreed on 2026-08-28, and no alarm fires the day they stop.** The vault's
