@@ -176,7 +176,7 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. With the series installed, that field is no second instrument (3i). |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. That field is null until the lift, then the hook's series (3i). |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -488,7 +488,7 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | --- | --- |
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
 | A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
-| No positive rate, no measured flat: for example one read, a shorter flat with no rise before it, or a blind window with no later read (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
 | A session whose pool was guessed, or, on the login-record route, whose login disagrees with the reading. That check runs for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
@@ -496,15 +496,16 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 climb, as a drop does. So a running plateau gives no positive rate and reads as a measured flat,
 inside the limits below.
 
-**One tick past a plateau is rated from the start of that plateau:** one point over the time since
-the previous tick. Two ticks or more are rated from the plateau's last read. Under 4 minutes past
-that read nothing is a rate, so the level decides. A drop after the plateau starts a new climb.
+**With a plateau's last read inside the lookback, one tick past it is rated from the plateau's
+start:** one point over the time since the previous tick. Two ticks or more are rated from that last
+read. Under 4 minutes past it nothing is a rate, so the level decides. A later drop starts a new
+climb.
 
 **The flat ruling does not state these limits.** Both reads are live, inside the current weekly
 window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
 because `_flat` cannot place that window. It fails safe: the level decides.
 
-**A measured flat may span a blind window between its reads.** The meter only rises inside a
+**A measured flat may span a blind window between its reads.** The meter only rises inside a weekly
 window, so equal ends hold.
 
 **A blind window with no equal read after it gives no flat,** and stays no rate unless a later rise
@@ -609,7 +610,7 @@ ran a tool that answers "is it in this checkout".
 **A working-tree grep cannot answer a question about every branch, and a control validates the
 instrument, never the question.**
 
-### 3c. Three copies of `watch.py`, and only a check you run reports drift
+### 3c. Three copies of `watch.py`, and the drift check you run covers two
 
 Verified 2026-08-28, all three sha256 `8774beaad29cc280...`:
 
@@ -647,8 +648,8 @@ about the other. That argument for landing exactly one was produced by accident.
 | If you cite the machine at all | Cite the absolute out-of-repo path, and carry *The clock's files live outside the repo* inline. |
 
 Naming which copy you read is not pedantry here; in a citation it is the only thing that
-distinguishes them. This is the verifier-drift class the root `CLAUDE.md` already names for the ASVS tool, arriving in a
-second place.
+distinguishes them. This is the verifier-drift class the root `CLAUDE.md` already names for the ASVS
+tool, arriving in a second place.
 
 **They agreed on 2026-08-28, and no alarm fires the day they stop.** The vault's
 `scripts/coord/install-usage-watch.ps1 -Check` detects it when run, against a vault ref. It does
@@ -910,13 +911,13 @@ subject question moves down to the row*.
 ## 5. Silence is ambiguous, and it fails toward saying nothing
 
 The usage hook usually prints nothing when the band is OK. That is also what a crash, a stale cache
-and a parse bug print. Once the 2026-11-02 lift is installed it can print at OK too, at least a
-measured-flat line and a login-mismatch line.
-
-Measured: a metric line carried no reset time, the affected pool scored band OK and **said nothing
-while sitting at weekly 93 percent, over the gate.**
+and a parse bug print. Measured: a metric line carried no reset time, the affected pool scored band
+OK and **said nothing while sitting at weekly 93 percent, over the gate.**
 
 The pool that looked correct was correct only by luck.
+
+Once the 2026-11-02 lift is installed the hook can print at OK too, at least a measured-flat line
+and a login-mismatch line.
 
 | Item | Rule |
 | --- | --- |
