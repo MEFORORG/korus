@@ -439,9 +439,8 @@ has no established cause, so nothing shows one tool cannot produce it. A series 
 falsification signal in the table below, because it has no second caller to disagree with.
 
 Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
-`scripts/coord/watch.py`: a lookback of 60 minutes, which one tick past a plateau may pass (section
-3), and a minimum span of 30. Under that, two ticks or more must move, and nothing counts under 4
-minutes.
+`scripts/coord/watch.py`. The lookback is 60 minutes, or more for one tick past a plateau (section
+3). A span under 30 needs two ticks or more, and nothing counts under 4 minutes.
 
 Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. They
 are not ladder thresholds, so the grant in *Nobody holds the grant to tune these numbers now* does
