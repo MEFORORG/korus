@@ -798,10 +798,9 @@ against *The three states* before you trust it again: rung 1 changed from a leve
 put `watch.py`'s banners on the no-rate arm.** The lift lands in the vault's copy and an install
 follows it, so this line does not say what is installed.
 
-To compare the installed file against the table, read `<HOME>\.claude\mefor-usage\watch.py`. `grep -c
-'MEASURED FLAT'` returning 0, with `HOLD NEW WORK` hitting as the control, means the lift is not
-installed. Otherwise read its HOLD arms against *The three states*. Where they disagree, publish from
-the ladder and say so.
+The installed file is `<HOME>\.claude\mefor-usage\watch.py`. `grep -c 'MEASURED FLAT'` returning 0
+there, with `HOLD NEW WORK` hitting as the control, means the lift is not installed. Otherwise read
+its HOLD arms against *The three states*. Where they disagree, publish from the ladder and say so.
 
 The 90 percent Workflow gate is unchanged on its own trigger, and the do-not-ration clause is inline
 on rung 1.
