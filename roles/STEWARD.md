@@ -176,7 +176,7 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. That field is now the hook's own series (2026-11-02). |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -432,12 +432,11 @@ sessions trigger those reads but bring no instrument of their own, so a point is
 leg.
 
 **One series is per machine, not across a two-PC fleet.** Two PCs reading one pool hold two series,
-and this reading covers each alone. `status.json`'s `burn` is the same series, so it is no second
-instrument.
+and this reading covers each alone.
 
 **That is an argument from the instrument, and no measurement backs it.** The four-point gap above
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
-falsification signal in the table below, because it cannot disagree with itself.
+falsification signal in the table below, because it has no second caller to disagree with.
 
 Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
 `scripts/coord/watch.py`: a lookback of 60 minutes and a minimum span of 30. A shorter span counts
@@ -487,8 +486,8 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
-| A positive rate. One from `watch.py`'s series counts: it is one instrument with a window, not a corroborated rate (*There is no single rate*) | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
+| A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
+| A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
 | No rate: no positive rate and no measured flat, for example one read, a shorter flat, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | A session whose pool was guessed, or whose login disagrees with the reading | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
@@ -497,9 +496,10 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 climb, as a drop does: the rate starts at its last read. So a running plateau gives no positive rate
 and reads as a measured flat. Under 30 minutes past one, one tick is no rate: the level decides.
 
-**This file reads the measured-flat row in two ways the ruling does not state.** Both reads are one
-caller's, as 2h asks of a slope. A blind window after them stays no rate. `_read_pool` needs the read
-just taken on the series, and `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900 seconds.
+**The flat ruling does not state these limits.** Both reads are live, inside the current weekly
+window, and one caller's, as 2h asks. A blind window after them stays no rate. `_read_pool` needs
+the read just taken on the series, and `_flat` refuses a newest read past `SAMPLE_MAX_AGE`, 900
+seconds.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
@@ -722,8 +722,8 @@ whoever inherits it reads them with it.
 | **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
 | **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
 
-Where a level alone fired state 2 or 3 with a rate or a measured flat showing room, only the protect
-half is asked for (*The three states*).
+Where a level below 98 alone fired state 2 or 3 with a rate or a measured flat showing room, only the
+protect half is asked for (*The three states*).
 
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 

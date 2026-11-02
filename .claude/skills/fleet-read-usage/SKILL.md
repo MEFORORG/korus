@@ -302,8 +302,7 @@ called rungs when they actually fired. Nothing was lost: the ladder fired on mea
 
 **That no longer covers rung 1.** Since the owner ruling of 2026-10-31 burn rate governs HOLD NEW
 WORK ([STEWARD.md](../../../roles/STEWARD.md), *The three states*), so rung 1 needs a projection.
-Publish a band with its interval. Its reading table says what fires with no rate or on a measured
-flat.
+Publish a band with its interval. That section's table says what fires with no rate or on a flat.
 
 **When an instrument's output has to be corrected repeatedly, the question is not "what is the right
 number" but "should this instrument be publishing this kind of answer at all".**
