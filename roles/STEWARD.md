@@ -180,7 +180,7 @@ thing?"* the opposite way.
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
-| When the burn goes flat, publish NO projection | Not a reassuring one. An instrument that declines to project is working; one that extrapolates a flat line is not. |
+| When the burn goes flat, publish NO projection | Not a reassuring one. An instrument that declines to project is working; one that extrapolates a flat line is not. A measured flat (*The three states*) gets no projection either, and since 2026-11-02 it counts as room below 98. |
 
 ### 2d. Proximity to the cap tells you which way your instrument is wrong
 
@@ -426,6 +426,18 @@ That is the dangerous shape: a wrong method reaching a right answer is not corre
 answer. **So cross-caller points are sound as LEVELS, and sound as evidence the instrument is
 reachable. They must not be the ENDPOINTS OF A SLOPE.**
 
+**`watch.py`'s rate series counts as one caller's instrument (2026-11-02).** Each pool has one series
+of live API reads, through one tool and one token file. Several sessions trigger those reads, but no
+session brings an instrument of its own, so a point is not a cross-caller leg.
+
+**That is an argument from the instrument, and no measurement backs it.** The four-point gap above
+has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
+falsification signal in the table below, because it cannot disagree with itself.
+
+Its window, set 2026-11-02: a lookback of 60 minutes and a minimum span of 30. A shorter span counts
+only if two ticks or more moved, and never under 4 minutes. The installed file holds the live values,
+and *Three identical copies of `watch.py`* says how far to trust a copy.
+
 | Item | Rule |
 | --- | --- |
 | The datum was never verified | Both readings are peer-reported, not taken by the seat that drew the rule. Neither was independently confirmed, and the window has moved on, so neither can be reproduced. |
@@ -450,7 +462,7 @@ backstop, and HOLD NEW WORK's conditions follow the table.
 
 | State | Time to cutoff | Weekly level | What the state means |
 |---|---|---|---|
-| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate; 98 percent or more whatever the rate | Start nothing new. Finish what is open |
+| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate and no measured flat; 98 percent or more whatever the rate | Start nothing new. Finish what is open |
 | **2. PROTECT AND WRAP** | 10 minutes | 94 percent | Commit, write the note, hand off |
 | **3. URGENT STOP** | 5 minutes | 97 percent | Stop now. Commit whatever exists, even half-done |
 
@@ -467,16 +479,21 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
-| No rate: one sample, a flat burn, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| A measured flat, with no positive rate: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
+| No rate: one read, a blind window, or any reading the rows above do not cover (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | 98 percent or more | The level, whatever the rate says. |
 
-**A level of 94 or 97 with a rate showing room still fires its state, for the protect half only.**
-That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 ruling. Commit and hand off;
-the stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
+**The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
+nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
+measured flat now clears a level-fired HOLD below 98, as a rate showing room does.
 
-**Below 98, a level crossed with a positive rate in hand is not a hold.** The session on branch
-`claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined offered work, with
-the no-rationing paragraph directly beneath its banner. The same misreading is open under this rule.
+**A level of 94 or 97 with a rate or a measured flat showing room fires its state, for the protect
+half only.** That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 and 2026-11-02
+rulings. The stop waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
+
+**Below 98, a level crossed with a positive rate or a measured flat in hand is not a hold.** The
+session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
+offered work, with the no-rationing paragraph beneath its banner. The same misreading stays open.
 
 **The weekly levels read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved them to
 90 / 94 / 97, and the 2026-10-31 ruling kept those numbers. **Until 2026-10-31 a session column read
@@ -593,9 +610,17 @@ about the other. That argument for landing exactly one was produced by accident.
 | Why the rule is stated here rather than pointed at | A pointer to `scripts/coord/watch.py` would resolve for one branch holder and nobody else, ever, and would read as a broken link with no explanation. |
 | If you cite the machine at all | Cite the absolute out-of-repo path, and carry *The clock's files live outside the repo* inline. |
 
-**They agree today and nothing will tell you the day they stop.** Naming which copy you read is not
-pedantry here; it is the only thing that distinguishes them. This is the verifier-drift class the root
-`CLAUDE.md` already names for the ASVS tool, arriving in a second place.
+**They agreed on 2026-08-28, and nothing tells you the day they stop.** Naming which copy you read
+is not pedantry here; it is the only thing that distinguishes them. This is the verifier-drift class
+the root `CLAUDE.md` already names for the ASVS tool, arriving in a second place.
+
+**CORRECTED 2026-11-02: that sentence read *"They agree today"*.** Read that day with `diff
+--strip-trailing-cr`, the installed copy and the vault's `origin/main` copy differ: `RE_REFUSAL` is
+in the installed copy and not the vault's. The engine-branch copy was not re-read.
+
+**The vault copy now sits on the vault's `main`, read 2026-11-02.** The table's *"on a vault branch"*
+keeps what 2026-08-28 measured. So does the row *Why the rule is stated here rather than pointed at*,
+though for a vault reader that pointer now resolves.
 
 ### 3d. A live owner ruling can suspend the stop half without suspending the warning
 
@@ -671,8 +696,8 @@ whoever inherits it reads them with it.
 | **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
 | **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
 
-Where a level alone fired state 2 or 3 with a rate showing room, only the protect half is asked for
-(*The three states*).
+Where a level alone fired state 2 or 3 with a rate or a measured flat showing room, only the protect
+half is asked for (*The three states*).
 
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 
@@ -764,9 +789,13 @@ Tell the two apart by asking which question is in dispute, not which number is l
 and verified against the installed file, with the thresholds of that date. Compare the installed file
 against *The three states* before you trust it again: rung 1 changed from a level to a rate.
 
-**Read 2026-10-31: the installed `watch.py` suppresses its rate projection, so its banners take the
-no-rate arm.** A banner can print HOLD NEW WORK at 90 with a rate showing room. Publish from the
-ladder and say so, until that suppression is lifted.
+**Closed 2026-11-02: the owner lifted the 2026-08-14 suppression of the rate projection, which had
+put `watch.py`'s banners on the no-rate arm.** The lift ships in the vault's copy and an install
+follows it, so this line does not say what is installed.
+
+To compare the installed file against the table, run `diff --strip-trailing-cr` on
+`<HOME>\.claude\mefor-usage\watch.py` and the vault's `scripts/coord/watch.py` at `origin/main`.
+Then read every difference in the HOLD arms against *The three states*.
 
 The 90 percent Workflow gate is unchanged on its own trigger, and the do-not-ration clause is inline
 on rung 1.
@@ -1447,6 +1476,7 @@ it is recorded with what it does **not** change.
 | The inverted form was propagated by four seats | *"A level beats a rate, always."* One of the four abandoned a correct measurement to adopt it. **If you took "act on the level" from anyone, drop it.** COMMON carries the mechanism, and the reason nobody argued with it. |
 | **The owner ruling of 2026-10-31 keeps this and narrows it** | HOLD NEW WORK's level of 90 now fires only with no rate, so at 90 with room nothing is owed. The levels of 94 and 97 still fire, for the protect half. *The three states* holds the triggers. |
 | The limit that ruling set | At 98 percent or more, HOLD NEW WORK fires whatever the rate says. Rate governs up to there and no further. |
+| **The owner ruling of 2026-11-02 narrows it again** | A measured flat counts as room below 98, so the level of 90 does not fire on one, and the levels of 94 and 97 fire for the protect half only. *The three states* defines a measured flat. |
 
 ### 9.8. Confirm the subject before refining the predicate
 
