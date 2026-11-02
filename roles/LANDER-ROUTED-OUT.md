@@ -209,8 +209,8 @@ when surveyed can hold an hour of uncommitted work by the time a batch removal r
 
 ### 10d. Silence from the monitor is not a clear reading
 
-The hook prints nothing when the band is OK, which is also what a crash, a stale cache, or a parse bug
-looks like. **Confirm positively before treating quiet as headroom.**
+The hook usually prints nothing when the band is OK, which is also what a crash, a stale cache, or a
+parse bug looks like. **Confirm positively before treating quiet as headroom.**
 
 | Item | Rule |
 | --- | --- |

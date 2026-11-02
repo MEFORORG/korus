@@ -176,7 +176,8 @@ thing?"* the opposite way.
 | Item | Rule |
 | --- | --- |
 | Why the hot rate looked real | Three readings inside a 14-minute burst while the whole fleet ran one investigation. The burst was genuine and transient. **A rate measured across a fleet-wide event does not persist, and projecting from it overstates.** |
-| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. That field is null until the lift, then the hook's series (3i). |
+| Corroborate before you publish | Prefer a rate confirmed by a second instrument -- your own later samples, or the status file's burn field -- over a single interval, however consistent it looked. |
+| The status file's burn field is not new | It carried a rate before the 2026-08-14 suppression. It is null until the 2026-11-02 lift is installed, then the hook's series (3i). |
 | Direction and magnitude are separate claims | The direction of a warning can be right while the magnitude is wrong. Say both, so the recipient sees which one you are confident in. |
 | Stop quoting an instantaneous rate as runway | If you must project, say which interval it came from and that the burn is bursty. |
 | A level is not a projection | PROTECT AND WRAP and URGENT STOP fire on a measured number, so a wrong rate does not soften them. 94 is 94 whatever the runway. Burn rate governs HOLD NEW WORK (*The three states*). |
@@ -439,8 +440,8 @@ has no established cause, so nothing shows one tool cannot produce it. A series 
 falsification signal in the table below, because it has no second caller to disagree with.
 
 Its window is `BURN_LOOKBACK`, `BURN_MIN_SPAN`, `BURN_MIN_TICKS` and `BURN_FLOOR_SPAN` in the vault's
-`scripts/coord/watch.py`. The lookback is 60 minutes, or more for one tick past a plateau (section
-3). A span under 30 needs two ticks or more, and nothing counts under 4 minutes.
+`scripts/coord/watch.py`. The lookback is 60 minutes, and a span under 30 needs two ticks or more.
+*The three states* holds the floor and the one slope that reaches past the lookback.
 
 Those window values are estimator constants the Manager retuned from a backtest on 2026-11-02. They
 are not ladder thresholds, so the grant in *Nobody holds the grant to tune these numbers now* does
@@ -489,17 +490,20 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
 | A measured flat: two successful reads at least 30 minutes apart, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
 | No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
-| A session whose pool was guessed, or, on the login-record route, whose login disagrees with the reading. That check runs for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
+| A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (its pool came from this config root's login). Those checks run for each reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
 | 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
 
 **A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
 climb, as a drop does. So a running plateau gives no positive rate and reads as a measured flat,
 inside the limits below.
 
-**With a plateau's last read inside the lookback, one tick past it is rated from the plateau's
-start:** one point over the time since the previous tick. Two ticks or more are rated from that last
-read. Under 4 minutes past it nothing is a rate, so the level decides. A later drop starts a new
-climb.
+**One tick past a plateau is rated from the plateau's start, however long ago it ended:** one point
+over the time from the previous tick to the newest read. The cost is that a burst after idle reads
+slow until its second tick.
+
+**Two ticks or more are rated from its last read,** or from the lookback's oldest read if that is
+newer. Under 4 minutes past its last read, or across the reads inside the lookback, nothing is a
+rate, so the level decides. A later drop starts a new climb.
 
 **The flat ruling does not state these limits.** Both reads are live, inside the current weekly
 window, and one caller's, as 2h asks. A running plateau with no reset time does not read as a flat,
