@@ -434,9 +434,9 @@ reads, but no session brings an instrument of its own, so a point is not a cross
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
 falsification signal in the table below, because it cannot disagree with itself.
 
-Its window, from the Manager's lift design of 2026-11-02: a lookback of 60 minutes and a minimum span
-of 30. A shorter span counts only if two ticks or more moved, and never under 4 minutes. Read the
-constants in the installed file before you quote them.
+Its window, from the Manager's lift design of 2026-11-02, read at vault `719330a45`: a lookback of 60
+minutes and a minimum span of 30. A shorter span counts only if two ticks or more moved, and never
+under 4 minutes. A measured flat's 30 minutes is the owner's and does not move with this constant.
 
 | Item | Rule |
 | --- | --- |
@@ -479,21 +479,25 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
-| A measured flat, with no positive rate: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop, the newer read fresh (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
-| No rate: one read, equal reads under 30 minutes apart, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| A measured flat: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
+| No rate: no positive rate and no measured flat, at least one read, equal reads under 30 minutes apart, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | 98 percent or more | The level, whatever the rate says. |
+
+**This file reads the measured-flat row in three ways the ruling does not state.** A positive rate
+is read first, as `watch.py` does. Both reads are one caller's, as 2h asks of a slope. A blind window
+after them stays no rate, and at vault `719330a45` a newest read past 900 seconds refuses a flat.
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
 measured flat now clears a level-fired HOLD below 98, as a rate showing room does.
 
 **That flat may be HOLD's own effect**, as *A warning that changes behaviour invalidates its own
-projection* describes. The 2026-11-02 ruling counts it as room anyway, so 2g's *a single relaxing
-leg is not a trend* does not reopen it. A new rise fires again, because a state is read fresh.
+projection* describes. This file reads the 2026-11-02 ruling as counting it as room anyway, so 2f
+and 2g do not reopen it. A new rise ends the flat, and the rate row then decides.
 
-**A level of 94 or 97 with a rate or a measured flat showing room fires its state, for the protect
-half only.** That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 and 2026-11-02
-rulings. The stop waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
+**A level of 94 or 97 with a rate or a measured flat showing room fires its state for the protect
+half only.** That is *RATE GOVERNS*, 9.6a, as this file reads the 2026-10-31 and 2026-11-02 rulings.
+The stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
 
 **Below 98, a level crossed with a positive rate or a measured flat in hand is not a hold.** The
 session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
@@ -546,7 +550,8 @@ severity label, and its stop half is gated in a field the reader never sees. A f
 rediscovered this through the instrument rather than through the document.
 
 **So do not file it as a bug. Read the hook's ACTION line, never `state`, before you tell anyone to
-stop.** The stop half follows the projection, with `by_level_stop` as its backstop. Neither field is
+stop.** The stop half follows the projection, with `by_level_stop` as its backstop, which a measured
+flat withholds below 98. Neither field is
 in `status.json`.
 
 Do not replace this with a pointer to the code, which is the remedy this folder normally prefers. The
@@ -577,7 +582,7 @@ ran a tool that answers "is it in this checkout".
 **A working-tree grep cannot answer a question about every branch, and a control validates the
 instrument, never the question.**
 
-### 3c. Three identical copies of `watch.py` with no drift signal between them
+### 3c. Three copies of `watch.py` with no drift signal between them
 
 Verified 2026-08-28, all three sha256 `8774beaad29cc280...`:
 
@@ -618,10 +623,9 @@ about the other. That argument for landing exactly one was produced by accident.
 is not pedantry here; it is the only thing that distinguishes them. This is the verifier-drift class
 the root `CLAUDE.md` already names for the ASVS tool, arriving in a second place.
 
-**CORRECTED 2026-11-02: that sentence read *"They agree today"*.** By `diff
---strip-trailing-cr` that day, `RE_REFUSAL` and `--format lines` are in the installed copy and not
-in the vault's at `64bd0c709`. The installed file calls that flag load-bearing. The engine-branch
-copy was not re-read.
+**CORRECTED 2026-11-02: that sentence read *"They agree today"*, and the heading said identical.**
+By `diff`, `RE_REFUSAL` and `--format lines` are in the installed copy and not the vault's at
+`64bd0c709`. The installed file calls that flag load-bearing. The engine-branch copy was not re-read.
 
 **The vault copy now sits on the vault's `main`, read 2026-11-02.** The table's *"on a vault branch"*
 keeps what 2026-08-28 measured. So does the row *Why the rule is stated here rather than pointed at*,
@@ -1556,6 +1560,7 @@ Every standing rule here carries one, per [README.md](README.md).
 | The tuning grant is unheld | The owner names a seat to hold it. **Watch the self-inflicted case:** a tuned threshold measured to have made a warning arrive too late presents as the ladder failing rather than as the tuning failing |
 | The 90 percent gate stays owner-set | The owner says otherwise. **Not lifted by the tuning grant** -- it is a decision rule, not a level |
 | Burn rate is primary | Only if a rate becomes unmeasurable; then the levels become primary, and say so in every reading |
+| A measured flat counts as room below 98 | The owner recalibrates it, or a pool cleared on one reaches a cutoff no rate warned of |
 | `watch.py`'s series counts as one caller's instrument | One series reproduces a gap of the kind 2h records, or the series stops being one tool and one token file |
 | You do not ration | Never, short of the owner reversing the standing full-speed rule directly |
 | Name the subject on every row | Never, while more than one account exists on the machine. If exactly one ever remains, it becomes a formality -- **verify that, do not assume it** |
