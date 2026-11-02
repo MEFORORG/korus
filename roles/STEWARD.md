@@ -426,17 +426,17 @@ That is the dangerous shape: a wrong method reaching a right answer is not corre
 answer. **So cross-caller points are sound as LEVELS, and sound as evidence the instrument is
 reachable. They must not be the ENDPOINTS OF A SLOPE.**
 
-**`watch.py`'s rate series counts as one caller's instrument (2026-11-02).** Each pool has one series
-of live API reads, through one tool and one token file. Several sessions trigger those reads, but no
-session brings an instrument of its own, so a point is not a cross-caller leg.
+**With the 2026-11-02 lift, `watch.py`'s rate series counts as one caller's instrument.** Each pool
+has one series of live API reads, through one tool and one token file. Several sessions trigger those
+reads, but no session brings an instrument of its own, so a point is not a cross-caller leg.
 
 **That is an argument from the instrument, and no measurement backs it.** The four-point gap above
 has no established cause, so nothing shows one tool cannot produce it. A series also gives up the
 falsification signal in the table below, because it cannot disagree with itself.
 
-Its window, set 2026-11-02: a lookback of 60 minutes and a minimum span of 30. A shorter span counts
-only if two ticks or more moved, and never under 4 minutes. The installed file holds the live values,
-and *Three identical copies of `watch.py`* says how far to trust a copy.
+Its window, from the Manager's lift design of 2026-11-02: a lookback of 60 minutes and a minimum span
+of 30. A shorter span counts only if two ticks or more moved, and never under 4 minutes. Read the
+constants in the installed file before you quote them.
 
 | Item | Rule |
 | --- | --- |
@@ -479,13 +479,17 @@ A state is read fresh each time. A rate-fired HOLD clears when the projection st
 | Reading | What fires HOLD NEW WORK |
 | --- | --- |
 | A positive rate you can state, corroborated as *There is no single rate* asks | The projection. The level 90 does not fire HOLD here. |
-| A measured flat, with no positive rate: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
-| No rate: one read, a blind window, or any reading the rows above do not cover (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
+| A measured flat, with no positive rate: two successful live reads at least 30 minutes apart, inside the current weekly window, at an equal level with no drop, the newer read fresh (owner ruling 2026-11-02) | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here, and 94 and 97 fire the protect half only. |
+| No rate: one read, equal reads under 30 minutes apart, or a blind window (*Reading a level and calling it a rate*, *There is no single rate*) | The level 90. |
 | 98 percent or more | The level, whatever the rate says. |
 
 **The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
 nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
 measured flat now clears a level-fired HOLD below 98, as a rate showing room does.
+
+**That flat may be HOLD's own effect**, as *A warning that changes behaviour invalidates its own
+projection* describes. The 2026-11-02 ruling counts it as room anyway, so 2g's *a single relaxing
+leg is not a trend* does not reopen it. A new rise fires again, because a state is read fresh.
 
 **A level of 94 or 97 with a rate or a measured flat showing room fires its state, for the protect
 half only.** That is *RATE GOVERNS*, section 9.6a, as this file reads the 2026-10-31 and 2026-11-02
@@ -614,9 +618,10 @@ about the other. That argument for landing exactly one was produced by accident.
 is not pedantry here; it is the only thing that distinguishes them. This is the verifier-drift class
 the root `CLAUDE.md` already names for the ASVS tool, arriving in a second place.
 
-**CORRECTED 2026-11-02: that sentence read *"They agree today"*.** Read that day with `diff
---strip-trailing-cr`, the installed copy and the vault's `origin/main` copy differ: `RE_REFUSAL` is
-in the installed copy and not the vault's. The engine-branch copy was not re-read.
+**CORRECTED 2026-11-02: that sentence read *"They agree today"*.** By `diff
+--strip-trailing-cr` that day, `RE_REFUSAL` and `--format lines` are in the installed copy and not
+in the vault's at `64bd0c709`. The installed file calls that flag load-bearing. The engine-branch
+copy was not re-read.
 
 **The vault copy now sits on the vault's `main`, read 2026-11-02.** The table's *"on a vault branch"*
 keeps what 2026-08-28 measured. So does the row *Why the rule is stated here rather than pointed at*,
@@ -705,7 +710,7 @@ COMMON, *The workflow gate cannot see aggregate load*, and the Lander playbook c
 narrower rule: no new Workflow above weekly 90 percent without asking the owner.
 
 **The gate and HOLD NEW WORK can now fire in either order.** A fast burn reaches HOLD below 90, and a
-slow burn passes 90 with no HOLD at all. Above 90 the gate binds whatever the rate says. Until
+slow burn passes 90 with no HOLD at all. Above 90 the gate binds on any reading. Until
 2026-10-31 this section said the ladder always fired first. That arithmetic went with the rule.
 
 Three reasons the gate sits outside the tuning grant, and they do not depend on each other:
@@ -790,12 +795,13 @@ and verified against the installed file, with the thresholds of that date. Compa
 against *The three states* before you trust it again: rung 1 changed from a level to a rate.
 
 **Closed 2026-11-02: the owner lifted the 2026-08-14 suppression of the rate projection, which had
-put `watch.py`'s banners on the no-rate arm.** The lift ships in the vault's copy and an install
+put `watch.py`'s banners on the no-rate arm.** The lift lands in the vault's copy and an install
 follows it, so this line does not say what is installed.
 
-To compare the installed file against the table, run `diff --strip-trailing-cr` on
-`<HOME>\.claude\mefor-usage\watch.py` and the vault's `scripts/coord/watch.py` at `origin/main`.
-Then read every difference in the HOLD arms against *The three states*.
+To compare the installed file against the table, read `<HOME>\.claude\mefor-usage\watch.py`. `grep -c
+'MEASURED FLAT'` returning 0, with `HOLD NEW WORK` hitting as the control, means the lift is not
+installed. Otherwise read its HOLD arms against *The three states*. Where they disagree, publish from
+the ladder and say so.
 
 The 90 percent Workflow gate is unchanged on its own trigger, and the do-not-ration clause is inline
 on rung 1.
@@ -1551,6 +1557,7 @@ Every standing rule here carries one, per [README.md](README.md).
 | The tuning grant is unheld | The owner names a seat to hold it. **Watch the self-inflicted case:** a tuned threshold measured to have made a warning arrive too late presents as the ladder failing rather than as the tuning failing |
 | The 90 percent gate stays owner-set | The owner says otherwise. **Not lifted by the tuning grant** -- it is a decision rule, not a level |
 | Burn rate is primary | Only if a rate becomes unmeasurable; then the levels become primary, and say so in every reading |
+| `watch.py`'s series counts as one caller's instrument | One series reproduces a gap of the kind 2h records, or the series stops being one tool and one token file |
 | You do not ration | Never, short of the owner reversing the standing full-speed rule directly |
 | Name the subject on every row | Never, while more than one account exists on the machine. If exactly one ever remains, it becomes a formality -- **verify that, do not assume it** |
 | A cron is not on the ladder | The owner says otherwise, or the Steward becomes a model-calling seat again |
