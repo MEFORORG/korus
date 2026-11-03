@@ -74,6 +74,7 @@ here" lists belong in a dated episode note.
 | A `/driver` or `/empower` answer to a specific question is a delegation | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling. COMMON.md holds it; *What you check on a delegated record* is your part. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
+| An unacknowledged hold transfers to the Repair Manager | Owner ruling 2026-11-03. Keep one Repair Manager alive in your CCD instance and check it every tick. Transfer a hold its author has not acknowledged in 2 hours. *3b-quater* holds the order and what stays with the author. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
 it is still true and was never a decision procedure.
@@ -243,6 +244,9 @@ MERGE has the measurement, and three repositories give one sweep three recomputa
 **Owner ruling 2026-09-19: the Lander and the Watchdog are EXEMPT from the AskUserQuestion rule.
 Every other seat is still required to use it.**
 
+**WIDENED 2026-11-03, by owner ruling: the Repair Manager is exempt too.** *3b-quater* holds why,
+and that you carry its owner questions.
+
 **AskUserQuestion stalls the session until the Owner answers.** A stalled Lander is the exact
 failure this seat exists to prevent, and it can stall while a green queue sits.
 
@@ -282,7 +286,7 @@ The step 3 table, one row per open question:
 | Question | Class | Recommendation | Confidence, and what would change it | Whose |
 |---|---|---|---|---|
 
-`Class` is the `empower` class, A to D, and is usually C. `Whose` reads yours or the Watchdog's.
+`Class` is the `empower` class, A to D, and is usually C. `Whose` reads yours, the Watchdog's or the Repair Manager's.
 
 | Item | Rule |
 | --- | --- |
@@ -616,8 +620,12 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | The default for a non-trivial fix | **Spawn a session.** |
 | Why, and it is the whole argument | **Your subagents die with you.** This is someone else's branch, and a subagent that dies mid-repair leaves a half-fixed tree nobody can find, on work you did not author. |
 | When a subagent is still right | A one-line fix you would otherwise make yourself, finished inside your own turn. |
-| A quiet author's held PR, decided 2026-10-29 | It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). That Builder makes only the fixes the hold names. Every other non-trivial fix still goes to a spawned Manager session. |
-| Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. |
+| A quiet author's held PR, decided 2026-10-29 | It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). That Builder makes only the fixes the hold names. |
+| Its quiet window is 2 hours, owner ruling 2026-11-03 | It read 4 hours. The window is still measured as no author comment or commit since the hold. An expired acknowledgement, in *3b-quater*, counts as none. The rule's other conditions stand. |
+| A question unanswered for over 2 hours is quiet | Owner ruling 2026-11-03. An author whose transcript ends on a question unanswered for more than 2 hours counts as having no live session, even while it shows as running. The 2-hour window still applies. |
+| How to read that question | With `list_events` or `scripts/board/seatstate.py`. Confirm the question is the transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this state. |
+| Every other non-trivial fix | Still goes to a spawned Manager session, and the Repair Manager is that session: *3b-quater*. |
+| Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. A hold is that ask, and *3b-quater* says when silence answers it. |
 | Prove the spawn by what the child produced | Never by its exit code. A prompt swallowed by a list-taking flag also exits 0. |
 | What this row does NOT reach | **Ledger work.** That goes to a subagent in your own worktree, because a claim is keyed on the worktree path. *7a. Ledger work goes to a SUBAGENT* holds it. |
 
@@ -788,6 +796,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | It has already cost a merge attempt | 2026-09-19: a Lander read this PR CLEAN off a single query, tried to merge, and got *the base branch policy prohibits the merge*. The re-read showed both required gates still pending. |
 | **PROVISIONAL** | The Watchdog is probing each drain at t+0s, t+20s and t+60s to separate "time settles it" from "the query warms it". `docs/TIPS-AND-TRICKS.md` still publishes the wait form. **EXPIRY: that probe series.** |
 | EVERY TICK CHECKS THE PARTNER | Two questions per tick, not one: what is waiting, and is the Watchdog still alive. Missing means spawn. *The Lander and the Watchdog run as a pair*. |
+| Every tick checks the Repair Manager too | Owner ruling 2026-11-03. Ask the same question of it, and respawn it if it is missing. *3b-quater* holds the duty. |
 | The scope is three repositories | Engine, vault and korus. Section 3a, and *What "drained" means*. A tick that polled one repository has not run. |
 | The loop is cadence, not authority | It grants nothing; *Authority model* states what you may do unasked. Run one per session: a second doubles the polls against an API budget already shared with your subagents. |
 | RE-READ, NEVER REPLAY | Recompute the grouping every pass against current state. `lander-empty-queue`, *If you build a drain, these are its failure modes*, carries the rule and the failure. |
@@ -827,6 +836,9 @@ engine PR 2628:
 > as its second, or the script reads it as LANDER.
 
 Engine PR 2628 added the script, merged at `ffb2283333`.
+
+**A hold that names a fix also carries four lines after those two.** *3b-quater* holds the format,
+added with the tiers the owner approved on 2026-11-03.
 
 ### 3b-bis. What the loop fixes, what it does not, and how thin the evidence is
 
@@ -925,6 +937,152 @@ Do not report a non-zero open count as your own failure, or treat it as satisfie
 **Write that table so it names who must act, never so it reads as excused.** #1201 is the case: a row
 reading "abandoned" writes it off, and a row reading "needs a push, nobody holds the branch" is what
 got a seat to push at 14:04Z. It enqueued within the hour.
+
+### 3b-quater. A hold its author does not acknowledge transfers to the Repair Manager
+
+**Owner ruling 2026-11-03, in the Lander's session.** Asked *"Which tiers do you want to adopt?"*,
+the owner answered *"Tiers 1 and 2"*. Tier 1 loosened the quiet-author repair Builder, in *Prefer a
+SPAWNED SESSION*. Tier 2 is this section.
+
+**Held pull requests waited hours on their authors, and the cause was reachability.** A session
+suspended on a question drains no messages. A peer on another account can only be mailed. A Manager
+running a new wave puts repairs second.
+
+**The evidence is thin, and the thresholds are judgement.** Five pull requests in one Lander
+session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
+
+#### Keep one Repair Manager alive, as you keep the Watchdog
+
+| Item | Rule |
+| --- | --- |
+| What it is | One Manager session you spawn for repairs. Section 2 carries the grant: the 2026-09-16 ruling lets you spawn a Manager. |
+| It is the spawned Manager for every repair | A non-trivial fix you would send to a spawned Manager goes to it, held or not. Spawn a second Manager only while it is busy, and say why. |
+| Spawn it in YOUR CCD instance | So `send_message` wakes it. *Only CCD messaging wakes a partner* has the reason. Mail waits for its next turn. |
+| Make it findable | Its spawn brief declares seat `manager` with a goal starting `Repair Manager`. Record its CCD `local_` id in your episode note, so a successor Lander finds it. |
+| Give it its own id | The spawn brief names the Repair Manager's own `local_` id, copied whole. The id exists only once the session does, so send it as the brief's first `send_message`. It compares each marker against that id. |
+| One at a time | Two Repair Managers can take one hold. Before you spawn, check the seat registry for that goal and `list_sessions` for the recorded id. |
+| Check it every tick | Beside the Watchdog, in section 3b. Read its transcript: *Read your partner's TRANSCRIPT* gives the three states. It idles between transfers, so a still transcript alone does not mean it is gone. |
+| Carry its owner questions | Its end-of-turn owner table is read by nobody else. Copy each open row into your own table every turn, with its session id. The owner answers in that session's chat, because a relayed answer is not a ruling. |
+| Respawn it if it dies | Nothing else will, and every repair it held stalls. Redo each open transfer in the order below, with a marker naming the new `local_` id. Your episode note lists the open transfers. |
+| What its spawn brief says | It reads the PR body, the hold, the decisions the hold cites and the diff. It briefs a subagent Builder, reads the commit back and posts the new head on the PR. |
+| What it never does | Open a new PR, enqueue or merge. Its brief also keeps it off backlog work and off other seats' owner questions. |
+| It never uses `AskUserQuestion` | Owner ruling 2026-11-03. A suspended Repair Manager recreates the stall it exists to remove. It carries an owner question in an end-of-turn table, as you do. Put that in its spawn brief. |
+| A usage hold binds it | You are exempt and it is not. While a hold stops it briefing a Builder, transfer nothing. Name the waiting holds in *Table 2 -- the blockers*. |
+
+#### The transfer, and its order
+
+A hold transfers when its original author has not acknowledged it within 2 hours. The author may
+also hand it over sooner.
+
+**An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
+`hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
+
+**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
+since the hold and no commit by the original author has landed since it.
+
+An expired hold counts as unacknowledged, so it may go to tier 1. **It transfers only when the
+original author also reads not live:** no live session, or a transcript ending on a question
+unanswered for more than 2 hours. A hold never acknowledged at all still transfers at 2 hours.
+
+The expiry was decided by the Lander under the owner's delegation of 2026-11-03. Asked *"should a
+hold-ack expire 2h after it"*, the owner answered *"/driver"*. Record d20261103T190111765-2aa8b6.
+
+**Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
+back, and you act on it rather than wait.
+
+`held_pr_turns.py` on `main` does not apply this expiry. On an AUTHOR row flagged `acked`, check
+the acknowledgement's age and the author's events and commits since it yourself.
+
+Once engine PR 2720 merges, the script shows `ack-expired` only while the head is unchanged. Any
+other head move already reads as your turn, flagged `new-commit`.
+
+Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
+do not count, nor do other seats' or workflows' comments.
+
+**A hold whose one determinate fix meets the tier 1 rule goes to a repair Builder instead.** *Prefer
+a SPAWNED SESSION* holds that rule. Every other unacknowledged hold transfers, an expired one only
+under the not-live guard above.
+
+**Never transfer a PR that is queued or has an armed auto-merge request.** A write-access push does
+not disarm auto-merge, so a repair head could merge before your review. Disarm or dequeue first, and
+read the state back.
+
+If the head moved since the hold, post a fresh hold at the current head first. The transfer is
+then one act, in this order:
+
+1. Send the Repair Manager the hold comment's URL with `send_message`. That comment is its brief.
+2. Confirm it was delivered. The send result must read `delivered`, meaning its turn started. A
+   `queued` result or an error is not delivery. Then do not transfer: the PR stays with you. This
+   result is the gate. The REMOVE record stays the proof after the fact.
+3. Post the marker comment below on the PR at once, in a later second than the hold it transfers.
+   In `held_pr_turns.py`, a marker in the same second as the hold reads as a reply. It then blocks
+   the transfer of that hold. The fix is a fresh hold, then a new marker in a later second.
+4. Send the Repair Manager the hold comment's URL again with `send_message`. This wakes it with the
+   marker in place.
+5. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
+   names the PR's URL and the Repair Manager's `local_` id.
+
+The marker is the comment's FIRST line and your signature its second. Copy both with no leading
+spaces:
+
+```text
+<!-- repair-owner session=<Repair Manager session id> -->
+Lander (session <your session id>), <date>. Repair owned by the Repair Manager from <time>; the original author stands down on this PR.
+```
+
+| Item | Rule |
+| --- | --- |
+| Copy the marker exactly | The session id is 1 to 64 characters of letters, digits, `_` and `-`. The shape is shared with a parser being added to the engine's `scripts/coord/held_pr_turns.py`. |
+| Which session id | The Repair Manager's CCD `local_` id, copied whole, with no prefix. It is what `send_message` takes. `$CLAUDE_CODE_SESSION_ID` changes on resume, so never use it. |
+| Until that parser lands | The script reads the marker as an ordinary reply. Read the transfer from the comment, not from the script's turn. |
+| The signature line | Start it `Lander (session `, the form section 3b names for a hold. A bare session id in the parentheses does not match. |
+| Who may post it | An `OWNER`, `MEMBER` or `COLLABORATOR` account, as for a hold, and the comment must not be minimized. You post as the owner's identity, so yours qualifies. |
+| Why this order | A marker naming a session that never woke would strand the PR. So the PR leaves the author only once the Repair Manager's turn has started. |
+| Why the marker before the mail | The mail then names a transfer that exists. Mail waits for the author's next turn, so it is a notice, not a lock. |
+| The Repair Manager checks the marker | It reads the newest marker before it briefs a Builder. If none names it, it stops and waits to be woken. It never briefs a Builder without the marker naming it. |
+| Minimizing a marker | It cancels that transfer. A minimized marker never keeps a hold on you or on the Repair Manager. |
+| The hand-back to the author | Minimize the newest marker and every older one still unminimized. The newest qualifying marker wins, so an older one left up stays in charge. |
+| A later hold on a transferred PR | Redo steps 1 to 4 for it: send the new hold's URL, confirm delivery, post a fresh marker in a later second, then send the URL again. Always post that marker. |
+| If that send is not delivered | The re-hold is your turn, whatever the script reads. |
+| Why always | Until engine PR 2720 merges, `held_pr_turns.py` on `main` reads a markerless re-hold as the author's turn. |
+
+#### What stays with the original author
+
+At least these:
+
+| Case | Why |
+| --- | --- |
+| A stacked set, or a landing order | The fix needs the batch's context, and the author holds it. |
+| A question of the author's intent | Only the author can answer it. |
+| Anything waiting on an owner ruling | A transfer does not answer a ruling. |
+| ASVS record content | A Manager's, under the 2026-09-23 ruling, so the Repair Manager may take it only when the author is gone: no live session, or a transcript ending on a question unanswered over 2 hours. Say so on the marker's third line. |
+
+#### Every hold that names a fix carries four lines
+
+Write them after the hold's marker and signature lines:
+
+```text
+What is wrong: <file:line or behaviour, with the evidence>
+Fix: <the required change, not the implementation>
+Proof: <the test or command that must fail before and pass after>
+Out of scope: <what the repair must not touch>
+```
+
+**A hold in this shape is a Builder brief.** The Repair Manager forwards it rather than researching
+it, and a tier 1 repair Builder reads the same four lines. You hold the context when you write the
+hold, so the research cost falls where it is cheapest.
+
+#### Independence, and the risk left open
+
+| Item | Rule |
+| --- | --- |
+| The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, and stops if the head moved. |
+| You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. |
+| Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
+| The only collision control | The head-moved check, for repair Builders. Each is briefed to fetch before it pushes and stop if the head moved. An author's own Builder in flight may have no such check, and nothing stops it. |
+| A push after you arm | Your head check before arming cannot see it, and a write-access push does not disarm auto-merge. |
+| What catches it, if anything | The post-merge head comparison, step 3 of the Lander's 2026-10-07 safeguards in engine `CLAUDE.md` section 5. Run it on every PR you armed. |
+| Design-heavy repairs | A security or behaviour fix needs context the Repair Manager rebuilds from the PR and its ADR. Expect a research turn each. |
 
 ---
 
