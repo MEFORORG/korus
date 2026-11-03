@@ -977,12 +977,18 @@ also hand it over sooner.
 **An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
 `hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
 
-**An acknowledgement expires 2 hours after it if the author has pushed no commit since.** The hold
-then counts as unacknowledged, and it transfers or goes to tier 1. Manager decision 2026-11-03, on
-the Lander's hold.
+**An acknowledgement expires 2 hours after it while the hold is still the author's turn.** That
+holds only while two things stay true. The author's newest event since the hold is a `hold-ack`.
+The head is still the held head.
+
+An expired hold counts as unacknowledged, and it transfers or goes to tier 1. Manager decision
+2026-11-03, on the Lander's hold.
+
+**Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
+back, and you act on it rather than wait.
 
 `held_pr_turns.py` does not apply this expiry. On an AUTHOR row flagged `acked`, check the
-acknowledgement's age and the commits since it yourself.
+acknowledgement's age, the head and the author's events since it yourself.
 
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
@@ -1024,7 +1030,8 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | Why this order | A marker naming a session that never woke would strand the PR. So the PR leaves the author only once the Repair Manager's turn has started. |
 | Why the marker before the mail | The mail then names a transfer that exists. Mail waits for the author's next turn, so it is a notice, not a lock. |
 | The Repair Manager checks the marker | It reads the newest marker before it briefs a Builder. If none names it, it re-reads once after its research, then reports to you and stops. |
-| Minimizing a marker | It cancels that transfer. Minimizing the newest marker hands the PR back to the original author. A minimized marker never keeps a hold on you or on the Repair Manager. |
+| Minimizing a marker | It cancels that transfer. A minimized marker never keeps a hold on you or on the Repair Manager. |
+| The hand-back to the author | Minimize the newest marker and every older one still unminimized. The newest qualifying marker wins, so an older one left up stays in charge. |
 | A later hold on a transferred PR | Redo steps 1 to 3 for it: send the new hold's URL, confirm delivery, then post a fresh marker in a later second. Always post that marker. |
 | If that send is not delivered | The re-hold is your turn, whatever the script reads. |
 | Why always | Until engine PR 2720 merges, `held_pr_turns.py` on `main` reads a markerless re-hold as the author's turn. |
