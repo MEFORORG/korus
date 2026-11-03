@@ -431,9 +431,9 @@ decline."* With empower off, that text governs again.
 drain, and that pair exists to keep merging. Those two seats put the issue in a table at the end of
 every turn instead. Every other seat still asks, except the Repair Manager.
 
-**WIDENED 2026-11-03, by owner ruling: the Repair Manager never uses `AskUserQuestion` either.** It
-is the Manager the Lander spawns for repairs, and a suspended one would recreate the stall it
-exists to remove. [roles/MANAGER.md](roles/MANAGER.md), *The Repair Manager's duties*, holds it.
+**WIDENED 2026-11-03, by owner ruling: the Repair Manager never uses `AskUserQuestion` either.**
+[roles/MANAGER.md](roles/MANAGER.md), *The Repair Manager's duties*, holds why. These two lines read
+*"and so does the Manager."* and *"Every other seat still asks."*
 
 **Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
 
