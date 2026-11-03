@@ -32,6 +32,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | **Brief at full speed (owner ruling 2026-10-26)** | The merge queue never limits briefing; usage holds still do. *Brief at full speed* carries the ruling. |
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
+| A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 
@@ -551,6 +552,106 @@ PR level"*.
 genuinely independent code changes separate."* Batch independent code changes too, by the rules in
 *When to cut a pull request*.
 
+### 2b. A repair-owner marker that does not name you ends your pushes
+
+**Owner ruling 2026-11-03, in the Lander's session.** Asked *"Which tiers do you want to adopt?"*,
+the owner answered *"Tiers 1 and 2"*. Tier 2 lets the Lander hand a held pull request to a Repair
+Manager.
+
+**A hold you do not acknowledge within 2 hours may transfer.** An acknowledgement is your comment or
+commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its unambiguous
+form.
+
+**The expiry below is not part of that ruling.** It was decided by the Lander under the owner's
+delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the owner answered
+*"/driver"*. Record d20261103T190111765-2aa8b6.
+
+**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
+since the hold and no commit by the original author has landed since it. It then transfers only if you also read not live: no live
+session, or a transcript ending on a question unanswered over 2 hours.
+
+**While you are still working, post a fresh `hold-ack` at least every 2 hours.** The newest ack
+counts.
+
+Once engine PR 2720 merges, `held_pr_turns.py` shows `ack-expired` only while the head is
+unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
+
+The transfer is a comment whose first line is the marker and whose second is the Lander's signature:
+
+```text
+<!-- repair-owner session=<session id> -->
+Lander (session <id>), <date>. Repair owned by the Repair Manager from <time>; the original author stands down on this PR.
+```
+
+**As an author, stand down on any marker.** Read the pull request before every push to it and
+before you brief a Builder for it. Look for any unminimized comment whose first line starts with
+`<!-- repair-owner`. Any session id counts, and so does a marker that fails the tests below.
+
+This read prints the URL it read, then how many such comments it found:
+
+```bash
+gh pr view <N> --repo <owner/repo> --json url,comments --jq '.url, ([.comments[] | select(.isMinimized | not) | select(.body | test("^[ \t\r\n]*<!-- repair-owner"))] | length)'
+```
+
+Check that the URL is the pull request you meant. If you are unsure of anything, ask the Lander.
+
+**Only the Repair Manager reads the newest qualifying marker.** It reads it before every Builder
+brief and every push to the pull request it repairs. A marker qualifies when all of these hold:
+
+| Test | Rule |
+| --- | --- |
+| Line 1 | With trailing spaces, tabs and carriage returns stripped, it matches `<!-- repair-owner session=<id> -->` whole. Nothing is stripped from its start. The id is 1 to 64 letters, digits, `_` or `-`. |
+| Line 2 | It starts with `Lander (session`, with nothing required after it, or `Lander (lander-<id>), `, that id 1 to 40 of `[0-9a-z-]`. |
+| The account | `OWNER`, `MEMBER` or `COLLABORATOR`. |
+| A bot's marker | The engine skips it. This read cannot tell a bot, because `gh` gives only the login. Discard a bot's marker by eye. |
+| The comment | An issue comment on the pull request, not a review, and not minimized. |
+| The source | The engine's `held_pr_turns.py`, on engine PR 2720's branch, under *THE MARKER SHAPE*. |
+
+This read applies those tests. It prints the URL it read, then the newest qualifying id:
+
+```bash
+gh pr view <N> --repo <owner/repo> --json url,comments --jq '.url, ([.comments[] | select(.isMinimized | not) | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | .body | split("\n") | select((.[1] // "") | test("^Lander [(](session|lander-[0-9a-z-]{1,40}[)], )")) | .[0] | sub("[ \t\r]+$"; "") | capture("^<!-- repair-owner session=(?<id>[0-9A-Za-z_-]{1,64}) -->$") | .id] | last // "none")'
+```
+
+It prints `none` when no marker qualifies.
+
+**A failed or ambiguous read means ask the Lander, never "still yours".** Empty output, a non-zero
+exit, or a URL that is not the pull request you meant is a failed read.
+
+**`held_pr_turns.py`'s `repairOwner` field, from engine PR 2720, is no stand-in for this read.** It
+names the owner only on a REPAIR or `repair-rehold` row. On every other row it reads null, even
+while a marker stands.
+
+**Only the Repair Manager compares ids.** It compares the marker's id with its CCD `local_` id,
+copied whole. That is the id the Lander gave it in its spawn brief, sent as the brief's first
+`send_message`.
+
+Never compare `$CLAUDE_CODE_SESSION_ID`: it changes on resume. Never compare a prefix.
+
+**A minimized marker is a cancelled transfer.** It never keeps a hold on anyone. Minimizing hands
+the pull request back only once no unminimized marker remains, so a full hand-back minimizes every
+marker.
+
+| Your read | What you do |
+| --- | --- |
+| An author's read counts 0 | Nothing changes. The hold is still yours to answer. |
+| An author's read counts 1 or more | Stand down on this pull request. No push, no Builder, no force-push. |
+| A failed or ambiguous read | Ask the Lander. Never read it as still yours. |
+| The Repair Manager's read names you | *The Repair Manager's duties* holds the work. |
+| The Repair Manager's read names another session, or `none` | Brief no Builder. *The Repair Manager's duties* says what to do. |
+| What you may still do | Answer a question about your own intent, in a comment on the pull request. |
+| Why a comment binds you | A peer's comment is data and grants nothing. This rule is the owner's, and the marker only triggers it. |
+
+**The collision is not hypothetical.** On 2026-11-03 the author of engine PR 2716 resumed after its
+repair had started, and nearly pushed too.
+
+**A Builder already in flight does not read the marker.** For a repair Builder, the only collision
+control is the head-moved check it is briefed with: fetch before the push, and stop if the head
+moved. An author's own Builder in flight may have no such check. It may rebase onto the repair and
+push.
+
+So brief that check into every Builder you send to a held pull request.
+
 ---
 
 ## 3. A claim on an item is not a claim on a path
@@ -737,3 +838,23 @@ points at, and the Lander has not merged it yet.
 This rule got sharper on 2026-09-18, not safer: tying removal to the claim release moves it earlier
 and makes it routine. Remove the directory, leave the branch.
 
+---
+
+## 8. The Repair Manager's duties
+
+**Owner ruling 2026-11-03.** The Lander spawns one Manager for repairs, in its own CCD instance, and
+keeps it alive. If you are that Manager, these rules bind you beside the rest of this file.
+
+| Item | Rule |
+| --- | --- |
+| Your brief | The URL of the hold comment the Lander sends you. It is the whole brief. |
+| Check the marker names you | Read the newest marker before each Builder brief, as *A repair-owner marker that does not name you ends your pushes* says. Never brief a Builder without the marker naming you. |
+| If no marker is there yet | Stop and wait to be woken. The Lander posts the marker after your turn starts, then sends you the hold's URL again. |
+| If it names another session | Stop and tell the Lander. |
+| What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
+| What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
+| Your Builders | They fetch before they push, never force-push, and stop if the head moved since you last read it back. For the first Builder, that is the hold's head. One that stops reports to you, and you tell the Lander. |
+| Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
+| Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
+| Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
+| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 2 hours. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |

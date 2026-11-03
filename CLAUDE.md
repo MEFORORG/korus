@@ -416,7 +416,8 @@ or repository-settings change is theirs; a choice between two implementations is
 Manager.** This section read as sending every seat to `AskUserQuestion`, against
 [roles/COMMON.md](roles/COMMON.md), *The owner reads by sampling*. The Owner ruled COMMON right.
 
-A seat with no Manager running still uses `AskUserQuestion`, and so does the Manager.
+A seat with no Manager running still uses `AskUserQuestion`, and so does the Manager, except the
+Repair Manager below.
 
 **Where a classifier blocked an action, skip the ask.** Print the command once, in a code block,
 and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until the
@@ -428,7 +429,11 @@ decline."* With empower off, that text governs again.
 
 **The Lander and the Watchdog never use `AskUserQuestion`.** Owner ruling 2026-09-19. It stalls the
 drain, and that pair exists to keep merging. Those two seats put the issue in a table at the end of
-every turn instead. Every other seat still asks.
+every turn instead. Every other seat still asks, except the Repair Manager.
+
+**WIDENED 2026-11-03, by owner ruling: the Repair Manager never uses `AskUserQuestion` either.**
+[roles/MANAGER.md](roles/MANAGER.md), *The Repair Manager's duties*, holds why. These two lines read
+*"and so does the Manager."* and *"Every other seat still asks."*
 
 **Proactive is not loud.** Acting without asking is not acting without telling. Report what you did.
 
