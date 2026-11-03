@@ -714,12 +714,13 @@ The steps are restated here because they must be in front of you at the moment y
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. With empower off, not on a class B or C decision: *The empower rules are on by default, for every seat but Special*. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
 | Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
-| Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. *The owner reads by sampling* holds the route. |
+| Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. The Repair Manager is the exception below. *The owner reads by sampling* holds the route. |
 | Class C items go in ONE ask | Prepare every open class C item, then bundle them into one ask. Each carries its class, a recommendation, and your confidence with what would change it. Carry on with the work that does not depend on the answer. |
 | A classifier blocked the action | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The classifier row read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* Step 3 named no bundling. With empower off, both revert. |
 | **CHANGED 2026-10-26, to match the engine** | The step 1 row read *"Act on it. Confirming is asking."* With the kill switch set, it then reached a class B or C decision. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
+| The Repair Manager, owner ruling 2026-11-03 | It never uses `AskUserQuestion` either, and keeps owner questions in the same table. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*, holds why. |
 | The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
