@@ -958,11 +958,12 @@ session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 | What it is | One Manager session you spawn for repairs. Section 2 carries the grant: the 2026-09-16 ruling lets you spawn a Manager. |
 | It is the spawned Manager for every repair | A non-trivial fix you would send to a spawned Manager goes to it, held or not. Spawn a second Manager only while it is busy, and say why. |
 | Spawn it in YOUR CCD instance | So `send_message` wakes it. *Only CCD messaging wakes a partner* has the reason. Mail waits for its next turn. |
-| Make it findable | Its spawn brief declares seat `manager` with a goal starting `Repair Manager`. Record its session id in your episode note, so a successor Lander finds it. |
+| Make it findable | Its spawn brief declares seat `manager` with a goal starting `Repair Manager`. Record its CCD `local_` id in your episode note, so a successor Lander finds it. |
+| Give it its own id | The spawn brief names the Repair Manager's own `local_` id, copied whole. It compares each marker against that id. |
 | One at a time | Two Repair Managers can take one hold. Before you spawn, check the seat registry for that goal and `list_sessions` for the recorded id. |
 | Check it every tick | Beside the Watchdog, in section 3b. Read its transcript: *Read your partner's TRANSCRIPT* gives the three states. It idles between transfers, so a still transcript alone does not mean it is gone. |
 | Carry its owner questions | Its end-of-turn owner table is read by nobody else. Copy each open row into your own table every turn, with its session id. The owner answers in that session's chat, because a relayed answer is not a ruling. |
-| Respawn it if it dies | Nothing else will, and every repair it held stalls. Re-post each open transfer's marker naming the new session, then send it the hold URLs. Your episode note lists the open transfers. |
+| Respawn it if it dies | Nothing else will, and every repair it held stalls. Redo each open transfer in the order below, with a marker naming the new `local_` id. Your episode note lists the open transfers. |
 | What its spawn brief says | It reads the PR body, the hold, the decisions the hold cites and the diff. It briefs a subagent Builder, reads the commit back and posts the new head on the PR. |
 | What it never does | Open a new PR, enqueue or merge. Its brief also keeps it off backlog work and off other seats' owner questions. |
 | It never uses `AskUserQuestion` | Owner ruling 2026-11-03. A suspended Repair Manager recreates the stall it exists to remove. It carries an owner question in an end-of-turn table, as you do. Put that in its spawn brief. |
@@ -976,6 +977,9 @@ also hand it over sooner.
 **An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
 `hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
 
+**An acknowledgement expires 2 hours after it if the author has pushed no commit since.** The hold
+then counts as unacknowledged, and it transfers or goes to tier 1.
+
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
 
@@ -986,14 +990,16 @@ a SPAWNED SESSION* holds that rule. Every other unacknowledged hold transfers.
 not disarm auto-merge, so a repair head could merge before your review. Disarm or dequeue first, and
 read the state back.
 
-Confirm the Repair Manager is running first. The transfer is then one act, in this order:
+If the head moved since the hold, post a fresh hold at the current head first. The transfer is
+then one act, in this order:
 
-1. Post the marker comment below on the PR, in a later second than the hold it transfers. The
-   engine parser ignores a marker in the same second as the hold. If the head moved since the hold,
-   post a fresh hold at the current head first, then the marker.
-2. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
-   names the PR's URL and carries the comment's second line.
-3. Send the Repair Manager the hold comment's URL with `send_message`. That comment is its brief.
+1. Send the Repair Manager the hold comment's URL with `send_message`. That comment is its brief.
+2. Confirm it was delivered. The send result must read `delivered`, meaning its turn started. A
+   `queued` result or an error is not delivery. Then do not transfer: the PR stays with you.
+3. Post the marker comment below on the PR, in a later second than the hold it transfers. The
+   engine parser ignores a marker in the same second as the hold.
+4. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
+   names the PR's URL and the Repair Manager's session id.
 
 The marker is the comment's FIRST line and your signature its second. Copy both with no leading
 spaces:
@@ -1006,11 +1012,16 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | Item | Rule |
 | --- | --- |
 | Copy the marker exactly | The session id is 1 to 64 characters of letters, digits, `_` and `-`. The shape is shared with a parser being added to the engine's `scripts/coord/held_pr_turns.py`. |
+| Which session id | The Repair Manager's CCD `local_` id, copied whole, with no prefix. It is what `send_message` takes. `$CLAUDE_CODE_SESSION_ID` changes on resume, so never use it. |
 | Until that parser lands | The script reads the marker as an ordinary reply. Read the transfer from the comment, not from the script's turn. |
 | The signature line | Start it `Lander (session `, the form section 3b names for a hold. A bare session id in the parentheses does not match. |
 | Who may post it | An `OWNER`, `MEMBER` or `COLLABORATOR` account, as for a hold, and the comment must not be minimized. You post as the owner's identity, so yours qualifies. |
-| Why this order | The marker and the mail go out before the brief. Mail still waits for the author's next turn, so this is a notice, not a lock. |
-| A later hold on a transferred PR | Post a fresh marker after it, in a later second, and send its URL straight to the Repair Manager. Without that marker, `held_pr_turns.py` reads it as LANDER's turn, flagged `repair-rehold`. It does not wait 2 hours on the author. |
+| Why this order | A marker naming a session that never woke would strand the PR. So the PR leaves the author only once the Repair Manager's turn has started. |
+| Why the marker before the mail | The mail then names a transfer that exists. Mail waits for the author's next turn, so it is a notice, not a lock. |
+| The Repair Manager checks the marker | It reads the newest marker before it briefs a Builder. If none names it, it re-reads once, then reports to you and stops. |
+| Minimizing a marker | It cancels that transfer. Minimizing the newest marker hands the PR back to the original author. A minimized marker never keeps a hold on you or on the Repair Manager. |
+| A later hold on a transferred PR | Redo steps 1 to 3 for it: send the new hold's URL, confirm delivery, then post a fresh marker in a later second. Always post that marker. |
+| Why always | Until engine PR 2720 merges, `held_pr_turns.py` on `main` reads a markerless re-hold as the author's turn. |
 
 #### What stays with the original author
 
@@ -1045,8 +1056,10 @@ hold, so the research cost falls where it is cheapest.
 | --- | --- |
 | The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, and stops if the head moved. |
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. |
-| Residual risk | An author who reads neither the marker nor its mail may still push. The Builder stops if that push came first. Your head check before you arm catches one that came after. |
-| What you check because of it | Before you arm, the head you reviewed is still the head. *4c* holds the freeze. |
+| Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
+| The only collision control | The head-moved check. Each Builder fetches before it pushes and stops if the head moved. Nothing else stops a stray Builder. |
+| A push after you arm | Your head check before arming cannot see it, and a write-access push does not disarm auto-merge. |
+| What catches it, if anything | The post-merge head comparison, step 3 of the Lander's 2026-10-07 safeguards in engine `CLAUDE.md` section 5. Run it on every PR you armed. |
 | Design-heavy repairs | A security or behaviour fix needs context the Repair Manager rebuilds from the PR and its ADR. Expect a research turn each. |
 
 ---
