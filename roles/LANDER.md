@@ -980,8 +980,13 @@ also hand it over sooner.
 **A `hold-ack` expires 2 hours after it while two things stay true.** It is still the original
 author's newest event since the hold. No commit by the original author has landed since it.
 
-An expired hold counts as unacknowledged, and it transfers or goes to tier 1. Manager decision
-2026-11-03, on the Lander's hold.
+An expired hold counts as unacknowledged, so it may go to tier 1. **It transfers only when the
+original author also reads not live:** no live session, or a transcript ending on a question
+unanswered for more than 2 hours. A hold never acknowledged at all still transfers at 2 hours.
+
+The expiry was decided by the Lander under the owner's delegation of 2026-11-03. Asked *"should a
+hold-ack expire 2h after it"*, the owner answered *"/driver"*. Records d20261103T190111765-2aa8b6
+and d20261103T190116898-0f1b73.
 
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
@@ -996,7 +1001,8 @@ Every seat posts as the owner's identity, so read who wrote it. Your own comment
 do not count, nor do other seats' or workflows' comments.
 
 **A hold whose one determinate fix meets the tier 1 rule goes to a repair Builder instead.** *Prefer
-a SPAWNED SESSION* holds that rule. Every other unacknowledged hold transfers.
+a SPAWNED SESSION* holds that rule. Every other unacknowledged hold transfers, an expired one only
+under the not-live guard above.
 
 **Never transfer a PR that is queued or has an armed auto-merge request.** A write-access push does
 not disarm auto-merge, so a repair head could merge before your review. Disarm or dequeue first, and
@@ -1050,8 +1056,7 @@ At least these:
 | A stacked set, or a landing order | The fix needs the batch's context, and the author holds it. |
 | A question of the author's intent | Only the author can answer it. |
 | Anything waiting on an owner ruling | A transfer does not answer a ruling. |
-| ASVS record content | A Manager's, under the 2026-09-23 ruling. The Repair Manager is a Manager, so it may take it only when the author is gone. Say so on a third line of the marker comment. |
-| When the author is gone | The rows above go to the Repair Manager too, except an owner ruling, which still waits. |
+| ASVS record content | A Manager's, under the 2026-09-23 ruling, so the Repair Manager may take it only when the author is gone: no live session, or a transcript ending on a question unanswered over 2 hours. Say so on the marker's third line. |
 
 #### Every hold that names a fix carries four lines
 
