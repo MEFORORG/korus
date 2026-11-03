@@ -22,15 +22,21 @@
   Re-derive and re-render from the data.json already in OutDir, without calling GitHub. Use it
   when you changed series.py, build.py, central.py or template.html and the data is still fresh.
 
+.PARAMETER EngineCheckout
+  An engine (MessageFoundry) checkout. Its scripts/coord/held_pr_turns.py --json is run first, into
+  OutDir\turns.json, and the collect reads it through LANDER_BOARD_TURNS. Without it the board says
+  holds were not read and never claims queue throughput (LANDER-BOARD.md section 4).
+
 .EXAMPLE
-  pwsh -NoProfile -File scripts/board/refresh.ps1
+  pwsh -NoProfile -File scripts/board/refresh.ps1 -EngineCheckout D:\Code\MessageFoundry
 .EXAMPLE
   pwsh -NoProfile -File scripts/board/refresh.ps1 -OutDir $env:TEMP\board -SkipCollect
 #>
 [CmdletBinding()]
 param(
     [string] $OutDir,
-    [switch] $SkipCollect
+    [switch] $SkipCollect,
+    [string] $EngineCheckout
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,6 +51,22 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'refresh.ps1: g
 
 # The scripts read and write beside themselves unless told otherwise.
 $env:LANDER_BOARD_OUT = $OutDir
+
+if ($EngineCheckout -and -not $SkipCollect) {
+    $turnsScript = Join-Path $EngineCheckout 'scripts/coord/held_pr_turns.py'
+    if (-not (Test-Path -LiteralPath $turnsScript)) { throw "refresh.ps1: $turnsScript does not exist." }
+    $turns = Join-Path $OutDir 'turns.json'
+    Write-Host '== held_pr_turns.py' -ForegroundColor Cyan
+    # Start-Process writes the child's bytes to the file as they are. A pipe through PowerShell
+    # would re-decode them with the console encoding first. Start-Process joins its arguments
+    # with spaces and quotes none of them, so the path is quoted here.
+    $p = Start-Process -FilePath $python -ArgumentList @("`"$turnsScript`"", '--json') -NoNewWindow -Wait `
+        -PassThru -RedirectStandardOutput $turns
+    if ($p.ExitCode -ne 0) {
+        throw "refresh.ps1: held_pr_turns.py exited $($p.ExitCode). The board was NOT rebuilt."
+    }
+    $env:LANDER_BOARD_TURNS = $turns
+}
 
 $steps = @()
 if (-not $SkipCollect) { $steps += 'collect.py' }

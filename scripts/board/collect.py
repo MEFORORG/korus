@@ -587,56 +587,72 @@ def classify(p, required):
 # Unset is a declared "not read", and the board says so instead of claiming throughput. A file
 # that is set but unreadable, malformed or stale stops the run like any other untrusted read.
 TURNS_MAX_AGE_S = 30 * 60
+# A file stamped further ahead than this is not fresh, it is from a clock this one cannot trust.
+TURNS_MAX_SKEW_S = 2 * 60
 
 def read_turns(path, now_ts):
-    """{repo: {"read": bool, "turn": {number: turn}}} from held_pr_turns.py --json, or None if unset.
+    """{repo: {"read": bool, "rows": {number: (turn, flags)}}} from held_pr_turns.py --json.
+
+    None when LANDER_BOARD_TURNS is unset. Set but EMPTY is refused, not read as unset: a wrapper
+    that exports an empty path has lost its hold read, and saying "not read" would hide that.
 
     A repository-level ERROR row (number null) means that repository's holds were not read. A
-    per-PR ERROR row is kept as the turn "ERROR", which never counts as held and does mark the
-    read incomplete for that pull request.
+    per-PR ERROR row is kept as the turn "ERROR", which is never held and marks the read
+    incomplete for that pull request.
     """
-    if not path:
+    if path is None:
         return None
+    if not path:
+        refuse("LANDER_BOARD_TURNS is set but empty")
     try:
         age = now_ts - os.path.getmtime(path)
         with open(path, encoding="utf-8") as f:
             rows = json.load(f)
     except (OSError, ValueError) as exc:
         refuse("LANDER_BOARD_TURNS %s could not be read: %s" % (path, exc))
-    if age > TURNS_MAX_AGE_S:
-        refuse("LANDER_BOARD_TURNS %s is %d minutes old; re-run held_pr_turns.py --json"
-               % (path, age // 60))
+    if age > TURNS_MAX_AGE_S or age < -TURNS_MAX_SKEW_S:
+        refuse("LANDER_BOARD_TURNS %s is %d minutes old, outside %d old to %d ahead; re-run "
+               "held_pr_turns.py --json" % (path, age // 60, TURNS_MAX_AGE_S // 60,
+                                            TURNS_MAX_SKEW_S // 60))
     if not isinstance(rows, list):
         refuse("LANDER_BOARD_TURNS %s is not a JSON list" % path)
     out = {}
     for row in rows:
-        if not isinstance(row, dict) or "repo" not in row or "turn" not in row:
-            refuse("LANDER_BOARD_TURNS %s has a row with no repo or turn" % path)
-        rec = out.setdefault(row["repo"], {"read": True, "turn": {}})
+        if not (isinstance(row, dict) and {"repo", "number", "turn"} <= row.keys()):
+            refuse("LANDER_BOARD_TURNS %s has a row with no repo, number or turn" % path)
+        rec = out.setdefault(row["repo"], {"read": True, "rows": {}})
         if row["number"] is None:
             rec["read"] = False
         else:
-            rec["turn"][row["number"]] = row["turn"]
+            rec["rows"][row["number"]] = (row["turn"], tuple(row.get("flags") or ()))
     return out
 
 def apply_turns(prs, rec):
-    """Mark each ready row held or not; return (held count, whether every ready row was read)."""
+    """Count the ready rows by hold: {"held", "review", "read"}.
+
+    held   -- the turn is AUTHOR: a lander-hold parks it on its author.
+    review -- the turn is LANDER but a hold is still on it (any flag set but "no-hold": the author
+              pushed, replied or edited). The Lander owes a re-read before it is queue work, which
+              is what the Lander named on 2026-11-03 as "a LANDER row I have not cleared".
+    read   -- every ready row's turn was read. A row the file does not name (it opened after the
+              read) or names as ERROR is neither held nor review, by the instrument's own
+              unsafe-direction rule, and makes the read incomplete.
+    With no ready row there is nothing a hold could move, so a repository the turns file never
+    names (it had no open PR) is a complete read.
+    """
     if rec is None:
-        return 0, False
-    # With no ready row there is nothing a hold could move, so a repository the turns file never
-    # names (it had no open PR) is a complete read rather than an unread one.
+        return {"held": 0, "review": 0, "read": False}
     ready = [p for p in prs if p["bucket"] == "ready"]
-    held, complete = 0, rec["read"] or not ready
+    got = {"held": 0, "review": 0, "read": rec["read"] or not ready}
     for p in ready:
-        turn = rec["turn"].get(p["n"])
-        p["turn"] = turn
-        p["held"] = turn == "AUTHOR"
-        held += p["held"]
-        # Absent means the PR opened after the turns read; ERROR means its row failed. Neither
-        # is held, by the instrument's own unsafe-direction rule, and neither is a clean read.
-        if turn not in ("AUTHOR", "LANDER"):
-            complete = False
-    return held, complete
+        turn, flags = rec["rows"].get(p["n"], (None, ()))
+        if turn == "AUTHOR":
+            got["held"] += 1
+        elif turn == "LANDER":
+            got["review"] += "no-hold" not in flags
+        else:
+            got["read"] = False
+    return got
 
 def main():
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
@@ -654,8 +670,8 @@ def main():
         # merge to main invalidates it for every open pull request.
         unresolved = resolve_unknown(owner, name, openprs)
         prs = [classify(p, required) for p in openprs]
-        held, holds_read = apply_turns(prs, None if turns is None
-                                       else turns.get(full, {"read": False, "turn": {}}))
+        holds = apply_turns(prs, None if turns is None
+                            else turns.get(full, {"read": False, "rows": {}}))
         gq = ('{repository(owner:"%s",name:"%s"){mergeQueue(branch:"main")'
               '{entries(first:50){nodes{position state pullRequest{number}}}}}}' % (owner, name))
         # A null mergeQueue is a real answer -- KORUS and the vault have no queue. A FAILED call
@@ -696,10 +712,12 @@ def main():
             "person": count("person"),
             "ci": count("ci"),
             # "ready" stays every green row, the wire format others read. "held" is the subset
-            # parked on the author; "holds_read" is false unless every ready row's turn was read.
+            # parked on the author, "review" the subset whose hold the Lander has not cleared,
+            # and "holds_read" is false unless every ready row's turn was read.
             "ready": count("ready"),
-            "held": held,
-            "holds_read": holds_read,
+            "held": holds["held"],
+            "review": holds["review"],
+            "holds_read": holds["read"],
             "prs": prs,
             "enqueued": len(nodes),
             "entries": [{"n": e["pullRequest"]["number"], "state": e["state"],
@@ -716,9 +734,11 @@ def main():
     with open(os.path.join(OUT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     for r in repos:
-        print("%-10s open=%-4d ready=%-3d held=%-3s ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d%s"
+        print("%-10s open=%-4d ready=%-3d held=%-3s review=%-3s ci=%-3d person=%-3d required=%d"
+              " enq=%-3d merged3d=%-4d%s"
               % (r["short"], r["open"], r["ready"] - r["held"],
-                 r["held"] if r["holds_read"] else "?", r["ci"], r["person"], len(r["required"]),
+                 "%d%s" % (r["held"], "" if r["holds_read"] else "?"),
+                 "%d%s" % (r["review"], "" if r["holds_read"] else "?"), r["ci"], r["person"], len(r["required"]),
                  r["enqueued"], len(r["merged"]),
                  "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
               + ("" if r["nightly"] is None else
