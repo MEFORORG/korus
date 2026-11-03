@@ -562,6 +562,10 @@ Manager.
 commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its unambiguous
 form.
 
+**A `hold-ack` expires 2 hours after it** while it is still your newest event since the hold and
+no commit of yours has landed since it. The hold then counts as unacknowledged. Once engine PR 2720
+merges, `held_pr_turns.py` shows an expired ack as LANDER, flagged `ack-expired`.
+
 The transfer is a comment whose first line is the marker and whose second is the Lander's signature:
 
 ```text
@@ -569,19 +573,34 @@ The transfer is a comment whose first line is the marker and whose second is the
 Lander (session <id>), <date>. Repair owned by the Repair Manager from <time>; the original author stands down on this PR.
 ```
 
-**The newest marker decides who owns the repair.** Read it before every push to a pull request you
-authored or are repairing. Count only a comment from an `OWNER`, `MEMBER` or `COLLABORATOR` account that is not
-minimized:
+**The newest qualifying marker decides who owns the repair.** Read it before every push to a pull
+request you authored or are repairing. A marker qualifies when all of these hold:
+
+| Test | Rule |
+| --- | --- |
+| Line 1 | With trailing spaces, tabs and carriage returns stripped, it matches `<!-- repair-owner session=<id> -->` whole. Nothing is stripped from its start. The id is 1 to 64 letters, digits, `_` or `-`. |
+| Line 2 | It starts with `Lander (session`, with nothing required after it, or `Lander (lander-<id>), `, that id 1 to 40 of `[0-9a-z-]`. |
+| The account | `OWNER`, `MEMBER` or `COLLABORATOR`, and not a bot. |
+| The comment | An issue comment on the pull request, not a review, and not minimized. |
+| The source | The engine's `held_pr_turns.py`, on engine PR 2720's branch, under *THE MARKER SHAPE*. |
+
+This read applies those tests and prints the newest qualifying id:
 
 ```bash
-gh pr view <N> --repo <owner/repo> --json comments --jq '[.comments[] | select(.isMinimized | not) | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | .body | split("\n")[0] | select(startswith("<!-- repair-owner session="))] | last // "none"'
+gh pr view <N> --repo <owner/repo> --json comments --jq '[.comments[] | select(.isMinimized | not) | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | select((.author.login // "") | endswith("[bot]") | not) | .body | split("\n") | select((.[1] // "") | test("^Lander [(](session|lander-[0-9a-z-]{1,40}[)], )")) | .[0] | sub("[ \t\r]+$"; "") | capture("^<!-- repair-owner session=(?<id>[0-9A-Za-z_-]{1,64}) -->$") | .id] | last // "none"'
 ```
 
-It prints `none` when the pull request carries no marker. Empty output, or a non-zero exit, is a
-failed read: read again before you act.
+It prints `none` when no marker qualifies. Empty output, or a non-zero exit, is a failed read: read
+again before you act. Once engine PR 2720 merges, `held_pr_turns.py`'s `repairOwner` field gives
+the same answer.
 
-The marker names a session id. Compare it with your own: `$CLAUDE_CODE_SESSION_ID` in bash,
-`$env:CLAUDE_CODE_SESSION_ID` in PowerShell. The Lander may write only its first 8 characters.
+**Compare the id with your CCD `local_` id, copied whole.** The Repair Manager uses the id the
+Lander gave it in its spawn brief. An author uses its own, which `list_sessions` or the app shows.
+Never compare `$CLAUDE_CODE_SESSION_ID`: it changes on resume. Never compare a prefix.
+
+**A minimized marker is a cancelled transfer.** It never keeps a hold on anyone. Minimizing hands
+the pull request back only once no qualifying marker remains, so a full hand-back minimizes every
+marker.
 
 | The newest marker | What you do |
 | --- | --- |
@@ -593,6 +612,9 @@ The marker names a session id. Compare it with your own: `$CLAUDE_CODE_SESSION_I
 
 **The collision is not hypothetical.** On 2026-11-03 the author of engine PR 2716 resumed after its
 repair had started, and nearly pushed too.
+
+**A Builder already in flight does not read the marker.** For it, the only collision control is
+the head-moved check: it fetches before it pushes, and stops if the head moved.
 
 ---
 
@@ -790,7 +812,9 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | Item | Rule |
 | --- | --- |
 | Your brief | The URL of the hold comment the Lander sends you. It is the whole brief. |
-| Check the marker names you | Read the newest marker before each Builder brief, as *A repair-owner marker that does not name you ends your pushes* says. If it does not name you, stop and tell the Lander. |
+| Check the marker names you | Read the newest marker before each Builder brief, as *A repair-owner marker that does not name you ends your pushes* says. |
+| If no marker is there yet | The Lander posts it just after your turn starts. Re-read once after your research. If it is still absent, report to the Lander and stop. |
+| If it names another session | Stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
 | Your Builders | They fetch before they push, never force-push, and stop if the head moved since the hold, or since you last read their commit back. A Builder that stops reports to you, and you tell the Lander. |
