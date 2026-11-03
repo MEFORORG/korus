@@ -977,9 +977,8 @@ also hand it over sooner.
 **An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
 `hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
 
-**An acknowledgement expires 2 hours after it while the hold is still the author's turn.** That
-holds only while two things stay true. The author's newest event since the hold is a `hold-ack`.
-The head is still the held head.
+**A `hold-ack` expires 2 hours after it while two things stay true.** It is still the original
+author's newest event since the hold. No commit by the original author has landed since it.
 
 An expired hold counts as unacknowledged, and it transfers or goes to tier 1. Manager decision
 2026-11-03, on the Lander's hold.
@@ -987,8 +986,9 @@ An expired hold counts as unacknowledged, and it transfers or goes to tier 1. Ma
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
 
-`held_pr_turns.py` does not apply this expiry. On an AUTHOR row flagged `acked`, check the
-acknowledgement's age, the head and the author's events since it yourself.
+`held_pr_turns.py` on `main` does not apply this expiry. On an AUTHOR row flagged `acked`, check
+the acknowledgement's age and the author's events and commits since it yourself. Once engine PR
+2720 merges, the script shows an expired ack as LANDER, flagged `ack-expired`.
 
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
