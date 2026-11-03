@@ -623,7 +623,6 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 | A quiet author's held PR, decided 2026-10-29 | It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6). That Builder makes only the fixes the hold names. |
 | Its quiet window is 2 hours, owner ruling 2026-11-03 | It read 4 hours. The window is still measured as no author comment or commit since the hold. The rule's other conditions stand. |
 | A question unanswered for over 2 hours is quiet | Owner ruling 2026-11-03. An author whose transcript ends on a question unanswered for more than 2 hours counts as having no live session, even while it shows as running. The 2-hour window still applies. |
-| Unless the question is about this PR | A question about this PR or its hold is the author working on it. Leave it with the author. |
 | How to read that question | With `list_events` or `scripts/board/seatstate.py`. Confirm the question is the transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this state. |
 | Every other non-trivial fix | Still goes to a spawned Manager session, and the Repair Manager is that session: *3b-quater*. |
 | Do NOT spawn when a Manager has taken the work | Two builders on one job is the collision the method exists to prevent. Ask first. A hold is that ask, and *3b-quater* says when silence answers it. |
@@ -974,8 +973,11 @@ session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 A hold transfers when its original author has not acknowledged it within 2 hours. The author may
 also hand it over sooner.
 
-**Only the author's own act acknowledges a hold:** a comment it signed, or a commit its seat pushed.
-Your own update-branch merge, a workflow's comment and another seat's note do not count.
+**An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
+`hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
+
+Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
+do not count, nor do other seats' or workflows' comments.
 
 **A hold whose one determinate fix meets the tier 1 rule goes to a repair Builder instead.** *Prefer
 a SPAWNED SESSION* holds that rule. Every other unacknowledged hold transfers.
@@ -987,8 +989,8 @@ read the state back.
 Confirm the Repair Manager is running first. The transfer is then one act, in this order:
 
 1. Post the marker comment below on the PR.
-2. Mail the original author's seat-record worktree, where it has one, the comment's second line, with
-   `mail.ps1 -To`.
+2. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
+   names the PR's URL and carries the comment's second line.
 3. Send the Repair Manager the hold comment's URL with `send_message`. That comment is its brief.
 
 The marker is the comment's FIRST line and your signature its second. Copy both with no leading
