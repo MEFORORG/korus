@@ -985,8 +985,7 @@ original author also reads not live:** no live session, or a transcript ending o
 unanswered for more than 2 hours. A hold never acknowledged at all still transfers at 2 hours.
 
 The expiry was decided by the Lander under the owner's delegation of 2026-11-03. Asked *"should a
-hold-ack expire 2h after it"*, the owner answered *"/driver"*. Records d20261103T190111765-2aa8b6
-and d20261103T190116898-0f1b73.
+hold-ack expire 2h after it"*, the owner answered *"/driver"*. Record d20261103T190111765-2aa8b6.
 
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
