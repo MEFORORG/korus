@@ -85,7 +85,7 @@ Central is UTC-5 in daylight saving and UTC-6 outside it; `scripts/board/central
 
 ---
 
-## 4. The nine data cards
+## 4. The ten data cards
 
 Each card carries a hero number, a per-repository strip, and one sentence saying what the number
 means. The sentence is the part a reader acts on.
@@ -95,7 +95,8 @@ Below the cards sits the **PR Statuses** strip; section 8a specifies it.
 | Card | Hero | Sentence says |
 | --- | --- | --- |
 | PRs open | total open | whether the vault is clear |
-| Ready and waiting | every required check green | that queue throughput is the only thing in the way |
+| Ready and waiting | every required check green, and no hold on the author | queue throughput only when every hold on these was read and none is left; otherwise how many the Lander has yet to clear, or that holds were not read |
+| Held on author | every required check green, but a lander-hold puts the move on the author | which instrument read it, or that it was not read |
 | Waiting on CI | no required check red, one or more still running | that nobody acts yet |
 | Needs a fix | draft, conflicted, or a red required check | none of the three waits on a human; the table below it says what clears each |
 | Enqueued now | queue entries | whether anything is moving |
@@ -104,7 +105,27 @@ Below the cards sits the **PR Statuses** strip; section 8a specifies it.
 | Idle periods | runs of 3h or more | the longest run |
 | Last merge | Central clock time | the same instant the pill ages from |
 
-The three readiness cards partition the open set, so they always sum to the first card.
+The four readiness cards partition the open set, so they always sum to the first card.
+
+**Green is not ready when a hold sits on the author.** The required set says whether GitHub would
+merge a pull request. It cannot say whether the Lander parked it on its author.
+
+Measured 2026-11-03: the ready card read 9 and claimed queue throughput. 5 of the 9 were held on
+their authors. The Lander caught it, not the board.
+
+The instrument is the engine's `scripts/coord/held_pr_turns.py --json`. It lives in the engine
+repository, so the collector reads its output from the file `LANDER_BOARD_TURNS` names rather than
+keeping a second copy of the hold contract.
+
+A turn of `AUTHOR` is held, and moves to the Held card. A turn of `LANDER` with any flag but
+`no-hold` still carries a hold the Lander has not cleared. It stays on the ready card, and the
+card names the count instead of claiming throughput.
+
+A ready pull request the file does not name, or names with an `ERROR` turn, is neither. It marks
+the read incomplete.
+
+Unset means not read, and the cards say so. A set file stops the collect when it is empty,
+missing or malformed. So does one more than 30 minutes old, or stamped more than 2 minutes ahead.
 
 ### 4a. Classify on the required checks, because BEHIND hides a red one
 
@@ -555,6 +576,14 @@ pwsh -NoProfile -File scripts/board/refresh.ps1 -OutDir <scratch dir>
 
 It deliberately does not publish. Publishing needs a Claude session, so it prints the file and
 leaves that step to the session.
+
+Name an engine checkout, so the hold read runs first. Section 4 says why. Without it the board
+says holds were not read:
+
+```
+pwsh -NoProfile -File scripts/board/refresh.ps1 -OutDir <scratch dir> -EngineCheckout <engine checkout>
+LANDER_BOARD_ENGINE=<engine checkout> LANDER_BOARD_OUT=<scratch dir> bash scripts/board/refresh.sh
+```
 
 ### 9b. Finding the artifact, and restarting the refresh
 

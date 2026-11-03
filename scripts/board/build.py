@@ -54,12 +54,21 @@ for k in order:
         "entries": r["entries"], "m60": m["merged_60m"], "m24": m["merged_24h"],
         "rate": m["merged_24h"] / 24.0, "since": ago(m["last_merge"]),
         "last_at": clock(m["last_merge"]),
-        "buckets": r["buckets"], "ready": r["ready"], "ci": r["ci"], "person": r["person"],
+        "buckets": r["buckets"], "ci": r["ci"], "person": r["person"],
+        # A data.json from before the hold split has none of these keys, which reads as "not read".
+        # Held rows leave the ready card for their own, so the four readiness cards still sum to
+        # the open count whether or not every hold was read.
+        "ready": r["ready"] - r.get("held", 0), "held": r.get("held", 0),
+        "review": r.get("review", 0), "holds_read": r.get("holds_read", False),
         "prs": r["prs"],
     })
 
 tot = {k: sum(x[k] for x in rows)
-       for k in ("open", "clean", "ready", "ci", "person", "enq", "m60", "m24")}
+       for k in ("open", "clean", "ready", "held", "review", "ci", "person", "enq", "m60", "m24")}
+holds_read = all(x["holds_read"] for x in rows)
+holds_unread = [x["name"] for x in rows if not x["holds_read"]]
+# "not read" as a hero only when nothing was read: a partial read still has a count to show.
+any_holds = any(x["holds_read"] for x in rows) or tot["held"] > 0
 tot["rate"] = tot["m24"] / 24.0
 sinces = [x["since"] for x in rows if x["since"] is not None]
 last_any = min(sinces) if sinces else None
@@ -166,8 +175,28 @@ open_say = ("The vault is <b>clear</b>." if vault_clear
 enq_say = ("<b>Nothing is enqueued.</b> Ready work is not moving."
            if tot["enq"] == 0 else
            "Entries the queue is working through now.")
-ready_say = ("Every required check is green. <b>Queue throughput is the only thing "
-             "between these and main.</b>")
+# "Queue throughput is the only thing" is a claim about holds, which the required set cannot see.
+# It is said only when every hold on THESE rows was read and none is left: none on an author, and
+# none the Lander has yet to clear. Measured 2026-11-03: it was said over 9 green PRs, 5 of them
+# parked on their authors and 4 more waiting on the Lander's re-read.
+if not holds_read:
+    ready_say = ("Every required check is green. <b>Holds were not read</b> for %s, so some of "
+                 "these may still carry one." % esc(", ".join(holds_unread)))
+elif tot["review"]:
+    ready_say = ("Every required check is green. <b>%d still carry a hold the Lander has not "
+                 "cleared</b>: its re-read comes before the queue." % tot["review"])
+else:
+    ready_say = ("Every required check is green and no hold is left on any. <b>Queue throughput "
+                 "is the only thing between these and main.</b>")
+if not any_holds:
+    held_say = ("<b>Not read.</b> Run refresh with -EngineCheckout, or set LANDER_BOARD_TURNS to "
+                "the output of the engine's <code>held_pr_turns.py --json</code>.")
+elif not holds_read:
+    held_say = ("Green, but a lander-hold puts the next move on the author. <b>Not read</b> for "
+                "%s, so this is a floor." % esc(", ".join(holds_unread)))
+else:
+    held_say = ("Green, but a lander-hold puts the next move on the author. "
+                "<b>Read by</b> the engine's <code>held_pr_turns.py</code>.")
 ci_say = "No required check is red, and one or more is still running. <b>Nobody acts yet.</b>"
 # Most reds measured on 2026-09-19 were STALE: the check ran against an older main and a branch
 # refresh cleared it. "Each needs a person" sent readers looking for work that did not exist, and
@@ -193,6 +222,9 @@ since_any_pill = ("%s ago as of %s" % (dur(last_any), clock(d["generated_utc"]))
 cards = [
     card("PRs open", "amber", tot["open"], "total", lambda r: str(r["open"]), open_say),
     card("Ready and waiting", "teal", tot["ready"], "PRs", lambda r: str(r["ready"]), ready_say),
+    card("Held on author", "warn", tot["held"] if any_holds else "not read",
+         "PRs" if any_holds else "",
+         lambda r: "%d%s" % (r["held"], "" if r["holds_read"] else "?"), held_say),
     card("Waiting on CI", "amber", tot["ci"], "PRs", lambda r: str(r["ci"]), ci_say),
     card("Needs a fix", "warn", tot["person"], "PRs", lambda r: str(r["person"]), nr_say),
     card("Enqueued now", "teal", tot["enq"], "entries", lambda r: str(r["enq"]), enq_say),
