@@ -987,8 +987,10 @@ An expired hold counts as unacknowledged, and it transfers or goes to tier 1. Ma
 back, and you act on it rather than wait.
 
 `held_pr_turns.py` on `main` does not apply this expiry. On an AUTHOR row flagged `acked`, check
-the acknowledgement's age and the author's events and commits since it yourself. Once engine PR
-2720 merges, the script shows an expired ack as LANDER, flagged `ack-expired`.
+the acknowledgement's age and the author's events and commits since it yourself.
+
+Once engine PR 2720 merges, the script shows `ack-expired` only while the head is unchanged. Any
+other head move already reads as your turn, flagged `new-commit`.
 
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
@@ -1008,9 +1010,12 @@ then one act, in this order:
    `queued` result or an error is not delivery. Then do not transfer: the PR stays with you. This
    result is the gate. The REMOVE record stays the proof after the fact.
 3. Post the marker comment below on the PR at once, in a later second than the hold it transfers.
-   The engine parser ignores a marker in the same second as the hold.
-4. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
-   names the PR's URL and the Repair Manager's session id.
+   In `held_pr_turns.py`, a marker in the same second as the hold reads as a reply. It then blocks
+   the transfer of that hold. The fix is a fresh hold, then a new marker in a later second.
+4. Send the Repair Manager the hold comment's URL again with `send_message`. This wakes it with the
+   marker in place.
+5. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
+   names the PR's URL and the Repair Manager's `local_` id.
 
 The marker is the comment's FIRST line and your signature its second. Copy both with no leading
 spaces:
@@ -1029,10 +1034,10 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | Who may post it | An `OWNER`, `MEMBER` or `COLLABORATOR` account, as for a hold, and the comment must not be minimized. You post as the owner's identity, so yours qualifies. |
 | Why this order | A marker naming a session that never woke would strand the PR. So the PR leaves the author only once the Repair Manager's turn has started. |
 | Why the marker before the mail | The mail then names a transfer that exists. Mail waits for the author's next turn, so it is a notice, not a lock. |
-| The Repair Manager checks the marker | It reads the newest marker before it briefs a Builder. If none names it, it re-reads once after its research, then reports to you and stops. |
+| The Repair Manager checks the marker | It reads the newest marker before it briefs a Builder. If none names it, it stops and waits to be woken. It never briefs a Builder without the marker naming it. |
 | Minimizing a marker | It cancels that transfer. A minimized marker never keeps a hold on you or on the Repair Manager. |
 | The hand-back to the author | Minimize the newest marker and every older one still unminimized. The newest qualifying marker wins, so an older one left up stays in charge. |
-| A later hold on a transferred PR | Redo steps 1 to 3 for it: send the new hold's URL, confirm delivery, then post a fresh marker in a later second. Always post that marker. |
+| A later hold on a transferred PR | Redo steps 1 to 4 for it: send the new hold's URL, confirm delivery, post a fresh marker in a later second, then send the URL again. Always post that marker. |
 | If that send is not delivered | The re-hold is your turn, whatever the script reads. |
 | Why always | Until engine PR 2720 merges, `held_pr_turns.py` on `main` reads a markerless re-hold as the author's turn. |
 
@@ -1070,7 +1075,7 @@ hold, so the research cost falls where it is cheapest.
 | The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, and stops if the head moved. |
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. |
 | Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
-| The only collision control | The head-moved check. Each Builder fetches before it pushes and stops if the head moved. Nothing else stops a stray Builder. |
+| The only collision control | The head-moved check, for repair Builders. Each is briefed to fetch before it pushes and stop if the head moved. An author's own Builder in flight may have no such check, and nothing stops it. |
 | A push after you arm | Your head check before arming cannot see it, and a write-access push does not disarm auto-merge. |
 | What catches it, if anything | The post-merge head comparison, step 3 of the Lander's 2026-10-07 safeguards in engine `CLAUDE.md` section 5. Run it on every PR you armed. |
 | Design-heavy repairs | A security or behaviour fix needs context the Repair Manager rebuilds from the PR and its ADR. Expect a research turn each. |
