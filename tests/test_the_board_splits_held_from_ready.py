@@ -4,7 +4,7 @@ WHAT THIS EXISTS FOR. The required set says whether GitHub would merge a pull re
 say whether the Lander has parked it on its author, or still owes a re-read of a hold. Measured
 2026-11-03: the "Ready and waiting" card read 9 and said "Queue throughput is the only thing
 between these and main" while the engine's `scripts/coord/held_pr_turns.py` put 5 of the 9 on the
-author's turn and 3 more on a hold the Lander had not cleared. The Lander caught it, not the board.
+author's turn and 4 more on a hold the Lander had not cleared. The Lander caught it, not the board.
 
 The collector reads that script's --json output from the file LANDER_BOARD_TURNS names. These
 cases pin the split, the "not read" arm, the refusals, that the four readiness cards still sum to

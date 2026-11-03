@@ -178,7 +178,7 @@ enq_say = ("<b>Nothing is enqueued.</b> Ready work is not moving."
 # "Queue throughput is the only thing" is a claim about holds, which the required set cannot see.
 # It is said only when every hold on THESE rows was read and none is left: none on an author, and
 # none the Lander has yet to clear. Measured 2026-11-03: it was said over 9 green PRs, 5 of them
-# parked on their authors and 3 more waiting on the Lander's re-read.
+# parked on their authors and 4 more waiting on the Lander's re-read.
 if not holds_read:
     ready_say = ("Every required check is green. <b>Holds were not read</b> for %s, so some of "
                  "these may still carry one." % esc(", ".join(holds_unread)))
