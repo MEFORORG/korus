@@ -988,7 +988,9 @@ read the state back.
 
 Confirm the Repair Manager is running first. The transfer is then one act, in this order:
 
-1. Post the marker comment below on the PR.
+1. Post the marker comment below on the PR, in a later second than the hold it transfers. The
+   engine parser ignores a marker in the same second as the hold. If the head moved since the hold,
+   post a fresh hold at the current head first, then the marker.
 2. Mail the original author's seat-record worktree, where it has one, with `mail.ps1 -To`. The mail
    names the PR's URL and carries the comment's second line.
 3. Send the Repair Manager the hold comment's URL with `send_message`. That comment is its brief.
@@ -1008,7 +1010,7 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | The signature line | Start it `Lander (session `, the form section 3b names for a hold. A bare session id in the parentheses does not match. |
 | Who may post it | An `OWNER`, `MEMBER` or `COLLABORATOR` account, as for a hold, and the comment must not be minimized. You post as the owner's identity, so yours qualifies. |
 | Why this order | The marker and the mail go out before the brief. Mail still waits for the author's next turn, so this is a notice, not a lock. |
-| A later hold on a transferred PR | Send its URL straight to the Repair Manager, and post a fresh marker after it. It does not wait 2 hours on the author, who stood down. |
+| A later hold on a transferred PR | Post a fresh marker after it, in a later second, and send its URL straight to the Repair Manager. Without that marker, `held_pr_turns.py` parks the PR on the stood-down author. It does not wait 2 hours on the author. |
 
 #### What stays with the original author
 
