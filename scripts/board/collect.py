@@ -576,8 +576,87 @@ def classify(p, required):
     return {"n": p["number"], "bucket": bucket, "merge": p["mergeStateStatus"],
             "draft": p["isDraft"], "failing": failing, "pending": pending}
 
+# GREEN IS NOT READY WHEN A HOLD SITS ON THE AUTHOR. The required set says whether GitHub would
+# merge; it cannot say whether the Lander has parked the pull request on its author. Measured
+# 2026-11-03: the tile read "9 ready, queue throughput is the only thing between these and main"
+# while 5 of the 9 carried a lander-hold on the author's turn. The engine's
+# `scripts/coord/held_pr_turns.py --json` is the instrument, and it lives in the engine repository,
+# so the collector reads its OUTPUT, from the file LANDER_BOARD_TURNS names, rather than a second
+# copy of the hold contract that would drift.
+#
+# Unset is a declared "not read", and the board says so instead of claiming throughput. A file
+# that is set but unreadable, malformed or stale stops the run like any other untrusted read.
+TURNS_MAX_AGE_S = 30 * 60
+# A file stamped further ahead than this is not fresh, it is from a clock this one cannot trust.
+TURNS_MAX_SKEW_S = 2 * 60
+
+def read_turns(path, now_ts):
+    """{repo: {"read": bool, "rows": {number: (turn, flags)}}} from held_pr_turns.py --json.
+
+    None when LANDER_BOARD_TURNS is unset. Set but EMPTY is refused, not read as unset: a wrapper
+    that exports an empty path has lost its hold read, and saying "not read" would hide that.
+
+    A repository-level ERROR row (number null) means that repository's holds were not read. A
+    per-PR ERROR row is kept as the turn "ERROR", which is never held and marks the read
+    incomplete for that pull request.
+    """
+    if path is None:
+        return None
+    if not path:
+        refuse("LANDER_BOARD_TURNS is set but empty")
+    try:
+        age = now_ts - os.path.getmtime(path)
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+    except (OSError, ValueError) as exc:
+        refuse("LANDER_BOARD_TURNS %s could not be read: %s" % (path, exc))
+    if age > TURNS_MAX_AGE_S or age < -TURNS_MAX_SKEW_S:
+        refuse("LANDER_BOARD_TURNS %s is %d minutes old, outside %d old to %d ahead; re-run "
+               "held_pr_turns.py --json" % (path, age // 60, TURNS_MAX_AGE_S // 60,
+                                            TURNS_MAX_SKEW_S // 60))
+    if not isinstance(rows, list):
+        refuse("LANDER_BOARD_TURNS %s is not a JSON list" % path)
+    out = {}
+    for row in rows:
+        if not (isinstance(row, dict) and {"repo", "number", "turn"} <= row.keys()):
+            refuse("LANDER_BOARD_TURNS %s has a row with no repo, number or turn" % path)
+        rec = out.setdefault(row["repo"], {"read": True, "rows": {}})
+        if row["number"] is None:
+            rec["read"] = False
+        else:
+            rec["rows"][row["number"]] = (row["turn"], tuple(row.get("flags") or ()))
+    return out
+
+def apply_turns(prs, rec):
+    """Count the ready rows by hold: {"held", "review", "read"}.
+
+    held   -- the turn is AUTHOR: a lander-hold parks it on its author.
+    review -- the turn is LANDER but a hold is still on it (any flag set but "no-hold": the author
+              pushed, replied or edited). The Lander owes a re-read before it is queue work, which
+              is what the Lander named on 2026-11-03 as "a LANDER row I have not cleared".
+    read   -- every ready row's turn was read. A row the file does not name (it opened after the
+              read) or names as ERROR is neither held nor review, by the instrument's own
+              unsafe-direction rule, and makes the read incomplete.
+    With no ready row there is nothing a hold could move, so a repository the turns file never
+    names (it had no open PR) is a complete read.
+    """
+    if rec is None:
+        return {"held": 0, "review": 0, "read": False}
+    ready = [p for p in prs if p["bucket"] == "ready"]
+    got = {"held": 0, "review": 0, "read": rec["read"] or not ready}
+    for p in ready:
+        turn, flags = rec["rows"].get(p["n"], (None, ()))
+        if turn == "AUTHOR":
+            got["held"] += 1
+        elif turn == "LANDER":
+            got["review"] += "no-hold" not in flags
+        else:
+            got["read"] = False
+    return got
+
 def main():
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    turns = read_turns(os.environ.get("LANDER_BOARD_TURNS"), time.time())
     # The series is 48 hours wide and the collector must cover it with room for the hour edges.
     since_iso = (now - dt.timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
     since_day = (now - dt.timedelta(days=SCHEDULE_WINDOW_DAYS)).strftime("%Y-%m-%d")
@@ -591,6 +670,8 @@ def main():
         # merge to main invalidates it for every open pull request.
         unresolved = resolve_unknown(owner, name, openprs)
         prs = [classify(p, required) for p in openprs]
+        holds = apply_turns(prs, None if turns is None
+                            else turns.get(full, {"read": False, "rows": {}}))
         gq = ('{repository(owner:"%s",name:"%s"){mergeQueue(branch:"main")'
               '{entries(first:50){nodes{position state pullRequest{number}}}}}}' % (owner, name))
         # A null mergeQueue is a real answer -- KORUS and the vault have no queue. A FAILED call
@@ -630,7 +711,13 @@ def main():
             "required": sorted(required),
             "person": count("person"),
             "ci": count("ci"),
+            # "ready" stays every green row, the wire format others read. "held" is the subset
+            # parked on the author, "review" the subset whose hold the Lander has not cleared,
+            # and "holds_read" is false unless every ready row's turn was read.
             "ready": count("ready"),
+            "held": holds["held"],
+            "review": holds["review"],
+            "holds_read": holds["read"],
             "prs": prs,
             "enqueued": len(nodes),
             "entries": [{"n": e["pullRequest"]["number"], "state": e["state"],
@@ -647,8 +734,11 @@ def main():
     with open(os.path.join(OUT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     for r in repos:
-        print("%-10s open=%-4d ready=%-3d ci=%-3d person=%-3d required=%d enq=%-3d merged3d=%-4d%s"
-              % (r["short"], r["open"], r["ready"], r["ci"], r["person"], len(r["required"]),
+        print("%-10s open=%-4d ready=%-3d held=%-3s review=%-3s ci=%-3d person=%-3d required=%d"
+              " enq=%-3d merged3d=%-4d%s"
+              % (r["short"], r["open"], r["ready"] - r["held"],
+                 "%d%s" % (r["held"], "" if r["holds_read"] else "?"),
+                 "%d%s" % (r["review"], "" if r["holds_read"] else "?"), r["ci"], r["person"], len(r["required"]),
                  r["enqueued"], len(r["merged"]),
                  "  STILL-UNKNOWN=%d" % r["unresolved"] if r["unresolved"] else "")
               + ("" if r["nightly"] is None else
