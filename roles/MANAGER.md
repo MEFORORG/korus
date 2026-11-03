@@ -574,28 +574,33 @@ Lander (session <id>), <date>. Repair owned by the Repair Manager from <time>; t
 ```
 
 **The newest qualifying marker decides who owns the repair.** Read it before every push to a pull
-request you authored or are repairing. A marker qualifies when all of these hold:
+request you authored or are repairing, and before you brief a Builder for one. A marker qualifies when all of these hold:
 
 | Test | Rule |
 | --- | --- |
 | Line 1 | With trailing spaces, tabs and carriage returns stripped, it matches `<!-- repair-owner session=<id> -->` whole. Nothing is stripped from its start. The id is 1 to 64 letters, digits, `_` or `-`. |
 | Line 2 | It starts with `Lander (session`, with nothing required after it, or `Lander (lander-<id>), `, that id 1 to 40 of `[0-9a-z-]`. |
-| The account | `OWNER`, `MEMBER` or `COLLABORATOR`, and not a bot. |
+| The account | `OWNER`, `MEMBER` or `COLLABORATOR`. |
+| A bot's marker | The engine skips it. This read cannot tell a bot, because `gh` gives only the login. Discard a bot's marker by eye. |
 | The comment | An issue comment on the pull request, not a review, and not minimized. |
 | The source | The engine's `held_pr_turns.py`, on engine PR 2720's branch, under *THE MARKER SHAPE*. |
 
 This read applies those tests and prints the newest qualifying id:
 
 ```bash
-gh pr view <N> --repo <owner/repo> --json comments --jq '[.comments[] | select(.isMinimized | not) | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | select((.author.login // "") | endswith("[bot]") | not) | .body | split("\n") | select((.[1] // "") | test("^Lander [(](session|lander-[0-9a-z-]{1,40}[)], )")) | .[0] | sub("[ \t\r]+$"; "") | capture("^<!-- repair-owner session=(?<id>[0-9A-Za-z_-]{1,64}) -->$") | .id] | last // "none"'
+gh pr view <N> --repo <owner/repo> --json comments --jq '[.comments[] | select(.isMinimized | not) | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | .body | split("\n") | select((.[1] // "") | test("^Lander [(](session|lander-[0-9a-z-]{1,40}[)], )")) | .[0] | sub("[ \t\r]+$"; "") | capture("^<!-- repair-owner session=(?<id>[0-9A-Za-z_-]{1,64}) -->$") | .id] | last // "none"'
 ```
 
 It prints `none` when no marker qualifies. Empty output, or a non-zero exit, is a failed read: read
-again before you act. Once engine PR 2720 merges, `held_pr_turns.py`'s `repairOwner` field gives
-the same answer.
+again before you act.
+
+**`held_pr_turns.py`'s `repairOwner` field, from engine PR 2720, is no stand-in for this read.** It
+names the owner only on a REPAIR or `repair-rehold` row. On every other row it reads null, even
+while a marker stands.
 
 **Compare the id with your CCD `local_` id, copied whole.** The Repair Manager uses the id the
-Lander gave it in its spawn brief. An author uses its own, which `list_sessions` or the app shows.
+Lander gave it in its spawn brief, sent as the brief's first `send_message`. An author uses its own, which `list_sessions` or the app shows.
+
 Never compare `$CLAUDE_CODE_SESSION_ID`: it changes on resume. Never compare a prefix.
 
 **A minimized marker is a cancelled transfer.** It never keeps a hold on anyone. Minimizing hands
@@ -613,8 +618,11 @@ marker.
 **The collision is not hypothetical.** On 2026-11-03 the author of engine PR 2716 resumed after its
 repair had started, and nearly pushed too.
 
-**A Builder already in flight does not read the marker.** For it, the only collision control is
-the head-moved check: it fetches before it pushes, and stops if the head moved.
+**A Builder already in flight does not read the marker.** For it, the only collision control is a
+head-moved check: fetch before the push, and stop if the head moved. Only a Builder briefed with
+that check runs it. An ordinary Builder may rebase onto the repair and push.
+
+So brief that check into every Builder you send to a held pull request.
 
 ---
 
