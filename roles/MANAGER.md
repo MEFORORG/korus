@@ -566,8 +566,8 @@ form.
 delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the owner answered
 *"/driver"*. Record d20261103T190111765-2aa8b6.
 
-**A `hold-ack` expires 2 hours after it** while it is still your newest event since the hold and
-no commit of yours has landed since it. It then transfers only if you also read not live: no live
+**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
+since the hold and no commit by the original author has landed since it. It then transfers only if you also read not live: no live
 session, or a transcript ending on a question unanswered over 2 hours.
 
 **While you are still working, post a fresh `hold-ack` at least every 2 hours.** The newest ack
