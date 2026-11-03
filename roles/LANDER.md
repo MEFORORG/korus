@@ -977,8 +977,8 @@ also hand it over sooner.
 **An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
 `hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
 
-**A `hold-ack` expires 2 hours after it while two things stay true.** It is still the original
-author's newest event since the hold. No commit by the original author has landed since it.
+**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
+since the hold and no commit by the original author has landed since it.
 
 An expired hold counts as unacknowledged, so it may go to tier 1. **It transfers only when the
 original author also reads not live:** no live session, or a transcript ending on a question
