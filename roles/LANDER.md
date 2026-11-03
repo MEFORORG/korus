@@ -1010,7 +1010,7 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | The signature line | Start it `Lander (session `, the form section 3b names for a hold. A bare session id in the parentheses does not match. |
 | Who may post it | An `OWNER`, `MEMBER` or `COLLABORATOR` account, as for a hold, and the comment must not be minimized. You post as the owner's identity, so yours qualifies. |
 | Why this order | The marker and the mail go out before the brief. Mail still waits for the author's next turn, so this is a notice, not a lock. |
-| A later hold on a transferred PR | Post a fresh marker after it, in a later second, and send its URL straight to the Repair Manager. Without that marker, `held_pr_turns.py` parks the PR on the stood-down author. It does not wait 2 hours on the author. |
+| A later hold on a transferred PR | Post a fresh marker after it, in a later second, and send its URL straight to the Repair Manager. Without that marker, `held_pr_turns.py` reads it as LANDER's turn, flagged `repair-rehold`. It does not wait 2 hours on the author. |
 
 #### What stays with the original author
 
