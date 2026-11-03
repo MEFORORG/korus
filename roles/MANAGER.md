@@ -562,8 +562,16 @@ Manager.
 commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its unambiguous
 form.
 
+**The expiry below is not part of that ruling.** It was decided by the Lander under the owner's
+delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the owner answered
+*"/driver"*. Record d20261103T190111765-2aa8b6.
+
 **A `hold-ack` expires 2 hours after it** while it is still your newest event since the hold and
-no commit of yours has landed since it. The hold then counts as unacknowledged.
+no commit of yours has landed since it. It then transfers only if you also read not live: no live
+session, or a transcript ending on a question unanswered over 2 hours.
+
+**While you are still working, post a fresh `hold-ack` at least every 2 hours.** The newest ack
+counts.
 
 Once engine PR 2720 merges, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
@@ -849,4 +857,4 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
-| When the marker comment says the author is gone | Those come to you, except an owner ruling, which still waits. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |
+| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 2 hours. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |
