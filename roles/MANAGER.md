@@ -580,8 +580,8 @@ gh pr view <N> --repo <owner/repo> --json comments --jq '[.comments[] | select(.
 It prints `none` when the pull request carries no marker. Empty output, or a non-zero exit, is a
 failed read: read again before you act.
 
-The marker names a session id. Compare it with your own, `$CLAUDE_CODE_SESSION_ID`; the Lander may
-write its first 8 characters.
+The marker names a session id. Compare it with your own: `$CLAUDE_CODE_SESSION_ID` in bash,
+`$env:CLAUDE_CODE_SESSION_ID` in PowerShell. The Lander may write only its first 8 characters.
 
 | The newest marker | What you do |
 | --- | --- |
@@ -793,8 +793,8 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | Check the marker names you | Read the newest marker before each Builder brief, as *A repair-owner marker that does not name you ends your pushes* says. If it does not name you, stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
-| Your Builders | They fetch before they push, never force-push, and stop if the head moved since you last read it back. A Builder that stops reports to you, and you tell the Lander. |
+| Your Builders | They fetch before they push, never force-push, and stop if the head moved since the hold, or since you last read their commit back. A Builder that stops reports to you, and you tell the Lander. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
-| Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
-| When the marker comment says the author is gone | Those come to you, except an owner ruling, which still waits. [LANDER.md](LANDER.md) holds the case. |
+| Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
+| When the marker comment says the author is gone | Those come to you, except an owner ruling, which still waits. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |

@@ -721,7 +721,7 @@ The steps are restated here because they must be in front of you at the moment y
 | **CHANGED 2026-10-26, to match the engine** | The step 1 row read *"Act on it. Confirming is asking."* With the kill switch set, it then reached a class B or C decision. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 | The Repair Manager, owner ruling 2026-11-03 | It never uses `AskUserQuestion` either, and keeps owner questions in the same table. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*, holds why. |
-| **CHANGED 2026-11-03** | The *Who you ask* row ended *"use `AskUserQuestion`, never prose"*, with no Repair Manager exception. |
+| **CHANGED 2026-11-03** | The *Who you ask* row had no Repair Manager exception after *"use `AskUserQuestion`, never prose."* |
 | The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
