@@ -186,6 +186,16 @@ Produce the evidence that would justify one and hand it over.
 | That row read "the same two places" until 2026-09-18 | The row above named two, and now names one. A count in a cross-reference breaks when the thing counted changes. |
 | Neither applies | If you cannot name the decision only the owner can make, you are hesitating, not holding. |
 
+**A DEMAND-GATE row deferred under ledger ruling R3 has the trigger *"a change touches this row's
+code"*.** Ledger ruling R3, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`,
+PR 2818).
+
+How such a row is reactivated is not signed text. It rests on the owner's in-session decision
+recorded beside the ruling, and on the Manager's reading.
+
+When your change for another item touches that code, the row is reactivated by a re-score to build.
+Report it, and do not ask the owner. The Lander flips it.
+
 ### 1b. Acts that no condition makes correct
 
 | Never | What would end it |
@@ -742,6 +752,13 @@ before the pull request exists, so these two artifacts are everything the next s
 
 **Both belong in the message body, under a plain label.** A reader with only `git log` must find them
 without knowing this playbook.
+
+**Write open findings and deferred scope the way they will be filed.** Ledger ruling R2,
+owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). A merged pull request files
+at most one row.
+
+Number the open findings as items. Write deferred scope as steps for the row your brief cites. Name
+the module of a finding about code you did not touch: it goes into that module's open row.
 
 **Your report to the Manager carries six things:**
 
