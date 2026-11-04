@@ -54,6 +54,23 @@ prevents the next one; a row would never close.
 | Is there a file whose contents are wrong? | File a row. |
 | Is the code correct and the READING of it wrong? | Write a rule. |
 
+**A future audit's findings are filed only once verified against the tree.** That covers an
+external or an automated audit. An unverified finding stays in the audit's own record.
+
+Ledger ruling R1, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818).
+The audit rows already filed are not affected.
+
+**A low-value row is filed deferred.** Ledger ruling R3, owner-signed 2026-11-04
+(vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). It covers a row filed at value 2/10 or less that
+describes no effect on a first deployment.
+
+It must also touch no security record, register, control statement or ASVS content, hold no owner
+question, and not be tied to an open build row. File it as `Verdict: demand-gate`, with the trigger
+*"a change touches this row's code"*.
+
+It stays open and numbered: deferring is not declining. A first-deployment defect is never deferred
+under this rule, and "not yet deployed" is never the reason for a deferral.
+
 ---
 
 ## The backlog banner alphabet is the one holdout

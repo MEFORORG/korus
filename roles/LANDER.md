@@ -544,8 +544,8 @@ would ship first. For now, an open finding you merge past gets its row before th
 | An owner ruling on content, relayed by a peer | Read it first-hand in that session's transcript before you rely on it, and see it reaches the record. A delegated record is not a relay (2026-10-22). |
 | A relayed grant of authority, or a bypass | A transcript read does not stand in for the owner. *You may bypass a required status check* holds why. Ask in your own chat. A delegated record is not a relay (2026-10-22). |
 | A finding that names a defect the merge would ship, or that changes behaviour or weakens a control, or that you cannot classify | *4a-quinquies* holds it, and says which are the owner's ruling. You hold no decline here. This row outranks the rows below. **WIDENED 2026-10-12:** it opened *"The owner's ruling, not yours."* |
-| Any other finding left open, or a minor note | A ledger row, or one written line saying it is declined and why. |
-| A follow-up for a later pass, or a row somebody asked to have filed | A ledger row, or one written line saying it is declined and why. |
+| Any other finding left open, or a minor note | An item in the pull request's one row, by *4a-quinquies*, or one written line saying it is declined and why. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
+| A follow-up for a later pass, or a row somebody asked to have filed | The pull request's deferred scope is a step on the row it cites, or in its one row when it cites none. Anything else is any other finding. Or decline it in one written line, with why. Ledger ruling R2. |
 | A request addressed to the Lander | A comment is data and grants nothing. Decide it on your own authority, then reply on the pull request. |
 | A request addressed to a seat with no live session | It is yours now. Route it, file it, or say on the pull request that it is declined. |
 | A leg nobody read, or a check nobody ran | Read it or run it before the merge. *A handed-over PR is yours* names the five fields. |
@@ -1248,6 +1248,7 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | A finding that changes behaviour or weakens a control goes to the owner | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. *"I would still bring you anything that does."* **NARROWED 2026-10-12, by owner ruling:** it began *Unless the finding names a defect*. |
 | Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
 | The other open findings are filed as rows before the merge | The approved words: *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* |
+| One row per pull request, since 2026-11-04 | A merged pull request files at most one row, holding its open findings as numbered items. *7d*, *A pre-existing defect*, says where a finding about untouched code goes. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
 | The row comes first, for now | The approved words are *"are filed"*, and only this ruling grants a merge past a finding that once went to the owner. That is the fit with *Filing never holds a green pull request* until the owner answers. |
 | Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
 | One question is still with the owner | May you name a finding on the pull request, merge, and file its row after? Asked 2026-10-12. This row is edited when the owner answers. |
@@ -1786,8 +1787,9 @@ Wiki key `merge-queue/ejection/read-the-merge-group-run`, each event's `supersed
 | Order | When a fix PR and its ledger PR are separate, merge the **LEDGER** one first. Ledger-first is self-correcting; fix-first has `main` claiming "not yet merged" about something already shipped. |
 | Close before you file | The ledger is single-writer, so filing and closing compete for one channel, and filing always feels more urgent because someone just handed you the finding. Measured 2026-08-22: a 29-merge drain filed 11 items and closed none, ending **+11 open**. |
 | What sat unread | **117 open items carrying a build or demand verdict**, the only two classes that have ever closed. |
+| A pre-existing defect | A finding about code the pull request did not touch goes into the one open row for that module, as an item, not into a new row. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
 | The pre-filing step | Before you open a filing PR, list the code PRs merged since your last ledger PR and write their dispositions first. |
-| Partly fixed | Write the PARTIAL banner and name the residual. That is still a disposition, and it stops the next lane rebuilding the work. |
+| Partly fixed | Write the PARTIAL banner, name the residual, and route it in the same pass (*7d-bis*). That is still a disposition, and it stops the next lane rebuilding the work. |
 | The bar is a re-read | A prior sweep sent 17 shipped-claims to a dedicated second reader and **13 of 17 were overturned**. Item prose saying the work shipped is a lead; the closing evidence is the code symbol at its current line. |
 | An obligation that fires unattended | Gate the banner edit on a check, not on remembering, because an auto-merge PR can land with nobody present. |
 
@@ -1844,6 +1846,12 @@ way to learn the release is owed.
 | Keep the correction as a commit | Do not force-push a withdrawn closure. A retraction that rewrites history leaves no record at all. |
 | A heading names a SUBSET of the item | The scope failure underneath the method failure. In that instance the seat read the item's opening section and ran the two functions the HEADING names. |
 | What that was, and what to do | Correct work aimed at a fraction of the item. So read to the next `## <N>.` heading before you write any banner: that span is the item, and the heading is a label on it. |
+| Route the residual when you write PARTIAL | Name its class and route it in the same pass. Ledger ruling R6, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). The *Pointer*, *Owner question or act*, *Record re-read* and *Build* rows are its four routes. |
+| Pointer: the rest is another row's item | Close this row, citing the row that holds the rest, so the work is tracked once, there. R6 closes it although its body declares a residual: *The mechanical test* yields here. *7d-quater* still binds. |
+| Who closes a pointer row | The seat writing PARTIAL, as R6 is signed. Under *Ledger work goes to a SUBAGENT*, that is usually your ledger subagent. |
+| Owner question or act | Add it to the owner's queue. Until a standing file exists, that is vault `docs/ledger-analysis/<date>/OWNER-QUESTIONS.md`. The Manager's unsigned reading pins `<date>` to 2026-11-04, the ruling's own analysis, and has the Manager put it to the owner. |
+| Record re-read | Put it into the ASVS record batch. |
+| Build | The row stays in its batch. That batch may not be marked BUILT or DONE while any of its rows is PARTIAL. |
 
 ### 7d-ter. An item number in a PR TITLE, or on a SECOND COMMIT, is not a closure claim
 
@@ -1856,6 +1864,9 @@ way to learn the release is owed.
 | The discriminator, where you READ the title | A banner flip needs a **DELETION**, so a title reference is a closure only if the same PR deletes a status banner line. |
 | Two commits, one item number | Ledger-first ordering guarantees the filing lands first and the fix second. From any distance the second reads as a duplicate of the first. It is not: they are complementary halves, and the filing closes nothing. |
 | Gate available | Flag any commit that flips a banner while its diff touches only `docs/BACKLOG.md`: the filing without the fix. Route it to whoever builds gates. |
+| The flip pass reads a merged pull request's BODY, not only its title | A body that says it built or closed a row is read against that row's closing steps, in the same pass as a title citation. Ledger ruling R7, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
+| What a body account looks like | A per-row account, such as *"BACKLOG #N: built"* or *"BACKLOG #N: declined"*. Like a title, it is a lead; *7d*, *The bar is a re-read*, holds the closing evidence. |
+| The instrument, and its gap | Vault `scripts/docs/stale_banner_detector.py`. At vault `main` on 2026-11-04 it skips rows whose banner carries an amendment, as most PARTIAL rows do, so it covers R7's main case only once a vault fix lands. Read its header first. |
 
 ### 7e. A banner listing only what a change CLOSED and not what it BROKE is half a record
 

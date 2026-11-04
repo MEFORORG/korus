@@ -33,6 +33,15 @@
     original signal and it was actively misleading: a 21h claim whose holder had committed two
     minutes earlier was labelled STALE and recommended for release.
 
+    ONE CASE WHERE A QUIET PERIOD IS GROUNDS FOR A RELEASE: a BATCH claim, under ledger ruling R8,
+    owner-signed 2026-11-04 (vault docs/LEDGER-INFLOW-RULINGS.md, PR 2818). A batch whose holder has
+    shown no seat goal, commit or PR activity for 72 hours is released to FREE, and its claims with
+    it. The ruling's unsigned reading has the seat taking the batch do it: that seat first reads the
+    holder's seat record, recent commits and PR activity, then releases each of the batch's claims
+    through the path for another worktree's claim, `-Release <key> -Force`, citing R8. The quiet
+    hours this script prints count commits only, so they are one of those reads and never the whole
+    of it. This script does not apply R8 and releases nothing on its own.
+
 .EXAMPLE
     pwsh -NoProfile -File scripts/coord/claim.ps1 -Take 12 -Note "csv importer"
     pwsh -NoProfile -File scripts/coord/claim.ps1 -List
@@ -153,7 +162,7 @@ function Show-List {
                 'gone'    { $age = "  [HOLDER GONE -- worktree no longer exists; release with -Force]" }
                 'present' {
                     $age = "  [held ${hrs}h; holder last committed $($live.QuietHours)h ago]"
-                    if ($live.QuietHours -ge 12) { $age += " -- QUIET, confirm with the holder before releasing" }
+                    if ($live.QuietHours -ge 12) { $age += " -- QUIET, confirm with the holder before releasing (QUIET alone does not meet R8, which covers only a batch and its claims, after 72h with no seat goal, commit or PR activity; see this script's header)" }
                 }
                 default   { $age = "  [held ${hrs}h; holder liveness UNKNOWN -- confirm before releasing]" }
             }
@@ -200,6 +209,9 @@ if ($Release) {
                 Write-Host "  Do NOT -Force it on the strength of a quiet period: a session can be alive and"
                 Write-Host "  simply not committing. Ask that session first -- releasing a live claim is how two"
                 Write-Host "  sessions end up building the same thing."
+                Write-Host "  The one exception is a BATCH claim under ledger ruling R8 (owner-signed 2026-11-04):"
+                Write-Host "  72 hours with no seat goal, commit or PR activity from its holder. The hours above"
+                Write-Host "  count commits only. This script's header says what to read first."
             }
             default {
                 Write-Host "  HOLDER LIVENESS UNKNOWN -- the worktree exists but could not be dated." -ForegroundColor Yellow
@@ -342,6 +354,9 @@ try {
             Write-Host "  Do NOT build it in parallel -- that is the duplicate-work this gate exists to stop,"
             Write-Host "  and do NOT -Force it: quiet is not dead. Coordinate with that session or pick"
             Write-Host "  different work. Its note above says what it is doing."
+            Write-Host "  The one exception is a BATCH claim under ledger ruling R8 (owner-signed 2026-11-04):"
+            Write-Host "  72 hours with no seat goal, commit or PR activity from its holder. The hours above"
+            Write-Host "  count commits only. This script's header says what to read first."
         }
         default {
             Write-Host "  HOLDER LIVENESS UNKNOWN -- the worktree exists but could not be dated." -ForegroundColor Yellow

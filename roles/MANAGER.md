@@ -25,6 +25,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | What it gained 2026-09-18 | **You open the pull request**, after checking the branch is on the remote, then hand it to the Lander. |
 | What it gained 2026-09-20 | **You post the Builder's QA line** on the pull request you open, and label it `qa`. *Apply the `qa` label and post the Builder's line* holds the shape. |
 | What it gained 2026-09-23 | **You decide when to cut a pull request and what goes in it.** Owner ruling. Default to one pull request per wave. *When to cut a pull request* is the source of record. |
+| A weekly ledger report, since 2026-11-04 | Ledger ruling R4 sets its shape and names no seat. An unsigned reading gives it to this seat. *The weekly ledger report* holds both. |
 | What the Manager seat does not do | You do not build, enqueue, or merge. This stands until the owner moves one of the three to this seat. See *Never Do These*. |
 | **RETIRED 2026-09-18: the pool check before opening a pull request** | Owner ruling. **Open the pull request when your own work is ready**, then tell the Lander. *Do not check the pool before you open* carries why. |
 | What that row read | *"Do not create more PRs than the Lander can handle. Find the Lander and communicate with it before creating a PR."* |
@@ -35,6 +36,23 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
+
+### The weekly ledger report
+
+Ledger ruling R4, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). The
+report gives findings as well as rows, and active rows apart from deferred ones.
+
+Each week, report by source: PR review, deferred scope, audit, and other. Give the findings and
+rows filed, the items and rows closed, and the PARTIAL items completed.
+
+Split the open count into active rows, verdict `build`, `research`, `decide` or `owner-ruling`, and
+deferred rows, verdict `demand-gate`.
+
+R4 names no seat. The Manager's reading of it, which is not signed, makes the report a Manager
+task until a script produces it.
+
+Its instrument is to be vault `scripts/docs/ledger_weekly_report.py`, a script not yet in the vault
+as of 2026-11-04.
 
 ---
 
@@ -687,6 +705,14 @@ everything.
 row you cannot land soon"*. It went on: *"If a batch cannot land today, do not file the rows
 today"*. File rows when the work is ready. The owner selected *"Confirm retired"*.
 
+**A merged pull request files at most one row.** Ledger ruling R2, owner-signed 2026-11-04
+(vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). Its open findings go into one row, as numbered
+items.
+
+Its deferred scope becomes steps on the row it cites, or goes into the next brief on that row. A
+new row only when it cites none. A finding about code it did not touch goes into that module's
+open row.
+
 **Nothing enforces the path check today.** The claim registry covers items. Until it covers paths,
 this is yours to do by reading, and a brief that names no paths has skipped it rather than passed it.
 
@@ -698,6 +724,21 @@ it does not stop a peer who never read it.
 
 Wiki events `20260926T094814913Z-35h90l` and `20260926T125038933Z-nl5gw7`: one batch was built
 twice in one day while a batch claim was held.
+
+**A batch whose holder has shown no seat goal, commit or pull request activity for 72 hours is
+released to FREE, and its claims with it.** Ledger ruling R8, owner-signed 2026-11-04
+(vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). That is so `read_batch.py --next` can hand it out.
+
+The release steps are the Manager's unsigned reading of R8. It has `read_batch.py --next` apply
+R8, not built as of 2026-11-04. The seat taking a released batch first reads the holder's seat
+record and recent commits; R8 also needs no pull request activity.
+
+Then, by the same reading, it releases each of the batch's claims through the engine's
+`claim.ps1 -Release <key> -Force`, the path for another worktree's claim, which records the release.
+
+**A batch with a PARTIAL row is not BUILT or DONE.** Ledger ruling R6, owner-signed 2026-11-04
+(vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818): that batch may not be marked BUILT or DONE while
+any of its rows is PARTIAL.
 
 ---
 

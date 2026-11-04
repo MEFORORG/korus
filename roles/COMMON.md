@@ -661,7 +661,7 @@ disclaims permissions. They are listed so no seat reasons it out under time pres
 | --- | --- |
 | The merge routes to the Lander | Yes. Outward-facing and hard to reverse. "Decide instead of asking" never authorises a route. *The PR route*. |
 | An owner override must name the route | Yes. Bare approval is not one, so ask **which** route. |
-| DEMAND-GATE items pause for the owner | Yes. This is the "intent only the user holds" case, verbatim. |
+| DEMAND-GATE items pause for the owner | Yes. This is the "intent only the user holds" case, verbatim. Except a row deferred under ledger ruling R3, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818); [BUILDER.md](BUILDER.md) 1a says how a change reactivates it without the owner. |
 | Owner-facing traffic routes through the Manager | Yes. The style shortens what you send, never who you send it to. *The owner reads by sampling*. |
 | Only the role-playbooks session edits `roles/` while one runs | Yes. A concurrent edit here merges clean with no marker, which is the "hard to reverse" clause. |
 | The builder starts on dispatch without approval | **Reinforced.** The dispatch is the go, and this style is the disposition that assumes so. |

@@ -102,6 +102,8 @@ census.
 | What that did to the census | Open went 225 to 236. The prior drain's five reconcile commits deleted 13 banner lines and closed 13 items. |
 | A banner flip needs a DELETION | Diff `docs/BACKLOG.md` with `-U0` and count REMOVED lines beginning with a status banner. Unit: diff LINES. |
 | What zero means | You filed and closed nothing. A pure insertion cannot be a flip. |
+| The pass reads a merged pull request's body as well as its title | Ledger ruling R7, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). A body that says it built or closed a row, such as *"BACKLOG #N: built"*, is read against that row's closing steps. |
+| Its instrument, and its gap | Vault `scripts/docs/stale_banner_detector.py`. It does not yet cover R7's main case; [LANDER.md](../../../roles/LANDER.md) *7d-ter* says why. |
 | Scope the sweep to the class that can close | Census the `**Verdict:**` field before you spend a pass. |
 | Measured at `fdd89b49` | Of 236 open items, **96 build, 21 demand, 94 research**. Of the 13 closed in the prior window, **12 build and 1 demand, zero research**. |
 | And across all archived items | `Verdict: research` appears **zero** times. |
