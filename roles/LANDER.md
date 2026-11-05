@@ -361,7 +361,7 @@ restates them; the routing does not.
 | Every trigger is a POLL, and that is the design | Nothing tells you a pull request is waiting; *Keep a standing `/loop` running* finds it. `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label that nothing sends to a seat. |
 | What that means for you | A green PR nobody has taken is waiting on your own poll, not on a broken route. Say that, and do not infer that the route changed. |
 | *Every trigger is a POLL* -- CORRECTED 2026-10-10 | It read *"writes a `ci-red` label nothing reads back"*. False since engine PR 1240: `ci-red-report.yml` reads it into a daily advisory run summary, sent to no seat. |
-| *Every trigger is a POLL* -- CHANGED 2026-11-05 (UTC) | It read *"and that is the real gap"* and *"No workflow reports one (BACKLOG #1413, open)."* The owner declined that workflow, vault BACKLOG #1413, in a Manager's chat, following the vault BACKLOG #1402 precedent, a delegated seat decision. |
+| *Every trigger is a POLL* -- CHANGED 2026-11-05 (UTC) | It read *"and that is the real gap"* and *"No workflow reports one (BACKLOG #1413, open)."* The owner declined such a report, the remainder of vault BACKLOG #1413, in a Manager's chat. Precedent: *Who polls for reds now*. |
 | Who polls for reds now | You do, on your loop. *Keep a standing `/loop` running* carries the read. The watcher that spawned a seat per red is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
 | Notification -- STILL RETIRED as a guarantee | Nothing in the system pushes you a pull request. **A seat that waits to be notified waits forever**, and the 2026-09-18 handover does not change that. |
 | The three ways a handover fails | It is never sent, it reaches another Lander, or it names a pull request nobody opened. |
@@ -782,6 +782,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | Item | Rule |
 | --- | --- |
 | Why a loop and not a notification | Nothing here pushes one. *The PR route* carries the row: every trigger is a POLL, and that is the design. |
+| *Why a loop and not a notification* -- CHANGED 2026-11-05 (UTC) | It read *"that is the real gap"*. *The PR route* records why it changed. |
 | The loop covers scheduled-run reds | The prompt says *poll each queue*. Read the board's *Scheduled runs failing* panel on the same tick. *A scheduled run's red is yours too* holds the duty. |
 | The loop covers labelled reds | Each tick, run `gh pr list --repo MEFORORG/MessageFoundry --label ci-red --state open --limit 200`. At 200 hits, re-read higher. Nothing removes the label on its own. A dry run of engine `scripts/ci/clear_stale_ci_red.py` tells stale from real, ejections included. |
 | Why that read is yours | Only the engine applies the label. The watcher that read it is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
@@ -808,8 +809,8 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
 | Do NOT stop it on an empty queue, or for usage | Empty is the state it exists to catch: load `lander-empty-queue` and keep looping. *Standing rules* exempts this seat from every throttle call. |
-| EXPIRY | None while the owner's decline of vault BACKLOG #1413 stands. Read that row's banner; *The PR route*, row *Every trigger is a POLL*, carries the decline. |
-| EXPIRY -- CHANGED 2026-11-05 (UTC) | It read *"A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger."* |
+| EXPIRY | None while the owner's decline of a waiting-PR report stands. *The PR route* records it, in the row *Every trigger is a POLL* -- CHANGED 2026-11-05 (UTC). |
+| EXPIRY -- CHANGED 2026-11-05 (UTC) | It read *"A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger."* Declined, so the poll is the trigger by design. |
 
 **A Lander whose session moved into a worktree after launch (`EnterWorktree`) reads that
 worktree's mail inbox by hand on every loop pass.** The Stop-hook drain reads only the launch
