@@ -626,8 +626,9 @@ look right and are not.
 
 ## 8. You cannot watch yourself
 
-**A watchdog cannot watch its own death.** [STEWARD.md](STEWARD.md), *The alarm belongs to a seat
-whose wake source is independent of the clock*, reaches this from the usage side.
+**A watchdog cannot watch its own death.** The retired [STEWARD.md](retired/STEWARD.md), 6d, *The
+alarm belongs to a seat whose wake source is independent of the clock*, reached this from the usage
+side.
 
 **Your own schedule is the instrument your own activity disables.** *YOUR FIRST STANDING DUTY*
 carries the measurement: a 15-minute board refresh on a cron, 2026-09-19, that did not fire once
@@ -712,7 +713,7 @@ a mutation, and correct yourself faster than you correct others.
 | 5, the zero and the control | `docs/TIPS-AND-TRICKS.md`, and the Watchdog's account |
 | 6, findings on the shared page | The Watchdog's own finding in that same page |
 | 7, the bounced message | The Watchdog reporting its own error, unprompted |
-| 8 | `roles/STEWARD.md` section 6d, plus inference |
+| 8 | `roles/retired/STEWARD.md` section 6d, plus inference |
 | 0 through 0e | The Owner's 2026-09-19 pairing, transcript and escalation instructions, plus `roles/COMMON.md` on the channels. **Reviewed by the sitting Watchdog**, which changed section 0a. |
 | 4, the three that reached the Owner | The sitting Watchdog, naming which of its seven escaped its own controls, and asking for them on the card too. |
 | 4, the gate's parser decides | That seat's handoff, plus a first-hand repeat of the same error while this file was written. |

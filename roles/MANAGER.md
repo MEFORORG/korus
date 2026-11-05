@@ -178,12 +178,13 @@ where it lives; do not act on a paraphrase. [BUILDER.md](BUILDER.md) 5d links he
 
 | Control | Where it lives |
 | --- | --- |
-| A Steward's stop on starting | [STEWARD.md](STEWARD.md), *The three states*, *3a. The weekly window sets the STATE and carries the STOP*, and *3d. A live owner ruling can suspend the stop half without suspending the warning* |
+| The usage watch hook's stop on starting: `watch.py`'s HOLD NEW WORK state | [COMMON.md](COMMON.md), *The usage watch hook's three states*, with its *The weekly window sets the STATE and carries the STOP* and *A live owner ruling can suspend the stop half without suspending the warning* |
 | The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
+| **CORRECTED 2026-11-05** | The first row read *"A Steward's stop on starting"*, citing `STEWARD.md`. That day the owner said the seat was retired months earlier. Your hook prints the stop; its rules moved to COMMON. |
 
 A weekly HOLD NEW WORK on a pool stops briefing on that pool (owner ruling 2026-10-31, replacing the
-2026-08-14 ruling that a weekly rung stops nobody). *The three states* says when a high level fires
-it. The burn throttle, in the third answer below, was a separate limit, and it is retired.
+2026-08-14 ruling that a weekly rung stops nobody). COMMON's usage section says when a high level
+fires it. The burn throttle, in the third answer below, was a separate limit, and it is retired.
 
 Path contention, in section 3, still shapes what you brief.
 

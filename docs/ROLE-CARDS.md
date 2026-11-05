@@ -239,7 +239,10 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The six registered labels are Manager, Builder, Steward, Lander, Special, and Watchdog.
+The five registered labels are Manager, Builder, Lander, Special, and Watchdog.
+
+Steward is retired as a seat, and nothing replaced it. On 2026-11-05 the Owner said it had been
+retired months earlier. Its label now resolves to no card and the hook says it was retired.
 
 Regulator retired on 2026-09-19 by Owner instruction, and nothing replaced it. Its label now
 resolves to no card and the hook says it was retired.

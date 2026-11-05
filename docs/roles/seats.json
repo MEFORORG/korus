@@ -1,5 +1,9 @@
 {
   "_comment": [
+    "FIVE seats are live since 2026-11-05, when the Owner said the STEWARD seat had been retired",
+    "months earlier; the date of that ruling is not recorded here. Nothing replaced it. The usage",
+    "hook and the status.json it described still run, outside this repository, and the three usage",
+    "states bind every seat from roles/COMMON.md, The usage watch hook's three states.",
     "The seat roster, the alias map, and the retired seats with the reason each was retired.",
     "CLAUDE.md's seat table GOVERNS. This file must agree with it, and tests/test_role_cards.py",
     "fails if the two drift apart. roles/README.md holds a third copy and is not a source for",
@@ -21,7 +25,6 @@
   "live": [
     "manager",
     "builder",
-    "steward",
     "lander",
     "special",
     "watchdog"
@@ -45,9 +48,6 @@
     "lander-1": "lander",
     "land": "lander",
     "landing": "lander",
-    "steward1": "steward",
-    "steward-1": "steward",
-    "stewart": "steward",
     "manager1": "manager",
     "manager-1": "manager",
     "mgr": "manager",
@@ -84,6 +84,10 @@
     "went looking for a spawn grant its subagents do not need."
   ],
   "retired": {
+    "steward": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. NOTHING REPLACED IT. The usage mechanism it described still runs: the user-scope hook watch.py prints the usage state, and steward-tick.ps1 still writes status.json, both outside this repository. The three usage states, the stop on starting and the lift bind every seat from roles/COMMON.md, The usage watch hook's three states. Do not route usage work to a seat, and do not wait for a seat to call or lift a hold.",
+    "steward1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
+    "steward-1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
+    "stewart": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A misspelling of steward. Nothing replaced it. See the steward row.",
     "regulator": "Retired 2026-09-19 by Owner instruction. NOTHING REPLACED IT, and the Watchdog is not a substitute: a Regulator was event-triggered, attributed ONE failed check, and returned a verdict that BOUND; a Watchdog runs continuously, measures a seat's work, and returns evidence that decides nothing. So no seat now attributes a red check. A red is the Lander's to triage and route, or the Owner's to rule on. Do not route a red to a seat, and do not hold a pull request waiting for an attribution.",
     "regulator1": "Retired 2026-09-19 by Owner instruction. A numbered spelling of regulator. Nothing replaced it. See the regulator row.",
     "regulator2": "Retired 2026-09-19 by Owner instruction. A numbered spelling of regulator. Nothing replaced it. See the regulator row.",

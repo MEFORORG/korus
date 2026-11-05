@@ -17,7 +17,7 @@ present-tense claim that MessageFoundry is deployed, because it is a not-yet-dep
 who is blocked on whom and session names belong in a dated episode note. *These files carry nothing
 that expires* states the split; *Episode notes live outside this folder* says where they go.
 
-## 1. Ten seats have retired, two were added, and 2026-09-19 did both at once
+## 1. Eleven seats have retired, two were added, and 2026-09-19 did both at once
 
 **Seven seats retired by owner decision on 2026-09-01: Dispatcher, Project Manager, Liaison, Cleaner,
 Role manager, Process improvement and ASVS Tracker.** The Console took the Dispatcher's and the
@@ -43,6 +43,10 @@ second addition and the tenth retirement, and they are not a swap: 1a and 1b eac
 **The heading read "four times, nine seats have retired, and one was added" until 2026-09-21.** Its
 numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 
+**The Steward is the eleventh retirement, and nothing replaced it.** On 2026-11-05 the owner said it
+had been retired months earlier, on a date not recorded here. The heading read "Ten" until then.
+Its usage hook still runs, and its rules moved to [COMMON.md](COMMON.md).
+
 **Do not route work to a retired seat, and do not read a retired row as a live instruction.**
 
 ### 1a. The live seats
@@ -57,7 +61,6 @@ numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 | Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. |
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | | | **It runs a standing `/loop` whose goal is every open PR merged.** Owner-set 2026-09-19. Nothing here tells it a PR is waiting, so its own poll is the trigger. |
-| Steward | [STEWARD.md](STEWARD.md) | **A cron, not a seat.** Zero model calls, so it needs no account. Reads usage and names the account with headroom. It cannot warn a running session, because nothing can interrupt one. |
 | Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
 | Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Added 2026-09-19. It reads instruments, raises a stall, and never drains the queue, takes the claim, or drives the lane. |
@@ -72,11 +75,12 @@ numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 
 | Item | Rule |
 | --- | --- |
-| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md), [retired/REGULATOR.md](retired/REGULATOR.md). Ten seats, ten files. |
+| Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md), [retired/REGULATOR.md](retired/REGULATOR.md), [retired/STEWARD.md](retired/STEWARD.md). Eleven seats, eleven files. |
 | **RETRACTED 2026-09-04** | This table once called `ASVS-TRACKER.md` **absent from this edition**, on a `find . -iname '*asvs*'` returning zero files. True when measured. The file was then imported, and that command now returns the path above. |
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
 | Who answers an owner question now | The Manager. It is the only seat the owner talks to. |
+| **Who calls a usage state now** | **No seat.** The owner said on 2026-11-05 that the Steward had been retired months earlier. Each seat reads its own usage hook. The states, the stop and the lift moved to [COMMON.md](COMMON.md). |
 | **Who attributes a red now** | **Nobody.** The Regulator retired 2026-09-19 and nothing replaced it. A red is the Lander's to triage and route, or the owner's to rule on. The Watchdog measures whether reds are being cleared; it never says whose one is. |
 
 ### 1c. `INSTRUMENTS 4.x` and `COMMON 4.x` citations resolve to a blob, not a file

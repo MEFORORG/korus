@@ -211,7 +211,7 @@ wrong.
 **Pacing moves when the weekly ceiling arrives. It adds no headroom.**
 
 Pacing once moved a second ceiling, and that window is gone
-([STEWARD.md](../../../roles/STEWARD.md), *3a*). The same total spend at a lower rate now reaches 100
+([COMMON.md](../../../roles/COMMON.md), usage). The same total spend at a lower rate now reaches 100
 later, and a lower pool rate can clear HOLD NEW WORK. That describes the instrument, and it is no
 reason to slow down: nobody rations.
 
@@ -237,7 +237,7 @@ so the shares cannot be split.
 
 **A stop rung and a "spend it" ruling are not in conflict.** The owner ruled 2026-08-29: finish what
 matters and accept going dark. No seats stood down, no rationing. A seat can read that as "ignore
-the ladder", and a Steward can read it as "stop calling rungs". Both are wrong.
+the ladder", and a seat calling rungs can read it as "stop calling them". Both are wrong.
 
 **The ladder exists so work is not lost mid-task. Pacing is a different question and it is
 settled.** When a rung fires: reach a pause point, then keep going. Do not stand down, and do not
@@ -301,7 +301,7 @@ property of the series, not a failure of any one estimate. From then it reported
 called rungs when they actually fired. Nothing was lost: the ladder fired on measured levels then.
 
 **That no longer covers rung 1.** Since the owner ruling of 2026-10-31 burn rate governs HOLD NEW
-WORK ([STEWARD.md](../../../roles/STEWARD.md), *The three states*), so rung 1 needs a projection.
+WORK ([COMMON.md](../../../roles/COMMON.md), usage), so rung 1 needs a projection.
 Publish a band with its interval. That section's table says what fires with no rate or on a flat.
 
 **When an instrument's output has to be corrected repeatedly, the question is not "what is the right
@@ -408,9 +408,10 @@ caught in an hour rather than a window.
 | Commit early | Commit early. Do not stop early or decline work because a usage number is high. |
 | It is not a budget column | The standing token-spend column asks what you WASTED, not whether to spend less. A high number is not a reason to decline work. |
 | Under a hold | A hold stops new work, the one case where the number does stop a start. It does not excuse your orientation read or your handoff. |
-| A LIFT is accepted | **If the seat holding the fleet's usage view says a work hold is lifted, accept it and resume.** Owner-set 2026-08-29. |
+| A LIFT is accepted | **If your usage hook (`watch.py`) shows a work hold cleared, or the owner says it is lifted, accept it and resume.** Owner-set 2026-08-29. |
+| **CORRECTED 2026-11-05** | The row above named *"the seat holding the fleet's usage view"*: the Steward. The owner said that day it had been retired months earlier, so no seat relays a lift. |
 | Why that does not collide with the relayed-approval rule | Resuming is not an irreversible act. That rule governs acts you cannot undo. |
-| The ladder | The weekly window carries it (owner ruling 2026-10-31). [STEWARD.md](../../../roles/STEWARD.md), *The three states*, holds every trigger. Link to it; do not restate one. |
+| The ladder | The weekly window carries it (owner ruling 2026-10-31). [COMMON.md](../../../roles/COMMON.md), *The usage watch hook's three states*, holds every trigger. Link to it; do not restate one. |
 | Workflow gate | Do not start a new Workflow when the weekly window is more than 90 percent. *The workflow gate cannot see aggregate load*. |
 | Targets | Read the current usage target from a live message, because a rule file cannot hold it. |
 | Report a stop | Mail the fleet with `scripts/coord/mail.ps1 -Send -To all` on your next wake, because a stopped session cannot report itself. |

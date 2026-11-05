@@ -1,70 +1,52 @@
-# Steward -- role card
+# Steward -- RETIRED SEAT
 
-This card loads at session start because `.claude/seat.local.txt` names `steward`. It summarizes the
-role; CLAUDE.md's seat table governs.
+**The Steward is retired as a seat. This page is a tombstone, not a card.** On 2026-11-05 the Owner
+said the seat had been retired months earlier. The date of that ruling is not recorded in this
+repository.
 
-Read `roles/COMMON.md` before `roles/STEWARD.md`, the full playbook. Run as a scheduled job with zero
-model calls. No account is required.
+It is kept because archived pages on this site link to it. Deleting it would turn those links into
+a 404, which reads as "this page never existed" rather than "this seat went away".
+
+**Nothing replaced it.** No seat calls a usage state, publishes a rung, or names an account with
+headroom.
+
+**The usage mechanism it described still runs.** The user-scope hook `watch.py`, in
+`<HOME>\.claude\mefor-usage\`, prints the usage state. `steward-tick.ps1` there still writes
+`status.json`. None of them is in this repository.
+
+**The three usage states still bind.** `roles/COMMON.md`, *The usage watch hook's three states*,
+holds the triggers, the stop on starting and the lift.
+
+**Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `steward`,
+the role-card hook injects no card and says the seat was retired. Set a live seat instead:
+
+```
+Set-Content .claude/seat.local.txt 'builder'
+```
+
+Live seats: manager, builder, lander, special, watchdog.
 
 ## What this seat owns
 
-Read usage and name the account with available allowance. This is the only role that runs without an
-account, so it can report usage even after every account is exhausted.
+Nothing. Reading usage is now each seat's own act, from its own hook.
+
+`roles/retired/STEWARD.md` keeps the record of how the levels and rates were measured.
 
 ## What it must not do
 
-- Do not rely on warning a running session. This role cannot interrupt one; a design requiring that
-  warning cannot work.
-- Never assign or infer the account roster. The Owner assigns it; report allowance without deciding
-  who uses which account.
-- Never spend a model call. Doing so would make the role depend on the exhausted accounts it must
-  report on.
-- Never publish usage without its command and timestamp.
+Take work. A document that routes anything to a Steward is stale, and CLAUDE.md's seat table
+governs.
 
 ## Its authority
 
-Read and report only. Start nothing and stop nothing.
-
-Give the Owner evidence for a decision. The report does not make the decision.
-
-## The `/driver` rules are always on
-
-Owner ruling 2026-09-21, and nobody has to invoke the skill. `roles/COMMON.md`, *The Driver rules are
-always on, in every session*, holds the steps.
-
-They bind a session that holds or repairs this seat. The scheduled job decides nothing and
-spends no model call, so it has no step of theirs to take.
-
-While `MEFOR_AFK_KILL` reads exactly `off`, the `empower` rules are on too. Otherwise act on
-no class B or C decision without the Owner. `roles/COMMON.md`, *The empower rules are
-on by default, for every seat but Special*, holds the classes and the kill switch.
-
-They widen no permission. This seat still starts nothing and stops nothing.
+None. It started nothing and stopped nothing, and it holds nothing now.
 
 ## On arrival
 
-1. Read `roles/COMMON.md`, then `roles/STEWARD.md`.
-2. Query the fleet wiki for your subject. A miss never blocks:
-   Run korus `query.ps1` with the stores `roles/WIKI.md` names.
-3. Read your own configuration before assuming which roots exist. The roster is assigned, not
-   inferable, and a guess here is wrong in a way nothing downstream can catch.
-4. Record the time and the command beside every figure you publish.
-5. If an instrument returned unknowns, report the RANGE. Excluding unresolvable items and resolving
-   them are mirror-image fabrications.
-
-## The limit this seat is honest about
-
-The measured design cost is waiting for someone to act. You can report an exhausted account, but
-cannot stop or relocate a session still using it.
-
-Send the report to the Owner, who can act. If nobody reads it before the next spawn, it cannot guide
-that choice.
-
-## What this seat does not own
-
-You do not select work, write code, review, merge, or assign the roster.
+You do not arrive here. Read `roles/COMMON.md` and take a live seat, such as
+[the Builder](builder.card.md) or [the Manager](manager.card.md).
 
 ## The full playbook
 
-The full rules are in `roles/STEWARD.md`; read `roles/COMMON.md` first. Keep only durable rules in
-this card, and live state in a dated note: balances and which account is in use.
+`roles/retired/STEWARD.md`, kept as the record of what the seat did rather than as rules for
+anyone.

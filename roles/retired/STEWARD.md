@@ -1,6 +1,25 @@
+> **RETIRED SEAT.** This playbook describes a seat the owner said on 2026-11-05 had been retired
+> months earlier. It is kept as record, not as instruction. Do not brief a session from it. The live
+> seats are Manager, Builder, Lander, Special and Watchdog.
+
 # Steward session role playbook
 
-> **Read [COMMON.md](COMMON.md) first, then this file.** [README.md](README.md) names every seat and
+> ***RETIRED BY OWNER STATEMENT 2026-11-05. THIS FILE IS A RECORD OF WHAT THIS SEAT DID.***
+> ***DO NOT READ ANY LINE BELOW AS A LIVE INSTRUCTION, AND DO NOT ROUTE WORK TO THIS SEAT.***
+> **Nothing replaces this seat.** On 2026-11-05 the owner said: *"There is no steward... that seat
+> was retired months ago."* The date of that retirement is not recorded in this repository; this
+> file was still edited as a live playbook on 2026-11-02.
+> **The mechanism it described still runs.** The user-scope hook `watch.py`, in
+> `<HOME>\.claude\mefor-usage\`, prints the usage state on SessionStart and UserPromptSubmit, and
+> `steward-tick.ps1` in that folder still writes `status.json`. None of them is in this repository,
+> and the seat's retirement does not switch them off.
+> **The rules that still bind moved.** *The three states*, *3a*, *3d* and *3g* now live in
+> [COMMON.md](../COMMON.md), *The usage watch hook's three states*, and bind every seat but the
+> Lander. Their headings stay below as pointers, so an older citation still lands.
+> **Lines below still name the Steward and other retired seats as live. That is what a record looks
+> like, and it is not licence to act on one.**
+
+> **Read [COMMON.md](../COMMON.md) first, then this file.** [README.md](../README.md) names every seat and
 > states the rule these files are built on. **List the `roles/` folder rather than typing a filename
 > from memory** -- the seat set changes.
 > [Playbook size and format](https://claude-multisession.pages.dev/PLAYBOOK-SIZE.md) is the rule set
@@ -32,9 +51,9 @@ the rates you measured go in the vault burn log -- see *This file holds only wha
 | **NARROWED 2026-09-18, the opening half** | That row read *"and opens its own PR"*. A Builder under a Manager no longer does: the Manager opens it. Every other seat is unchanged. |
 | Being correct is not being authorised | A seat once inferred the push rule and published it to eleven files without asking. A peer refused to relay a permission it could not verify, and cannot grant one even when the guess proves right. |
 | No glyphs or emoji | CLAUDE.md's no-glyphs rule. Say the word. |
-| Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
+| Proactive output style | [COMMON.md](../COMMON.md), *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Conflicts between this file and COMMON | Owner ruling 2026-08-28: a role playbook that contradicts COMMON is an owner question, never settled by precedence, unless a recorded delegated decision already resolves it. See COMMON, *Where a role playbook and this file disagree*. |
-| The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. |
+| The `driver` and `empower` rules are on by default | [COMMON.md](../COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. |
 | Provenance tells you where to look, not who wins | COMMON was written by summarising these playbooks. Where the two differ this file is often the older and fuller text. That is a reason to read it, not a rule for deciding. |
 | Editing this folder | **RETIRED 2026-09-01: this row read** *"while a Role Manager session is running, do not edit any file in this folder"*. The owner retired that seat and nothing replaced the folder-edit gate. There is no session to send feedback to. |
 
@@ -466,93 +485,14 @@ ruling.
 
 ## 3. The three states
 
-**The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
-2026-10-31).** Section 3a records what that ruling replaced.
-
-Whichever trigger fires **first** puts the pool in that state. Time is primary; the levels are the
-backstop, and HOLD NEW WORK's conditions follow the table.
-
-| State | Time to cutoff | Weekly level | What the state means |
-|---|---|---|---|
-| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate and no measured flat; 98 percent or more whatever the rate, and on a measured flat too | Start nothing new. Finish what is open |
-| **2. PROTECT AND WRAP** | 10 minutes | 94 percent | Commit, write the note, hand off |
-| **3. URGENT STOP** | 5 minutes | 97 percent | Stop now. Commit whatever exists, even half-done |
-
-**That table is the only statement of HOLD NEW WORK's time trigger. Link to it; do not copy it.** The
-owner may adjust it.
-
-**Burn rate governs HOLD NEW WORK.** With a rate, the pool is in HOLD when the rate projects it to run
-out inside that time and before the window resets. A run-out projected past the reset is no cutoff.
-A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
-
-A state is read fresh each time. A rate-fired HOLD clears when the projection stops firing it, and
-*A warning that changes behaviour invalidates its own projection* says how to read that.
-
-| Reading | What fires HOLD NEW WORK |
-| --- | --- |
-| A positive rate from `watch.py`'s series, or one corroborated as *There is no single rate* asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
-| A measured flat: the newest successful read and an older one at least 30 minutes apart at an equal level (owner ruling 2026-11-02), under the conditions below this table | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
-| No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (trap 9.2, 2c) | The level 90. |
-| A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (pool from this config root's login). Checked per reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (section 2). |
-| A root that contradicts its own login record, at least in these cases. The self-check does not run for a desktop session the app recorded | Outside the desktop app: neither rate nor flat, and the level still grades. On the desktop route with a pinned root and no app record: `[USAGE UNKNOWN]`, no rung and no workflow gate. |
-| 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
-
-**A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
-climb. One tick past it is rated from its start, and two or more from its end. The cost is that a
-burst after idle reads slow until its second tick.
-
-**A measured flat needs at least all of this.** The newest read is fresh, within `SAMPLE_MAX_AGE`, 900
-seconds. The read just taken is on this pool's rate series. No rate stands. Every read back to the
-older one is equal, the older is in the current weekly window, and there is a reset time.
-
-With neither a rate nor a measured flat, the level decides. The comment on the `BURN_` constants in
-the vault's `scripts/coord/watch.py` has the values; `_flat`, `_read_pool` and `_for_reader` there
-have the conditions.
-
-**The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
-nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
-measured flat now clears a level-fired HOLD below 98, as a rate showing room does.
-
-**That flat may be HOLD's own effect**, as *A warning that changes behaviour invalidates its own
-projection* describes. This file reads the 2026-11-02 ruling as counting it as room anyway, so 2f
-and 2g do not reopen it.
-
-**A level of 94 or 97 with a rate or a measured flat showing room fires its state for the protect
-half only.** That is *RATE GOVERNS*, 9.6a, as this file reads the 2026-10-31 and 2026-11-02 rulings.
-The stop on starting waits for HOLD's own triggers. A slow burn can reach state 3 with no HOLD.
-
-**Below 98, a level crossed with a positive rate or a measured flat showing room is not a hold.** The
-session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
-offered work, with the no-rationing paragraph beneath its banner. The same misreading stays open.
-
-**The weekly levels read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved them to
-90 / 94 / 97, and the 2026-10-31 ruling kept those numbers. **Until 2026-10-31 a session column read
-80 / 86 / 92 and rung 1's time trigger read 20 minutes.**
-
-Recorded rather than replaced silently, because the old numbers are cited elsewhere on this page.
-Section 3a's correction is about a weekly-**85** crossing, and section 5's drift record compares
-89/93 against 86/92. Those readings stay true of the dates they name.
-
-**One act reads the published state.** The Manager reads it before it writes a launch line. Nothing
-can interrupt a running session, so a running seat learns the state from its own hook.
-
-These levels are the owner's guidance from experience, not a derivation and not a hard mechanism.
-Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
+**Moved on 2026-11-05, and it still binds.** It is now [COMMON.md](../COMMON.md), *The usage watch
+hook's three states*. This heading stays so an older citation still lands.
 
 ### 3a. The weekly window sets the STATE and carries the STOP
 
-**Owner ruling 2026-10-31, replacing the 2026-08-14 ruling that a weekly rung stops nobody.** Anthropic
-removed the five-hour limit. The weekly window now sets the state and carries the stop on starting, and
-`STOP_AUTHORITY_WINDOWS` holds weekly alone. *The three states* holds the triggers.
-
-**What it replaced.** From 2026-08-14 a weekly rung stopped nobody. Only the 5-hour window carried the
-STOP, a weekly-only rung was a severity label with no start-nothing half, and the state was the worse
-of the two windows. With one window left, that rule is retired whole.
-
-**A rung's name still does not settle its authority.** On 2026-08-27 a Steward announced a weekly-85
-crossing as a ladder hold, and the PM stopped work on it. The Steward's words: *"I conflated the
-rung's name with its authority."* The same conflation now arrives as a level read as a hold while a
-rate shows room.
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
+watch hook's three states*, with this heading's wording. This heading stays so an older citation
+still lands.
 
 ### 3b. The instrument's `state` field is a severity label, and that is not a defect
 
@@ -664,25 +604,9 @@ though for a vault reader that pointer now resolves.
 
 ### 3d. A live owner ruling can suspend the stop half without suspending the warning
 
-Read the ruling before you tell anyone to stop. On 2026-08-14 the owner ruled to front-load and run
-through the weekly rungs. Every seat obeying this table literally would then have held new work,
-when the owner had just said not to.
-
-**The owner ruling of 2026-10-31 replaced that one: a weekly rung now carries the stop (3a).** This
-section's rule stands, because a later ruling can suspend the stop half again.
-
-Split every rung into its two halves, because only one of them is ever contested:
-
-| half | what it does | status |
-|---|---|---|
-| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies once a rung has fired.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
-| **STOP** | hold new work, wind down | **Contested. Read the live ruling.** Never infer it from the number |
-
-| Item | Rule |
-| --- | --- |
-| A rung firing is not automatically a stop order | Under a front-loading ruling, rungs firing is EXPECTED. Say so when you publish one, or a correct warning reads as a halt. |
-| Name the ruling you are acting under, with its time | *"Rung fired; the owner's 20:13Z ruling says run through it; protect only"* is one sentence and it removes the whole ambiguity. |
-| The table is the durable half; the current posture is not | COMMON, *This file holds only what never expires*. The thresholds are calibration and change slowly. **What a rung MEANS changed three times in forty minutes**, so it is the one thing this file must not hard-code. |
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
+watch hook's three states*, with this heading's wording. This heading stays so an older citation
+still lands.
 
 ### 3e. The Lander is exempt from all three states
 
@@ -695,8 +619,8 @@ that the Lander is exempt. Make that clear if you send a note like that to the L
 | Item | Rule |
 | --- | --- |
 | The exemption itself is NOT restated here | It is stated in the playbook of the seat it exempts. |
-| The Lander's exemption, in its own file | [LANDER.md](LANDER.md) carries *"You are exempt from calls to throttle or stop because of pending usage limits"* and *"It is exempt from any hold sent by the Steward"*. Both strings were in that file on 2026-08-26. |
-| **RETIRED 2026-09-12, the second exempt seat** | [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md) carries *"You are exempt from usage holds"*, owner-set 2026-08-29 -- the day that seat was created and put in the PR path. |
+| The Lander's exemption, in its own file | [LANDER.md](../LANDER.md) carries *"You are exempt from calls to throttle or stop because of pending usage limits"* and *"It is exempt from any hold sent by the Steward"*. Both strings were in that file on 2026-08-26. |
+| **RETIRED 2026-09-12, the second exempt seat** | [retired/SEAT-RETIRED-2026-09-12.md](SEAT-RETIRED-2026-09-12.md) carries *"You are exempt from usage holds"*, owner-set 2026-08-29 -- the day that seat was created and put in the PR path. |
 | Search the strings, not a position | Here a location is a search hint, not an address. A second copy is the one that drifts, and COMMON's *State it once* owns that. |
 | Why that seat was exempt | The same reason as the Lander: a PR then waited on a review, so a stood-down reviewer converted every in-flight PR into work that did not land. No PR waits on one now. |
 | The notice duty is GONE, and it moved nowhere | It read: when a rung fires and you tell the Lander, the message must state the exemption. |
@@ -730,14 +654,9 @@ whoever inherits it reads them with it.
 
 ### 3g. What each state asks for
 
-| State | What it asks for |
-|---|---|
-| **HOLD NEW WORK** | No new Workflow, no new item, no new fan-out. Everything already running continues at full speed. This is not a slowdown, it is a stop on *starting*. |
-| **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
-| **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
-
-Where a level below 98 alone fired state 2 or 3 with a rate or a measured flat showing room, only the
-protect half is asked for (*The three states*).
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
+watch hook's three states*, with this heading's wording. This heading stays so an older citation
+still lands.
 
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 
@@ -967,7 +886,7 @@ grants you your own exemption. A cron has no banner and no entry, so none of it 
 ### 6a. `seats.json` orphans silently because it is keyed by worktree path
 
 **This is a general seat failure, not this file's.** It hits every seat that takes a worktree, so it
-belongs in [COMMON.md](COMMON.md), and is recorded here only until it lands there. A worktree is a
+belongs in [COMMON.md](../COMMON.md), and is recorded here only until it lands there. A worktree is a
 disposable per-session artifact, so every seat rotation strands its own entry.
 
 Measured: one seat's key pointed at `asvs-handoff-session-b-fec292` and another's at
@@ -1465,7 +1384,7 @@ the reading.** That is all this section now asks for.
 wake list, a warned-set record and a set of arrival checks. **None of it has a performer now.**
 
 **This channel table is a general fact about reaching a cold session, not part of the cron's spec.** It
-belongs in [COMMON.md](COMMON.md), and it is held here only until it lands there.
+belongs in [COMMON.md](../COMMON.md), and it is held here only until it lands there.
 
 | channel | wakes a seat? |
 |---|---|
@@ -1588,7 +1507,7 @@ names outright.
 
 ## 10. Expiry conditions
 
-Every standing rule here carries one, per [README.md](README.md).
+Every standing rule here carries one, per [README.md](../README.md).
 
 | Rule | Stops being right when |
 |---|---|
@@ -1606,7 +1525,7 @@ Every standing rule here carries one, per [README.md](README.md).
 | The cron owns usage watching | **The newest row in `docs/usage/burn-history.jsonl` is older than the tick interval** -- the cron has stopped, and usage watching is the Lander's |
 | The cold-channel table in *Nobody is owed a restart* | Any Desktop or engine version change. It is build-specific and expected to go stale |
 | The `token-collect.py` absence note in *Log per-seat tokens beside it* | `git cat-file -e origin/main:scripts/coord/token-collect.py` exits 0 |
-| The `seats.json` and cold-channel entries live here | They land in [COMMON.md](COMMON.md), where they belong. They are general seat failures, not this seat's |
+| The `seats.json` and cold-channel entries live here | They land in [COMMON.md](../COMMON.md), where they belong. They are general seat failures, not this seat's |
 
 ---
 
