@@ -10,10 +10,10 @@ a 404, which reads as "this page never existed" rather than "this seat went away
 **Nothing replaced it.** No seat holds its duty of naming the account with headroom.
 
 **The usage mechanism it described still runs.** The user-scope hook `watch.py`, in
-`<HOME>\.claude\mefor-usage\`, prints the usage state. `steward-tick.ps1` there still writes
-`status.json`. None of them is in this repository.
+`<HOME>\.claude\mefor-usage\`, prints the usage state and writes `status.json`. Neither is in this
+repository.
 
-**The three usage states still bind.** `roles/COMMON.md`, *The usage watch hook's three states*,
+**The three usage states still bind.** `roles/COMMON.md`, *The three usage states*,
 holds the triggers, the stop on starting and the lift.
 
 **Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `steward`,

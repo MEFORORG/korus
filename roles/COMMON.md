@@ -790,7 +790,7 @@ in the Builder's own chat the same day.
 
 ---
 
-## The usage watch hook's three states
+## The three usage states
 
 **Moved here on 2026-11-05 from [retired/STEWARD.md](retired/STEWARD.md).** That day the owner said
 the Steward seat had been retired months earlier, on a date not recorded here. These rules bind
@@ -798,14 +798,17 @@ every seat but the Lander, and no seat calls a state for you.
 
 **The mechanism still runs, outside this repository.** The user-scope hook `watch.py`, in
 `<HOME>\.claude\mefor-usage\`, prints the state on SessionStart and UserPromptSubmit, with the Workflow
-gate. `steward-tick.ps1` there still writes `status.json`.
+gate, and writes `status.json` beside it.
 
 | Item | Rule |
 | --- | --- |
 | The Lander | Exempt from all three states. [LANDER.md](LANDER.md) states the exemption; *Stop versus start, except the Lander* covers a relayed stop. |
 | Where `watch.py` and this section disagree | This section wins and you act on it. The hook is a copy of a calibration, and copies go stale. Hook silence inside a state here is not an all-clear. |
+| The `state` field in `status.json` | A severity label, not a stop order. Read the hook's ACTION line before you tell anyone to stop (record 3b). |
+| Where this ladder and the 90 percent gate disagree | The stricter binds, and the question routes to the owner through the Manager (record 3h). |
+| Tuning these numbers | No seat holds that grant. They are owner-set (record 3f). |
 | The record | How these levels and rates were measured stays in [retired/STEWARD.md](retired/STEWARD.md), sections 2 and 3. |
-| A cite into that record below | It defines a term this section uses, such as a corroborated rate. Read it for that definition only. |
+| A cite into that record below | That cited section binds as this section cites it, for the term or procedure named, such as a corroborated rate. Its banner yields to this row. |
 
 **The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
 2026-10-31).** *The weekly window sets the STATE and carries the STOP*, below, records what that
@@ -917,7 +920,7 @@ Split every rung into its two halves, because only one of them is ever contested
 | --- | --- |
 | A rung firing is not automatically a stop order | Under a front-loading ruling, rungs firing is EXPECTED. Say so when you publish one, or a correct warning reads as a halt. |
 | Name the ruling you are acting under, with its time | *"Rung fired; the owner's 20:13Z ruling says run through it; protect only"* is one sentence and it removes the whole ambiguity. |
-| The table is the durable half; the current posture is not | *This file holds only what never expires*. The thresholds are calibration and change slowly. **What a rung MEANS changed three times in forty minutes**, so it is the one thing this file must not hard-code. |
+| The table is the durable half; the current posture is not | The live-state rule at the top of this file. The thresholds are calibration and change slowly. **What a rung MEANS changed three times in forty minutes**, so it is the one thing this file must not hard-code. |
 
 ### What each state asks for
 
@@ -953,9 +956,9 @@ and idles through a valid lift.
 **OPEN, and not resolved here.** This file forbids acting on a relayed START and requires acting on
 a relayed LIFT. The reconciliation it carries answers a different rule. Route it to the owner.
 
-**CORRECTED 2026-11-05: the lift rule names a seat that no longer exists.** That seat was the
-Steward, and the owner said that day it had been retired months earlier. No seat relays a lift now.
-Your own hook clears HOLD as *The usage watch hook's three states* says; the quote stays verbatim.
+**CORRECTED 2026-11-05: the seat the lift rule names was the Steward**, which the owner said that
+day had been retired months earlier. Whether another seat now holds that view is an owner question;
+route it with the OPEN item above. Your own hook clears HOLD as *The three usage states* says.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds

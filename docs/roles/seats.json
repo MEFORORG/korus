@@ -3,7 +3,7 @@
     "FIVE seats are live. On 2026-11-05 the Owner said the STEWARD seat had been retired months",
     "earlier; the date of that ruling is not recorded here. Nothing replaced it. The usage",
     "hook and the status.json it described still run, outside this repository, and the three usage",
-    "states bind every seat from roles/COMMON.md, The usage watch hook's three states.",
+    "states bind every seat from roles/COMMON.md, The three usage states.",
     "The seat roster, the alias map, and the retired seats with the reason each was retired.",
     "CLAUDE.md's seat table GOVERNS. This file must agree with it, and tests/test_role_cards.py",
     "fails if the two drift apart. roles/README.md holds a third copy and is not a source for",
@@ -84,7 +84,7 @@
     "went looking for a spawn grant its subagents do not need."
   ],
   "retired": {
-    "steward": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. NOTHING REPLACED IT. The usage mechanism it described still runs: the user-scope hook watch.py prints the usage state, and steward-tick.ps1 still writes status.json, both outside this repository. The three usage states, the stop on starting and the lift bind every seat from roles/COMMON.md, The usage watch hook's three states. Do not route usage work to a seat, and do not wait for a seat to call or lift a hold.",
+    "steward": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. NOTHING REPLACED IT. The usage mechanism it described still runs: the user-scope hook watch.py prints the usage state and writes status.json, outside this repository. The three usage states, the stop on starting and the lift bind every seat from roles/COMMON.md, The three usage states. Do not route usage work to a seat, and do not wait for a seat to call or lift a hold.",
     "steward1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
     "steward-1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
     "stewart": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A misspelling of steward. Nothing replaced it. See the steward row.",

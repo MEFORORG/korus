@@ -1638,7 +1638,7 @@ launch, not once at arrival** -- your own fan-outs are what move it. **Everythin
 is a lost-work signal, never a budget signal.** Commit early; do not stop early.
 
 The exception is HOLD NEW WORK, in section 8a, when your own hook prints it.
-[COMMON.md](COMMON.md), *The usage watch hook's three states*, holds its triggers.
+[COMMON.md](COMMON.md), *The three usage states*, holds its triggers.
 
 Measured on a five-hour window: a Builder that had read the rule **stopped anyway at 78 percent**, with over
 three hours to reset and four actionable items in hand. You will read a hook telling you to pause

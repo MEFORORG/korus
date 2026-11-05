@@ -10,13 +10,14 @@
 > was retired months ago."* The date of that retirement is not recorded in this repository; this
 > file was still edited as a live playbook on 2026-11-02.
 > **The mechanism it described still runs.** The user-scope hook `watch.py`, in
-> `<HOME>\.claude\mefor-usage\`, prints the usage state on SessionStart and UserPromptSubmit, and
-> `steward-tick.ps1` in that folder still writes `status.json`. None of them is in this repository,
-> and the seat's retirement does not switch them off.
+> `<HOME>\.claude\mefor-usage\`, prints the usage state on SessionStart and UserPromptSubmit and
+> writes `status.json`. Neither is in this repository, and the seat's retirement does not switch
+> them off. `steward-tick.ps1` there is a stub whose header, read 2026-11-05, says
+> it was superseded on 2026-08-14; section 6d records its heartbeat going dead.
 > **The rules that still bind moved.** *The three states*, *3a*, *3d* and *3g* now live in
-> [COMMON.md](../COMMON.md), *The usage watch hook's three states*, and bind every seat but the
+> [COMMON.md](../COMMON.md), *The three usage states*, and bind every seat but the
 > Lander. Their headings stay below as pointers, so an older citation still lands. Where that
-> section cites a numbered section here, read it for the definition it cites, not as an order.
+> COMMON section cites a section here, the cited section binds as COMMON cites it.
 > **Lines below still name the Steward and other retired seats as live. That is what a record looks
 > like, and it is not licence to act on one.**
 

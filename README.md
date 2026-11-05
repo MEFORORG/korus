@@ -90,8 +90,8 @@ Work is divided among **seats**, each a session with one job:
 | Lander | Decides merge order | long-lived |
 
 Further seats were tried and retired, at least the Console on 2026-09-10 and one on 2026-09-12
-left unnamed here. The owner said on 2026-11-05 that the Steward had gone months earlier. Why each
-went is part of the record this repository holds.
+left unnamed here, which nothing replaced. The owner said on 2026-11-05 that the Steward had gone
+months earlier. Why each went is part of the record this repository holds.
 
 ## Repository layout
 
