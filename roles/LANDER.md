@@ -358,7 +358,8 @@ restates them; the routing does not.
 | That row cited a heading that does not resolve | It read: `CLAUDE.md`, *Route it to the seat that owns it*. Measured at `5de5594`, `git grep -c` for it there returns zero. Control on *This table governs the roster*: 1 hit, so the grep was live. |
 | Neither you nor the Builder ever started it | Part of the same retired row. A Builder's process has already exited when its PR opens. |
 | Where the spawn grant lives -- **YOU NEED IT NOW TOO** | PER CONFIG ROOT: `Bash(claude:*)` or `PowerShell(claude:*)` under `permissions.allow`, in the `CLAUDE_CONFIG_DIR` root's `settings.json`. On all six roots, 2026-09-16. Measured 2026-09-02: `.claude-account-1` carries both rules and spawned a session in 38.8 seconds, and every root measured without them was refused. |
-| Every trigger is a POLL, and that is the real gap | Nothing tells you a pull request is waiting. No workflow reports one (BACKLOG #1413, open). `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label that nothing sends to a seat. |
+| Every trigger is a POLL, and that is the design | Nothing tells you a pull request is waiting; the loop in *Keep a standing `/loop` running* finds it. `stalled-prs.yml` reports green-but-unmergeable PRs on a daily 07:05 UTC cron, and `failure-signal.yml` writes a `ci-red` label that nothing sends to a seat. |
+| *Every trigger is a POLL* -- CHANGED 2026-11-05 | It read *"and that is the real gap"*, with vault BACKLOG #1413 open for a workflow reporting a waiting pull request. The owner declined that workflow on 2026-11-05, as vault BACKLOG #1402 retired the ci-red watcher for a poll. |
 | What that means for you | A green PR nobody has taken is waiting on your own poll, not on a broken route. Say that, and do not infer that the route changed. |
 | *Every trigger is a POLL* -- CORRECTED 2026-10-10 | It read *"writes a `ci-red` label nothing reads back"*. False since engine PR 1240: `ci-red-report.yml` reads it into a daily advisory run summary, sent to no seat. |
 | Who polls for reds now | You do, on your loop. *Keep a standing `/loop` running* carries the read. The watcher that spawned a seat per red is retired: a seat decision under owner delegation 2026-10-08, not an owner ruling. Vault BACKLOG #1402. |
@@ -807,7 +808,7 @@ minutes, so a shorter interval mostly re-reads state that has not moved.
 | It dies with the session | A replacement Lander starts its own on arrival. Nothing restarts it for you. |
 | Who stops it | The owner. In the self-paced form that is `ScheduleWakeup` with `stop: true`. |
 | Do NOT stop it on an empty queue, or for usage | Empty is the state it exists to catch: load `lander-empty-queue` and keep looping. *Standing rules* exempts this seat from every throttle call. |
-| EXPIRY | A workflow that reports a waiting pull request. BACKLOG #1413 is open for it. Land that and the poll becomes a fallback rather than the only trigger. |
+| No EXPIRY -- CHANGED 2026-11-05 | This row read *"A workflow that reports a waiting pull request. BACKLOG #1413 is open for it."* The owner declined that workflow on 2026-11-05. The loop is the designed trigger, not a stopgap, so nothing here expires. |
 
 **A Lander whose session moved into a worktree after launch (`EnterWorktree`) reads that
 worktree's mail inbox by hand on every loop pass.** The Stop-hook drain reads only the launch
