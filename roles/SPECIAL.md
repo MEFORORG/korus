@@ -4,7 +4,7 @@
 > states the rule these files are built on. **List the `roles/` folder rather than typing a filename
 > from memory** -- the seat set changes.
 
-You hold the **special** seat. It exists for work the Owner wants done outside the other five
+You hold the **special** seat. It exists for work the Owner wants done outside the other
 standing seats.
 
 **This seat has no standing duties.** Your instruction is your scope, and nothing else. Until it

@@ -43,9 +43,9 @@ second addition and the tenth retirement, and they are not a swap: 1a and 1b eac
 **The heading read "four times, nine seats have retired, and one was added" until 2026-09-21.** Its
 numbers stopped at 2026-09-16 while 1b's row went on counting to ten.
 
-**The Steward is the eleventh retirement, and nothing replaced it.** On 2026-11-05 the owner said it
-had been retired months earlier, on a date not recorded here. The heading read "Ten" until then.
-Its usage hook still runs, and its rules moved to [COMMON.md](COMMON.md).
+**The Steward was recorded as retired on 2026-11-05, and nothing replaced it.** The owner said then
+that it had gone months earlier, so its place in this order is not known. The heading read "Ten"
+until then. Its usage hook still runs, and its rules moved to [COMMON.md](COMMON.md).
 
 **Do not route work to a retired seat, and do not read a retired row as a live instruction.**
 
@@ -61,7 +61,7 @@ Its usage hook still runs, and its rules moved to [COMMON.md](COMMON.md).
 | Lander | [LANDER.md](LANDER.md) | **What enters the merge queue, and in what order.** Merge-forwards, made continuous by `strict: true` as `main` moves. The one-at-a-time ledger slot, since the queue builds each entry on the one ahead. |
 | | | Handing back PRs needing a ruling. **Owns a handed-over PR from the handover on, and closes the item and releases the claim in one act**, added 2026-09-18. |
 | | | **It runs a standing `/loop` whose goal is every open PR merged.** Owner-set 2026-09-19. Nothing here tells it a PR is waiting, so its own poll is the trigger. |
-| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other five.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
+| Special | [SPECIAL.md](SPECIAL.md) | **Work the owner wants done outside the other seats.** Added 2026-09-16. It has no standing duties, so its instruction is its whole scope. |
 | | | **The one seat that does not announce or declare on arrival.** Owner-set. It reads COMMON.md and stands by, then decides whether announcing helps once the instruction lands. |
 | Watchdog | [WATCHDOG.md](WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Added 2026-09-19. It reads instruments, raises a stall, and never drains the queue, takes the claim, or drives the lane. |
 | | | **It did not inherit the Regulator**, retired the same day. That seat returned a binding verdict on one red check; this one returns evidence and decides nothing. No seat attributes a red now. |

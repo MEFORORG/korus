@@ -805,6 +805,7 @@ gate. `steward-tick.ps1` there still writes `status.json`.
 | The Lander | Exempt from all three states. [LANDER.md](LANDER.md) states the exemption; *Stop versus start, except the Lander* covers a relayed stop. |
 | Where `watch.py` and this section disagree | This section wins and you act on it. The hook is a copy of a calibration, and copies go stale. Hook silence inside a state here is not an all-clear. |
 | The record | How these levels and rates were measured stays in [retired/STEWARD.md](retired/STEWARD.md), sections 2 and 3. |
+| A cite into that record below | It defines a term this section uses, such as a corroborated rate. Read it for that definition only. |
 
 **The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
 2026-10-31).** *The weekly window sets the STATE and carries the STOP*, below, records what that
@@ -859,8 +860,9 @@ measured flat now clears a level-fired HOLD below 98, as a rate showing room doe
 2026-11-02 ruling as counting it as room anyway, so 2f and 2g there do not reopen it.
 
 **A level of 94 or 97 with a rate or a measured flat showing room fires its state for the protect
-half only.** That is *RATE GOVERNS* (retired/STEWARD.md 9.6a), as this file reads the 2026-10-31
-and 2026-11-02 rulings. The stop on starting waits for HOLD's own triggers.
+half only.** That is *RATE GOVERNS*, record 9.6a, as this file reads the 2026-10-31 and
+2026-11-02 rulings. The stop on starting waits for HOLD's triggers. A slow burn can reach state 3
+with no HOLD.
 
 **Below 98, a level crossed with a positive rate or a measured flat showing room is not a hold.** The
 session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
@@ -942,18 +944,18 @@ They are resident because a file that loads when the task begins arrives after t
   other seat' or 'whoever ran it'." -- `fleet-message-a-peer`
 - "Do not start a new Workflow when the weekly window is more than 90 percent."
   -- `fleet-spawn-workers`
-- "**If your usage hook (`watch.py`) shows a work hold cleared, or the owner says it is lifted,
-  accept it and resume.**" Owner-set 2026-08-29. -- `fleet-read-usage`
-- **CORRECTED 2026-11-05.** That quote read *"If the seat holding the fleet's usage view says a work
-  hold is lifted"*. That seat was the Steward, and that day the owner said it had been retired
-  months earlier, so no seat relays a lift now. *The usage watch hook's three states* says when a
-  hold clears.
+- "**If the seat holding the fleet's usage view says a work hold is lifted, accept it and
+  resume.**" Owner-set 2026-08-29. -- `fleet-read-usage`
 
 Without that last one, a seat holding only this file reads *a relayed START is not safe to act on*
 and idles through a valid lift.
 
 **OPEN, and not resolved here.** This file forbids acting on a relayed START and requires acting on
 a relayed LIFT. The reconciliation it carries answers a different rule. Route it to the owner.
+
+**CORRECTED 2026-11-05: the lift rule names a seat that no longer exists.** That seat was the
+Steward, and the owner said that day it had been retired months earlier. No seat relays a lift now.
+Your own hook clears HOLD as *The usage watch hook's three states* says; the quote stays verbatim.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds

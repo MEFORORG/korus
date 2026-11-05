@@ -15,7 +15,8 @@
 > and the seat's retirement does not switch them off.
 > **The rules that still bind moved.** *The three states*, *3a*, *3d* and *3g* now live in
 > [COMMON.md](../COMMON.md), *The usage watch hook's three states*, and bind every seat but the
-> Lander. Their headings stay below as pointers, so an older citation still lands.
+> Lander. Their headings stay below as pointers, so an older citation still lands. Where that
+> section cites a numbered section here, read it for the definition it cites, not as an order.
 > **Lines below still name the Steward and other retired seats as live. That is what a record looks
 > like, and it is not licence to act on one.**
 

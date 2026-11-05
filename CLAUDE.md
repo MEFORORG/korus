@@ -37,7 +37,7 @@ Five seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs Builders as subagents or separate sessions. **Opens the PR for a subagent Builder** and hands it to the Lander. |
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill, commits, pushes, reports with its QA line, exits. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** **A content conflict on that PR is the Lander's to resolve, never a Builder's.** |
-| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
+| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other seats. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 | Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,

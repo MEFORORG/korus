@@ -7,8 +7,7 @@ repository.
 It is kept because archived pages on this site link to it. Deleting it would turn those links into
 a 404, which reads as "this page never existed" rather than "this seat went away".
 
-**Nothing replaced it.** No seat calls a usage state, publishes a rung, or names an account with
-headroom.
+**Nothing replaced it.** No seat holds its duty of naming the account with headroom.
 
 **The usage mechanism it described still runs.** The user-scope hook `watch.py`, in
 `<HOME>\.claude\mefor-usage\`, prints the usage state. `steward-tick.ps1` there still writes

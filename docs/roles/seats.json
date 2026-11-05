@@ -1,7 +1,7 @@
 {
   "_comment": [
-    "FIVE seats are live since 2026-11-05, when the Owner said the STEWARD seat had been retired",
-    "months earlier; the date of that ruling is not recorded here. Nothing replaced it. The usage",
+    "FIVE seats are live. On 2026-11-05 the Owner said the STEWARD seat had been retired months",
+    "earlier; the date of that ruling is not recorded here. Nothing replaced it. The usage",
     "hook and the status.json it described still run, outside this repository, and the three usage",
     "states bind every seat from roles/COMMON.md, The usage watch hook's three states.",
     "The seat roster, the alias map, and the retired seats with the reason each was retired.",
@@ -9,7 +9,7 @@
     "fails if the two drift apart. roles/README.md holds a third copy and is not a source for",
     "this file. The claim that its live table listed seven retired seats as live was retracted",
     "in CLAUDE.md on 2026-09-10; that table named one retired seat, in a Replaces clause.",
-    "The WATCHDOG seat arrived 2026-09-19, briefly making seven. SIX are live. It watches",
+    "The WATCHDOG seat arrived 2026-09-19, briefly making seven. SIX were live after that. It watches",
     "another seat work and files findings; it does not do the work it watches, and it is NOT a",
     "renamed Regulator. The REGULATOR retired hours later the same day and nothing replaced it,",
     "so no seat attributes a red check now: a red is the Lander or the Owner to triage and rule",

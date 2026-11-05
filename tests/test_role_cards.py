@@ -40,9 +40,9 @@ AGREEMENT = t.REPO_ROOT / "CLAUDE.md"
 MARKER_RELPATH = ".claude/seat.local.txt"
 ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 
-#: The seat table in the working agreement governs the roster. FIVE seats since 2026-11-05, when
-#: the owner said the STEWARD seat had been retired months earlier; the date of that ruling is not
-#: recorded here, and nothing replaced it. The usage hook it described still runs.
+#: The seat table in the working agreement governs the roster. FIVE seats. On 2026-11-05 the owner
+#: said the STEWARD seat had been retired months earlier; the date of that ruling is not recorded
+#: here, and nothing replaced it. The usage hook it described still runs.
 #:
 #: SIX from 2026-09-19, when
 #: the owner retired the REGULATOR and nothing replaced it. No seat now attributes a red check.
@@ -577,11 +577,12 @@ class TheHookResolvesInOrder(unittest.TestCase):
         r = self.run_hook(marker="watchdog")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("What this seat owns", r.stdout)
-        self.assertIn("Watchdog", r.stdout)
+        # The header, not the word: "Watchdog" also appears in the Lander and Regulator cards.
+        self.assertIn("SEAT: watchdog", r.stdout)
 
     def test_a_marker_is_case_and_space_insensitive(self):
         r = self.run_hook(marker="  Watchdog\n")
-        self.assertIn("Watchdog", r.stdout)
+        self.assertIn("SEAT: watchdog", r.stdout)
 
     def test_an_alias_injects_the_canonical_card(self):
         r = self.run_hook(marker="builder2")
@@ -593,8 +594,8 @@ class TheHookResolvesInOrder(unittest.TestCase):
 
     def test_the_marker_outranks_the_env_var(self):
         r = self.run_hook(marker="watchdog", env_seat="lander")
-        self.assertIn("Watchdog", r.stdout)
-        self.assertNotIn("| Lander --", r.stdout)
+        self.assertIn("SEAT: watchdog", r.stdout)
+        self.assertNotIn("SEAT: lander", r.stdout)
 
     def test_the_card_is_written_where_a_compacted_session_can_re_read_it(self):
         self.run_hook(marker="watchdog")

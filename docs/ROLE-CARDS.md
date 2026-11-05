@@ -12,7 +12,7 @@ outlives its session".** That named the delivery, not the purpose.
 
 A **seat** is the role a session holds, such as Builder, Lander or Manager. Each seat has a playbook
 in `roles/` that says what it owns and what it must not do. [The playbooks](PLAYBOOKS.md) lists the
-six live seats.
+live seats.
 
 A **worktree** is a separate checkout of this repository in its own folder. Each session works in
 its own worktree, so one session's checkout does not change under another. Some git state is still
