@@ -489,14 +489,13 @@ ruling.
 
 ## 3. The three states
 
-**Moved on 2026-11-05, and it still binds.** It is now [COMMON.md](../COMMON.md), *The usage watch
-hook's three states*. This heading stays so an older citation still lands.
+**Moved on 2026-11-05, and it still binds.** It is now [COMMON.md](../COMMON.md), *The three usage
+states*. This heading stays so an older citation still lands.
 
 ### 3a. The weekly window sets the STATE and carries the STOP
 
-**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
-watch hook's three states*, with this heading's wording. This heading stays so an older citation
-still lands.
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The three
+usage states*, with this heading's wording. This heading stays so an older citation still lands.
 
 ### 3b. The instrument's `state` field is a severity label, and that is not a defect
 
@@ -608,9 +607,8 @@ though for a vault reader that pointer now resolves.
 
 ### 3d. A live owner ruling can suspend the stop half without suspending the warning
 
-**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
-watch hook's three states*, with this heading's wording. This heading stays so an older citation
-still lands.
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The three
+usage states*, with this heading's wording. This heading stays so an older citation still lands.
 
 ### 3e. The Lander is exempt from all three states
 
@@ -658,9 +656,8 @@ whoever inherits it reads them with it.
 
 ### 3g. What each state asks for
 
-**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The usage
-watch hook's three states*, with this heading's wording. This heading stays so an older citation
-still lands.
+**Moved on 2026-11-05, and it still binds.** It is now under [COMMON.md](../COMMON.md), *The three
+usage states*, with this heading's wording. This heading stays so an older citation still lands.
 
 ### 3h. The 90 percent Workflow gate is not yours to tune; price the fan-out
 

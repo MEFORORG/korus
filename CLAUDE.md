@@ -58,9 +58,9 @@ attribution. `roles/retired/REGULATOR.md` is the record of what the seat did.
 **The Steward is retired as a seat, and nothing replaced it.** On 2026-11-05 the Owner said it had
 been retired months earlier; the date of that ruling is not recorded here. The usage hook and the
 `status.json` it described still run, outside this repository. The three usage states bind every
-seat from `roles/COMMON.md`, *The three usage states*. `roles/retired/STEWARD.md` is
-the record of what the seat did. This retires the KORUS seat only, not the project-owner governance
-role of the same name in the engine's `GOVERNANCE.md`.
+seat but the Lander, from `roles/COMMON.md`, *The three usage states*.
+`roles/retired/STEWARD.md` is the record of what the seat did. This retires the KORUS seat only,
+not the project-owner governance role of the same name in the engine's `GOVERNANCE.md`.
 
 **This table governs the roster.** `roles/README.md` and `docs/roles/seats.json` each hold a second
 copy of it. Where any of them disagrees with this table, this table wins.
