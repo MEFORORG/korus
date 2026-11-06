@@ -314,7 +314,7 @@ you do not hold.**
 | Item | Rule |
 | --- | --- |
 | Size it by what can land | The Lander merges serially and you never enqueue. What binds is CI jobs per change rather than changes in flight. |
-| Price the fan-out, not the first launch line | Each Builder binds a separate account, so one fan-out draws on several at once. [STEWARD.md](../STEWARD.md), under "The 90 percent Workflow gate is not yours to tune; price the fan-out", prices one run against the whole fleet's rate. |
+| Price the fan-out, not the first launch line | Each Builder binds a separate account, so one fan-out draws on several at once. [STEWARD.md](STEWARD.md), under "The 90 percent Workflow gate is not yours to tune; price the fan-out", prices one run against the whole fleet's rate. |
 | Your per-launch check passes honestly and the sum is still wrong | [COMMON.md](../COMMON.md), under "The workflow gate cannot see aggregate load", measured that shape twice. Read it before you launch a second wave inside one window. |
 | A vague brief buys duplicated work, and no gate catches it | A subject duplicate passes every gate and merges clean, per [COMMON.md](../COMMON.md) under "Before you allocate, grep the ALLOC TITLES for your subject, not the ledger". |
 | Where you stop it is the brief | The brief's Scope field names the one outcome and its Out-of-scope field names what a Builder must not touch. A brief missing either lets two Builders pick the same half. |

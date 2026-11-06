@@ -18,7 +18,7 @@ role-card hook injects no card and says the seat was retired. Set a live seat in
 Set-Content .claude/seat.local.txt 'builder'
 ```
 
-Live seats: manager, builder, regulator, steward, lander.
+Live seats: manager, builder, lander, special, watchdog.
 
 ## What this seat owns
 

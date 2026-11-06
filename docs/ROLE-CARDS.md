@@ -12,7 +12,7 @@ outlives its session".** That named the delivery, not the purpose.
 
 A **seat** is the role a session holds, such as Builder, Lander or Manager. Each seat has a playbook
 in `roles/` that says what it owns and what it must not do. [The playbooks](PLAYBOOKS.md) lists the
-six live seats.
+live seats.
 
 A **worktree** is a separate checkout of this repository in its own folder. Each session works in
 its own worktree, so one session's checkout does not change under another. Some git state is still
@@ -239,7 +239,10 @@ The hook runs in every worktree. A missing seat should not stop the session's wo
 
 ## The roster comes from CLAUDE.md, not from `roles/README.md`
 
-The six registered labels are Manager, Builder, Steward, Lander, Special, and Watchdog.
+The five registered labels are Manager, Builder, Lander, Special, and Watchdog.
+
+Steward is retired as a seat, and nothing replaced it. On 2026-11-05 the Owner said it had been
+retired months earlier. Its label now resolves to no card and the hook says it was retired.
 
 Regulator retired on 2026-09-19 by Owner instruction, and nothing replaced it. Its label now
 resolves to no card and the hook says it was retired.

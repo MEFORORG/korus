@@ -2,7 +2,7 @@
 
 WHAT THIS EXISTS FOR. On 2026-09-18 the owner moved pull-request opening from the Builder to the
 Manager. The old rule was not stated once. It was stated, in slightly different words, in
-`roles/COMMON.md`, `roles/BUILDER.md`, `roles/LANDER.md`, `roles/STEWARD.md`, `roles/README.md`,
+`roles/COMMON.md`, `roles/BUILDER.md`, `roles/LANDER.md`, `roles/retired/STEWARD.md`, `roles/README.md`,
 three role cards, the working agreement, four pages under `docs/` and a skill. Repointing them took
 one sweep and a grep, and nothing makes them stay repointed.
 
@@ -46,7 +46,7 @@ CORPUS = (
     "roles/BUILDER.md",
     "roles/LANDER.md",
     "roles/MANAGER.md",
-    "roles/STEWARD.md",
+    "roles/retired/STEWARD.md",
     "roles/README.md",
     "docs/roles/builder.card.md",
     "docs/roles/manager.card.md",

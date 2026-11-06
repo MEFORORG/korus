@@ -30,15 +30,14 @@ lies between what is convenient here and what a copier needs, the copier wins.
 
 ## The seats
 
-Six seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
+Five seats are live. Each has a playbook in `roles/` and a card in `docs/roles/`.
 
 | Seat | Playbook | What it owns |
 |---|---|---|
 | Manager | [MANAGER.md](roles/MANAGER.md) | Reads the record, picks the work, writes the brief. The only seat the Owner talks to. Runs Builders as subagents or separate sessions. **Opens the PR for a subagent Builder** and hands it to the Lander. |
 | Builder | [BUILDER.md](roles/BUILDER.md) | One brief, one turn. Takes the claim, builds, runs the `code-review` skill, commits, pushes, reports with its QA line, exits. |
-| Steward | [STEWARD.md](roles/STEWARD.md) | A cron, not a seat. Reads usage and names the account with headroom. |
 | Lander | [LANDER.md](roles/LANDER.md) | What enters the merge queue, and in what order. **Owns a handed-over PR from the handover on, and releases its claim when it lands.** **A content conflict on that PR is the Lander's to resolve, never a Builder's.** |
-| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other five. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
+| Special | [SPECIAL.md](roles/SPECIAL.md) | Work the Owner wants done outside the other seats. Added 2026-09-16. It does not announce or declare on arrival: it reads COMMON and stands by. |
 | Watchdog | [WATCHDOG.md](roles/WATCHDOG.md) | **Monitors the Lander and keeps it draining.** Reads instruments rather than the Lander's own report, and raises a stall. Added 2026-09-19. **It never drains the queue itself**, and it did not inherit the Regulator. |
 
 [COMMON.md](roles/COMMON.md) holds the rules that belong to no single seat. Read it first,
@@ -55,6 +54,13 @@ evidence rather than a verdict.
 **So no seat attributes a red check now.** A red is the Lander's to triage and route, or the
 Owner's to rule on. Do not route a red to a seat, and do not hold a pull request waiting for an
 attribution. `roles/retired/REGULATOR.md` is the record of what the seat did.
+
+**The Steward is retired as a seat, and nothing replaced it.** On 2026-11-05 the Owner said it had
+been retired months earlier; the date of that ruling is not recorded here. The usage hook and the
+`status.json` it described still run, outside this repository. The three usage states bind every
+seat but the Lander, from `roles/COMMON.md`, *The three usage states*.
+`roles/retired/STEWARD.md` is the record of what the seat did. This retires the KORUS seat only,
+not the project-owner governance role of the same name in the engine's `GOVERNANCE.md`.
 
 **This table governs the roster.** `roles/README.md` and `docs/roles/seats.json` each hold a second
 copy of it. Where any of them disagrees with this table, this table wins.

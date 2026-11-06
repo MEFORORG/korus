@@ -1608,7 +1608,7 @@ same breath and the two are easy to read past each other.
 automation that predates the hold, so **leave it armed** -- the hold stops discretionary escalation
 during a burn squeeze, it does not freeze pre-existing scheduled infrastructure.
 
-**And a Steward that tells you to ration or throttle is exceeding its own seat** (../STEWARD.md). So a
+**And a Steward that tells you to ration or throttle is exceeding its own seat** (STEWARD.md). So a
 hold is never an instruction to slow the board down. Cancelling the cron would have been the
 throttle the Steward is not permitted to order and did not.
 

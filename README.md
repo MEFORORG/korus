@@ -87,12 +87,11 @@ Work is divided among **seats**, each a session with one job:
 |---|---|---|
 | Manager | Plans, runs workers, holds the owner's attention | long-lived |
 | Builder | Takes one brief, does the work, opens a pull request | one turn |
-| Steward | Writes files other seats read | cron, no model calls |
 | Lander | Decides merge order | long-lived |
 
-Nine further seats were tried and retired: the Console on 2026-09-10, and another on
-2026-09-12 that is deliberately left unnamed here, with nothing replacing it. Why each went
-is part of the record this repository holds.
+Further seats were tried and retired, at least the Console on 2026-09-10 and one on 2026-09-12
+left unnamed here, which nothing replaced. The owner said on 2026-11-05 that the Steward had gone
+months earlier. Why each went is part of the record this repository holds.
 
 ## Repository layout
 

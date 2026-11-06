@@ -40,7 +40,11 @@ AGREEMENT = t.REPO_ROOT / "CLAUDE.md"
 MARKER_RELPATH = ".claude/seat.local.txt"
 ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 
-#: The seat table in the working agreement governs the roster. SIX seats since 2026-09-19, when
+#: The seat table in the working agreement governs the roster. FIVE seats. On 2026-11-05 the owner
+#: said the STEWARD seat had been retired months earlier; the date of that ruling is not recorded
+#: here, and nothing replaced it. The usage hook it described still runs.
+#:
+#: SIX from 2026-09-19, when
 #: the owner retired the REGULATOR and nothing replaced it. No seat now attributes a red check.
 #:
 #: SEVEN earlier the same day,
@@ -60,7 +64,7 @@ ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 #: Manager arrived 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is
 #: now the only seat that writes a brief.
 EXPECTED_SEATS = frozenset(
-    {"manager", "builder", "steward", "lander", "special", "watchdog"}
+    {"manager", "builder", "lander", "special", "watchdog"}
 )
 
 #: Retired seats whose card page an ARCHIVE still links to. The page stays and becomes a tombstone.
@@ -84,7 +88,10 @@ EXPECTED_SEATS = frozenset(
 #: IT IS A NAMED SET, NOT A PATTERN, for the reason `AUTHORED_VERBATIM` is: adding to it has to be a
 #: visible diff somebody approves. A tombstone still carries every required section, stays inside
 #: both budgets, and is read by the leak and ASCII scans -- it leaves only the two roster tests.
-TOMBSTONE_SEATS = frozenset({"console", "reviewer", "regulator"})
+#:
+#: `steward` JOINED ON 2026-11-05: `docs/REVISIONS.md` carries a row pointing at both
+#: `roles/steward.card.md` and its hash-pinned `.old.md` archive, as it does for the Reviewer.
+TOMBSTONE_SEATS = frozenset({"console", "reviewer", "regulator", "steward"})
 
 #: Each card carries all five. A card missing one is a card that answers a question by omission.
 REQUIRED_SECTIONS = (
@@ -567,14 +574,15 @@ class TheHookResolvesInOrder(unittest.TestCase):
         )
 
     def test_a_marker_injects_that_seats_card(self):
-        r = self.run_hook(marker="steward")
+        r = self.run_hook(marker="watchdog")
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertIn("What this seat owns", r.stdout)
-        self.assertIn("Steward", r.stdout)
+        # The header, not the word: "Watchdog" also appears in the Lander and Regulator cards.
+        self.assertIn("SEAT: watchdog", r.stdout)
 
     def test_a_marker_is_case_and_space_insensitive(self):
-        r = self.run_hook(marker="  Steward\n")
-        self.assertIn("Steward", r.stdout)
+        r = self.run_hook(marker="  Watchdog\n")
+        self.assertIn("SEAT: watchdog", r.stdout)
 
     def test_an_alias_injects_the_canonical_card(self):
         r = self.run_hook(marker="builder2")
@@ -585,12 +593,12 @@ class TheHookResolvesInOrder(unittest.TestCase):
         self.assertIn("Lander", r.stdout)
 
     def test_the_marker_outranks_the_env_var(self):
-        r = self.run_hook(marker="steward", env_seat="lander")
-        self.assertIn("Steward", r.stdout)
-        self.assertNotIn("| Lander --", r.stdout)
+        r = self.run_hook(marker="watchdog", env_seat="lander")
+        self.assertIn("SEAT: watchdog", r.stdout)
+        self.assertNotIn("SEAT: lander", r.stdout)
 
     def test_the_card_is_written_where_a_compacted_session_can_re_read_it(self):
-        self.run_hook(marker="steward")
+        self.run_hook(marker="watchdog")
         copy = self.root / ".claude" / "ROLE.local.md"
         self.assertTrue(copy.is_file(), "the hook did not write the re-readable copy")
         self.assertIn("What this seat owns", copy.read_text(encoding="utf-8"))
@@ -621,7 +629,7 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
         self.primary = Path(self.tmp.name) / "primary"
         (self.primary / ".git").mkdir(parents=True)
         (self.primary / ".claude").mkdir()
-        (self.primary / ".claude" / "seat.local.txt").write_text("steward", encoding="ascii")
+        (self.primary / ".claude" / "seat.local.txt").write_text("watchdog", encoding="ascii")
         self.worktree = self.primary / ".claude" / "worktrees" / "wt"
         (self.worktree / ".claude").mkdir(parents=True)
         (self.worktree / ".git").write_text("gitdir: elsewhere\n", encoding="ascii")
@@ -656,18 +664,18 @@ class TheHookReadsTheSessionsOwnWorktree(unittest.TestCase):
 
     def test_the_fixture_reproduces_the_fault_without_a_cwd(self):
         """The control. With no `cwd` the same call reads the primary, so the arms here can fail."""
-        self.assertIn("SEAT: steward", self.run_hook("{}").stdout)
+        self.assertIn("SEAT: watchdog", self.run_hook("{}").stdout)
 
     def test_a_cwd_that_does_not_exist_falls_back_and_says_so(self):
         r = self.run_hook(json.dumps({"cwd": str(self.primary / "gone")}))
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertIn("SEAT: steward", r.stdout)
+        self.assertIn("SEAT: watchdog", r.stdout)
         self.assertIn("names a cwd that is missing or inside no checkout", r.stdout)
 
     def test_input_that_is_not_json_falls_back(self):
         r = self.run_hook("not json {")
         self.assertEqual(0, r.returncode, r.stderr)
-        self.assertIn("SEAT: steward", r.stdout)
+        self.assertIn("SEAT: watchdog", r.stdout)
 
     def test_a_non_ascii_cwd_survives_the_read(self):
         """The input is read as UTF-8 bytes. A console-code-page read mangles this name and falls back."""

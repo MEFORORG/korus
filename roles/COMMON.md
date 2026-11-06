@@ -790,6 +790,149 @@ in the Builder's own chat the same day.
 
 ---
 
+## The three usage states
+
+**Moved here on 2026-11-05 from [retired/STEWARD.md](retired/STEWARD.md).** That day the owner said
+the Steward seat had been retired months earlier, on a date not recorded here. These rules bind
+every seat but the Lander, and no seat calls a state for you.
+
+**The mechanism still runs, outside this repository.** The user-scope hook `watch.py`, in
+`<HOME>\.claude\mefor-usage\`, prints the state on SessionStart and UserPromptSubmit, with the Workflow
+gate, and writes `status.json` beside it.
+
+| Item | Rule |
+| --- | --- |
+| The Lander | Exempt from all three states. [LANDER.md](LANDER.md) states the exemption; *Stop versus start, except the Lander* covers a relayed stop. |
+| Where `watch.py` and this section disagree | This section wins and you act on it. The hook is a copy of a calibration, and copies go stale. Hook silence inside a state here is not an all-clear. |
+| The `state` field in `status.json` | A severity label, not a stop order. Read the hook's ACTION line before you tell anyone to stop (record 3b). |
+| Where this ladder and the 90 percent gate disagree | The stricter binds, and the question routes to the owner through the Manager (record 3h). |
+| Tuning these numbers | No seat holds that grant. They are owner-set (record 3f). |
+| The record | How these levels and rates were measured stays in [retired/STEWARD.md](retired/STEWARD.md), sections 2 and 3. |
+| A cite into that record below | That cited section binds as this section cites it, for the term or procedure named, such as a corroborated rate. Its banner yields to this row. |
+
+**The weekly window is the only window this ladder reads, and it carries the stop (owner ruling
+2026-10-31).** *The weekly window sets the STATE and carries the STOP*, below, records what that
+ruling replaced.
+
+Whichever trigger fires **first** puts the pool in that state. Time is primary; the levels are the
+backstop, and HOLD NEW WORK's conditions follow the table.
+
+| State | Time to cutoff | Weekly level | What the state means |
+|---|---|---|---|
+| **1. HOLD NEW WORK** | 60 minutes, and before the window resets | 90 percent with no rate and no measured flat; 98 percent or more whatever the rate, and on a measured flat too | Start nothing new. Finish what is open |
+| **2. PROTECT AND WRAP** | 10 minutes | 94 percent | Commit, write the note, hand off |
+| **3. URGENT STOP** | 5 minutes | 97 percent | Stop now. Commit whatever exists, even half-done |
+
+**That table is the only statement of HOLD NEW WORK's time trigger. Link to it; do not copy it.** The
+owner may adjust it.
+
+**Burn rate governs HOLD NEW WORK.** With a rate, the pool is in HOLD when the rate projects it to run
+out inside that time and before the window resets. A run-out projected past the reset is no cutoff.
+A pool at 92 percent with a rate that projects no such run-out is not in HOLD.
+
+A state is read fresh each time. A rate-fired HOLD clears when the projection stops firing it, and
+[retired/STEWARD.md](retired/STEWARD.md) 2f, *A warning that changes behaviour invalidates its own
+projection*, says how to read that.
+
+| Reading | What fires HOLD NEW WORK |
+| --- | --- |
+| A positive rate from `watch.py`'s series, or one corroborated as [retired/STEWARD.md](retired/STEWARD.md) 2c asks. The series is one instrument with a window, not a corroborated rate | The projection. The level 90 does not fire HOLD here. |
+| A measured flat: the newest successful read and an older one at least 30 minutes apart at an equal level (owner ruling 2026-11-02), under the conditions below this table | Nothing below 98. It counts as room, so the level 90 does not fire HOLD here. As this file reads that ruling, 94 and 97 fire the protect half only. |
+| No positive rate, no measured flat: for example one read, a shorter flat with no rate before it, or a blind window with no equal read or rate after it (retired/STEWARD.md trap 9.2 and 2c) | The level 90. |
+| A session whose pool was guessed, whose pool map row names another account, or whose login disagrees with the reading on the login-record route (pool from this config root's login). Checked per reader | It gets neither rate nor flat, and stays on the level. Identify your pool before you trust that level (retired/STEWARD.md section 2). |
+| A root that contradicts its own login record, at least in these cases. The self-check does not run for a desktop session the app recorded | Outside the desktop app: neither rate nor flat, and the level still grades. On the desktop route with a pinned root and no app record: `[USAGE UNKNOWN]`, no rung and no workflow gate. |
+| 98 percent or more | The level, whatever the rate says, and on a measured flat too. |
+
+**A positive rate is read first (the owner's `rate > 0`).** A plateau of 30 minutes or more ends a
+climb. One tick past it is rated from its start, and two or more from its end. The cost is that a
+burst after idle reads slow until its second tick.
+
+**A measured flat needs at least all of this.** The newest read is fresh, within `SAMPLE_MAX_AGE`, 900
+seconds. The read just taken is on this pool's rate series. No rate stands. Every read back to the
+older one is equal, the older is in the current weekly window, and there is a reset time.
+
+With neither a rate nor a measured flat, the level decides. The comment on the `BURN_` constants in
+the vault's `scripts/coord/watch.py` has the values; `_flat`, `_read_pool` and `_for_reader` there
+have the conditions.
+
+**The no-rate row read *"one sample, a flat burn, or a blind window"* until 2026-11-02.** Under HOLD
+nobody starts, so a pool can stay flat, and that row could then hold it until the reset. A
+measured flat now clears a level-fired HOLD below 98, as a rate showing room does.
+
+**That flat may be HOLD's own effect**, as retired/STEWARD.md 2f describes. This file reads the
+2026-11-02 ruling as counting it as room anyway, so 2f and 2g there do not reopen it.
+
+**A level of 94 or 97 with a rate or a measured flat showing room fires its state for the protect
+half only.** That is *RATE GOVERNS*, record 9.6a, as this file reads the 2026-10-31 and
+2026-11-02 rulings. The stop on starting waits for HOLD's triggers. A slow burn can reach state 3
+with no HOLD.
+
+**Below 98, a level crossed with a positive rate or a measured flat showing room is not a hold.** The
+session on branch `claude/rederive-after-the-tree-moves` read a weekly crossing as one and declined
+offered work, with the no-rationing paragraph beneath its banner. The same misreading stays open.
+
+**The weekly levels read 85 / 92 / 95 until 2026-09-17.** Owner ruling that day moved them to
+90 / 94 / 97, and the 2026-10-31 ruling kept those numbers. **Until 2026-10-31 a session column read
+80 / 86 / 92 and rung 1's time trigger read 20 minutes.**
+
+Recorded rather than replaced silently, because the old numbers are cited elsewhere. The correction
+below is about a weekly-**85** crossing, and retired/STEWARD.md section 5's drift record compares
+89/93 against 86/92. Those readings stay true of the dates they name.
+
+**One act reads the published state.** The Manager reads it before it writes a launch line. Nothing
+can interrupt a running session, so a running seat learns the state from its own hook.
+
+These levels are the owner's guidance from experience, not a derivation and not a hard mechanism.
+Treat them as a floor to warn at, not a target to ride up to. Calibration moves.
+
+### The weekly window sets the STATE and carries the STOP
+
+**Owner ruling 2026-10-31, replacing the 2026-08-14 ruling that a weekly rung stops nobody.** Anthropic
+removed the five-hour limit. The weekly window now sets the state and carries the stop on starting, and
+`STOP_AUTHORITY_WINDOWS` holds weekly alone. The table above holds the triggers.
+
+**What it replaced.** From 2026-08-14 a weekly rung stopped nobody. Only the 5-hour window carried the
+STOP, a weekly-only rung was a severity label with no start-nothing half, and the state was the worse
+of the two windows. With one window left, that rule is retired whole.
+
+**A rung's name still does not settle its authority.** On 2026-08-27 a Steward announced a weekly-85
+crossing as a ladder hold, and the PM stopped work on it. The Steward's words: *"I conflated the
+rung's name with its authority."* The same conflation now arrives as a level read as a hold while a
+rate shows room.
+
+### A live owner ruling can suspend the stop half without suspending the warning
+
+Read the ruling before you tell anyone to stop. On 2026-08-14 the owner ruled to front-load and run
+through the weekly rungs. Every seat obeying this table literally would then have held new work,
+when the owner had just said not to.
+
+**The owner ruling of 2026-10-31 replaced that one: a weekly rung now carries the stop.** This
+section's rule stands, because a later ruling can suspend the stop half again.
+
+Split every rung into its two halves, because only one of them is ever contested:
+
+| half | what it does | status |
+|---|---|---|
+| **PROTECT** | commit what you have, write the note, let the at-risk sweep run | **Always applies once a rung has fired.** Cheap, loses nothing, and it survived all three usage reversals in one hour |
+| **STOP** | hold new work, wind down | **Contested. Read the live ruling.** Never infer it from the number |
+
+| Item | Rule |
+| --- | --- |
+| A rung firing is not automatically a stop order | Under a front-loading ruling, rungs firing is EXPECTED. Say so when you publish one, or a correct warning reads as a halt. |
+| Name the ruling you are acting under, with its time | *"Rung fired; the owner's 20:13Z ruling says run through it; protect only"* is one sentence and it removes the whole ambiguity. |
+| The table is the durable half; the current posture is not | The live-state rule at the top of this file. The thresholds are calibration and change slowly. **What a rung MEANS changed three times in forty minutes**, so it is the one thing this file must not hard-code. |
+
+### What each state asks for
+
+| State | What it asks for |
+|---|---|
+| **HOLD NEW WORK** | No new Workflow, no new item, no new fan-out. Everything already running continues at full speed. This is not a slowdown, it is a stop on *starting*. |
+| **PROTECT AND WRAP** | Commit local work, update the note, write the handoff. **Uncommitted work has no SHA, so every commit-based check reads clean over it** -- the most reassuring signal over the least recoverable state, and exactly what a cutoff destroys. |
+| **URGENT STOP** | A partial commit beats a lost tree. Do not start a verification pass, do not start a rebase, do not begin anything that must finish to be safe. |
+
+Where a level below 98 alone fired state 2 or 3 with a rate or a measured flat showing room, only the
+protect half is asked for (the table above).
+
 ## Prohibitions that bind before any task starts
 
 Each rule below is quoted verbatim from the task file named after it, which holds its full context.
@@ -812,6 +955,11 @@ and idles through a valid lift.
 
 **OPEN, and not resolved here.** This file forbids acting on a relayed START and requires acting on
 a relayed LIFT. The reconciliation it carries answers a different rule. Route it to the owner.
+
+**CORRECTED 2026-11-05: the seat the lift rule names was the Steward**, which the owner said that
+day had been retired months earlier. Whether another seat now holds that view is an owner question;
+route it with the OPEN item above. HOLD clears as *The three usage states* says, not on hook
+silence.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds
