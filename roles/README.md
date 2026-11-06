@@ -80,7 +80,7 @@ until then. Its usage hook still runs, and its rules moved to [COMMON.md](COMMON
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
 | Who answers an owner question now | The Manager. It is the only seat the owner talks to. |
-| **Who calls a usage state now** | **No seat.** The owner said on 2026-11-05 that the Steward had been retired months earlier. Each seat reads its own usage hook. The states and stop moved to [COMMON.md](COMMON.md); who lifts a HOLD is an OPEN owner question there. |
+| **Who calls a usage state now** | **No seat.** The owner said on 2026-11-05 that the Steward had been retired months earlier. Each seat reads its own usage hook. The states and clearing rules moved to [COMMON.md](COMMON.md); who relays a lift is an owner question. |
 | **Who attributes a red now** | **Nobody.** The Regulator retired 2026-09-19 and nothing replaced it. A red is the Lander's to triage and route, or the owner's to rule on. The Watchdog measures whether reds are being cleared; it never says whose one is. |
 
 ### 1c. `INSTRUMENTS 4.x` and `COMMON 4.x` citations resolve to a blob, not a file
