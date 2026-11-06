@@ -18,6 +18,8 @@
 > [COMMON.md](../COMMON.md), *The three usage states*, and bind every seat but the
 > Lander. Their headings stay below as pointers, so an older citation still lands. Where that
 > COMMON section cites a section here, the cited section binds as COMMON cites it.
+> **This retires the KORUS seat only.** A project-owner governance role also named Steward, in the
+> engine's `GOVERNANCE.md`, is a different thing and is not touched.
 > **Lines below still name the Steward and other retired seats as live. That is what a record looks
 > like, and it is not licence to act on one.**
 

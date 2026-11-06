@@ -4,6 +4,9 @@
 said the seat had been retired months earlier. The date of that ruling is not recorded in this
 repository.
 
+**This retires the KORUS seat only.** A project-owner governance role also named Steward, in the
+engine's `GOVERNANCE.md`, is a different thing and is not touched.
+
 It is kept because archived pages on this site link to it. Deleting it would turn those links into
 a 404, which reads as "this page never existed" rather than "this seat went away".
 
