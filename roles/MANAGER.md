@@ -178,7 +178,7 @@ where it lives; do not act on a paraphrase. [BUILDER.md](BUILDER.md) 5d links he
 
 | Control | Where it lives |
 | --- | --- |
-| The stop on starting: the HOLD NEW WORK state. Your hook is one way it reaches you, and hook silence inside a state is not an all-clear | [COMMON.md](COMMON.md), *The three usage states*, with its *The weekly window sets the STATE and carries the STOP* and *A live owner ruling can suspend the stop half without suspending the warning* |
+| The stop on starting: the HOLD NEW WORK state. Your hook is one way it reaches you, and hook silence is not an all-clear | [COMMON.md](COMMON.md), *The three usage states*, with its *The weekly window sets the STATE and carries the STOP* and *A live owner ruling can suspend the stop half without suspending the warning* |
 | The 90 percent gate on a new Workflow | [COMMON.md](COMMON.md), *Prohibitions that bind before any task starts* |
 | **CORRECTED 2026-11-05** | The first row read *"A Steward's stop on starting"*, citing `STEWARD.md`. That day the owner said the seat was retired months earlier. The stop's rules moved to [COMMON.md](COMMON.md), *The three usage states*, which wins over your hook. |
 
