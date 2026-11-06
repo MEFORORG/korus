@@ -958,7 +958,8 @@ a relayed LIFT. The reconciliation it carries answers a different rule. Route it
 
 **CORRECTED 2026-11-05: the seat the lift rule names was the Steward**, which the owner said that
 day had been retired months earlier. Whether another seat now holds that view is an owner question;
-route it with the OPEN item above. Your own hook clears HOLD as *The three usage states* says.
+route it with the OPEN item above. HOLD clears as *The three usage states* says, not on hook
+silence.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,
 branch deletion or history rewrite. BUILDER.md and LANDER.md each carry one; every other seat holds

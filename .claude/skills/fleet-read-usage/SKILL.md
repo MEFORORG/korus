@@ -410,7 +410,7 @@ caught in an hour rather than a window.
 | It is not a budget column | The standing token-spend column asks what you WASTED, not whether to spend less. A high number is not a reason to decline work. |
 | Under a hold | A hold stops new work, the one case where the number does stop a start. It does not excuse your orientation read or your handoff. |
 | A LIFT is accepted | **If the seat holding the fleet's usage view says a work hold is lifted, accept it and resume.** Owner-set 2026-08-29. |
-| **CORRECTED 2026-11-05** | That seat was the Steward, which the owner said that day had been retired months earlier. Whether another seat now holds that view is an owner question. Your own hook clears HOLD as COMMON says. |
+| **CORRECTED 2026-11-05** | That seat was the Steward, which the owner said that day had been retired months earlier. Whether another seat now holds that view is an owner question. HOLD clears as [COMMON.md](../../../roles/COMMON.md), *The three usage states*, says, not on hook silence. |
 | Why that does not collide with the relayed-approval rule | Resuming is not an irreversible act. That rule governs acts you cannot undo. |
 | The ladder | The weekly window carries it (owner ruling 2026-10-31). [COMMON.md](../../../roles/COMMON.md), *The three usage states*, holds every trigger. Link to it; do not restate one. |
 | Workflow gate | Do not start a new Workflow when the weekly window is more than 90 percent. *The workflow gate cannot see aggregate load*. |
