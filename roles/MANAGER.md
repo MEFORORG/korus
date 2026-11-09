@@ -36,6 +36,8 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
+| You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds the ruling. |
+| Reclaiming a verified-dead holder's work is class B (owner ruling 2026-11-09) | You may take it over, or brief a Builder to. *3a. A verified-dead holder's work is yours to reclaim, with its review* says how. |
 
 ### The weekly ledger report
 
@@ -740,6 +742,21 @@ Then, by the same reading, it releases each of the batch's claims through the en
 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818): that batch may not be marked BUILT or DONE while
 any of its rows is PARTIAL.
 
+### 3a. A verified-dead holder's work is yours to reclaim, with its review
+
+**Owner ruling 2026-11-09, tier T3.** Taking over a verified-dead holder's worktree, branch or claim
+is class B. It was class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*,
+holds the ruling and the three tests for dead.
+
+| Item | Rule |
+| --- | --- |
+| Read every test this turn | The holder's commits, pushes, comments and mail; its claim and seat record; the queue and any armed request. A test you did not read fails, and the takeover stays class C. |
+| Anchor first | Get the holder's work onto a pushed ref before you touch it. The `fleet-anchor-work` skill says how. |
+| It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
+| Briefing a Builder to reclaim | Name the worktree, branch or claim in the brief, with your readings. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
+| A held PR is not yours by T3 | It keeps the Lander's repair Builder or the Repair Manager route. *8. The Repair Manager's duties* holds the second. |
+| A quiet batch under R8 | R8 still releases it to FREE after 72 hours. T3 lets you take it sooner, once its holder reads dead. |
+
 ---
 
 ## 4. Your work has to survive your exit
@@ -846,7 +863,8 @@ so does the repair's own commit message.
 | Item | Rule | What would end it |
 | --- | --- | --- |
 | Never merge. | The Lander handles all merges. Ask it, do not do it. | The owner moving merge authority to this seat. |
-| You do not edit another Manager's worktree, or the primary checkout | *A claim on an item is not a claim on a path*: nothing enforces path claims. | A registry that claims paths, not just items. |
+| You do not edit another Manager's worktree, or the primary checkout | *A claim on an item is not a claim on a path*: nothing enforces path claims. A verified-dead holder's worktree, reclaimed under *3a*, is the one exception. | A registry that claims paths, not just items. |
+| **CHANGED 2026-11-09** | The row above ended *"nothing enforces path claims."* It had no reclaim exception. | -- |
 
 ---
 
