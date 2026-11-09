@@ -712,6 +712,7 @@ The steps are restated here because they must be in front of you at the moment y
 | --- | --- |
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. With empower off, not on a class B or C decision: *The empower rules are on by default, for every seat but Special*. |
+| Step 1 with empower on | A class B act still takes its decision review, unless it meets the fast path in *The owner widened the classes on 2026-11-09*. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
 | Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. The Repair Manager is the exception below. *The owner reads by sampling* holds the route. |
@@ -776,17 +777,102 @@ in the Builder's own chat the same day.
 | Who applies them | Every seat except Special applies the `driver` rules and the `empower` rules by default, in a local session or a cloud one. Nobody has to invoke either skill. |
 | The Special seat | It applies the `driver` rules only. Its instruction is its whole scope, and it keeps asking. [SPECIAL.md](SPECIAL.md) holds its ladder. |
 | What `empower` adds | It sorts every decision into four classes: A mechanical, B reversible judgment, C Owner-reserved, D blocked by the harness. It replaces the driver ladder's step 3 where the two disagree. |
+| What the 2026-11-09 ruling adds | It moves acts into class B and adds a fast path inside it: *The owner widened the classes on 2026-11-09*. |
 | The source of record for the classes | The engine's `docs/AUTONOMY-PLAN.md`, section 3, *Driver v2: the rules every seat follows*. Read it at engine `origin/autonomy-plan` until it merges, and at `origin/main` after. |
 | Where the plan says the daily digest | The plan puts class C tables and class D commands in a daily digest, a control in its section 4. Until a digest runs, the `empower` skill's end-of-turn summary carries them. |
 | The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it at the start of each task with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
 | Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs in ask-mode. |
 | What the fallback restores | The driver rules alone, in ask-mode: no seat acts on a class B or C decision without the Owner, however strong its recommendation. Merging is not a class, so the Lander keeps merging. |
 | What yields to ask-mode | The driver ladder's steps 1 and 2, and *Escalate only what only the Owner has*. A recorded delegated decision is the Owner's own answer, and the switch does not touch it. |
+| The 2026-11-09 tiers under the switch | All three go off with empower: the fast path, the reclaim and spawn grants, and the ADR-bound scope. What they moved into class B goes back to its old class. |
 | The text that reverts | Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
 | **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*. *What the fallback restores* opened *"The driver rules alone."*; its second sentence is now *The text that reverts*. Driver step 1 then reached class B and C. |
 | The source of record for ask-mode | The engine's `CLAUDE.md`: *"no class B or C decision is acted on without the owner"*. It cites `docs/AUTONOMY-PLAN.md`, section 4, item 3, where every class reverts to ask-mode. |
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
+
+### The owner widened the classes on 2026-11-09
+
+**Owner ruling 2026-11-09, given in a Manager session's own chat.** The Manager quoted both answers
+in its brief to the Builder that drafted this section. In the owner's words:
+
+| Question | The owner's answer |
+| --- | --- |
+| *"Which autonomy tiers should I adopt?"* | *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"* |
+| *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"* | *"Exempt this change"* |
+
+| Item | Rule |
+| --- | --- |
+| T2 was offered and not adopted | It would have moved playbook, skill, `CLAUDE.md`, hook and workflow edits to class B. Those edits stay class C. |
+| Ledger ruling R5 | The second answer exempts this change from the freeze. It exempts nothing else, so R5 still binds every other new rule until 2026-12-02. |
+| Where the engine plan reads otherwise | The engine's `docs/AUTONOMY-PLAN.md` still carries the older classes. This ruling is the newer one. |
+| The kill switch | Anything but exactly `off` turns all three tiers off, as *The 2026-11-09 tiers under the switch* says above. |
+
+**T1, the fast path.** A class B act may skip its adversarial decision review only when every
+condition below holds.
+
+| Condition | What it requires |
+| --- | --- |
+| One undo | A single git revert or a PR close undoes it. |
+| No effect outside git | At least mail, messages, PR comments, spawned sessions, writes outside a worktree and queue actions fail this. |
+| No class C path | It touches none. At least playbooks, skills, any `CLAUDE.md`, hooks, workflows, `.pre-commit-config.yaml`, SAIDS, SDS, branch protection and required contexts are class C paths. |
+| Not even a class B edit to one | A class B tightening or follow-on edit to one of those paths fails too. It keeps its review. |
+| One item | It acts on one item. |
+| Not a security control | At least gates, auth, RBAC, TLS, egress, leak gates, PHI handling, security and assurance records, and scores fail this. |
+| Live state | It was read this turn. |
+| No reversal | No earlier decision on the item was reversed. |
+| Shown, not assumed | Any condition not shown by a reading this turn fails. |
+
+| Item | Rule |
+| --- | --- |
+| T1 is a subset of class B | It sorts nothing. An act that is not already class B is never on the fast path. |
+| What it skips | The adversarial decision review, and nothing else. |
+| What still binds | Code review, the QA line, gates, hooks and required contexts. |
+| It is still logged | Log it as any class B decision. |
+| The budgets count it | Fast-path decisions count against the reversal budget and the chain limit. |
+| An act whose diff you have not read | This file's reading: it cannot show *No class C path* this turn, so it fails. A brief to a Builder is one. |
+| Reading a security path | This file's reading: where you cannot tell whether a path is a security control, it is one. |
+
+**Calibration under T1.** The 60-sample owner blind gate is replaced by automated signals, at the
+plan's existing thresholds.
+
+| Item | Rule |
+| --- | --- |
+| The signals | A 14-day reversal rate of 5 percent or less. The reversal budget: 3 a day fleet-wide, or 2 a day for one seat. |
+| Reds after merge and Lander holds | Designed, not built, until tooling reads them. |
+| Owner blind sampling | Optional. |
+| Where the thresholds live | The engine's `docs/AUTONOMY-PLAN.md`, section 4, items 2 and 5. |
+| The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
+| While the gate still counts 60 samples | It answers REVIEW for every seat. This file's reading of *Shown, not assumed*: the fast path stays shut until the gate reads the new signals. |
+
+**T3, reclaim and spawn.**
+
+| Item | Rule |
+| --- | --- |
+| Taking over a verified-dead holder's work | Its worktree, branch or claim. Class B, with its review. It was class C, as work touching another session's. |
+| Verified dead, first | No commit, push, comment or mail from the holder for more than 2 hours. |
+| Verified dead, second | No live session in the claim or seat record. A transcript ending on a question unanswered for more than 2 hours counts as none. |
+| Verified dead, third | Nothing queued or armed. |
+| Anchor before you take it | The work is on a pushed ref first. The `fleet-anchor-work` skill says how. |
+| Never the fast path | This file's reading: a reclaim changes a claim or another seat's worktree, so it fails *No effect outside git*. |
+| A held PR | Keeps its route, the Lander's repair Builder or the Repair Manager. T3 does not take one. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*. |
+| Which Builder reclaims | Only one whose Manager's brief names the work. Manager decision 2026-11-09, class B. |
+| A Builder spawning a session | Class B for its own fixes. A Builder spawning for anything else still needs permission first. |
+| Ledger work | Managers pick and decompose ledger work themselves. |
+| Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner. |
+
+**T4, ADR-bound scope.**
+
+| Item | Rule |
+| --- | --- |
+| Ledger rows and work an accepted ADR names as its direction | Class B. |
+| A genuinely new product direction | Class C still, as new product scope. |
+| Accepted | This file's reading: the ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
+| It moves scope only | A change inside that scope that weakens a control is still class C. |
+
+**Still the owner's in person, and no tier reaches them:** register signing, money, credentials,
+irreversible acts, the PHI rules, branch protection, and weakening a control. Merging stays the
+Lander's.
 
 ---
 
