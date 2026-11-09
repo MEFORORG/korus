@@ -82,6 +82,7 @@ moment they can win.
 | Where this file loses | On **the merge, the queue and the ledger banner**, [LANDER.md](LANDER.md) is the authority. On **who opens the pull request**, [MANAGER.md](MANAGER.md) is, since 2026-09-18. On everything else, COMMON. |
 | Editing this folder | Send what broke when you *ran* this playbook to the Manager. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still cannot ask and wait: a question goes in your report. |
+| The T1 fast path (owner ruling 2026-11-09) | It skips only a class B act's decision review, never your `code-review` run, the QA line, gates or hooks. A class C path or a security control never qualifies. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*. |
 
 | On which row | What it adds |
 | --- | --- |
@@ -162,6 +163,8 @@ whenever it is reasonable* is met.
 | Write, edit, delete inside your lane | -- |
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
+| Spawn a session for your own fixes (owner ruling 2026-11-09, class B). Spawning for anything else still needs permission first | -- |
+| Reclaim a verified-dead holder's worktree, branch or claim | Only when your Manager's brief names it (Manager decision 2026-11-09, class B). Anchor the work to a pushed ref first. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
@@ -202,7 +205,8 @@ Report it, and do not ask the owner. The Lander flips it.
 | --- | --- |
 | `git commit --no-verify`, or a rename to dodge a gate | Nothing. No condition makes this correct. |
 | `git reset --hard` in a worktree | The harness deny-lists it. The answer to a refusal is to stop, not to find a spelling that gets past it. |
-| Edit, commit in, or remove another lane's worktree | Nothing, while lanes are concurrent. |
+| Edit, commit in, or remove another lane's worktree | Nothing, while lanes are concurrent. A verified-dead holder's worktree that your brief names is the one exception, under the reclaim row in section 1. |
+| **CHANGED 2026-11-09** | The row above read *"Nothing, while lanes are concurrent."* It had no reclaim exception. |
 | Release another worktree's claim | Policy, not mechanism -- `-Force` works. Not yours unless the Manager asks. |
 | Run a machine-global installer (`install-coordination.ps1`, `install-git-hooks.ps1`, `install-gate.ps1`, `install-selfheal.ps1`) | These are the owner's, from a plain terminal, by design. |
 | A bare `git stash` or `git stash pop` | Nothing, while worktrees share a repo -- that is git's design, not a setting. |
