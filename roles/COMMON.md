@@ -797,13 +797,13 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | Item | Rule |
 | --- | --- |
 | The rule, in the chosen option's text | *"a filed build row and the direction of an ADR you accepted are not 'new product scope'"*. The Manager wrote that text; the owner selected it. |
-| How this file reads it | An open row whose verdict is plain build, with no decide step and no owner question open. And the direction of an in-force ADR whose status names the owner's acceptance. A declined item stays declined. |
-| Scope a session wrote | It counts only where it traces to an owner turn, or to a defect or finding against main: a row it filed or widened, a verdict it set, an ADR acceptance or amendment it recorded. |
-| Delegated decisions, and where to read | A decision recorded under the owner's delegation is the owner's ruling. All of it is read at `origin/main`. |
-| What this file draws from it | A Manager picking and splitting such work is a routine plan: class B, with its adversarial review. This row and the one above are the drafting seat's reading, not the owner's wording. |
+| Where the qualifier is defined | Engine `docs/AUTONOMY-PLAN.md` section 3 and section 12, read at `origin/main`, define the qualifier and its carve-backs. This file restates only the grant to Managers. |
+| The grant to Managers | A Manager picking and splitting work the qualifier exempts is a routine plan: class B, with its adversarial review. This row is the drafting seat's reading, not the owner's wording. |
+| Scope a session wrote | Scope a session wrote counts only where it traces to an owner turn, or, for a row it filed or widened or a verdict it set, to a defect or finding against main. |
+| Session-recorded ADRs and delegations | An ADR acceptance or amendment a session recorded counts only where it traces to an owner turn. A decision recorded under the owner's delegation is the owner's ruling. Rows and ADRs are read at `origin/main`. |
 | What is unchanged | Every other class C item and every class C path. A new direction stays the owner's, even inside such a row or a split of one. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
-| What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *What this file draws from it* grants. The owner did not choose T2. |
+| What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *The grant to Managers* grants. The owner did not choose T2. |
 | 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
 | The T3 option text, live only in its last clause | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
 | The T4 option text | *"Ledger rows and accepted-ADR direction become class B; new directions stay yours."* |
