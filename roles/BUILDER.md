@@ -164,7 +164,7 @@ whenever it is reasonable* is met.
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
 | Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening no new PR. [COMMON.md](COMMON.md) T3. |
-| Reclaim a verified-dead holder's worktree, branch or claim | Class B, with its review, only when your Manager's brief names it (Manager decision 2026-11-09). Anchor the work, then branch from that ref in your own worktree. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
+| Reclaim a verified-dead holder's worktree, branch or claim | Class B, with review, only when your brief names it (Manager decision 2026-11-09). Re-read the dead tests yourself, then branch from its pushed tip in your worktree. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
