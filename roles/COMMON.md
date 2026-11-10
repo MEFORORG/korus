@@ -712,7 +712,7 @@ The steps are restated here because they must be in front of you at the moment y
 | --- | --- |
 | Be proactive | Proceed as you judge best, and err toward honestly pressing forward. |
 | Step 1: you hold a strong recommendation | Act on it. Confirming is asking. With empower off, not on a class B or C decision: *The empower rules are on by default, for every seat but Special*. |
-| Step 1 with empower on | A class B act still takes its decision review, unless it meets the fast path in *The owner widened the classes on 2026-11-09*. |
+| Step 1 with empower on | A class B act still takes its decision review, unless it meets the fast path in *The owner widened the classes on 2026-11-09*. A class C act goes to the owner's bundled ask. |
 | Step 2: you hold none | Put the issue to adversarial review, and follow a clear recommendation it develops. |
 | Step 3: review developed none | Ask. Say that the review failed, and give a recommendation with your confidence marked. |
 | Who you ask | The Manager, where one is running. Owner ruling 2026-10-08. With none running, and for the Manager itself, use `AskUserQuestion`, never prose. The Repair Manager is the exception below. *The owner reads by sampling* holds the route. |
@@ -834,7 +834,7 @@ condition below holds.
 | No reversal | No earlier decision on the item was reversed. |
 | The gate | Run in the act's own worktree, after the edit and before the commit, `decision.ps1 -Gate -Item <item>` with `-Touches` naming every changed path answers NO-REVIEW. Run it again if the path set grows. |
 | An up-to-date worktree | Fetch, then check `git merge-base --is-ancestor origin/main HEAD`. If it fails, the answer is REVIEW (decided by the Manager 2026-11-09). The gate does not check this itself. |
-| Which copy of the gate | Run the gate only from a worktree whose HEAD contains `origin/main`, by the ancestry check above, so its scripts are `origin/main`'s (decided by the Manager 2026-11-09). A branch that edits them fails *No class C path*. |
+| Which copy of the gate | Run the gate only from a worktree whose HEAD contains `origin/main`, by the ancestry check above, and whose `scripts/coord/` matches `origin/main`'s (decided by the Manager 2026-11-09). A branch that edits them fails *No class C path*. |
 | Shown, not assumed | Any condition not shown by a reading this turn fails. |
 
 **Class C paths, at least:** playbooks, skills, any `CLAUDE.md`, hooks and `scripts/hooks/`,
@@ -860,6 +860,7 @@ holding an input bound or a ReDoS-pinned pattern is not eligible (decided by the
 | What it skips | The adversarial decision review, and nothing else. |
 | What still binds | Code review, the QA line, gates, hooks and required contexts. |
 | Log it after the edit, before the commit | Run `decision.ps1 -Log` with `-Touches`. Its gate answer is the reading *The gate* asks for, and a REVIEW there takes the review. Put the decision id in the commit message body. |
+| A REVIEW naming a class C path | Goes to the owner's bundled ask, not to a decision review. |
 | A decision you cannot log | Loses the fast path. Take the review instead. |
 | The budgets count it | Fast-path decisions count against the reversal budget and the chain limit. |
 | A cloud session | `decision.ps1` refuses there, so the gate cannot be shown and nothing can be logged. A cloud session never takes the fast path. |
@@ -891,7 +892,8 @@ plan's existing thresholds.
 | Taking over a verified-dead holder's pushed branch and work | Only work already on the remote, at the holder's pushed branch tip. Class B, with its review. It was class C. Releasing its claim stays the owner's, below. |
 | A reclaim on a class C or security path | If the reclaimed diff touches any class C path or security control, the reclaim is class C, as in T4 (decided by the Manager 2026-11-09). |
 | Verified dead, first | No commit, push, comment or mail from the holder for more than 2 hours. |
-| Verified dead, second | No live session, read with `list_events` or korus `scripts/board/seatstate.py`. A record says a seat was declared, not that it is alive. A transcript ending on a question unanswered for more than 2 hours counts as none. |
+| Verified dead, second | No live session, read with `list_events` or korus `scripts/board/seatstate.py`. A record says a seat was declared, not that it is alive, and a missing row is not a reading. |
+| An unanswered question | A transcript ending on one counts as no live session after 2 hours, except a question to the owner, below. |
 | Verified dead, third | Nothing queued or armed. |
 | A running session | A holder whose session `list_events` shows running, or with a running background task, is not dead (decided by the Manager 2026-11-09). |
 | An owner-pending question | A holder whose transcript ends on a question to the owner, by `AskUserQuestion` or otherwise, is not dead, whatever its age (decided by the Manager 2026-11-09). |
@@ -911,6 +913,7 @@ plan's existing thresholds.
 | Its PR | If that branch has no open PR, the spawned session opens its own, as the 2026-09-24 owner ruling requires. If one is open, it pushes to it. |
 | A spawn prompt | A prompt from a Builder carries no owner authority in the new session, though it arrives there as a user turn (decided by the Manager 2026-11-09). |
 | A second worktree off one branch | git refuses it. Make a local branch from the pushed tip and push it to the same remote branch. |
+| Where a reclaim pushes | To a branch of your own, never the holder's. |
 | Ledger work | Managers pick and decompose ledger work themselves. |
 | Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner, never releasing its claims. |
 
