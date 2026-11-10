@@ -788,6 +788,27 @@ in the Builder's own chat the same day.
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
 
+### A filed build row is not new product scope
+
+**Owner rulings of 2026-11-09 and 2026-11-10, in a Manager session's chat.** They narrow one class C
+example, *new product scope*, and nothing else. The engine's `docs/AUTONOMY-PLAN.md` section 3 holds
+the classes.
+
+| Item | Rule |
+| --- | --- |
+| The rule | A filed ledger row with a build verdict, and the direction of an ADR the owner accepted, are not *new product scope*. |
+| What follows | A Manager picking and splitting such work is a routine plan: class B, with its adversarial review. |
+| What is unchanged | Every other class C item and every class C path. A new direction stays the owner's. The Lander's review rules stand, and the Lander gains no duty. |
+| What is not live | T1, T2 and the rest of T3. Only T3's clause on Managers picking and splitting ledger work, and T4 in the form below, are live. |
+| 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
+| The T3 option text | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
+| The T4 option text | *"Ledger rows and accepted-ADR direction become class B; new directions stay yours."* |
+| 2026-11-09, R5 | Asked *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"*, the owner answered *"Exempt this change"*. |
+| The delegated decision | d20261110T044924935-4ee4e8, *"decided by the Manager under the owner's delegation of 2026-11-09"*, logged with the engine's `decision.ps1` and not yet on vault `main`. It deferred T1 and T3, except T3's clause above. |
+| 2026-11-10, the form | Asked *"How should T4 land?"* after adversarial review failed to converge, the owner chose *"Minimal T4"*. Its option text follows, in two parts. |
+| Option text, part 1 | *"Replace the elaborate text with one rule: a filed build row and the direction of an ADR you accepted are not 'new product scope'."* |
+| Option text, part 2 | *"All existing class C paths and the Lander's review rules stay as they are, and no new Lander duties are added. Medium confidence: it leans on controls that already exist rather than new lists."* |
+
 ---
 
 ## The three usage states
