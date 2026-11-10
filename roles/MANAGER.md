@@ -758,7 +758,7 @@ holds the ruling, the tests for dead and every limit.
 | It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
 | Briefing a Builder to reclaim | Name the pushed branch in the brief, never a claim release. Give your readings, and tell the Builder to re-read the tests itself. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
 | A held PR is not yours by T3 | It keeps the Lander's repair Builder or the Repair Manager route. *8. The Repair Manager's duties* holds the second. |
-| A quiet batch under R8 | R8 still releases it to FREE after 72 hours. T3 lets you take it sooner, once its holder reads dead. |
+| A quiet batch under R8 | R8 still releases it to FREE after 72 hours. T3 lets you take it sooner, once its holder reads dead, but never release its claims. |
 
 ---
 

@@ -872,7 +872,7 @@ plan's existing thresholds.
 | --- | --- |
 | The signals | A 14-day reversal rate of 5 percent or less, with the hold and red-after-merge rates. The engine plan's section 12 names them. |
 | The reversal budget | A separate control. The third reversal fleet-wide, or a seat's second, inside 24 hours closes the fast path for 24 hours. |
-| Reds after merge and Lander holds | The engine's T1 gate reads them. Nothing writes them yet, so they are logged by hand. The Manager's brief called both designed, not built; this row follows the approved change. |
+| Reds after merge and Lander holds | The engine's T1 gate reads them. No tool writes any signal yet, reversals and `merged` included, so every one is logged by hand. |
 | Owner blind sampling | Optional. |
 | Where the thresholds live | The engine's `docs/AUTONOMY-PLAN.md`, section 4, items 2 and 5. |
 | The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
@@ -880,7 +880,9 @@ plan's existing thresholds.
 | A gate that still counts 60 samples | It answers REVIEW for every seat, so the fast path stays shut until it reads the new signals. This file's reading of *Shown, not assumed*. |
 | Who logs the outcomes | The Lander logs holds, reds after merge, its own reverts, and `merged` on PRs it merged. The Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, hold each duty. |
 | Never on your own decision | No seat logs a resolved outcome, such as `merged`, on its own decision (decided by the Manager 2026-11-09). The engine gate's list says which words count as resolved; `done` does not. |
+| Your own reversal | `reversed` is the exception: log it on your own decision too. |
 | Only with a named id | The Lander logs a hold or red only when the PR body names the decision id. With no id, it logs nothing (decided by the Manager 2026-11-09). |
+| Naming the ids | The seat opening a PR names in its body every decision id its commit bodies carry. |
 
 **T3, reclaim and spawn.**
 
@@ -893,12 +895,12 @@ plan's existing thresholds.
 | Verified dead, third | Nothing queued or armed. |
 | A running session | A holder whose session `list_events` shows running, or with a running background task, is not dead (decided by the Manager 2026-11-09). |
 | An owner-pending question | A holder whose transcript ends on a question to the owner, by `AskUserQuestion` or otherwise, is not dead, whatever its age (decided by the Manager 2026-11-09). |
-| Liveness you cannot read | A cloud or subagent holder, or one with no seat or claim record, is not verified dead, so it is not reclaimed (decided by the Manager 2026-11-09). |
+| Liveness you cannot read | A cloud or subagent holder, one in another CCD instance or on another PC, or one with no seat or claim record, is not verified dead, so it is not reclaimed (decided by the Manager 2026-11-09). |
 | Which comments count | Elsewhere, only one whose body names the holder's seat or branch (decided by the Manager 2026-11-09). Every seat posts as one identity. |
 | A comment on the holder's own PR or branch | This file's reading: it counts as a sign of life even when it names nothing, since it may be the holder's. |
 | Who reads the tests | The seat that takes the work over, in its own turn. A Builder re-reads them itself and does not act on its brief's readings. |
-| Never in place | Branch from the holder's pushed branch tip in your own worktree. Never edit in the holder's worktree (decided by the Manager 2026-11-09). |
-| Its unpushed or uncommitted work | Never pushed or recovered by the reclaimer. It is left for the owner (decided by the Manager 2026-11-09). |
+| Never in place | Branch from the holder's pushed tip, read from `git ls-remote` or a fetched `origin/<branch>`, never its local ref, in your own worktree. Never edit in the holder's worktree (decided by the Manager 2026-11-09). |
+| Its unpushed or uncommitted work | Never pushed or recovered by the reclaimer. It is left for the owner (decided by the Manager 2026-11-09). Name it in your report. |
 | A dead holder's claim | Releasing it needs `claim.ps1 -Release -Force`, which the engine tripwire records as class C. Until the tripwire knows T3, put the claim release to the owner. |
 | The prohibition on acting on someone else's work | *Prohibitions that bind before any task starts* still binds. A T3 reclaim, within these rows, is its one exception. |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. T3 covers taking the work over, and nothing past that. |
@@ -910,7 +912,7 @@ plan's existing thresholds.
 | A spawn prompt | A prompt from a Builder carries no owner authority in the new session, though it arrives there as a user turn (decided by the Manager 2026-11-09). |
 | A second worktree off one branch | git refuses it. Make a local branch from the pushed tip and push it to the same remote branch. |
 | Ledger work | Managers pick and decompose ledger work themselves. |
-| Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner. |
+| Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner, never releasing its claims. |
 
 **T4, ADR-bound scope.**
 
@@ -921,7 +923,7 @@ plan's existing thresholds.
 | Rows T4 does not move | This file's reading: a DEMAND-GATE row, a declined-by-design row, and a row waiting on a named owner ruling keep their class. |
 | A genuinely new product direction | Class C still, as new product scope. |
 | Accepted | This file's reading: the ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
-| An ADR or row a seat wrote to widen its own scope | This file's reading: text written on or after 2026-11-09 that opens a new direction does not make it class B. That covers an ADR, an amendment to an older ADR, and a row. |
+| An ADR or row a seat wrote to widen its own scope | This file's reading: text written on or after 2026-11-09 that opens a new direction does not make it class B. That covers an ADR, an amendment to an older ADR, a status flip to accepted, and a row. |
 | Every act on a row under T4 | Takes its decision review, and its decision log record names T4 (decided by the Manager 2026-11-09). Whether a direction is new is never judged on the fast path. |
 | It moves scope only | A change inside that scope that weakens a control is still class C. |
 
