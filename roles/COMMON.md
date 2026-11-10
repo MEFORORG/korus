@@ -798,6 +798,8 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | --- | --- |
 | The rule, in the chosen option's text | *"a filed build row and the direction of an ADR you accepted are not 'new product scope'"*. The Manager wrote that text; the owner selected it. |
 | How this file reads it | An open row whose verdict is plain build, with no decide step and no owner question open. And the direction of an in-force ADR whose status names the owner's acceptance. A declined item stays declined. |
+| Scope a session wrote | It counts only where it traces to an owner turn, or to a defect or finding against main: a row it filed or widened, a verdict it set, an ADR acceptance or amendment it recorded. |
+| Delegated decisions, and where to read | A decision recorded under the owner's delegation is the owner's ruling. All of it is read at `origin/main`. |
 | What this file draws from it | A Manager picking and splitting such work is a routine plan: class B, with its adversarial review. This row and the one above are the drafting seat's reading, not the owner's wording. |
 | What is unchanged | Every other class C item and every class C path. A new direction stays the owner's, even inside such a row or a split of one. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
