@@ -828,33 +828,41 @@ The record is logged with the engine's `scripts/coord/decision.ps1`. It is not y
 | Item | Rule |
 | --- | --- |
 | Filed ledger rows, and work an accepted ADR names as its direction | Class B, with every limit below. T4 moves only the scope question out of class C. |
+| What a T4 act is | A Manager pick or split that needs T4 to leave class C. A pick already class B without T4 is not one, and T4 changes nothing for it. Where it is unclear which, it is a T4 act. |
 | Every other class C item | Stays class C, whatever a row or an ADR says. That covers at least release tags, branch protection, required contexts, publishing outside the repo, a real-store migration, and another session's work. |
 | Spawning | Spawning outside the CLAUDE.md section 5 ruling stays class C. |
 | Who acts under T4 | Managers only. A Builder builds its brief and nothing more. Special is outside it. |
 | The Repair Manager | Makes no T4 pick. *The Repair Manager's duties* in [MANAGER.md](MANAGER.md) holds: it briefs only the fix a hold names, under a marker naming it. |
+| Eligibility the review must find, every one | *Filed*, *Accepted* or an amendment that counts, *Names as its direction*, and *Row verdicts*, in the rows below. One not shown means the act is class C. |
 | Filed | The row is on vault `origin/main`, read this turn, and its banner reads open. A closed, declined, superseded or retired row does not count, nor one on an unmerged branch or a stale checkout. |
 | Accepted | The ADR's text records the OWNER's acceptance, at the version the owner accepted, read at engine `origin/main` this turn. Any other status does not count, at least proposed, superseded, declined, retired and partly accepted. |
-| An amendment that names the work | Counts only where its own text records the owner's acceptance. A Manager-decided amendment does not count. Where it is unclear who accepted, it does not count. |
+| Tracing the acceptance | A status line alone does not count, since sessions write it. The reviewer traces it to the owner's own words, quoted or anchored at a ref. Where it cannot, the acceptance does not count. |
+| An amendment that names the work | Counts only where its own text records the owner's acceptance, traced the same way. A Manager-decided amendment does not count. Where it is unclear who accepted, it does not count. |
 | What takes work out of T4 | Text a session added after the owner's acceptance. A withdrawal or supersession at `origin/main`. A declined-by-design entry in the engine `CLAUDE.md` section 12. |
 | Names as its direction | The ADR's decision names the work. A mention under out of scope, future or deferred does not count. |
-| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review reads the row or ADR and affirms that no limit in any table of this section applies, R5 included. |
-| The diff fails closed | A T4 act is class B only when the Manager and the reviewer positively show the produced diff touches none of the surfaces in the next two rows. Anything not shown, or unclear, is class C. |
-| Surfaces a T4 diff must not touch | At least any class C path; and security, PHI, auth, API, transport-security, egress, redaction or anon, logging and settings surfaces. The list is not complete. |
-| T4's own machinery, also untouchable | At least `afk-kill.ps1`, `decision.ps1`, `review_tag.py`, `REVIEW-STANDARDS.md`, `AUTONOMY-PLAN.md`, role cards, `seats.json` and any `CLAUDE.md`. The list is not complete. |
+| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review affirms that every eligibility row holds and that no exclusion in any table of this section applies, R5 included. |
+| The diff check is class C by default | A T4 act is class B only when the Manager and the reviewer positively show the finished diff touches none of the surfaces in the next three rows. Anything not shown, or unclear, is class C. |
+| Surfaces a T4 diff must not touch | At least any class C path; security, PHI, auth, API, transport-security, egress, redaction or anon, logging, settings, store and support-bundle surfaces; and dependency files. The list is not complete. |
+| Behaviour a T4 diff must not change, on any path | At least what code logs, prints, stores, sends, or builds into SQL, a file path or a subprocess. The list is not complete. |
+| T4's own machinery, also untouchable | At least `afk-kill.ps1`, `decision.ps1`, `review_tag.py`, `held_pr_turns.py`, `alloc.ps1`, `REVIEW-STANDARDS.md`, `AUTONOMY-PLAN.md`, required-context files, `scripts/asvs/`, role cards, `seats.json`, any `CLAUDE.md`, and tests that pin a control. Not complete. |
 | Class C paths | At least the paths the `empower` skill and the plan's section 3 name, hooks, settings, `.pre-commit-config.yaml`, and every repository's `CLAUDE.md`. |
+| When the check runs | On the finished diff, before the cut. A failing diff stays out of the PR and goes to the owner as class C. A T4 brief names the surfaces, and its Builder stops and reports before touching one. |
 | Picking and splitting ledger work | Managers do it themselves, under the same rule. A split stays inside the row's text. A step or row that adds scope is class C. |
 | A new product direction | Still class C unless an accepted ADR names it. A row alone does not make one class B. |
-| Tightening and follow-on edits | T4 does not change their class B status. |
+| Tightening and follow-on edits | Outside T4 their class B status is unchanged. One reached through a T4 pick takes every T4 limit, the diff check included. |
 | Work that weakens a control | Still class C, on any path. |
 | Security and assurance records | Risk acceptances, deviations and signer questions stay class C. ASVS record prose, re-scores and reconciliation are a Manager's, dispatched to vault Builders (ruling 2026-09-23). A T4 pick never reaches record work. |
-| Re-anchors | A mechanical re-anchor keeps class B. One that changes what the register accepts is class C, as the plan says. |
+| Re-anchors | Outside T4, a mechanical re-anchor keeps class B, and one that changes what the register accepts is class C, as the plan says. A register re-anchor is record work, so no T4 pick reaches it. |
 | Row verdicts | A row qualifies only where a reviewer shows a build verdict with no qualifier that needs a ruling. *"build (small)"* qualifies. *"build or document"* does not, nor does anything unclear. |
 | Rows that never qualify | DEMAND-GATE, decide, research, owner-ruling and declined-by-design rows, and any compound verdict such as decide then build. They stay class C. |
 | Rows waiting on an owner ruling | Still class C. So is a numbered item that holds an owner question, inside any row. |
 | Text that would widen T4's own scope | Still class C. That covers at least any seat's new ADR, ADR amendment, row or status flip. Work it names does not become class B. |
 | The owner's in-person acts | Still the owner's: signing or re-signing the register, money, credentials, and irreversible acts. |
 | The kill switch | Read it before each T4 act. When it reads anything but exactly `off`, the seat makes no T4 act and puts the item to the owner. Pushing your own work is unchanged. |
-| Merge-time visibility | A PR carrying a T4 act says "T4 act" in its body. Every head pushed after the cut takes the same diff check before the Lander merges it. This is a written rule, not enforced by any hook. |
+| Work in flight when the switch turns on | A T4 PR not yet merged waits. The Lander does not merge it while the switch reads anything but `off`, and puts it to the owner. |
+| Merge-time visibility | Every PR carrying a T4 act says "T4 act" in its body, whoever opens it, a re-cut included. A T4 brief tells its Builder so. The diff check's result is posted on the PR. |
+| What the Lander checks | On a "T4 act" PR, the whole diff against its base, at the head it merges or arms. A failing check means no merge; the PR goes to the owner. A repair head takes the Lander's own review fork. |
+| None of this is enforced | These are written rules. No hook or check reads a diff for them. |
 | It moves no other permission | Merging stays the Lander's, and code review still binds every change. |
 
 ---
