@@ -36,7 +36,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
-| Picking and splitting a filed build row is a routine plan (owner rulings 2026-11-09 and 2026-11-10) | [COMMON.md](COMMON.md), *A filed build row is not new product scope*, says what is and is not class B. |
+| A filed build row is not new product scope (owner rulings 2026-11-09 and 2026-11-10) | Picking and splitting one is class B, with its review; every class C path stays class C. [COMMON.md](COMMON.md), *A filed build row is not new product scope*, holds the reading and when it takes effect. |
 
 ### The weekly ledger report
 

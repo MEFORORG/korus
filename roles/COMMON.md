@@ -792,23 +792,26 @@ in the Builder's own chat the same day.
 
 **Owner rulings of 2026-11-09 and 2026-11-10, in a Manager session's chat.** They narrow one class C
 example, *new product scope*, and nothing else. The engine's `docs/AUTONOMY-PLAN.md` section 3 holds
-the classes.
+the classes, and it wins where the two disagree.
 
 | Item | Rule |
 | --- | --- |
-| The rule | A filed ledger row with a build verdict, and the direction of an ADR the owner accepted, are not *new product scope*. |
+| The owner's words | *"a filed build row and the direction of an ADR you accepted are not 'new product scope'"*, from the *Minimal T4* option text quoted below. |
+| How this file reads them | An open ledger row whose verdict is build and that no owner ruling has declined, and the direction of an ADR the owner accepted that is still in force. This is the drafting seat's reading, not the owner's wording. |
 | What follows | A Manager picking and splitting such work is a routine plan: class B, with its adversarial review. |
-| What is unchanged | Every other class C item and every class C path. A new direction stays the owner's. The Lander's review rules stand, and the Lander gains no duty. |
-| What is not live | T1, T2 and the rest of T3. Only T3's clause on Managers picking and splitting ledger work, and T4 in the form below, are live. |
+| What is unchanged | Every other class C item and every class C path. A new direction stays the owner's, even inside such a row or a split of one. The Lander's review rules stand, and the Lander gains no duty. |
+| When it takes effect | Once engine `origin/main` carries the same qualifier in `docs/AUTONOMY-PLAN.md` section 3. Until then the plan's plain *new product scope* wins. |
+| What is not live | T1 and T3, and T2, which the owner did not choose. T3's picking-and-splitting clause lives only inside *How this file reads them*, for such rows. |
 | 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
-| The T3 option text | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
+| The T3 option text, not live | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
 | The T4 option text | *"Ledger rows and accepted-ADR direction become class B; new directions stay yours."* |
 | 2026-11-09, R5 | Asked *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"*, the owner answered *"Exempt this change"*. |
-| The delegated decision | d20261110T044924935-4ee4e8, *"decided by the Manager under the owner's delegation of 2026-11-09"*, logged with the engine's `decision.ps1` and not yet on vault `main`. It deferred T1 and T3, except T3's clause above. |
+| The R5 exemption's reach | This change only. The decision below says a later T1 or T3 redesign needs a new R5 exemption. |
+| The delegated decision | d20261110T044924935-4ee4e8, a comment on vault issue 2901, *decision-log 2026-11-10*, from `decision.ps1`. It quotes the question *"The T1/T3 repair loop isn't converging... How should I proceed?"* and the answer *"/driver"*. |
+| What it decided | *"Land T4 only (incl. Managers pick/decompose ledger work); remove T1, T3 and the Builder own-fix spawn text"*. It opens *"Decided by the Manager under the owner's delegation of 2026-11-09"*. |
 | 2026-11-10, the form | Asked *"How should T4 land?"* after adversarial review failed to converge, the owner chose *"Minimal T4"*. Its option text follows, in two parts. |
 | Option text, part 1 | *"Replace the elaborate text with one rule: a filed build row and the direction of an ADR you accepted are not 'new product scope'."* |
 | Option text, part 2 | *"All existing class C paths and the Lander's review rules stay as they are, and no new Lander duties are added. Medium confidence: it leans on controls that already exist rather than new lists."* |
-
 ---
 
 ## The three usage states
