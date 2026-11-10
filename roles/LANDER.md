@@ -1260,6 +1260,11 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | Name each finding on the pull request before you merge | One line each: the finding, then its row. A queued row does not count. *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
 | What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. |
+| False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
+| What merges open | Every open finding is filed as a row. Only one that none of those rows, *False program output* or *A false control claim in any text* sends to the owner merges while it is open. |
+| False program output | It changes behaviour. At least: log lines, alerts, refusal and error text, ACK or NAK text, API error bodies, and CLI and web console text. |
+| A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control. |
+| Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
 | When you cannot tell which kind a finding is | It goes to the owner. The approved words let you merge when *none* does, and you cannot say that. This is the Lander's reading, and decision d20261029T165623191-578690 adopts it. |
 | Examples that go to the owner, at least | A check that stops refusing what it refused. A feature that does not do what the pull request says. |
 | Those examples are not the owner's | The owner named none. They follow from the approved words, *"changes behaviour or weakens a control"*. |
