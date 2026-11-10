@@ -37,7 +37,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 | You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B, with its review. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds the ruling and T4's limits. |
-| Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log `reversed` with the engine's `scripts/coord/decision.ps1 -Log`. The fast path calibrates on it. The signal names are in the engine's `docs/AUTONOMY-PLAN.md`, section 12. |
+| Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log `reversed` with the engine's `scripts/coord/decision.ps1 -Log -Kind outcome -Ref <id>`. The fast path calibrates on it. The signal names are in the engine's `docs/AUTONOMY-PLAN.md`, section 12. |
 | Reclaiming a verified-dead holder's work is class B (owner ruling 2026-11-09) | You may take it over, or brief a Builder to. *3a. A verified-dead holder's work is yours to reclaim, with its review* says how. |
 
 ### The weekly ledger report
