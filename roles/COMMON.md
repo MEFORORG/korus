@@ -828,19 +828,19 @@ The record is logged with the engine's `scripts/coord/decision.ps1`. It is not y
 | Item | Rule |
 | --- | --- |
 | Filed ledger rows, and work an accepted ADR names as its direction | Class B, with every limit below. T4 moves only the scope question out of class C. |
-| What a T4 act is | A Manager pick or split that needs T4 to leave class C. A pick already class B without T4 is not one, and T4 changes nothing for it. Where it is unclear which, it is a T4 act. |
+| What a T4 act is | Every Manager pick or split of ledger work. It carries every T4 limit. No pick escapes them by being labelled already class B. |
 | Every other class C item | Stays class C, whatever a row or an ADR says. That covers at least release tags, branch protection, required contexts, publishing outside the repo, a real-store migration, and another session's work. |
 | Spawning | Spawning outside the CLAUDE.md section 5 ruling stays class C. |
 | Who acts under T4 | Managers only. A Builder builds its brief and nothing more. Special is outside it. |
 | The Repair Manager | Makes no T4 pick. *The Repair Manager's duties* in [MANAGER.md](MANAGER.md) holds: it briefs only the fix a hold names, under a marker naming it. |
-| Eligibility the review must find, every one | *Filed*, *Accepted* or an amendment that counts, *Names as its direction*, and *Row verdicts*, in the rows below. One not shown means the act is class C. |
+| Eligibility the review must find, by route | Two routes. A row needs *Filed* and *Row verdicts*. An ADR needs *Accepted*, or an amendment that counts, and *Names as its direction*. Both need every exclusion, the diff check and the review. One not shown means class C. |
 | Filed | The row is on vault `origin/main`, read this turn, and its banner reads open. A closed, declined, superseded or retired row does not count, nor one on an unmerged branch or a stale checkout. |
 | Accepted | The ADR's text records the OWNER's acceptance, at the version the owner accepted, read at engine `origin/main` this turn. Any other status does not count, at least proposed, superseded, declined, retired and partly accepted. |
 | Tracing the acceptance | A status line alone does not count, since sessions write it. The reviewer traces it to the owner's own words, quoted or anchored at a ref. Where it cannot, the acceptance does not count. |
 | An amendment that names the work | Counts only where its own text records the owner's acceptance, traced the same way. A Manager-decided amendment does not count. Where it is unclear who accepted, it does not count. |
 | What takes work out of T4 | Text a session added after the owner's acceptance. A withdrawal or supersession at `origin/main`. A declined-by-design entry in the engine `CLAUDE.md` section 12. |
 | Names as its direction | The ADR's decision names the work. A mention under out of scope, future or deferred does not count. |
-| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review affirms that every eligibility row holds and that no exclusion in any table of this section applies, R5 included. |
+| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review affirms that every eligibility row its route needs holds and that no exclusion in any table of this section applies, R5 included. |
 | The diff check is class C by default | A T4 act is class B only when the Manager and the reviewer positively show the finished diff touches none of the surfaces in the next three rows. Anything not shown, or unclear, is class C. |
 | Surfaces a T4 diff must not touch | At least any class C path; security, PHI, auth, API, transport-security, egress, redaction or anon, logging, settings, store and support-bundle surfaces; and dependency files. The list is not complete. |
 | Behaviour a T4 diff must not change, on any path | At least what code logs, prints, stores, sends, or builds into SQL, a file path or a subprocess. The list is not complete. |

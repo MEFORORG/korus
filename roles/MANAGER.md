@@ -36,7 +36,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
-| You pick and split ledger work yourself (owner ruling 2026-11-09: the one T3 clause delegated decision d20261110T044924935-4ee4e8 kept) | Class B only under T4's limits, with its review, while the switch reads `off`. The Repair Manager makes no T4 pick. [COMMON.md](COMMON.md), *Class B reaches ADR-bound scope, tier T4*, holds every limit. |
+| You pick and split ledger work yourself (owner ruling 2026-11-09: the one T3 clause delegated decision d20261110T044924935-4ee4e8 kept) | Each is a T4 act: class B only under every T4 limit, with its review, while the switch reads `off`. The Repair Manager makes no T4 pick. [COMMON.md](COMMON.md), *Class B reaches ADR-bound scope, tier T4*, holds every limit. |
 
 ### The weekly ledger report
 
