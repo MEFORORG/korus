@@ -805,7 +805,8 @@ in its brief to the Builder that drafted this section. In the owner's words:
 | --- | --- |
 | T2 was offered and not adopted | It would have moved playbook, skill, `CLAUDE.md`, hook and workflow edits to class B. Those edits stay class C. |
 | Ledger ruling R5 | The second answer exempts this change from the freeze. It exempts nothing else, so R5 still binds every other new rule until 2026-12-02. |
-| Where the engine plan reads otherwise | The engine's `docs/AUTONOMY-PLAN.md` still carries the older classes. This ruling is the newer one. |
+| Where the engine reads otherwise | Where the engine's `docs/AUTONOMY-PLAN.md` or `CLAUDE.md` still carries the older classes, this ruling is the newer one. |
+| What this section leans on | The engine plan's section 12 and the gate's `-Touches`, written on engine branch `builder/empower-t1-fast-path`. Until that is on engine `origin/main`, the gate cannot be shown, so the fast path stays shut. |
 | The kill switch | Anything but exactly `off` turns all three tiers off, as *The 2026-11-09 tiers under the switch* says above. |
 
 **T1, the fast path.** A class B act may skip its adversarial decision review only when every
@@ -815,35 +816,51 @@ condition below holds.
 | --- | --- |
 | One undo | A single git revert or a PR close undoes it. |
 | No effect outside git | At least mail, messages, PR comments, spawned sessions, writes outside a worktree and queue actions fail this. |
-| No class C path | It touches none. At least playbooks, skills, any `CLAUDE.md`, hooks, workflows, `.pre-commit-config.yaml`, SAIDS, SDS, branch protection and required contexts are class C paths. |
+| The engine repository only | An act in korus or the vault never takes the fast path. The gate's path list is the engine's (engine plan, section 12). |
+| No class C path | It touches none. Read the paths from `git diff --name-only`. The list starts below this table. |
 | Not even a class B edit to one | A class B tightening or follow-on edit to one of those paths fails too. It keeps its review. |
+| No loosening, on any path | It adds, removes or loosens no exemption, allowlist entry, skipped test, threshold or rule, wherever that lives. |
 | One item | It acts on one item. |
-| Not a security control | At least gates, auth, RBAC, TLS, egress, leak gates, PHI handling, security and assurance records, and scores fail this. |
+| Not a security control | The list starts below this table. Where you cannot tell whether something is one, it is one. |
 | Live state | It was read this turn. |
 | No reversal | No earlier decision on the item was reversed. |
+| The gate | `decision.ps1 -Gate -Item <item>`, with `-Touches` naming every path the diff names, answers NO-REVIEW this turn. |
 | Shown, not assumed | Any condition not shown by a reading this turn fails. |
+
+**Class C paths, at least:** playbooks, skills, any `CLAUDE.md`, hooks and `scripts/hooks/`,
+workflows, `.pre-commit-config.yaml`, `.claude/settings*.json` and account settings, SAIDS, SDS.
+
+**More class C paths, at least:** `docs/adr/`, `docs/roles/`, `scripts/coord/`, dependency
+manifests and lock files, branch protection and required contexts.
+
+**Security controls, at least:** gates, auth, RBAC, TLS, egress, leak gates, PHI handling,
+security and assurance records, and scores.
+
+**More security controls, at least:** the engine `CLAUDE.md` section 5 product security rules.
+They cover untrusted input, parameterized SQL, secrets and dependency checks.
 
 | Item | Rule |
 | --- | --- |
 | T1 is a subset of class B | It sorts nothing. An act that is not already class B is never on the fast path. |
 | What it skips | The adversarial decision review, and nothing else. |
 | What still binds | Code review, the QA line, gates, hooks and required contexts. |
-| It is still logged | Log it as any class B decision. |
+| Log it before you act | Log it with `decision.ps1 -Log`, as any class B decision. Put the decision id in the commit message body, so a hold or a red can name it. |
 | The budgets count it | Fast-path decisions count against the reversal budget and the chain limit. |
+| A cloud session | `decision.ps1` refuses there, so the gate cannot be shown and nothing can be logged. A cloud session never takes the fast path. |
 | An act whose diff you have not read | This file's reading: it cannot show *No class C path* this turn, so it fails. A brief to a Builder is one. |
-| Reading a security path | This file's reading: where you cannot tell whether a path is a security control, it is one. |
 
 **Calibration under T1.** The 60-sample owner blind gate is replaced by automated signals, at the
 plan's existing thresholds.
 
 | Item | Rule |
 | --- | --- |
-| The signals | A 14-day reversal rate of 5 percent or less. The reversal budget: 3 a day fleet-wide, or 2 a day for one seat. |
-| Reds after merge and Lander holds | Designed, not built, until tooling reads them. |
+| The signals | A 14-day reversal rate of 5 percent or less, with the hold and red-after-merge rates. The engine plan's section 12 names them. |
+| The reversal budget | A separate control. The third reversal fleet-wide, or a seat's second, inside 24 hours closes the fast path for 24 hours. |
+| Reds after merge and Lander holds | Designed, not built, until tooling reads them. Log them now anyway, so the tooling has a history to read. |
 | Owner blind sampling | Optional. |
 | Where the thresholds live | The engine's `docs/AUTONOMY-PLAN.md`, section 4, items 2 and 5. |
 | The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
-| An empty or thin history | Keeps the fast path closed. The gate answers NO-REVIEW only after at least 20 resolved outcomes for the seat in 14 days (the Manager's brief, 2026-11-09). |
+| An empty or thin history | Keeps the fast path closed, whatever the gate prints. Fewer than 20 resolved outcomes for the seat in 14 days is thin (the Manager's brief, 2026-11-09). |
 | A gate that still counts 60 samples | It answers REVIEW for every seat, so the fast path stays shut until it reads the new signals. This file's reading of *Shown, not assumed*. |
 | Who logs the outcomes | The Lander logs holds and reds after merge, and the Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, each hold that seat's duty. |
 
@@ -856,10 +873,11 @@ plan's existing thresholds.
 | Verified dead, second | No live session in the claim or seat record. A transcript ending on a question unanswered for more than 2 hours counts as none. |
 | Verified dead, third | Nothing queued or armed. |
 | Anchor before you take it | The work is on a pushed ref first. The `fleet-anchor-work` skill says how. |
+| Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. T3 covers taking the work over, and nothing past that. |
 | Never the fast path | This file's reading: a reclaim changes a claim or another seat's worktree, so it fails *No effect outside git*. |
 | A held PR | Keeps its route, the Lander's repair Builder or the Repair Manager. T3 does not take one. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*. |
 | Which Builder reclaims | Only one whose Manager's brief names the work. Manager decision 2026-11-09, class B. |
-| A Builder spawning a session | Class B for its own fixes. A Builder spawning for anything else still needs permission first. |
+| A Builder spawning a session | Class B for its own fixes, with its review. A spawn is an effect outside git, so never the fast path. Spawning for anything else still needs permission first. |
 | Ledger work | Managers pick and decompose ledger work themselves. |
 | Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner. |
 
@@ -867,9 +885,11 @@ plan's existing thresholds.
 
 | Item | Rule |
 | --- | --- |
-| Ledger rows and work an accepted ADR names as its direction | Class B. |
+| Ledger rows and work an accepted ADR names as its direction | Class B, with its review. |
 | A genuinely new product direction | Class C still, as new product scope. |
 | Accepted | This file's reading: the ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
+| An ADR or row a seat wrote to widen its own scope | This file's reading: an ADR accepted, or a row filed, on or after 2026-11-09 that opens a new direction does not make it class B. It still goes to the owner. |
+| The first act on a row under T4 | Takes its decision review. Whether a direction is new is never judged on the fast path. |
 | It moves scope only | A change inside that scope that weakens a control is still class C. |
 
 **Still the owner's in person, and no tier reaches them:** register signing, money, credentials,

@@ -36,7 +36,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
-| You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds the ruling. |
+| You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B, with its review. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds the ruling and T4's limits. |
 | Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log `reversed` with the engine's `scripts/coord/decision.ps1 -Log`. The fast path calibrates on it. The signal names are in the engine's `docs/AUTONOMY-PLAN.md`, section 12. |
 | Reclaiming a verified-dead holder's work is class B (owner ruling 2026-11-09) | You may take it over, or brief a Builder to. *3a. A verified-dead holder's work is yours to reclaim, with its review* says how. |
 
@@ -753,6 +753,7 @@ holds the ruling and the three tests for dead.
 | --- | --- |
 | Read every test this turn | The holder's commits, pushes, comments and mail; its claim and seat record; the queue and any armed request. A test you did not read fails, and the takeover stays class C. |
 | Anchor first | Get the holder's work onto a pushed ref before you touch it. The `fleet-anchor-work` skill says how. |
+| Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. |
 | It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
 | Briefing a Builder to reclaim | Name the worktree, branch or claim in the brief, with your readings. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
 | A held PR is not yours by T3 | It keeps the Lander's repair Builder or the Repair Manager route. *8. The Repair Manager's duties* holds the second. |
