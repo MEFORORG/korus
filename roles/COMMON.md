@@ -817,19 +817,23 @@ I proceed?"* The owner answered *"/driver"*.
 | --- | --- |
 | Filed ledger rows, and work an accepted ADR names as its direction | Class B, with every limit below. T4 moves only the scope question out of class C. |
 | Every other class C item | Stays class C, whatever a row or an ADR says. That covers at least release tags, branch protection, required contexts, publishing outside the repo, migrations, spawning and another session's work. |
-| Filed | The row is on vault `origin/main`, read this turn. A row on an unmerged branch or a stale checkout does not count. |
-| Accepted | The ADR reads plain accepted at `origin/main`, read this turn. An amendment that names the work must read accepted itself. Any other status does not count, at least proposed, superseded, declined, retired and partly accepted. |
-| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review reads the row or ADR and affirms that no limit in this table applies. |
+| Who acts under T4 | Managers only. A Builder builds its brief and nothing more. Special is outside it. |
+| Filed | The row is on vault `origin/main`, read this turn, and its banner reads open. A closed, declined, superseded or retired row does not count, nor one on an unmerged branch or a stale checkout. |
+| Accepted | The ADR reads accepted at engine `origin/main`, read this turn. An amendment that names the work must read accepted itself. Any other status does not count, at least proposed, superseded, declined, retired and partly accepted. |
+| Names as its direction | The ADR's decision names the work. A mention under out of scope, future or deferred does not count. |
+| Every T4 act | Takes the adversarial decision review. No T4 act skips it. The review reads the row or ADR and affirms that no limit in either table of this section applies, R5 included. |
+| The diff | Gets the same check before the PR. A diff that touches a class C path or weakens a control is class C, whatever the pick review said. |
 | Picking and decomposing ledger work | Managers do it themselves, under the same rule. A decomposition stays inside the row's text. A step or row that adds scope is class C. |
 | A new product direction | Still class C unless an accepted ADR names it. A row alone does not make one class B. |
-| Work that touches a class C path | Still class C. The `empower` skill and the plan's section 3 name the paths. T4 changes nothing about their class B tightening and follow-on edits. |
+| Work that touches a class C path | Still class C. Those are at least the paths the `empower` skill and the plan's section 3 name, hooks, settings, `.pre-commit-config.yaml`, and every repository's `CLAUDE.md`. |
+| Tightening and follow-on edits | T4 does not change their class B status. |
 | Work that weakens a control | Still class C, on any path. |
-| Security and assurance records | Still class C: risk acceptances, deviations, questions left to the signer, and any re-anchor or re-score of the register. |
-| Row verdicts | Only a row whose verdict is build is T4 scope. DEMAND-GATE, decide, research and declined-by-design rows stay class C. |
+| Security and assurance records | Still class C, at least risk acceptances, deviations, signer questions, re-scores, record prose and record reconciliations. A mechanical re-anchor keeps its class B. |
+| Row verdicts | Only a row whose every verdict field reads plain build is T4 scope. A compound verdict, such as decide then build, stays class C. So do DEMAND-GATE, decide, research, owner-ruling and declined-by-design rows. |
 | Rows waiting on an owner ruling | Still class C. So is a numbered item that holds an owner question, inside any row. |
 | Text that would widen T4's own scope | Still class C. That covers at least any seat's new ADR, ADR amendment, row or status flip. Work it names does not become class B. |
 | The owner's in-person acts | Still the owner's: signing or re-signing the register, money, credentials, and irreversible acts. |
-| The kill switch | Read it before each T4 act. Anything but exactly `off` turns T4 off, with the rest of class B. |
+| The kill switch | Read it before each T4 act. Anything but exactly `off` turns T4 off, with the rest of class B. A T4 brief tells its Builder to read it before each push, and to stop unpushed unless it reads `off`. |
 | It moves no other permission | Merging stays the Lander's, and code review still binds every change. |
 
 ---
