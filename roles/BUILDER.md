@@ -163,8 +163,8 @@ whenever it is reasonable* is met.
 | Write, edit, delete inside your lane | -- |
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
-| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening no new PR. [COMMON.md](COMMON.md) T3. |
-| Reclaim a verified-dead holder's worktree, branch or claim | Class B, with review, only when your brief names it (Manager decision 2026-11-09). Re-read the dead tests yourself, then branch from its pushed tip in your worktree. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
+| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening no new PR, unlike the opening section. [COMMON.md](COMMON.md) T3. |
+| Reclaim a verified-dead holder's branch and work, never its claim | Class B, with review, only when a Manager's brief names it (Manager decision 2026-11-09). Re-read the dead tests, then branch from its pushed tip. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
@@ -206,7 +206,7 @@ Report it, and do not ask the owner. The Lander flips it.
 | `git commit --no-verify`, or a rename to dodge a gate | Nothing. No condition makes this correct. |
 | `git reset --hard` in a worktree | The harness deny-lists it. The answer to a refusal is to stop, not to find a spelling that gets past it. |
 | Edit, commit in, or remove another lane's worktree | Nothing, while lanes are concurrent. |
-| Release another worktree's claim | Policy, not mechanism -- `-Force` works. Not yours unless the Manager asks. |
+| Release another worktree's claim | Policy, not mechanism -- `-Force` works. Not yours unless the Manager asks. A dead holder's claim under T3 is the owner's to release. |
 | Run a machine-global installer (`install-coordination.ps1`, `install-git-hooks.ps1`, `install-gate.ps1`, `install-selfheal.ps1`) | These are the owner's, from a plain terminal, by design. |
 | A bare `git stash` or `git stash pop` | Nothing, while worktrees share a repo -- that is git's design, not a setting. |
 | Put message content in a handoff or session mail | Nothing, while this seat holds the sample messages. No segment, field value, identifier, partner name or site code, synthetic or real. **Mail the path.** |

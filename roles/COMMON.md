@@ -832,7 +832,8 @@ condition below holds.
 | Live state | It was read this turn. |
 | No reversal | No earlier decision on the item was reversed. |
 | The gate | Run in the act's own worktree, after the edit and before the commit, `decision.ps1 -Gate -Item <item>` with `-Touches` naming every changed path answers NO-REVIEW. Run it again if the path set grows. |
-| An up-to-date worktree | Run the gate only once the worktree is up to date with `origin/main`. Otherwise the answer is REVIEW (decided by the Manager 2026-11-09). |
+| An up-to-date worktree | Fetch, then check `git merge-base --is-ancestor origin/main HEAD`. If it fails, the answer is REVIEW (decided by the Manager 2026-11-09). The gate does not check this itself. |
+| Which copy of the gate | Run `origin/main`'s copy of `decision.ps1` and `_decisionlog.ps1`, from the act's worktree. A branch's own copy may grade its own edits. |
 | Shown, not assumed | Any condition not shown by a reading this turn fails. |
 
 **Class C paths, at least:** playbooks, skills, any `CLAUDE.md`, hooks and `scripts/hooks/`,
@@ -853,7 +854,8 @@ holds an input bound or a ReDoS-pinned pattern is not eligible (decided by the M
 | Item | Rule |
 | --- | --- |
 | T1 is a subset of class B | It sorts nothing. An act that is not already class B is never on the fast path. |
-| Class C by kind, on any path | At least new product scope, a risk acceptance or recorded deviation, a left-to-the-signer answer, and another session's work. None is class B, so none is fast path. |
+| Class C by kind, on any path | At least new product scope, a risk acceptance or recorded deviation, a left-to-the-signer answer, and another session's work outside a T3 reclaim. None is fast path. |
+| Another session's work | Never takes the fast path, a T3 reclaim included. That is a rule of its own, not a reading of another condition. |
 | What it skips | The adversarial decision review, and nothing else. |
 | What still binds | Code review, the QA line, gates, hooks and required contexts. |
 | Log it after the edit, before the commit | Run `decision.ps1 -Log` with `-Touches`. Its gate answer is the reading *The gate* asks for, and a REVIEW there takes the review. Put the decision id in the commit message body. |
@@ -875,35 +877,35 @@ plan's existing thresholds.
 | The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
 | An empty or thin history | Keeps the fast path closed, whatever the gate prints. Fewer than 20 resolved outcomes for the seat in 14 days is thin (decided by the Manager 2026-11-09). |
 | A gate that still counts 60 samples | It answers REVIEW for every seat, so the fast path stays shut until it reads the new signals. This file's reading of *Shown, not assumed*. |
-| Who logs the outcomes | The Lander logs holds, reds after merge, its own reverts, and resolved outcomes on PRs it merged. The Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, hold each duty. |
-| Never on your own decision | No seat logs a resolved outcome, such as `merged` or `done`, on its own decision (decided by the Manager 2026-11-09). |
+| Who logs the outcomes | The Lander logs holds, reds after merge, its own reverts, and `merged` on PRs it merged. The Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, hold each duty. |
+| Never on your own decision | No seat logs a resolved outcome, such as `merged`, on its own decision (decided by the Manager 2026-11-09). The engine gate's list says which words count as resolved; `done` does not. |
 | Reviewed decisions too | A hold or red on a reviewed decision names its decision id where one exists (decided by the Manager 2026-11-09). |
 
 **T3, reclaim and spawn.**
 
 | Item | Rule |
 | --- | --- |
-| Taking over a verified-dead holder's work | Its worktree, branch or claim. Class B, with its review. It was class C, as work touching another session's. |
+| Taking over a verified-dead holder's work | Its branch and the work in its worktree. Class B, with its review. It was class C, as work touching another session's. Releasing its claim stays the owner's, below. |
 | Verified dead, first | No commit, push, comment or mail from the holder for more than 2 hours. |
-| Verified dead, second | No live session in the claim or seat record. A transcript ending on a question unanswered for more than 2 hours counts as none. |
+| Verified dead, second | No live session, read with `list_events` or korus `scripts/board/seatstate.py`. A record says a seat was declared, not that it is alive. A transcript ending on a question unanswered for more than 2 hours counts as none. |
 | Verified dead, third | Nothing queued or armed. |
 | An owner-pending question | A holder whose transcript ends on a question to the owner, by `AskUserQuestion` or otherwise, is not dead, whatever its age (decided by the Manager 2026-11-09). |
 | Liveness you cannot read | A cloud or subagent holder, or one with no seat or claim record, is not verified dead, so it is not reclaimed (decided by the Manager 2026-11-09). |
-| Which comments count | Only one whose body names the holder's seat or branch (decided by the Manager 2026-11-09). Every seat posts as one identity. |
+| Which comments count | Elsewhere, only one whose body names the holder's seat or branch (decided by the Manager 2026-11-09). Every seat posts as one identity. |
 | A comment on the holder's own PR or branch | This file's reading: it counts as a sign of life even when it names nothing, since it may be the holder's. |
 | Who reads the tests | The seat that takes the work over, in its own turn. A Builder re-reads them itself and does not act on its brief's readings. |
-| Anchor before you take it | The holder's branch is pushed first. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
+| Anchor before you take it | The reclaiming seat pushes the holder's branch after its own reading. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
 | Never in place | Branch from the holder's pushed branch tip in your own worktree. Never edit in the holder's worktree (decided by the Manager 2026-11-09). |
 | Its uncommitted files | Recover them one path at a time, as that skill says, into your own commit, so the commit hooks and leak gates run. Never branch from or push a plumbing anchor. |
 | A dead holder's claim | Releasing it needs `claim.ps1 -Release -Force`, which the engine tripwire records as class C. Until the tripwire knows T3, put the claim release to the owner. |
 | The prohibition on acting on someone else's work | *Prohibitions that bind before any task starts* still binds. A T3 reclaim, within these rows, is its one exception. |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. T3 covers taking the work over, and nothing past that. |
-| Never the fast path | This file's reading: a reclaim changes a claim or another seat's worktree, so it fails *No effect outside git*. |
 | A held PR | Keeps its route, the Lander's repair Builder or the Repair Manager. T3 does not take one. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*. |
 | Which Builder reclaims | Only one whose Manager's brief names the work. Manager decision 2026-11-09, class B. |
 | A Builder spawning a session | Class B for its own fixes, with its review. A spawn is an effect outside git, so never the fast path. Spawning for anything else still needs permission first. |
 | Own fixes | Fixes to the Builder's own pushed branch or its PR. The spawned session works in a new worktree off that branch, pushes to it, and opens no new PR (decided by the Manager 2026-11-09). |
-| A conflict that row records | It differs from the 2026-09-24 owner ruling that a Builder in its own session opens its own PR. That conflict is an owner question, raised by the Manager. |
+| A conflict that row records | It differs from the 2026-09-24 owner ruling that a Builder in its own session opens its own PR. That is an owner question, raised by the Manager. Until answered, the Manager's decision stands. |
+| A second worktree off one branch | git refuses it. Make a local branch from the pushed tip and push it to the same remote branch. |
 | Ledger work | Managers pick and decompose ledger work themselves. |
 | Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner. |
 
@@ -911,12 +913,13 @@ plan's existing thresholds.
 
 | Item | Rule |
 | --- | --- |
-| Ledger rows and work an accepted ADR names as its direction | Class B, with its review. The Manager's 2026-11-09 decision reads it as filed ledger rows, less the rows below. |
+| Ledger rows and work an accepted ADR names as its direction | Class B, with its review, on every act. The Manager's 2026-11-09 decision reads it as filed ledger rows, less the rows below. |
+| A class C path inside T4 | A row's work on a class C path stays class C. T2 was not adopted, so T4 never moves a playbook, skill, `CLAUDE.md`, hook or workflow edit. |
 | Rows T4 does not move | This file's reading: a DEMAND-GATE row, a declined-by-design row, and a row waiting on a named owner ruling keep their class. |
 | A genuinely new product direction | Class C still, as new product scope. |
 | Accepted | This file's reading: the ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
 | An ADR or row a seat wrote to widen its own scope | This file's reading: text written on or after 2026-11-09 that opens a new direction does not make it class B. That covers an ADR, an amendment to an older ADR, and a row. |
-| The first act on a row under T4 | Takes its decision review. Whether a direction is new is never judged on the fast path. |
+| Every act on a row under T4 | Takes its decision review. Whether a direction is new is never judged on the fast path. |
 | It moves scope only | A change inside that scope that weakens a control is still class C. |
 
 **Still the owner's in person, and no tier reaches them:** register signing, money, credentials,

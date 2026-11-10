@@ -745,19 +745,19 @@ any of its rows is PARTIAL.
 
 ### 3a. A verified-dead holder's work is yours to reclaim, with its review
 
-**Owner ruling 2026-11-09, tier T3.** Taking over a verified-dead holder's worktree, branch or claim
-is class B. It was class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*,
+**Owner ruling 2026-11-09, tier T3.** Taking over a verified-dead holder's branch and work is class
+B; releasing its claim stays the owner's. It was class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*,
 holds the ruling and the three tests for dead.
 
 | Item | Rule |
 | --- | --- |
 | Read every test this turn | The holder's commits, pushes, comments and mail; its claim and seat record; the queue and any armed request. A test you did not read fails, and the takeover stays class C. |
-| Anchor first | Get the holder's branch pushed before you brief. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
+| Anchor first | The Builder pushes the holder's branch after its own reading, not you before the brief. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
 | Never in place | The Builder branches from the holder's pushed tip in its own worktree. Nobody edits in the holder's worktree (decided by the Manager 2026-11-09). |
 | You do not build the reclaim | A Manager does not build, so a reclaim is a Builder's, briefed by you. COMMON's T3 rows hold the claim and uncommitted-file limits. |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. |
 | It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
-| Briefing a Builder to reclaim | Name the worktree, branch or claim in the brief. Give your readings, and tell the Builder to re-read the tests itself. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
+| Briefing a Builder to reclaim | Name the worktree and branch in the brief, never a claim release. Give your readings, and tell the Builder to re-read the tests itself. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
 | A held PR is not yours by T3 | It keeps the Lander's repair Builder or the Repair Manager route. *8. The Repair Manager's duties* holds the second. |
 | A quiet batch under R8 | R8 still releases it to FREE after 72 hours. T3 lets you take it sooner, once its holder reads dead. |
 
