@@ -801,9 +801,9 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | What this file draws from it | A Manager picking and splitting such work is a routine plan: class B, with its adversarial review. This row and the one above are the drafting seat's reading, not the owner's wording. |
 | What is unchanged | Every other class C item and every class C path. A new direction stays the owner's, even inside such a row or a split of one. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
-| What is not live | T1, T2 and T3. The owner did not choose T2. |
+| What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *What this file draws from it* grants. The owner did not choose T2. |
 | 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
-| The T3 option text, not live | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
+| The T3 option text, live only in its last clause | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
 | The T4 option text | *"Ledger rows and accepted-ADR direction become class B; new directions stay yours."* |
 | 2026-11-09, R5 | Asked *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"*, the owner answered *"Exempt this change"*. |
 | The R5 exemption's reach | This file reads it as the korus and engine edits that land this rule. The decision below says a later T1 or T3 redesign needs a new R5 exemption. |
