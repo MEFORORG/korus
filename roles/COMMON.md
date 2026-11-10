@@ -787,6 +787,46 @@ in the Builder's own chat the same day.
 | The source of record for ask-mode | The engine's `CLAUDE.md`: *"no class B or C decision is acted on without the owner"*. It cites `docs/AUTONOMY-PLAN.md`, section 4, item 3, where every class reverts to ask-mode. |
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
+| ADR-bound scope, tier T4 (2026-11-09) | Filed ledger rows and work an accepted ADR names are class B. *Class B reaches ADR-bound scope, tier T4* holds the ruling and its limits. |
+
+### Class B reaches ADR-bound scope, tier T4
+
+**Owner ruling 2026-11-09, given in a Manager session's own chat.** The tier definitions were the
+Manager's text. The owner selected them by tier name.
+
+| Question | The owner's answer |
+| --- | --- |
+| *"Which autonomy tiers should I adopt?"* | *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"* |
+| *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"* | *"Exempt this change"* |
+
+**Delegated decision d20261110T044924935-4ee4e8,** decided by the Manager under the owner's
+delegation of 2026-11-09. After four review rounds did not converge, the Manager asked *"How should
+I proceed?"* The owner answered *"/driver"*.
+
+| Item | Rule |
+| --- | --- |
+| What the review found | An adversarial review refuted the whole adoption in part. So only T4 landed. |
+| T1, T3 and the Builder own-fix spawn | Deferred, and not live. Every class they would move keeps its old class. |
+| A redesign of them | Comes back to the owner, and needs its own R5 exemption. |
+| T2 | Not adopted. |
+| Ledger ruling R5 | The second answer exempts this change only. R5 still binds every other new rule until 2026-12-02. |
+
+**T4 as landed.**
+
+| Item | Rule |
+| --- | --- |
+| Filed ledger rows, and work an accepted ADR names as its direction | Class B. |
+| Accepted | The ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
+| Every T4 act | Takes the adversarial decision review. No T4 act skips it. |
+| Picking and decomposing ledger work | Managers do it themselves, under the same rule. |
+| A genuinely new product direction | Still class C, as new product scope. |
+| Work that touches a class C path | Still class C. The `empower` skill's class C names the paths, at least playbooks, skills, any `CLAUDE.md`, hooks, workflows, settings, SAIDS and SDS. |
+| Work that weakens a control | Still class C, on any path. |
+| DEMAND-GATE rows, declined-by-design rows, and rows waiting on an owner ruling | Still class C. |
+| Text that would widen T4's own scope | Still class C. That covers at least a seat's own new ADR, ADR amendment, row or status flip. Work it names does not become class B. |
+| The owner's in-person acts | Still the owner's: signing or re-signing the register, money, credentials, and irreversible acts. |
+| The kill switch | Anything but exactly `off` turns T4 off, with the rest of class B. |
+| It moves no other permission | Merging stays the Lander's, and code review still binds every change. |
 
 ---
 
