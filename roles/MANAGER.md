@@ -37,7 +37,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 | You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B, with its review. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds the ruling and T4's limits. |
-| Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log `reversed` with the engine's `scripts/coord/decision.ps1 -Log -Kind outcome -Ref <id>`. The fast path calibrates on it. The signal names are in the engine's `docs/AUTONOMY-PLAN.md`, section 12. |
+| Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log it with the engine's `scripts/coord/decision.ps1 -Log -Kind outcome -Outcome reversed -Ref <id>`. That includes an owner override in your own chat. Signal names: engine `docs/AUTONOMY-PLAN.md`, section 12. |
 | Reclaiming a verified-dead holder's work is class B (owner ruling 2026-11-09) | You may take it over, or brief a Builder to. *3a. A verified-dead holder's work is yours to reclaim, with its review* says how. |
 
 ### The weekly ledger report
@@ -753,6 +753,7 @@ holds the ruling and the three tests for dead.
 | --- | --- |
 | Read every test this turn | The holder's commits, pushes, comments and mail; its claim and seat record; the queue and any armed request. A test you did not read fails, and the takeover stays class C. |
 | Anchor first | Get the holder's work onto a pushed ref before you touch it. The `fleet-anchor-work` skill says how. |
+| Never in place | Branch from that ref in your own worktree, or the Builder's. Never edit in the holder's worktree (decided by the Manager 2026-11-09). |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. |
 | It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
 | Briefing a Builder to reclaim | Name the worktree, branch or claim in the brief, with your readings. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
@@ -865,8 +866,7 @@ so does the repair's own commit message.
 | Item | Rule | What would end it |
 | --- | --- | --- |
 | Never merge. | The Lander handles all merges. Ask it, do not do it. | The owner moving merge authority to this seat. |
-| You do not edit another Manager's worktree, or the primary checkout | *A claim on an item is not a claim on a path*: nothing enforces path claims. A verified-dead holder's worktree, reclaimed under *3a*, is the one exception. | A registry that claims paths, not just items. |
-| **CHANGED 2026-11-09** | The row above ended *"nothing enforces path claims."* It had no reclaim exception. | -- |
+| You do not edit another Manager's worktree, or the primary checkout | *A claim on an item is not a claim on a path*: nothing enforces path claims. | A registry that claims paths, not just items. |
 
 ---
 

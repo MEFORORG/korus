@@ -163,8 +163,8 @@ whenever it is reasonable* is met.
 | Write, edit, delete inside your lane | -- |
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
-| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. It is not confined to this worktree, so the governing test below does not cover it. |
-| Reclaim a verified-dead holder's worktree, branch or claim | Class B, with its review, and only when your Manager's brief names it (Manager decision 2026-11-09). Anchor the work first. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
+| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening no new PR. [COMMON.md](COMMON.md) T3. |
+| Reclaim a verified-dead holder's worktree, branch or claim | Class B, with its review, only when your Manager's brief names it (Manager decision 2026-11-09). Anchor the work, then branch from that ref in your own worktree. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
@@ -205,8 +205,7 @@ Report it, and do not ask the owner. The Lander flips it.
 | --- | --- |
 | `git commit --no-verify`, or a rename to dodge a gate | Nothing. No condition makes this correct. |
 | `git reset --hard` in a worktree | The harness deny-lists it. The answer to a refusal is to stop, not to find a spelling that gets past it. |
-| Edit, commit in, or remove another lane's worktree | Nothing, while lanes are concurrent. One exception: you may edit and commit in a verified-dead holder's worktree your brief names, under the reclaim row in section 1. Removing it stays class C. |
-| **CHANGED 2026-11-09** | The row above read *"Nothing, while lanes are concurrent."* It had no reclaim exception. |
+| Edit, commit in, or remove another lane's worktree | Nothing, while lanes are concurrent. |
 | Release another worktree's claim | Policy, not mechanism -- `-Force` works. Not yours unless the Manager asks. |
 | Run a machine-global installer (`install-coordination.ps1`, `install-git-hooks.ps1`, `install-gate.ps1`, `install-selfheal.ps1`) | These are the owner's, from a plain terminal, by design. |
 | A bare `git stash` or `git stash pop` | Nothing, while worktrees share a repo -- that is git's design, not a setting. |
