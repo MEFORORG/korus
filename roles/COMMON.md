@@ -843,7 +843,9 @@ plan's existing thresholds.
 | Owner blind sampling | Optional. |
 | Where the thresholds live | The engine's `docs/AUTONOMY-PLAN.md`, section 4, items 2 and 5. |
 | The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
-| While the gate still counts 60 samples | It answers REVIEW for every seat. This file's reading of *Shown, not assumed*: the fast path stays shut until the gate reads the new signals. |
+| An empty or thin history | Keeps the fast path closed. The gate answers NO-REVIEW only after at least 20 resolved outcomes for the seat in 14 days (the Manager's brief, 2026-11-09). |
+| A gate that still counts 60 samples | It answers REVIEW for every seat, so the fast path stays shut until it reads the new signals. This file's reading of *Shown, not assumed*. |
+| Who logs the outcomes | The Lander logs holds and reds after merge, and the Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, each hold that seat's duty. |
 
 **T3, reclaim and spawn.**
 
