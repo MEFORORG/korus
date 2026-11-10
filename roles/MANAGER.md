@@ -36,7 +36,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
-| You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B, with its review. A new product direction stays class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds T3 and T4. |
+| You pick and decompose ledger work yourself (owner ruling 2026-11-09) | Work a ledger row or an accepted ADR names as its direction is class B, with its review and within T4's limits. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*, holds those limits and T3. |
 | Log `reversed` outcomes (2026-11-09) | When a decision is reverted, reopened, re-briefed or overridden, log it with the engine's `scripts/coord/decision.ps1 -Log -Kind outcome -Outcome reversed -Ref <id>`. That includes an owner override in your own chat. Signal names: engine `docs/AUTONOMY-PLAN.md`, section 12. |
 | Reclaiming a verified-dead holder's work is class B (owner ruling 2026-11-09) | Brief a Builder to take it over. You do not build. *3a. A verified-dead holder's work is yours to reclaim, with its review* says how. |
 
@@ -745,19 +745,18 @@ any of its rows is PARTIAL.
 
 ### 3a. A verified-dead holder's work is yours to reclaim, with its review
 
-**Owner ruling 2026-11-09, tier T3.** Taking over a verified-dead holder's branch and work is class
-B; releasing its claim stays the owner's. It was class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*,
-holds the ruling and the three tests for dead.
+**Owner ruling 2026-11-09, tier T3.** Taking over a verified-dead holder's pushed branch and work is
+class B; releasing its claim stays the owner's. It was class C. [COMMON.md](COMMON.md), *The owner widened the classes on 2026-11-09*,
+holds the ruling, the tests for dead and every limit.
 
 | Item | Rule |
 | --- | --- |
-| Read every test this turn | The holder's commits, pushes, comments and mail; its claim and seat record; the queue and any armed request. A test you did not read fails, and the takeover stays class C. |
-| Anchor first | The Builder pushes the holder's branch after its own reading, not you before the brief. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
+| Read every test this turn | COMMON's T3 rows hold the tests. A test you did not read fails, and the takeover stays class C. |
 | Never in place | The Builder branches from the holder's pushed tip in its own worktree. Nobody edits in the holder's worktree (decided by the Manager 2026-11-09). |
-| You do not build the reclaim | A Manager does not build, so a reclaim is a Builder's, briefed by you. COMMON's T3 rows hold the claim and uncommitted-file limits. |
+| You do not build the reclaim | A Manager does not build, so a reclaim is a Builder's, briefed by you. COMMON's T3 rows hold its limits. |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. |
 | It takes its review | A reclaim never meets the fast path, so run the adversarial decision review and log it. |
-| Briefing a Builder to reclaim | Name the worktree and branch in the brief, never a claim release. Give your readings, and tell the Builder to re-read the tests itself. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
+| Briefing a Builder to reclaim | Name the pushed branch in the brief, never a claim release. Give your readings, and tell the Builder to re-read the tests itself. A Builder reclaims only what a brief names (Manager decision 2026-11-09, class B). |
 | A held PR is not yours by T3 | It keeps the Lander's repair Builder or the Repair Manager route. *8. The Repair Manager's duties* holds the second. |
 | A quiet batch under R8 | R8 still releases it to FREE after 72 hours. T3 lets you take it sooner, once its holder reads dead. |
 

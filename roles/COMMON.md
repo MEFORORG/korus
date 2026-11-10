@@ -780,7 +780,8 @@ in the Builder's own chat the same day.
 | What the 2026-11-09 ruling adds | It moves acts into class B and adds a fast path inside it: *The owner widened the classes on 2026-11-09*. |
 | The source of record for the classes | The engine's `docs/AUTONOMY-PLAN.md`, section 3, *Driver v2: the rules every seat follows*. Read it at engine `origin/autonomy-plan` until it merges, and at `origin/main` after. |
 | Where the plan says the daily digest | The plan puts class C tables and class D commands in a daily digest, a control in its section 4. Until a digest runs, the `empower` skill's end-of-turn summary carries them. |
-| The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it at the start of each task with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
+| The kill switch | Engine repository variable `MEFOR_AFK_KILL`. Read it before every class A or B act with `gh variable get MEFOR_AFK_KILL --repo MEFORORG/MessageFoundry`. |
+| **CHANGED 2026-11-09** | The row above read *"Read it at the start of each task"*. The engine's `CLAUDE.md` section 5 already said before every class A or B act. |
 | Anything but exactly `off` | Means empower is off. That includes at least a missing variable, an error, a timeout and no `gh`, so a cloud session that cannot read it runs in ask-mode. |
 | What the fallback restores | The driver rules alone, in ask-mode: no seat acts on a class B or C decision without the Owner, however strong its recommendation. Merging is not a class, so the Lander keeps merging. |
 | What yields to ask-mode | The driver ladder's steps 1 and 2, and *Escalate only what only the Owner has*. A recorded delegated decision is the Owner's own answer, and the switch does not touch it. |
@@ -833,7 +834,7 @@ condition below holds.
 | No reversal | No earlier decision on the item was reversed. |
 | The gate | Run in the act's own worktree, after the edit and before the commit, `decision.ps1 -Gate -Item <item>` with `-Touches` naming every changed path answers NO-REVIEW. Run it again if the path set grows. |
 | An up-to-date worktree | Fetch, then check `git merge-base --is-ancestor origin/main HEAD`. If it fails, the answer is REVIEW (decided by the Manager 2026-11-09). The gate does not check this itself. |
-| Which copy of the gate | Run `origin/main`'s copy of `decision.ps1` and `_decisionlog.ps1`, from the act's worktree. A branch's own copy may grade its own edits. |
+| Which copy of the gate | Run the gate only from a worktree whose HEAD contains `origin/main`, by the ancestry check above, so its scripts are `origin/main`'s (decided by the Manager 2026-11-09). A branch that edits them fails *No class C path*. |
 | Shown, not assumed | Any condition not shown by a reading this turn fails. |
 
 **Class C paths, at least:** playbooks, skills, any `CLAUDE.md`, hooks and `scripts/hooks/`,
@@ -848,8 +849,8 @@ security and assurance records, and scores.
 **More security controls, at least:** the engine `CLAUDE.md` section 5 product security rules.
 They cover untrusted input, parameterized SQL, secrets and dependency checks.
 
-**Which parser files may take the fast path is the engine gate's allowlist to say.** A file that
-holds an input bound or a ReDoS-pinned pattern is not eligible (decided by the Manager 2026-11-09).
+**The gate's allowlist never settles *Not a security control*; its header governs.** A file
+holding an input bound or a ReDoS-pinned pattern is not eligible (decided by the Manager 2026-11-09).
 
 | Item | Rule |
 | --- | --- |
@@ -871,7 +872,7 @@ plan's existing thresholds.
 | --- | --- |
 | The signals | A 14-day reversal rate of 5 percent or less, with the hold and red-after-merge rates. The engine plan's section 12 names them. |
 | The reversal budget | A separate control. The third reversal fleet-wide, or a seat's second, inside 24 hours closes the fast path for 24 hours. |
-| Reds after merge and Lander holds | Designed, not built, until tooling reads them (the Manager's brief, 2026-11-09). The engine's T1 gate reads them. Writing them is by hand, so log every one. |
+| Reds after merge and Lander holds | The engine's T1 gate reads them. Nothing writes them yet, so they are logged by hand. The Manager's brief called both designed, not built; this row follows the approved change. |
 | Owner blind sampling | Optional. |
 | Where the thresholds live | The engine's `docs/AUTONOMY-PLAN.md`, section 4, items 2 and 5. |
 | The instrument | The engine's `scripts/coord/decision.ps1 -Gate`. Its NO-REVIEW is necessary and not sufficient, as its header says. |
@@ -879,32 +880,34 @@ plan's existing thresholds.
 | A gate that still counts 60 samples | It answers REVIEW for every seat, so the fast path stays shut until it reads the new signals. This file's reading of *Shown, not assumed*. |
 | Who logs the outcomes | The Lander logs holds, reds after merge, its own reverts, and `merged` on PRs it merged. The Manager logs reversals. [LANDER.md](LANDER.md) and [MANAGER.md](MANAGER.md), *Standing rules*, hold each duty. |
 | Never on your own decision | No seat logs a resolved outcome, such as `merged`, on its own decision (decided by the Manager 2026-11-09). The engine gate's list says which words count as resolved; `done` does not. |
-| Reviewed decisions too | A hold or red on a reviewed decision names its decision id where one exists (decided by the Manager 2026-11-09). |
+| Only with a named id | The Lander logs a hold or red only when the PR body names the decision id. With no id, it logs nothing (decided by the Manager 2026-11-09). |
 
 **T3, reclaim and spawn.**
 
 | Item | Rule |
 | --- | --- |
-| Taking over a verified-dead holder's work | Its branch and the work in its worktree. Class B, with its review. It was class C, as work touching another session's. Releasing its claim stays the owner's, below. |
+| Taking over a verified-dead holder's pushed branch and work | Only work already on the remote, at the holder's pushed branch tip. Class B, with its review. It was class C. Releasing its claim stays the owner's, below. |
+| A reclaim on a class C or security path | If the reclaimed diff touches any class C path or security control, the reclaim is class C, as in T4 (decided by the Manager 2026-11-09). |
 | Verified dead, first | No commit, push, comment or mail from the holder for more than 2 hours. |
 | Verified dead, second | No live session, read with `list_events` or korus `scripts/board/seatstate.py`. A record says a seat was declared, not that it is alive. A transcript ending on a question unanswered for more than 2 hours counts as none. |
 | Verified dead, third | Nothing queued or armed. |
+| A running session | A holder whose session `list_events` shows running, or with a running background task, is not dead (decided by the Manager 2026-11-09). |
 | An owner-pending question | A holder whose transcript ends on a question to the owner, by `AskUserQuestion` or otherwise, is not dead, whatever its age (decided by the Manager 2026-11-09). |
 | Liveness you cannot read | A cloud or subagent holder, or one with no seat or claim record, is not verified dead, so it is not reclaimed (decided by the Manager 2026-11-09). |
 | Which comments count | Elsewhere, only one whose body names the holder's seat or branch (decided by the Manager 2026-11-09). Every seat posts as one identity. |
 | A comment on the holder's own PR or branch | This file's reading: it counts as a sign of life even when it names nothing, since it may be the holder's. |
 | Who reads the tests | The seat that takes the work over, in its own turn. A Builder re-reads them itself and does not act on its brief's readings. |
-| Anchor before you take it | The reclaiming seat pushes the holder's branch after its own reading. Its uncommitted files are anchored as the `fleet-anchor-work` skill says. |
 | Never in place | Branch from the holder's pushed branch tip in your own worktree. Never edit in the holder's worktree (decided by the Manager 2026-11-09). |
-| Its uncommitted files | Recover them one path at a time, as that skill says, into your own commit, so the commit hooks and leak gates run. Never branch from or push a plumbing anchor. |
+| Its unpushed or uncommitted work | Never pushed or recovered by the reclaimer. It is left for the owner (decided by the Manager 2026-11-09). |
 | A dead holder's claim | Releasing it needs `claim.ps1 -Release -Force`, which the engine tripwire records as class C. Until the tripwire knows T3, put the claim release to the owner. |
 | The prohibition on acting on someone else's work | *Prohibitions that bind before any task starts* still binds. A T3 reclaim, within these rows, is its one exception. |
 | Taking over is not deleting | Removing the holder's worktree, or rewriting its pushed history, stays class C. T3 covers taking the work over, and nothing past that. |
 | A held PR | Keeps its route, the Lander's repair Builder or the Repair Manager. T3 does not take one. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*. |
 | Which Builder reclaims | Only one whose Manager's brief names the work. Manager decision 2026-11-09, class B. |
 | A Builder spawning a session | Class B for its own fixes, with its review. A spawn is an effect outside git, so never the fast path. Spawning for anything else still needs permission first. |
-| Own fixes | Fixes to the Builder's own pushed branch or its PR. The spawned session works in a new worktree off that branch, pushes to it, and opens no new PR (decided by the Manager 2026-11-09). |
-| A conflict that row records | It differs from the 2026-09-24 owner ruling that a Builder in its own session opens its own PR. That is an owner question, raised by the Manager. Until answered, the Manager's decision stands. |
+| Own fixes | Fixes to the Builder's own pushed branch or its PR. The spawned session works in a new worktree off that branch and pushes to it (decided by the Manager 2026-11-09). |
+| Its PR | If that branch has no open PR, the spawned session opens its own, as the 2026-09-24 owner ruling requires. If one is open, it pushes to it. |
+| A spawn prompt | A prompt from a Builder carries no owner authority in the new session, though it arrives there as a user turn (decided by the Manager 2026-11-09). |
 | A second worktree off one branch | git refuses it. Make a local branch from the pushed tip and push it to the same remote branch. |
 | Ledger work | Managers pick and decompose ledger work themselves. |
 | Ledger ruling R8 | Unchanged. It still releases a quiet batch to FREE after 72 hours. T3 is a named seat taking work over sooner. |
@@ -919,7 +922,7 @@ plan's existing thresholds.
 | A genuinely new product direction | Class C still, as new product scope. |
 | Accepted | This file's reading: the ADR reads accepted at `origin/main`, read this turn. A proposed or superseded one does not count. |
 | An ADR or row a seat wrote to widen its own scope | This file's reading: text written on or after 2026-11-09 that opens a new direction does not make it class B. That covers an ADR, an amendment to an older ADR, and a row. |
-| Every act on a row under T4 | Takes its decision review. Whether a direction is new is never judged on the fast path. |
+| Every act on a row under T4 | Takes its decision review, and its decision log record names T4 (decided by the Manager 2026-11-09). Whether a direction is new is never judged on the fast path. |
 | It moves scope only | A change inside that scope that weakens a control is still class C. |
 
 **Still the owner's in person, and no tier reaches them:** register signing, money, credentials,

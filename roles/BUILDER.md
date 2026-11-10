@@ -163,8 +163,8 @@ whenever it is reasonable* is met.
 | Write, edit, delete inside your lane | -- |
 | Any read-only probe; the full suite | -- |
 | Spawn subagents (`Agent`); take and release this worktree's claims | -- |
-| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening no new PR, unlike the opening section. [COMMON.md](COMMON.md) T3. |
-| Reclaim a verified-dead holder's branch and work, never its claim | Class B, with review, only when a Manager's brief names it (Manager decision 2026-11-09). Re-read the dead tests, then branch from its pushed tip. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
+| Spawn a session for your own fixes (owner ruling 2026-11-09). Spawning for anything else still needs permission first | Class B, with its decision review. Own fixes are to your own pushed branch or its PR: a new worktree off that branch, pushing to it, opening a PR only if none is open. [COMMON.md](COMMON.md) T3. |
+| Reclaim a verified-dead holder's pushed branch and work, never its claim | Class B, with review, only when a Manager's brief names it (Manager decision 2026-11-09). Re-read COMMON's T3 tests, then branch from its pushed tip. [MANAGER.md](MANAGER.md), *3a. A verified-dead holder's work is yours to reclaim, with its review*. |
 | Allocate an ADR number **this lane will commit** | -- |
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
