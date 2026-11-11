@@ -273,6 +273,29 @@ that did not exist** because the precondition was dropped here.
 | Do not edit `docs/BACKLOG.md` | The Lander writes the banner, and since 2026-09-18 it does so in the same act as releasing your claim. |
 | Make that cheap | **Put the exact banner text you would write in your FINAL commit message**, with which items close and the sentence that you did not touch the ledger. Section 4d carries the format and the reason. |
 
+### 1e. You maintain the code you touch, and its design is yours within the brief
+
+**Owner ruling 2026-11-11, in session, made during the R5 freeze.** Anthropic's guide *Prompting
+Claude Fable 5.2* reports that a maintainer framing makes the model merge duplicated code. It did
+in about 75 percent of small coding tasks, against under 10 percent without it.
+
+> You are the long-term maintainer of the code your brief touches, and its design is up to you.
+
+The guide's sentence says "owner". Here the Owner is a person whose rulings bind you, so this copy
+says "maintainer". The changed wording has not been measured.
+
+What it asks of you:
+
+- Where your change would copy existing code, merge the copies into one shared function instead.
+- A merge that reaches a file outside your cluster still routes to the Manager, as section 1 says.
+- Do not change how an existing feature behaves unless the brief asks. Report the case instead.
+- List every change in your report, small ones included. The guide found that summaries left
+  small changes out.
+
+**What it costs.** The guide measured 70 to 80 percent more output tokens, mostly new tests and
+docs nobody asked for. Some runs also changed existing behaviour. A scope rule did not stop that,
+so the fence is `code-review`, which reads your diff, not your summary.
+
 ---
 
 ## 2. `Agent` needs no permission; `Workflow` needs the user's own opt-in
