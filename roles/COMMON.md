@@ -801,7 +801,7 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | The grant to Managers | A Manager picking and splitting work the qualifier exempts is a routine plan: class B, with its adversarial review. This row is the drafting seat's reading, not the owner's wording. |
 | Scope a session wrote | Scope a session wrote counts only where it traces to an owner turn, or, for a row it filed or widened or a verdict it set, to a defect or finding against main. |
 | Session-recorded ADRs and delegations | An ADR acceptance or amendment a session recorded counts only where it traces to an owner turn. A decision recorded under the owner's delegation is the owner's ruling. Rows and ADRs are read at `origin/main`. |
-| A new direction | A new direction stays the owner's. Engine docs/AUTONOMY-PLAN.md section 3, class C row, defines it, including that work of unclear scope is one. |
+| A new direction | A new direction stays the owner's. Engine docs/AUTONOMY-PLAN.md section 3, class C row, defines it. |
 | What is unchanged | Every other class C item and every class C path. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
 | What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *The grant to Managers* grants. The owner did not choose T2. |
