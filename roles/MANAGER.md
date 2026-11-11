@@ -785,7 +785,7 @@ not need these.
 | Say which account it is on, and what that implies | Your subagents inherit your account. If your headroom is thin, they will hit it mid-task, and a worker that does not know its budget cannot report a limit as a limit. |
 | Say who else is running -- three fields, always present, including when the answer is nobody | Who else is working; what paths they are touching; **whether they share this worktree.** |
 | Why the third field is the whole of the collision | No brief carried it before. Two workers given the same worktree each reported the other's output as an unexplained intruder, because neither was told the other existed. |
-| Carry the maintainer sentence | Copy [BUILDER.md](BUILDER.md) 1e's sentence and its bullets into the brief, owner ruling 2026-11-11. The bullets are its limits. Leave both out where the item wants the smallest change. |
+| The ownership block | Only for an item that restructures code or touches duplicated code. *5c* carries the text, the rule and the diff check. |
 | Hand down readings, not conclusions | If you tell a worker what you concluded, it will apply your conclusion and its own correct evidence will lose. That has happened. Mark a conclusion as yours, and say what the worker should do if it does not hold. |
 
 ### 5a. The careful, least-privilege tool grant is the broken one
@@ -822,6 +822,38 @@ The resolution is still the Builder's, never yours.
 | The route above | A Manager's subagent rebuilt a conflicted pull request this way, with no spawn and no owner step. Event `20260928T014254794Z-s7k819`. |
 
 Prefer the fresh branch to a spawn. A subagent cannot outlive a mistake; a spawned session can.
+
+### 5c. Add the ownership block to a brief only where the item should restructure code
+
+**Owner ruling 2026-11-11, in session.** Asked *"How should PR 271 proceed?"*, with a recommendation
+to put this sentence only in briefs and record an R5 exemption, the owner answered *"Re-cut it
+smaller"*. That answer is this rule's exemption from ledger ruling R5.
+
+Copy the block whole into the brief's `OWNERSHIP.` line ([WORKER-BRIEF.md](../docs/WORKER-BRIEF.md)):
+
+```text
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+That describes your stance toward the code. The project owner's rulings still bind you.
+Consolidate only copies that behave the same, and keep any difference between them.
+Change no existing behaviour the brief does not ask for. List every change in your report.
+```
+
+Include it when the item restructures code or touches duplicated code. Leave it out where the item
+wants the smallest change, as the guide advises.
+
+Anthropic's guide [Prompting Claude Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2),
+read 2026-11-11, tested the first line on small tasks. Fable 5.2 consolidated duplicates in
+about 75 percent of runs, and under 10 percent without it.
+
+Opus 5.5, which the fleet mostly runs, was not measured. Nor were the block's last three lines.
+
+**What it costs.** Output tokens rose 70 to 80 percent. The model made changes nobody asked for,
+many of them tests and docs, and sometimes changed existing behaviour. A scope rule did not stop
+the consolidation.
+
+**Its summaries left small changes out, so you check the diff.** Before you open the pull request,
+compare `git diff --stat origin/main...<branch>` with the Builder's report. Name in the body any
+file the report does not mention.
 
 ---
 

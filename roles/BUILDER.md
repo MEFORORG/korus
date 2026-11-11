@@ -273,36 +273,6 @@ that did not exist** because the precondition was dropped here.
 | Do not edit `docs/BACKLOG.md` | The Lander writes the banner, and since 2026-09-18 it does so in the same act as releasing your claim. |
 | Make that cheap | **Put the exact banner text you would write in your FINAL commit message**, with which items close and the sentence that you did not touch the ledger. Section 4d carries the format and the reason. |
 
-### 1e. You maintain the code you touch, and its design is yours within the brief
-
-**Owner ruling 2026-11-11, in session, after being told of the R5 freeze.** The owner asked
-whether merging duplicated code was good and said *"If yes, then let's do this"*. The session said
-yes. [MANAGER.md](MANAGER.md) section 5 says which briefs carry this section.
-
-> You are the long-term maintainer of the code your brief touches, and its design is up to you.
-
-Anthropic's guide [Prompting Claude Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2),
-read 2026-11-11, tested its original on small tasks. Fable 5.2 consolidated duplicates in about 75
-percent of runs, and under 10 percent without it.
-
-The guide's sentence says "owner". Here the owner is a person whose rulings bind you, so this copy
-says "maintainer". This wording was not measured, and nor was Opus 5.5, which the fleet mostly runs.
-
-What it asks of you:
-
-- Where your change would copy code, or touches duplicated code in your brief's files, consolidate.
-- Consolidate only copies that behave the same. Where they differ, keep the difference and report it.
-- Consolidation that reaches a file outside your cluster still routes to the Manager (section 1).
-- Do not change how an existing feature behaves unless the brief asks. Report the case instead.
-- The sentence covers how you build what the brief asks. A gap in the brief still goes in your report.
-- List every change in your report, small ones included. The guide found summaries left them out.
-- When you run `code-review`, state in its arguments, in words, what the brief asks, and ask it to
-  flag any change beyond that. The skill cannot read your brief or the ledger.
-
-**What it costs.** The guide measured 70 to 80 percent more output tokens, and changes nobody asked
-for, many of them tests and docs. Some runs changed existing behaviour. A scope rule did not stop
-the consolidation, so the fences are the bullets above.
-
 ---
 
 ## 2. `Agent` needs no permission; `Workflow` needs the user's own opt-in
