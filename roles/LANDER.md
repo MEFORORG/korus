@@ -537,7 +537,7 @@ travel beside the merge. At least two rows do hold it: a leg nobody read and a l
 constraint. A finding *4a-quinquies* sends to the owner holds it too.
 
 **CHANGED 2026-10-12.** This read *"Three rows in the table do hold it"*, with a defect the merge
-would ship first. **CORRECTED 2026-11-11:** it then said an open finding gets its row before the
+would ship first. **CORRECTED 2026-11-10:** it then said an open finding gets its row before the
 merge. Ledger ruling R2 is newer: name the finding on the pull request, merge, then file.
 
 | What you find in a comment, a review or the body | What you do with it |
@@ -560,8 +560,8 @@ you created. File it with everybody else's, in your next ledger pull request.
 decline, or the row. A reader who finds the comment must also find what became of it.
 
 **Say "filed" only once the ledger pull request is open.** Before that, say it is queued for your
-next one. A queued row is enough for the merge. **CORRECTED 2026-11-11:** this ended *"A queued row
-does not meet 4a-quinquies, which asks for the row before the merge."* Ledger ruling R2 is newer.
+next one. A queued row is enough for the merge; the sweep below carries it. **CORRECTED
+2026-11-10:** this ended *"A queued row does not meet 4a-quinquies"*. Ledger ruling R2 is newer.
 
 **The ledger is private and some repositories are public.** On a pull request in a public
 repository, say that the item is filed or queued and name its subject. Do not paste a row's text there.
@@ -1252,21 +1252,21 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | An open finding in the line does not send the pull request back | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. **RETITLED 2026-10-12:** it ended *is not a hold*. The next two rows say what each one needs. |
 | A finding that changes behaviour or weakens a control goes to the owner | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. *"I would still bring you anything that does."* **NARROWED 2026-10-12, by owner ruling:** it began *Unless the finding names a defect*. |
 | Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
-| The other open findings are filed as rows after the merge | Ledger ruling R2: *"The merge still never waits on an open finding, and no finding goes unrecorded."* **CORRECTED 2026-11-11:** this row's title ended *before the merge*. |
+| The other open findings are filed as rows after the merge | Ledger ruling R2: *"The merge still never waits on an open finding, and no finding goes unrecorded."* **CORRECTED 2026-11-10:** this row's title ended *before the merge*. |
 | The approved words still say which findings may merge open | *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* |
 | One row per pull request, since 2026-11-04 | A merged pull request files at most one row, holding its open findings as numbered items. *7d*, *A pre-existing defect*, says where a finding about untouched code goes. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
-| The row no longer comes first | A merge never waits on the vault pull request filing its findings, nor on an earlier ledger pull request editing the same rows. |
-| What that row read until 2026-11-11 | *"The row comes first, for now"*, the fit *"until the owner answers"*. R2 is that answer. **CORRECTED 2026-11-11.** |
-| What the old row cost | On 2026-11-10 engine PR 2879 was held *"on filing only"* until vault PR 2930 merged (hold comment 6782529165). The Lander reported no merge in three repositories for about 90 minutes. |
-| Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
-| The 2026-10-12 question, answered | *"May you name a finding on the pull request, merge, and file its row after?"* Yes, by R2. **CORRECTED 2026-11-11:** this row was *One question is still with the owner*. |
-| Your own ledger pull request takes the same rows | Name its review's open findings on it, merge, and carry them into your next ledger pass. A finding the owner-route rows send to the owner still holds it. |
-| Do not repair them on the same branch, round after round | A repair is new content, so it needs its own review under *The proof must cover the change you merge*, and that review finds more. |
-| Measured 2026-11-10 and 11 | Vault PR 2930 ran six xhigh rounds, and PRs 2935 and 2936 at least three each. Each count their bodies record is 10 to 15 findings, against a cap of 15. |
-| What such a row records | The finding, verbatim or by a pointer to its source comment, and its closing step. |
-| What it does not record | A hold's terms, or an engine pull request's merge routing. Link the hold comment instead, under *State it once*. The merge no longer waits on the row, so the row has no merge state to keep. |
+| Nor on another ledger pull request | Not on one editing the same rows either. On 2026-11-10 engine PR 2879 was held *"on filing only"* (comment 6782529165), to be enqueued once vault PR 2930 merged. That hold stood until hold 6784253990 replaced it at 01:27Z. |
+| Since 2026-10-22 | A record under the owner's delegation also grants a merge past a finding that once went to the owner, when the record answers that finding. *What you check on a delegated record*. |
+| What two deleted rows read | *"The row comes first, for now"*, and *"One question is still with the owner"*: *"May you name a finding on the pull request, merge, and file its row after?"* **CORRECTED 2026-11-10.** |
+| How R2 answers it, as a reading | R2's signed preamble says the merge *"still never waits on an open finding"*. Reading that as yes is this change's reading of the signed text, made on the owner's instruction of 2026-11-10 to fix the stall. |
+| Engine `CLAUDE.md` section 5 still reads the other way | Its merge bullet says *"may merge when the open findings are filed as rows"*, and that R2 changes nothing else there. That conflict goes to the owner. Meanwhile R2 is the newer owner-signed text. |
+| Your own ledger pull request is no exception | Name its review's open findings on it, merge, and carry them into your next ledger pass. A finding the owner-route rows send to the owner still holds it. |
+| Why not repair them on the branch | A repair is new content, so it needs its own review under *The proof must cover the change you merge*, and that review finds more. |
+| Measured | Vault PR 2930 ran six xhigh rounds by commit `955cbc2eb0`. Its body then recorded rounds of 15, 15, 13 and 12 findings, against a cap of 15. Wiki lesson `20261028T001841162Z-pzprtn` measured the same on vault PR 2732. |
+| What a ledger row records | The finding verbatim, a link to its source comment, and its closing step. An owner-routed finding still says so. |
+| What it links instead of restating | A hold's terms, and which hold an engine merge waits on, stay in the hold comment, under *State it once*. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
-| Name each finding on the pull request before you merge | One line each: the finding, then its row or *"queued"*. **CORRECTED 2026-11-11:** this read *"A queued row does not count."* *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
+| Name each finding on the pull request before you merge | One line each: the finding, then its row or *"queued"*. **CORRECTED 2026-11-10:** this read *"A queued row does not count."* *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
 | What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. |
 | False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
@@ -1803,7 +1803,6 @@ Wiki key `merge-queue/ejection/read-the-merge-group-run`, each event's `supersed
 | Item | Rule |
 | --- | --- |
 | Order | When a fix PR and its ledger PR are separate, merge the **LEDGER** one first. Ledger-first is self-correcting; fix-first has `main` claiming "not yet merged" about something already shipped. |
-| Not a filing | **NARROWED 2026-11-11:** *Order* covers a ledger pull request that writes the fix's banner. One filing the fix's open findings comes after the fix merges (R2), so it never holds the fix. |
 | Close before you file | The ledger is single-writer, so filing and closing compete for one channel, and filing always feels more urgent because someone just handed you the finding. Measured 2026-08-22: a 29-merge drain filed 11 items and closed none, ending **+11 open**. |
 | What sat unread | **117 open items carrying a build or demand verdict**, the only two classes that have ever closed. |
 | A pre-existing defect | A finding about code the pull request did not touch goes into the one open row for that module, as an item, not into a new row. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
@@ -2130,8 +2129,9 @@ successor can resume*.
 | State it once | State a load-bearing fact ONCE and link to it. A fact restated in three places is corrected in one. |
 | Every prohibition carries its expiry | Write beside it what would have to become true for it to stop being right, and how to check. A prohibition without one becomes permanent by default. |
 | Retract in place | Keep the wrong version and why it was wrong. Several sections here are more useful for recording a wrong version than they would be stating only the right answer. |
-| Only for text a reader may have read | That is text on `main`, here or in a ledger row. Rewrite text only your unmerged branch carries, with no marker. **NARROWED 2026-11-11.** |
-| Why it was narrowed | A marker for branch-only history is new text to review. On vault PR 2930's head `955cbc2eb0`, 46 of the 62 old-text quotes parsed from its CORRECTED markers quote the branch's own earlier commits. |
+| In a ledger row, only for text on `main` | Row text that only your unmerged ledger branch carries is rewritten with no marker. **NARROWED 2026-11-10.** |
+| Why it was narrowed | A marker for branch-only history is new text to review. At vault PR 2930's commit `955cbc2eb0`, 46 of 62 parsed marker quotes came from the branch's own earlier commits. |
+| How that was counted | A script took the text after each marker's *this read*, then searched merge base `a24bcb7c84` and the branch's five earlier commits for its first 40 characters. 41 marker lines did not parse. |
 | Why | Delete the error and the next session re-derives it. |
 | LABEL THE KIND OF A HOLD WHEN YOU HAND ONE OVER | A mechanical hold -- a missing push, an unowned rebase -- and a hold resting on your own judgment inherit differently. |
 | Why it matters in a table | **Beside mechanical rows, an unlabelled judgment call reads as mechanical and stops being examined.** So write *"this is a judgment I made and should be re-examined, not inherited"* on the ones that are. |
