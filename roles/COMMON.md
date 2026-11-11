@@ -801,8 +801,8 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | The grant to Managers | A Manager picking and splitting work the qualifier exempts is a routine plan: class B, with its adversarial review. This row is the drafting seat's reading, not the owner's wording. |
 | Scope a session wrote | Scope a session wrote counts only where it traces to an owner turn, or, for a row it filed or widened or a verdict it set, to a defect or finding against main. |
 | Session-recorded ADRs and delegations | An ADR acceptance or amendment a session recorded counts only where it traces to an owner turn. A decision recorded under the owner's delegation is the owner's ruling. Rows and ADRs are read at `origin/main`. |
-| What is unchanged | Every other class C item and every class C path. The Lander's review rules stand, and the Lander gains no duty. |
 | A new direction | A new direction stays the owner's: work beyond the scope of that row or the accepted direction of that ADR, or work whose scope is unclear. COMMON takes this definition from engine docs/AUTONOMY-PLAN.md section 3. |
+| What is unchanged | Every other class C item and every class C path. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
 | What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *The grant to Managers* grants. The owner did not choose T2. |
 | 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
