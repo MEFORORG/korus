@@ -537,12 +537,12 @@ travel beside the merge. At least two rows do hold it: a leg nobody read and a l
 constraint. A finding *4a-quinquies* sends to the owner holds it too.
 
 **CHANGED 2026-10-12.** This read *"Three rows in the table do hold it"*, with a defect the merge
-would ship first. An open finding you merge past gets its row in your next ledger pull request.
-*4a-quinquies* says why, and what is still asked of the owner.
+would ship first. An open finding you merge past is filed in your next ledger pull request.
+*4a-quinquies* says why.
 
 **CORRECTED 2026-11-11,** by decision d20261111T061703900-432f31, decided by the Lander under the
 owner's delegation of 2026-11-11. The paragraph above read *"For now, an open finding you merge past
-gets its row before the merge."*
+gets its row before the merge. 4a-quinquies says why, and what is still asked of the owner."*
 
 | What you find in a comment, a review or the body | What you do with it |
 | --- | --- |
@@ -1258,7 +1258,7 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
 | The other open findings are filed as rows in your next ledger pull request | The approved words: *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* **CORRECTED 2026-11-11:** this row's name ended *"before the merge"*. |
 | One row per pull request, since 2026-11-04 | A merged pull request files at most one row, holding its open findings as numbered items. *7d*, *A pre-existing defect*, says where a finding about untouched code goes. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
-| The merge comes first | Ledger ruling R2's signed text sets the order. Only the 2026-10-12 ruling grants a merge past a finding that once went to the owner. **CORRECTED 2026-11-11:** this row was *The row comes first, for now*. |
+| The merge comes first | Ledger ruling R2's signed text governs the order. The 2026-10-12 ruling grants a merge past a finding that once went to the owner. **CORRECTED 2026-11-11:** this row was *The row comes first, for now*. |
 | Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
 | The question asked 2026-10-12 is answered, under the owner's delegation of 2026-11-11 | May you name a finding on the pull request, merge, and file its row after? Yes. **CORRECTED 2026-11-11:** it was *One question is still with the owner*, ending *"This row is edited when the owner answers."* |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
@@ -1266,7 +1266,7 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
 | What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. |
 | False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
-| What merges open | Every open finding is filed as a row. Only one that none of those rows, *False program output* or *A false control claim in any text* sends to the owner merges while it is open. |
+| What merges open | Only one that none of those rows, *False program output* or *A false control claim in any text* sends to the owner merges while it is open. **CORRECTED 2026-11-11:** it opened *"Every open finding is filed as a row."* |
 | False program output | It changes behaviour. At least: log lines, alerts, refusal and error text, ACK or NAK text, API error bodies, and CLI and web console text. |
 | A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
