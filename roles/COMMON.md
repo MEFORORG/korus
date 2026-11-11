@@ -799,8 +799,8 @@ The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where
 | The rule, in the chosen option's text | *"a filed build row and the direction of an ADR you accepted are not 'new product scope'"*. The Manager wrote that text; the owner selected it. |
 | Where the qualifier is defined | Engine `docs/AUTONOMY-PLAN.md` section 3 and section 12, read at `origin/main`, define the qualifier and its carve-backs. This file restates only the grant to Managers. |
 | The grant to Managers | A Manager picking and splitting work the qualifier exempts is a routine plan: class B, with its adversarial review. This row is the drafting seat's reading, not the owner's wording. |
-| Scope a session wrote | Engine docs/AUTONOMY-PLAN.md section 3, class C row, states when scope a session wrote counts. |
-| Session-recorded ADRs and delegations | Engine docs/AUTONOMY-PLAN.md section 3, class C row, states when an ADR acceptance or amendment a session recorded, and a decision recorded under the owner's delegation, count. It also states where rows and ADRs are read. |
+| Scope a session wrote | Scope a session wrote counts only where engine docs/AUTONOMY-PLAN.md section 3, class C row, says it does. |
+| Session-recorded ADRs and delegations | An ADR acceptance or amendment a session recorded, and a decision recorded under the owner's delegation, count only where engine docs/AUTONOMY-PLAN.md section 3, class C row, says they do. That row also states where rows and ADRs are read. |
 | A new direction | A new direction stays the owner's. Engine docs/AUTONOMY-PLAN.md section 3, class C row, defines it. |
 | What is unchanged | Every other class C item and every class C path. The Lander's review rules stand, and the Lander gains no duty. |
 | When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
