@@ -785,6 +785,7 @@ not need these.
 | Say which account it is on, and what that implies | Your subagents inherit your account. If your headroom is thin, they will hit it mid-task, and a worker that does not know its budget cannot report a limit as a limit. |
 | Say who else is running -- three fields, always present, including when the answer is nobody | Who else is working; what paths they are touching; **whether they share this worktree.** |
 | Why the third field is the whole of the collision | No brief carried it before. Two workers given the same worktree each reported the other's output as an unexplained intruder, because neither was told the other existed. |
+| Carry the maintainer sentence | Put [BUILDER.md](BUILDER.md) 1e's sentence in every brief, owner ruling 2026-11-11. Leave it out where the item wants the smallest change, because it costs tokens. |
 | Hand down readings, not conclusions | If you tell a worker what you concluded, it will apply your conclusion and its own correct evidence will lose. That has happened. Mark a conclusion as yours, and say what the worker should do if it does not hold. |
 
 ### 5a. The careful, least-privilege tool grant is the broken one
