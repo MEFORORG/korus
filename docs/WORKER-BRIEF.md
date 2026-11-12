@@ -152,7 +152,7 @@ You are a build session on branch <BRANCH>, in worktree <WORKTREE>.
 
 SCOPE. <the one thing you own>
 OUT OF SCOPE. <what you must not touch>
-OWNERSHIP. <only for an item that restructures code: the block in roles/MANAGER.md 5c; else omit>
+OWNERSHIP. <the block in roles/MANAGER.md 5c, under the rule there; else omit this line>
 
 ITEMS, in order:
   1. <item>

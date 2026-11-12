@@ -825,35 +825,41 @@ Prefer the fresh branch to a spawn. A subagent cannot outlive a mistake; a spawn
 
 ### 5c. Add the ownership block to a brief only where the item should restructure code
 
-**Owner ruling 2026-11-11, in session.** Asked *"How should PR 271 proceed?"*, with a recommendation
-to put this sentence only in briefs and record an R5 exemption, the owner answered *"Re-cut it
-smaller"*. That answer is this rule's exemption from ledger ruling R5.
+**Owner ruling 2026-11-11, in session.** Asked *"How should PR 271 proceed?"*, the owner answered
+*"Re-cut it smaller"*. The recommendation it took put this sentence only in briefs and recorded an
+R5 exemption.
+
+That exemption from ledger ruling R5 is this seat's reading of the answer. The owner did not name R5.
 
 Copy the block whole into the brief's `OWNERSHIP.` line ([WORKER-BRIEF.md](../docs/WORKER-BRIEF.md)):
 
 ```text
 You are the owner and long-term maintainer of this codebase, and its design is up to you.
 That describes your stance toward the code. The project owner's rulings still bind you.
-Consolidate only copies that behave the same, and keep any difference between them.
+Consolidate only copies that behave the same. Leave copies that differ apart, and report them.
 Change no existing behaviour the brief does not ask for. List every change in your report.
+Consolidation outside the brief's files goes in your report, not your diff.
+A gap in the brief is still not yours to settle: report it and stop, as the brief says.
 ```
 
 Include it when the item restructures code or touches duplicated code. Leave it out where the item
-wants the smallest change, as the guide advises.
+wants the smallest change, as the guide advises. Where both apply, leave it out.
 
 Anthropic's guide [Prompting Claude Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2),
-read 2026-11-11, tested the first line on small tasks. Fable 5.2 consolidated duplicates in
-about 75 percent of runs, and under 10 percent without it.
+read 2026-11-11, tested the first line on small coding tasks. Fable 5.2 merged duplicates in about
+75 percent of runs, and under 10 percent without.
 
 Opus 5.5, which the fleet mostly runs, was not measured. Nor were the block's last three lines.
 
-**What it costs.** Output tokens rose 70 to 80 percent. The model made changes nobody asked for,
+**What it costs.** Output tokens rose about 70 to 80 percent. The model made changes nobody asked for,
 many of them tests and docs, and sometimes changed existing behaviour. A scope rule did not stop
 the consolidation.
 
-**Its summaries left small changes out, so you check the diff.** Before you open the pull request,
-compare `git diff --stat origin/main...<branch>` with the Builder's report. Name in the body any
-file the report does not mention.
+**Its summaries often left small changes out, so you read the diff.** Fetch, then read
+`git diff origin/main...origin/<branch>` against the Builder's report before you open the pull
+request. Put any change the report does not name under *Merge danger* in the body.
+
+A Builder in its own session opens its own pull request, so brief it to run that read itself.
 
 ---
 
