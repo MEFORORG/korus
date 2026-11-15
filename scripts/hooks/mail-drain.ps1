@@ -861,7 +861,7 @@ catch {
             }
             $named = Get-DrainEvent $early
             if ($named) { $Event = $named }
-            elseif (-not $Event -and -not $script:CcxHookInputTimedOut) { $Event = 'SessionStart'; $script:Unproven = $true }
+            elseif (-not $Event -and -not $script:CcxHookInputFault) { $Event = 'SessionStart'; $script:Unproven = $true }
         }
     }
     catch { }
@@ -967,7 +967,19 @@ try {
         if ($haveInput) {
             $raw = Read-CcxHookInput
             $entered = $null
-            try { $entered = Enter-CcxHookSession -Text $raw; $cwdNote = $entered.Reason }
+            try {
+                # STARTED IN NO CHECKOUT, THE DRAIN STAYS WHERE IT STARTED. That is the -Anchor case,
+                # whose box is keyed on the directory the session launched in. Without -AllowOutside
+                # the helper now calls any other `cwd` a fault, so a session that ran `cd` would read
+                # NO BOX and its Stop would file nothing. -AllowOutside clears only that fault; input
+                # the helper cannot use is still a Reason. Its Dir is not entered: a `cd` must not
+                # move the box from the one SessionStart showed.
+                # Not $startCommon: PowerShell names are case-blind, and $script:StartCommon is a cache.
+                $inCheckout = Get-CcxGitCommonDir (Get-CcxWorktreeRoot (Get-Location).ProviderPath)
+                if ($inCheckout) { $entered = Enter-CcxHookSession -Text $raw }
+                else { $entered = Resolve-CcxHookSession -Text $raw -AllowOutside }
+                $cwdNote = $entered.Reason
+            }
             catch { $cwdNote = "the drain could not read its input's cwd ($($_.Exception.Message))" }
             # A fault stamp keys on the box this drain reads. Where it refused the input's cwd, it
             # keys on that cwd instead, so the worktree the session names is the one told. After a
@@ -992,15 +1004,16 @@ try {
         # THE INPUT WINS over -Event. The .PARAMETER note says why.
         $named = Get-DrainEvent $payload
         if ($named) { $Event = $named }
-        elseif (-not $Event -and $haveInput -and -not $script:CcxHookInputTimedOut) {
+        elseif (-not $Event -and $haveInput -and -not $script:CcxHookInputFault) {
             # CHANGED 2026-10-26: on main, such a run was a SessionStart that minted markers on an
             # unproven display. This change's first draft gave it NO EVENT on stderr instead, so a
             # SessionStart wired with no -Event showed nothing when its input was empty or would not
             # parse. It is now a SessionStart that mints none. Get-DrainEvent states the Stop risk.
             #
-            # NOT AFTER A TIMED-OUT READ. A pipe held open is what a broken wrapper would do at
-            # every Stop, so a default there could loop. A SessionStart that times out loses only
-            # a NO BOX line, which it would have printed in place of mail anyway.
+            # NOT AFTER A READ THAT TIMED OUT OR THREW. A pipe held open, or a handle that will not
+            # read, is what a broken wrapper would do at every Stop, so a default there could loop.
+            # Such a SessionStart loses only a NO BOX line, which it would have printed in place of
+            # mail anyway.
             $Event = 'SessionStart'
             $script:Unproven = $true
         }
