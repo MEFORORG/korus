@@ -788,6 +788,34 @@ in the Builder's own chat the same day.
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
 
+### A filed build row is not new product scope
+
+**Owner rulings of 2026-11-09 and 2026-11-10, in a Manager session's chat.** They narrow one class C
+example, *new product scope*, and grant an R5 exemption. A delegated decision cut the tiers to T4.
+The engine's `docs/AUTONOMY-PLAN.md` section 3 holds the classes, and wins where the two disagree.
+
+| Item | Rule |
+| --- | --- |
+| The rule, in the chosen option's text | *"a filed build row and the direction of an ADR you accepted are not 'new product scope'"*. The Manager wrote that text; the owner selected it. |
+| Where the qualifier is defined | Engine `docs/AUTONOMY-PLAN.md` section 3 and section 12, read at `origin/main`, define the qualifier and its carve-backs. This file restates only the grant to Managers. |
+| The grant to Managers | A Manager picking and splitting work the qualifier exempts is a routine plan: class B, with its adversarial review. This row is the drafting seat's reading, not the owner's wording. |
+| Scope a session wrote | Scope a session wrote counts only where engine docs/AUTONOMY-PLAN.md section 3, class C row, says it does. |
+| Session-recorded ADRs and delegations | An ADR acceptance or amendment a session recorded, and a decision recorded under the owner's delegation, count only where engine docs/AUTONOMY-PLAN.md section 3, class C row, says they do. That row also states where rows and ADRs are read. |
+| A new direction | A new direction stays the owner's. Engine docs/AUTONOMY-PLAN.md section 3, class C row, defines it. |
+| What is unchanged | Every other class C item and every class C path. The Lander's review rules stand, and the Lander gains no duty. |
+| When it takes effect | Once engine `origin/main` narrows *new product scope* in `docs/AUTONOMY-PLAN.md` section 3 for this work. Until then the plan's plain text wins. |
+| What is not live | T1, T2, and T3 except its pick-and-split clause, which the delegated decision kept and *The grant to Managers* grants. The owner did not choose T2. |
+| 2026-11-09, the tiers | Asked *"Which autonomy tiers should I adopt?"*, the owner answered *"T1 fast path,T3 reclaim + spawn,T4 ADR-bound scope"*. |
+| The T3 option text, live only in its last clause | *"Take over verified-dead work; Builders spawn for own fixes; Managers pick and split ledger work."* |
+| The T4 option text | *"Ledger rows and accepted-ADR direction become class B; new directions stay yours."* |
+| 2026-11-09, R5 | Asked *"Ledger ruling R5 freezes new method rules until 2026-12-02. How should this change treat it?"*, the owner answered *"Exempt this change"*. |
+| The R5 exemption's reach | This file reads it as the korus and engine edits that land this rule. The decision below says a later T1 or T3 redesign needs a new R5 exemption. |
+| The delegated decision | d20261110T044924935-4ee4e8, a comment on vault issue 2901, *decision-log 2026-11-10*, from `decision.ps1`. It quotes the question *"The T1/T3 repair loop isn't converging... How should I proceed?"* and the answer *"/driver"*. |
+| What it decided | *"Land T4 only (incl. Managers pick/decompose ledger work); remove T1, T3 and the Builder own-fix spawn text ..."*. It opens *"Decided by the Manager under the owner's delegation of 2026-11-09"*. |
+| 2026-11-10, the form | Asked *"How should T4 land?"* after adversarial review failed to converge, the owner selected *"Minimal T4 (Recommended)"*. Its option text follows, in two parts. |
+| Option text, part 1 | *"Replace the elaborate text with one rule: a filed build row and the direction of an ADR you accepted are not 'new product scope'."* |
+| Option text, part 2 | *"All existing class C paths and the Lander's review rules stay as they are, and no new Lander duties are added. Medium confidence: it leans on controls that already exist rather than new lists."* |
+
 ---
 
 ## The three usage states
