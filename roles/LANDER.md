@@ -536,15 +536,15 @@ posted on a line of the diff is otherwise never swept. *4a-quinquies* names the 
 travel beside the merge. At least two rows do hold it: a leg nobody read and a landing-order
 constraint. A finding *4a-quinquies* sends to the owner holds it too.
 
-**Any other open finding you merge past is named first and filed after.** Name it on the pull
-request before the merge, and file it in the next ledger pass. *4a-quinquies* says why.
-
 **CHANGED 2026-10-12.** This read *"Three rows in the table do hold it"*, with a defect the merge
 would ship first.
 
 **CORRECTED 2026-11-15,** under decision d20261111T061703900-432f31, decided by the Lander under the
 owner's delegation of 2026-11-11. The note above ended *"For now, an open finding you merge past
 gets its row before the merge. 4a-quinquies says why, and what is still asked of the owner."*
+
+**Any other open finding you merge past is named first and filed after.** Name it on the pull
+request before the merge, and file it in the next ledger pass. *4a-quinquies* says why.
 
 | What you find in a comment, a review or the body | What you do with it |
 | --- | --- |
@@ -1251,8 +1251,8 @@ Engine `main` carried the old rule until engine PR 2295 merged on 2026-10-13. It
 files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Engine
 PR 2891 brings the same three files to the order the table below states.
 
-**CORRECTED 2026-11-15,** under decision d20261111T061703900-432f31. These rows of the table below
-changed:
+**CORRECTED 2026-11-15.** At least these rows of the table below changed. The order rows rest on
+decision d20261111T061703900-432f31; the owner-hold row rests on the owner's ruling of 2026-11-15:
 
 | Row now | What it was |
 | --- | --- |
@@ -1263,8 +1263,9 @@ changed:
 | *Name each finding on the pull request before you merge* | It said *"A queued row does not count."* |
 | *What merges open* | It opened *"Every open finding is filed as a row."* |
 
-**The owner confirmed these edits on 2026-11-15,** in the Repair Manager's chat: *"so both repos
-state one merge order. R5 does not block this pair."*
+**The owner confirmed these edits on 2026-11-15,** in the Repair Manager's chat, in a message that
+opened *"Confirmed: fix all 11 findings on korus PR 270"*. Engine `CLAUDE.md` section 5 quotes more
+of it.
 
 | Item | Rule |
 | --- | --- |
@@ -1282,9 +1283,9 @@ state one merge order. R5 does not block this pair."*
 | Filing never holds the merge | R2's signed text: *"The merge still never waits on an open finding, and no finding goes unrecorded."* Name the finding on the pull request, merge, and file it in the next ledger pass. |
 | A finding that goes to the owner still holds it | It holds the merge until the owner rules. That is the owner's ruling of 2026-11-15, in the Repair Manager's chat, not R2's text. |
 | The question that ruling answered | *"Under ledger ruling R2's 'the merge never waits on an open finding', does a finding sent to you for a ruling still hold the merge until you rule?"* The owner answered *"owner findings still hold the merge"*. |
-| Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
-| The question asked 2026-10-12 is settled | May you name a finding on the pull request, merge, and file its row after? Yes, by decision d20261111T061703900-432f31, under the owner's delegation of 2026-11-11. |
-| That record quotes a different question | It gives the question as *"does CLAUDE.md s5 file-before-merge or R2 merge-first govern?"*, and the owner's answer as *"/driver"*. The owner's confirmation of 2026-11-15, above the table, covers these edits. |
+| Since 2026-10-22 | A record under the owner's delegation that answers an owner-held finding is the owner's ruling on it, and ends that hold. *What you check on a delegated record*. |
+| The question asked 2026-10-12 is settled | May you name a finding on the pull request, merge, and file its row after? Yes. The authority for this text is the owner's confirmation of 2026-11-15, above the table, as in engine `CLAUDE.md` section 5. |
+| Decision d20261111T061703900-432f31 quotes a different question | The Lander decided the order under the owner's delegation of 2026-11-11. The record gives the question as *"does CLAUDE.md s5 file-before-merge or R2 merge-first govern?"*, and the owner's answer as *"/driver"*. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding, then its filed row or "queued for filing". *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
