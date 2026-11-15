@@ -30,9 +30,10 @@
 # repository, beside a bare `.git` file, and in a sibling's worktree after a `cd`. _hookinput.ps1 holds
 # the rules that now refuse each of those, with or without a pin.
 #
-# A REFUSAL READS NOTHING. A cwd the helper refuses, input still open when the read gave up, or a
-# helper that is missing or throws, leaves the hook unable to tell whose note is under
-# CLAUDE_PROJECT_DIR: the primary's, under the desktop app.
+# A REFUSAL READS NOTHING. Any Reason the helper returns, or a helper that is missing or throws,
+# leaves the hook unable to tell whose note is under CLAUDE_PROJECT_DIR: the primary's, under the
+# desktop app. At least a refused cwd, input still open when the read gave up, a read that threw,
+# input that is not one JSON object, and a blank or relative cwd return one.
 # Delivering and deleting it would hand one session another's note, so the hook reads none and says
 # why on stderr. That is not the chat, because this hook runs before every tool call.
 

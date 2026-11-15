@@ -725,5 +725,151 @@ class TheSteeringHookReadsTheSessionsOwnNote(_Fixture):
         self.assertIn(b"still open", err)
 
 
+HOOK_INPUT = t.REPO_ROOT / "scripts" / "hooks" / "_hookinput.ps1"
+
+# Engine BACKLOG #5586, kept in step with the engine's fix. Each input below used to answer with no
+# Dir and an EMPTY Reason, which every caller reads as "stay where you started": the primary under
+# the desktop app. steer-inject then read, deleted and injected the primary session's note.
+UNUSABLE_INPUT = [
+    ("{not json at all", "not readable JSON"),
+    ("null", "not a JSON object"),
+    ("[1, 2]", "not a JSON object"),
+    ('"just a string"', "not a JSON object"),
+    ('{"cwd": "", "session_id": "s1"}', "blank cwd"),
+    ('{"cwd": "   ", "session_id": "s1"}', "blank cwd"),
+    ('{"cwd": null, "session_id": "s1"}', "blank cwd"),
+    ('{"cwd": ".", "session_id": "s1"}', "relative cwd"),
+    ('{"cwd": "\\\\Code", "session_id": "s1"}', "relative cwd"),
+]
+
+
+class TheResolverFaultsOnInputItCannotUse(_Fixture):
+    def probe(self) -> Path:
+        """Read stdin the way a hook does, then report both entry points' answers as JSON."""
+        p = self.base / "resolve-probe.ps1"
+        helper = str(HOOK_INPUT).replace("'", "''")
+        p.write_text(
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n"
+            f". '{helper}'\n$t = Read-CcxHookInput\n"
+            "$r = Resolve-CcxHookSession -Text $t\n"
+            "$p = Get-CcxHookPayloadCwd -Text $t\n"
+            "[pscustomobject]@{ Dir = $r.Dir; Root = $r.Root; Named = $r.Named; Reason = $r.Reason;"
+            " PNamed = $p.Named; PReason = $p.Reason } | ConvertTo-Json -Compress\n",
+            encoding="utf-8",
+        )
+        return p
+
+    def resolve(self, stdin: str, start=None) -> dict:
+        r = self.run_hook(self.probe(), stdin, start=start)
+        self.assertEqual(0, r.returncode, r.stderr)
+        return json.loads(r.stdout)
+
+    def test_input_the_helper_cannot_use_is_a_fault(self):
+        for stdin, why in UNUSABLE_INPUT:
+            with self.subTest(stdin=stdin):
+                got = self.resolve(stdin)
+                self.assertIsNone(got["Dir"], got)
+                self.assertIsNone(got["Root"], got)
+                self.assertTrue(got["Named"], got)
+                self.assertIn(why, got["Reason"])
+                # Get-CcxHookPayloadCwd, which collision_gate calls directly, agrees.
+                self.assertTrue(got["PNamed"], got)
+                self.assertIn(why, got["PReason"])
+
+    def test_an_array_holding_one_object_is_not_that_object(self):
+        """Without -NoEnumerate, ConvertFrom-Json unwraps a one-element array into its object."""
+        got = self.resolve(json.dumps([{"cwd": str(self.worktree), "session_id": "s1"}]))
+        self.assertIsNone(got["Root"], got)
+        self.assertIn("not a JSON object", got["Reason"])
+
+    def test_an_object_with_no_cwd_is_still_no_fault(self):
+        """The control for the cases above: an older harness names no cwd, and that is no fault."""
+        got = self.resolve('{"session_id": "s1"}')
+        self.assertEqual("", got["Reason"], got)
+        self.assertEqual("", got["PReason"], got)
+        self.assertFalse(got["PNamed"], got)
+
+    def test_a_stdin_read_that_throws_is_a_fault(self):
+        """A redirected stdin the hook may not read (a write-only handle) used to read as no input."""
+        sink = self.base / "write-only.bin"
+        with sink.open("wb") as handle:
+            r = subprocess.run(
+                [self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(self.probe())],
+                stdin=handle, capture_output=True, text=True, cwd=str(self.primary),
+                timeout=TIMEOUT_SECONDS,
+            )
+        self.assertEqual(0, r.returncode, r.stderr)
+        got = json.loads(r.stdout)
+        self.assertIsNone(got["Root"], got)
+        self.assertIn("could not be read", got["Reason"])
+        self.assertIn("could not be read", r.stderr)
+
+    def test_a_cwd_named_to_a_hook_started_outside_every_checkout_is_a_fault(self):
+        """Started in no checkout, the hook cannot check a `cwd` against a repository."""
+        outside = self.base / "no-repo"
+        outside.mkdir()
+        got = self.resolve(json.dumps({"cwd": str(self.worktree), "session_id": "s1"}), start=outside)
+        self.assertIsNone(got["Dir"], got)
+        self.assertIn("in no checkout this hook can read", got["Reason"])
+        # The controls: no cwd there is no fault, and nor is a cwd that is the start directory.
+        self.assertEqual("", self.resolve('{"session_id": "s1"}', start=outside)["Reason"])
+        same = self.resolve(json.dumps({"cwd": str(outside), "session_id": "s1"}), start=outside)
+        self.assertEqual("", same["Reason"], same)
+
+
+class TheSteeringHookReadsNoNoteOnInputItCannotUse(_Fixture):
+    def plant(self, root: Path) -> Path:
+        (root / ".claude").mkdir(exist_ok=True)
+        note = root / ".claude" / "steer.txt"
+        note.write_text("PRIMARY-NOTE", encoding="utf-8")
+        return note
+
+    def test_input_it_cannot_use_reads_no_note_and_says_so(self):
+        for stdin, why in UNUSABLE_INPUT:
+            with self.subTest(stdin=stdin):
+                # Planted afresh, so each case fails on its own read and not on an earlier one's.
+                note = self.plant(self.primary)
+                r = self.run_hook(STEER, stdin, env={"CLAUDE_PROJECT_DIR": str(self.primary)})
+                self.assertEqual(0, r.returncode, r.stderr)
+                self.assertNotIn("PRIMARY-NOTE", r.stdout)
+                self.assertTrue(note.exists(), "the hook deleted the primary's note")
+                self.assertIn("[steer-inject]", r.stderr)
+                self.assertIn(why, r.stderr)
+
+    def test_a_stdin_read_that_throws_reads_no_note(self):
+        note = self.plant(self.primary)
+        e = dict(os.environ)
+        for leak in ("CCX_CONFIG", "CCX_TRUNK", "CCX_SESSION_BANNER"):
+            e.pop(leak, None)
+        e["CLAUDE_PROJECT_DIR"] = str(self.primary)
+        sink = self.base / "write-only-steer.bin"
+        with sink.open("wb") as handle:
+            r = subprocess.run(
+                [self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(STEER)],
+                stdin=handle, capture_output=True, text=True, env=e, cwd=str(self.primary),
+                timeout=TIMEOUT_SECONDS,
+            )
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn("PRIMARY-NOTE", r.stdout)
+        self.assertTrue(note.exists(), "the hook deleted the primary's note on a read error")
+        self.assertIn("could not be read", r.stderr)
+
+    def test_started_outside_every_checkout_it_reads_no_note(self):
+        """CLAUDE_PROJECT_DIR in no checkout: staying put in silence read that directory's note."""
+        outside = self.base / "no-repo"
+        outside.mkdir()
+        note = self.plant(outside)
+        r = self.run_hook(STEER, {"session_id": "s1", "cwd": str(self.worktree)},
+                          env={"CLAUDE_PROJECT_DIR": str(outside)}, start=outside)
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertNotIn("PRIMARY-NOTE", r.stdout)
+        self.assertTrue(note.exists(), "the hook deleted a note outside every checkout")
+        self.assertIn("in no checkout this hook can read", r.stderr)
+        # The control: an input naming no cwd there still reads the project directory's note.
+        r = self.run_hook(STEER, {"session_id": "s1"}, env={"CLAUDE_PROJECT_DIR": str(outside)}, start=outside)
+        self.assertIn("PRIMARY-NOTE", r.stdout)
+        self.assertFalse(note.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
