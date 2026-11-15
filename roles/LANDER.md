@@ -536,12 +536,14 @@ posted on a line of the diff is otherwise never swept. *4a-quinquies* names the 
 travel beside the merge. At least two rows do hold it: a leg nobody read and a landing-order
 constraint. A finding *4a-quinquies* sends to the owner holds it too.
 
-**CHANGED 2026-10-12.** This read *"Three rows in the table do hold it"*, with a defect the merge
-would ship first. An open finding you merge past is filed in your next ledger pull request.
-*4a-quinquies* says why.
+**Any other open finding you merge past is named first and filed after.** Name it on the pull
+request before the merge, and file it in the next ledger pass. *4a-quinquies* says why.
 
-**CORRECTED 2026-11-11,** by decision d20261111T061703900-432f31, decided by the Lander under the
-owner's delegation of 2026-11-11. The paragraph above read *"For now, an open finding you merge past
+**CHANGED 2026-10-12.** This read *"Three rows in the table do hold it"*, with a defect the merge
+would ship first.
+
+**CORRECTED 2026-11-15,** under decision d20261111T061703900-432f31, decided by the Lander under the
+owner's delegation of 2026-11-11. The note above ended *"For now, an open finding you merge past
 gets its row before the merge. 4a-quinquies says why, and what is still asked of the owner."*
 
 | What you find in a comment, a review or the body | What you do with it |
@@ -563,9 +565,12 @@ you created. File it with everybody else's, in your next ledger pull request.
 **Close the loop where the item was raised.** Reply on the pull request with the decision, the
 decline, or the row. A reader who finds the comment must also find what became of it.
 
-**Say "filed" only once the ledger pull request is open.** Before that, say it is queued for your
-next one. **CORRECTED 2026-11-11:** this ended *"A queued row does not meet 4a-quinquies, which
-asks for the row before the merge."*
+**A line saying an item is queued for filing does not close it.** Whoever files the row replies
+again, naming it.
+
+**Say "filed" only once the ledger pull request is open.** Before that, say it is queued for
+filing. **CORRECTED 2026-11-15:** this read *"Before that, say it is queued for your next
+one. A queued row does not meet 4a-quinquies, which asks for the row before the merge."*
 
 **The ledger is private and some repositories are public.** On a pull request in a public
 repository, say that the item is filed or queued and name its subject. Do not paste a row's text there.
@@ -1243,7 +1248,23 @@ as rows"*. The fourth number is a vault pull request, outside this record. The L
 proposed the rule above, so the wait does not recur.
 
 Engine `main` carried the old rule until engine PR 2295 merged on 2026-10-13. It changed three
-files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`.
+files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_Standards.md`. Engine
+PR 2891 brings the same three files to the order the table below states.
+
+**CORRECTED 2026-11-15,** under decision d20261111T061703900-432f31. These rows of the table below
+changed:
+
+| Row now | What it was |
+| --- | --- |
+| *The other open findings are filed after the merge* | *The other open findings are filed as rows before the merge* |
+| *Filing never holds the merge*, and *A finding that goes to the owner still holds it* | *The row comes first, for now*, whose cell read *"The approved words are "are filed", and only this ruling grants a merge past a finding that once went to the owner."* |
+| The same old row, continued | It ended *"That is the fit with Filing never holds a green pull request until the owner answers."* |
+| *The question asked 2026-10-12 is settled* | *One question is still with the owner*, ending *"Asked 2026-10-12. This row is edited when the owner answers."* |
+| *Name each finding on the pull request before you merge* | It said *"A queued row does not count."* |
+| *What merges open* | It opened *"Every open finding is filed as a row."* |
+
+**The owner confirmed these edits on 2026-11-15,** in the Repair Manager's chat: *"so both repos
+state one merge order. R5 does not block this pair."*
 
 | Item | Rule |
 | --- | --- |
@@ -1256,17 +1277,20 @@ files: `CLAUDE.md` section 5, `docs/METHOD.md` and `docs/Secure_AI_Development_S
 | An open finding in the line does not send the pull request back | `BUILDER.md` 4c tells a Builder to ship a round-two finding rather than hide it. Naming one is the honest outcome. **RETITLED 2026-10-12:** it ended *is not a hold*. The next two rows say what each one needs. |
 | A finding that changes behaviour or weakens a control goes to the owner | That is a ruling, and the Owner makes it. Return it rather than reading the diff yourself. *"I would still bring you anything that does."* **NARROWED 2026-10-12, by owner ruling:** it began *Unless the finding names a defect*. |
 | Unless a delegated record answers it | A record under the owner's delegation is the owner's ruling on that finding (2026-10-22). *What you check on a delegated record*. |
-| The other open findings are filed as rows in your next ledger pull request | The approved words: *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control."* **CORRECTED 2026-11-11:** this row's name ended *"before the merge"*. |
+| The other open findings are filed after the merge | The approved words, *"Let me merge when the open findings are filed as rows and none changes behaviour or weakens a control"*, put the filing first. Decision d20261111T061703900-432f31 reads R2's signed text as governing the order instead. |
 | One row per pull request, since 2026-11-04 | A merged pull request files at most one row, holding its open findings as numbered items. *7d*, *A pre-existing defect*, says where a finding about untouched code goes. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
-| The merge comes first | Ledger ruling R2's signed text governs the order. The 2026-10-12 ruling grants a merge past a finding that once went to the owner. **CORRECTED 2026-11-11:** this row was *The row comes first, for now*. |
+| Filing never holds the merge | R2's signed text: *"The merge still never waits on an open finding, and no finding goes unrecorded."* Name the finding on the pull request, merge, and file it in the next ledger pass. |
+| A finding that goes to the owner still holds it | It holds the merge until the owner rules. That is the owner's ruling of 2026-11-15, in the Repair Manager's chat, not R2's text. |
+| The question that ruling answered | *"Under ledger ruling R2's 'the merge never waits on an open finding', does a finding sent to you for a ruling still hold the merge until you rule?"* The owner answered *"owner findings still hold the merge"*. |
 | Since 2026-10-22 | A record under the owner's delegation that answers that finding also grants it. *What you check on a delegated record*. |
-| The question asked 2026-10-12 is answered, under the owner's delegation of 2026-11-11 | May you name a finding on the pull request, merge, and file its row after? Yes. **CORRECTED 2026-11-11:** it was *One question is still with the owner*, ending *"This row is edited when the owner answers."* |
+| The question asked 2026-10-12 is settled | May you name a finding on the pull request, merge, and file its row after? Yes, by decision d20261111T061703900-432f31, under the owner's delegation of 2026-11-11. |
+| That record quotes a different question | It gives the question as *"does CLAUDE.md s5 file-before-merge or R2 merge-first govern?"*, and the owner's answer as *"/driver"*. The owner's confirmation of 2026-11-15, above the table, covers these edits. |
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
-| Name each finding on the pull request before you merge | One line each: the finding, then its row or "queued". **CORRECTED 2026-11-11:** it said *"A queued row does not count."* *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
+| Name each finding on the pull request before you merge | One line each: the finding, then its filed row or "queued for filing". *An item left in a PR comment is yours to carry* holds the rule for a public repository. |
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
 | What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. |
 | False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
-| What merges open | Only one that none of those rows, *False program output* or *A false control claim in any text* sends to the owner merges while it is open. **CORRECTED 2026-11-11:** it opened *"Every open finding is filed as a row."* |
+| What merges open | Only a finding that none of those rows, *False program output* or *A false control claim in any text* sends to the owner merges while it is open. |
 | False program output | It changes behaviour. At least: log lines, alerts, refusal and error text, ACK or NAK text, API error bodies, and CLI and web console text. |
 | A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
@@ -1799,6 +1823,7 @@ Wiki key `merge-queue/ejection/read-the-merge-group-run`, each event's `supersed
 | Item | Rule |
 | --- | --- |
 | Order | When a fix PR and its ledger PR are separate, merge the **LEDGER** one first. Ledger-first is self-correcting; fix-first has `main` claiming "not yet merged" about something already shipped. |
+| Not for its open findings | *Order* is for a ledger PR about the fix itself, such as its banner. The fix PR's own open findings are filed after its merge, in the next ledger pass (*4a-quinquies*). |
 | Close before you file | The ledger is single-writer, so filing and closing compete for one channel, and filing always feels more urgent because someone just handed you the finding. Measured 2026-08-22: a 29-merge drain filed 11 items and closed none, ending **+11 open**. |
 | What sat unread | **117 open items carrying a build or demand verdict**, the only two classes that have ever closed. |
 | A pre-existing defect | A finding about code the pull request did not touch goes into the one open row for that module, as an item, not into a new row. Ledger ruling R2, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
@@ -1876,7 +1901,8 @@ way to learn the release is owed.
 | What that is | One fix reference and two filing references in one line, while other titles in the same window carry the identical `#N` shape for a pure filing. |
 | So | A title reference does not tell you whether the item was FIXED. |
 | The discriminator, where you READ the title | A banner flip needs a **DELETION**, so a title reference is a closure only if the same PR deletes a status banner line. |
-| Two commits, one item number | Ledger-first ordering guarantees the filing lands first and the fix second. From any distance the second reads as a duplicate of the first. It is not: they are complementary halves, and the filing closes nothing. |
+| Two commits, one item number | One commit files the item and another fixes it. From any distance the second reads as a duplicate of the first. It is not: they are complementary halves, and the filing closes nothing. |
+| CORRECTED 2026-11-15 | The row above opened *"Ledger-first ordering guarantees the filing lands first and the fix second."* *7d*'s order is for a ledger PR about a fix. A finding a merge leaves open is filed after that merge (*4a-quinquies*). |
 | Gate available | Flag any commit that flips a banner while its diff touches only `docs/BACKLOG.md`: the filing without the fix. Route it to whoever builds gates. |
 | The flip pass reads a merged pull request's BODY, not only its title | A body that says it built or closed a row is read against that row's closing steps, in the same pass as a title citation. Ledger ruling R7, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
 | What a body account looks like | A per-row account, such as *"BACKLOG #N: built"* or *"BACKLOG #N: declined"*. Like a title, it is a lead; *7d*, *The bar is a re-read*, holds the closing evidence. |
