@@ -798,9 +798,19 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         self.send(body="empty stdin")
         self.assert_shown_unmarked(self.run_raw(""), "empty stdin")
 
-    def test_unparseable_stdin_shows_mail_and_mints_no_marker(self):
+    def test_unparseable_stdin_reads_no_box_and_mints_no_marker(self):
+        """CHANGED with MessageFoundry BACKLOG #5586: this case was shown the box of the directory
+        the drain started in. Under the desktop app that is the primary's, so this session's Stop
+        could file the primary's mail. Input that will not parse names no cwd the drain can use."""
         self.send(body="junk stdin")
-        self.assert_shown_unmarked(self.run_raw("not json {{{"), "junk stdin")
+        r = self.run_raw("not json {{{")
+        self.assertEqual(0, r.returncode, r.stderr)
+        ctx = self.ctx(r)
+        self.assertNotIn("junk stdin", ctx)
+        self.assertIn("NO BOX", ctx)
+        self.assertIn("not readable JSON", ctx)
+        self.assertIn("NO EVENT NAMED", ctx)
+        self.assertEqual([], self.markers(), "a run that read no box minted a marker")
 
     def test_a_payload_naming_no_event_shows_mail_and_mints_no_marker(self):
         self.send(body="no name")
@@ -850,6 +860,27 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         # The control: the same held-open read with -Event SessionStart writes stdout.
         code, out, err = self.held_open(["-Event", "SessionStart"])
         self.assertIn("still open", out)
+
+    def unreadable(self, args=()):
+        """stdin redirected from a write-only handle, so the reader's read throws."""
+        sink = self.root / "write-only.bin"
+        with sink.open("wb") as handle:
+            r = subprocess.run([self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(DRAIN), *args],
+                               stdin=handle, capture_output=True, encoding="utf-8", cwd=str(self.peer),
+                               timeout=TIMEOUT_SECONDS)
+        return r
+
+    def test_a_read_that_throws_gets_no_default(self):
+        """The same rule as the timed-out read above: a handle that will not read is what a broken
+        wrapper would hand every Stop. With MessageFoundry BACKLOG #5586 the reader reports that
+        read as a fault, so a SessionStart default would write NO BOX to stdout at every Stop."""
+        r = self.unreadable()
+        self.assertEqual(0, r.returncode, r.stderr)
+        self.assertEqual("", r.stdout)
+        self.assertIn("could not be read", r.stderr)
+        # The control: the same read with -Event SessionStart writes stdout.
+        r = self.unreadable(["-Event", "SessionStart"])
+        self.assertIn("could not be read", r.stdout)
 
     def test_with_no_input_reader_an_unnamed_run_writes_no_stdout(self):
         """No reader means no stdin is read at all, so every run is unnamed, every real Stop
@@ -1662,6 +1693,21 @@ class ASessionOutsideACloneIsToldWhereItsQueueIs(_LaneCase):
         self.send(body="reachable by anchor", to=self.root)
         r = self.drain(self.root, extra=["-Anchor", str(self.primary)])
         self.assertIn("reachable by anchor", self.ctx(r))
+
+    def test_after_a_cd_an_anchored_session_still_reads_its_box(self):
+        """MessageFoundry BACKLOG #5586 made a `cwd` named to a hook started in no checkout a fault,
+        unless the caller passes -AllowOutside. The drain stays where it started, as it did before,
+        so the box SessionStart showed is still the one its Stop reads."""
+        self.send(body="reachable after a cd", to=self.root)
+        notes = self.root / "notes"
+        notes.mkdir()
+        for cwd in (notes, self.peer, self.root):
+            with self.subTest(cwd=cwd):
+                r = self.drain(self.root, extra=["-Anchor", str(self.primary)], fields={"cwd": str(cwd)})
+                self.assertIn("reachable after a cd", self.ctx(r))
+        # The control: input the helper cannot use is still a fault there.
+        r = self.drain(self.root, extra=["-Anchor", str(self.primary)], fields={"cwd": ""})
+        self.assertIn("blank cwd", self.ctx(r))
 
     def test_an_anchor_answers_which_queue_never_which_box(self):
         """Otherwise an anchored session reads the ANCHOR repository's mail."""

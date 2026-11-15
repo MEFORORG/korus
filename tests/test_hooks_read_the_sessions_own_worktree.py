@@ -791,11 +791,14 @@ class TheResolverFaultsOnInputItCannotUse(_Fixture):
 
     def test_a_stdin_read_that_throws_is_a_fault(self):
         """A redirected stdin the hook may not read (a write-only handle) used to read as no input."""
+        e = dict(os.environ)
+        for leak in ("CCX_CONFIG", "CCX_TRUNK", "CLAUDE_PROJECT_DIR", "CCX_SESSION_BANNER"):
+            e.pop(leak, None)
         sink = self.base / "write-only.bin"
         with sink.open("wb") as handle:
             r = subprocess.run(
                 [self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(self.probe())],
-                stdin=handle, capture_output=True, text=True, cwd=str(self.primary),
+                stdin=handle, capture_output=True, encoding="utf-8", env=e, cwd=str(self.primary),
                 timeout=TIMEOUT_SECONDS,
             )
         self.assertEqual(0, r.returncode, r.stderr)
@@ -846,7 +849,7 @@ class TheSteeringHookReadsNoNoteOnInputItCannotUse(_Fixture):
         with sink.open("wb") as handle:
             r = subprocess.run(
                 [self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(STEER)],
-                stdin=handle, capture_output=True, text=True, env=e, cwd=str(self.primary),
+                stdin=handle, capture_output=True, encoding="utf-8", env=e, cwd=str(self.primary),
                 timeout=TIMEOUT_SECONDS,
             )
         self.assertEqual(0, r.returncode, r.stderr)
