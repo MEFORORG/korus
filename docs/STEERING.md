@@ -174,14 +174,17 @@ An earlier version used the working directory and created `.claude` when absent.
 report "queued" from the wrong directory even though no hook read that note.
 
 The hook reads only `<worktree>/.claude/steer.txt`, for the session's own worktree. When its input
-is a JSON object with no `cwd` field, or there is no input, it reads the worktree the session's pin
-names. With no pin it falls back to `CLAUDE_PROJECT_DIR`, and with neither it exits 0 without
-searching.
+is a JSON object with no `cwd` field, it reads the worktree the session's pin names.
+
+With no pin, or no input at all, it falls back to `CLAUDE_PROJECT_DIR`. With neither, it exits 0
+without searching.
 
 Which `cwd` it accepts is set by the rules at the top of `scripts/hooks/_hookinput.ps1`, because it
 deletes the note it delivers. Any fault that file reports reads no note at all, and the refusal goes
-to stderr. At least a refused `cwd`, input that is not one JSON object, a blank or relative `cwd`, a
-stdin read that failed or stayed open, and a missing helper are faults.
+to stderr.
+
+At least these are faults: a refused `cwd`, input that is not one JSON object, and a blank or
+relative `cwd`. So are a stdin read that failed or stayed open, and a missing helper.
 
 **That paragraph read "The hook reads only `<project root>/.claude/steer.txt`" until 2026-10-13.**
 The project root was `CLAUDE_PROJECT_DIR`, which the desktop app sets to the PRIMARY checkout for a

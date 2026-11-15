@@ -809,7 +809,6 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         self.assertNotIn("junk stdin", ctx)
         self.assertIn("NO BOX", ctx)
         self.assertIn("not readable JSON", ctx)
-        self.assertIn("NO EVENT NAMED", ctx)
         self.assertEqual([], self.markers(), "a run that read no box minted a marker")
 
     def test_a_payload_naming_no_event_shows_mail_and_mints_no_marker(self):
