@@ -77,7 +77,8 @@ condition that ends it. Re-run it yourself before repeating it.
 
 ### When to write a handoff
 
-Write or REPLACE your `SEAT` handoff at these four triggers and at no other time.
+Write or REPLACE your `SEAT` handoff at these four triggers, or to record a ruling when it is
+made, as *Your own ruling expires in a message* requires, and at no other time.
 
 The triggers were written under the owner's request of 2026-11-17, "optimize the handoff creation
 rules". Trigger 1 keeps the rung from the owner-set rule of 2026-08-28 and adds rung 3, where the
@@ -98,12 +99,11 @@ Arrival is a takeover, so the file the `carry-on` skill has you write on arrival
 takeover write.
 
 **Receiving a Builder report, a pull request comment, a decision-log entry or a mail is not a
-trigger.** A Builder report belongs on the pull request its Manager opens; the other three already
-live where a successor reads them.
+trigger.** A Builder report belongs on the pull request its Manager opens; a pull request comment
+or a decision-log entry already lives where a successor reads it.
 
-**Why trigger 4 is bounded.** An UNKNOWN reading had no trigger, so seats wrote at every event.
-[MANAGER.md](../../../roles/MANAGER.md), *Your work has to survive your exit*, the *Your handoff*
-row, records how often one Manager rewrote its handoff.
+**Why trigger 4 is bounded.** [MANAGER.md](../../../roles/MANAGER.md),
+*Your work has to survive your exit*, the *Your handoff* row, records how often one Manager rewrote its handoff.
 
 **RETRACTED 2026-11-17, as the only trigger: "do not update your handoff until a usage rung fires"
 (owner-set 2026-08-28).** Its rung is trigger 1, and constant updating does waste tokens. But a seat
@@ -140,9 +140,9 @@ script refuses and names the fix: a `-<slug>` suffix.
 | Owner decisions pending | Verbatim. A pointer into a session dies with the session. |
 | Judgment holds | Labelled as judgment, as *This file holds only what never expires* asks. |
 
-Do not copy review findings, QA lines, test counts or history; they are on the pull request. This
-shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../../../roles/BUILDER.md),
-*A skill owns the handoff format; five things are builder-only*, lists instead.
+Do not copy review findings, QA lines, test counts or history; they are on the pull request or in
+the Builder's report to its Manager. This shape is for a `SEAT` handoff. A Builder's handoff carries
+what [BUILDER.md](../../../roles/BUILDER.md), *A skill owns the handoff format; five things are builder-only*, lists instead.
 
 **The test: a successor can act on it after one read.**
 
