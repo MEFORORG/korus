@@ -1060,7 +1060,7 @@ itself: a skill no trigger matches is silent, and nothing reports that.
 | You are about to push, open a pull request, or touch CI | `fleet-push-or-open-a-pr` |
 | You are about to allocate, claim or file a backlog row | `fleet-ledger-row` |
 | You are about to anchor, stash, or go near shared work | `fleet-anchor-work` |
-| You are writing a report, handoff or episode note | `fleet-write-a-report-or-handoff` |
+| You are writing a report, handoff or episode note, or your seat is ending, or a usage rung fires | `fleet-write-a-report-or-handoff`, *When to write a handoff* |
 | You are about to read, edit or cite a file under `roles/` | `fleet-edit-a-playbook` |
 | You are about to spawn workers or create a Workflow | `fleet-spawn-workers` |
 | You are about to act on a remembered fact, or have just decided, fixed, learned or corrected something | `fleet-use-the-wiki` |

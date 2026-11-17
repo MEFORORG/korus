@@ -77,24 +77,31 @@ condition that ends it. Re-run it yourself before repeating it.
 
 ### When to write a handoff
 
-Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. They were written
-under the owner's request of 2026-11-17, "optimize the handoff creation rules". Trigger 1 keeps the
-rung from the owner-set rule of 2026-08-28.
+Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. That limit governs
+writing only; retiring a file is a separate act, done at takeover or seat end, and *Retire what is
+done* sets it.
+
+The triggers were written under the owner's request of 2026-11-17, "optimize the handoff creation
+rules". Trigger 1 keeps the rung from the owner-set rule of 2026-08-28 and adds rung 3, where the
+worked example below found the only load-bearing write.
 
 | Trigger | The case it must fire in |
 | --- | --- |
-| 1. Rung 1 (HOLD NEW WORK) or rung 2 (PROTECT AND WRAP) fires | A session that can read its usage, before the window cuts it off. [COMMON.md](../../../roles/COMMON.md), *The three usage states*, sets the rungs. |
-| 2. Seat end | Before the session is archived or closed, before an account switch, and before you hand the seat over. No rung warns of any of these. |
+| 1. Any usage rung fires: rung 1 (HOLD NEW WORK), rung 2 (PROTECT AND WRAP) or rung 3 (URGENT STOP) | A session that can read its usage, before the window cuts it off. [COMMON.md](../../../roles/COMMON.md), *The three usage states*, sets the rungs. |
+| 2. Seat end or takeover | Before the session is archived or closed, before an account switch, before you hand the seat over, and once when you take a seat over. No rung warns of any of these. |
 | 3. The owner asks, as with `/handoff` | Whatever the rung. |
-| 4. Your usage reading is UNKNOWN: once per completed wave, when its pull requests go to the Lander | The case no rung can see. Not once per event. |
+| 4. Your usage reading is UNKNOWN: once per finished wave, when its pull requests go to the Lander, or for a seat that runs no waves, once per finished owner task | The case no rung can see. Not once per event. |
 
 A reading is UNKNOWN only after you ran the reader yourself, as `fleet-read-usage` says; a hook
 banner alone is not one. A desktop-app session can be one, because the statusLine executor never
-runs there. A seat that runs no waves has triggers 1 to 3 only.
+runs there.
 
-**A Builder report, a pull request comment, a decision-log entry or a mail is not a trigger.** A
-Builder report belongs on the pull request its Manager opens; the other three already live where a
-successor reads them.
+Arrival is a takeover, so the file the `carry-on` skill has you write on arrival is trigger 2's one
+takeover write.
+
+**Receiving a Builder report, a pull request comment, a decision-log entry or a mail is not a
+trigger.** A Builder report belongs on the pull request its Manager opens; the other three already
+live where a successor reads them.
 
 **One Manager session rewrote its handoff 19 times** (2026-11-17, carried from its Manager's brief),
 each a dated append of state already on pull requests. The rule lived only in this skill, loaded
@@ -126,6 +133,10 @@ Write the whole current state, never a dated append. Draft it in your own worktr
 with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft> -Replace`. Use `-Replace` only on
 your own file; for another seat's name, the script's refusal names the `-<slug>` fix.
 
+**Keep the draft out of a commit.** Before you write it, run `git check-ignore <draft>` in your
+worktree. If it prints nothing, the repository does not ignore the draft, so delete it once
+`-Write` succeeds. Measured 2026-11-17: korus ignores no draft name.
+
 | Part | What it holds |
 | --- | --- |
 | Header block | As *Hand off so your successor can resume* sets it. |
@@ -141,15 +152,27 @@ shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../
 
 ### Retire what is done
 
-At seat end, retire your own `SEAT` file once every row in it is merged or closed, with engine
-`scripts/coord/handoff.ps1 -Retire <name>`. It moves the file to a `_retired-<date>` directory and
-never deletes.
+Retire at takeover or seat end, never at another time.
+
+Retire your own `SEAT` file at seat end only when every row in it is merged or closed AND no owner
+question or judgment hold in it is still open. Use engine
+`scripts/coord/handoff.ps1 -Retire <name>`, which moves the file to a `_retired-<date>` directory
+and never deletes.
 
 A seat that takes over retires its predecessor's file once its own `SEAT` file is written. **Never
-retire a live seat's file.**
+retire another live seat's file.**
 
 `-Retire` refuses on any hold and names it, and `-Force` names what it overrode. Read each hold
-before you force past it.
+before you force past it. A seat record that points at the file is the `POINTED-AT` hold, so expect
+it whenever the file's writer declared it with `seat.ps1 -Declare -Handoff`.
+
+**Then clear the pointer, so `fleet.ps1` reports no broken one.** Run engine
+`scripts/coord/seat.ps1 -ClearHandoff -Box <box> -SessionId <session>` for each seat record that
+named the retired file. It clears only a dead or stale session's pointer to a file that is gone, so
+run it after `-Retire`.
+
+At takeover that is your predecessor's record. At seat end your own session is still live and the
+script refuses, so name the pointer in your last report for the next seat to clear.
 
 **Why.** Carried from the same brief of 2026-11-17: the handoffs directory held 79 files, 2.8 MB,
 dead ones among them. The harm is not disk: a stale file reads as a live instruction to an arriving seat.
