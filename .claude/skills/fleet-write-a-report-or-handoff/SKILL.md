@@ -53,7 +53,7 @@ count... THERE IS NO -Lane AND NO -BoxKey PARAMETER, AND ADDING ONE DEFEATS THE 
 | Item | Rule |
 | --- | --- |
 | The split | The role file holds only what stays true. A dated episode note holds live state. *This file holds only what never expires*. |
-| Filenames | Name every handoff file `<SEAT>-<YYYY-MM-DD>-HANDOFF-<KIND>[-<slug>].md`. A `SEAT` file takes no `-<slug>`: COMMON's finder takes only a name that ends `-HANDOFF-SEAT.md`. |
+| Filenames | Name every handoff file `<SEAT>-<YYYY-MM-DD>-HANDOFF-<KIND>[-<slug>].md`. |
 | Builder numbers | A builder handoff carries its number, because two builders write the same name without one. |
 | Resumable kind | Only the `SEAT` kind is resumable, so write your state there. |
 | Header block | Start a seat file with the update time, session, worktree, branch, status and tip. |
@@ -77,9 +77,7 @@ condition that ends it. Re-run it yourself before repeating it.
 
 ### When to write a handoff
 
-Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. That limit governs
-writing only; retiring a file is a separate act, done at takeover or seat end, and *Retire what is
-done* sets it.
+Write or REPLACE your `SEAT` handoff at these four triggers and at no other time.
 
 The triggers were written under the owner's request of 2026-11-17, "optimize the handoff creation
 rules". Trigger 1 keeps the rung from the owner-set rule of 2026-08-28 and adds rung 3, where the
@@ -87,7 +85,7 @@ worked example below found the only load-bearing write.
 
 | Trigger | The case it must fire in |
 | --- | --- |
-| 1. Any usage rung fires: rung 1 (HOLD NEW WORK), rung 2 (PROTECT AND WRAP) or rung 3 (URGENT STOP) | A session that can read its usage, before the window cuts it off. [COMMON.md](../../../roles/COMMON.md), *The three usage states*, sets the rungs. |
+| 1. A usage rung fires: rung 1 (HOLD NEW WORK), rung 2 (PROTECT AND WRAP) or rung 3 (URGENT STOP). Once per firing; a rung re-arms when it clears | A session that can read its usage, before the window cuts it off. [COMMON.md](../../../roles/COMMON.md), *The three usage states*, sets the rungs. |
 | 2. Seat end or takeover | Before the session is archived or closed, before an account switch, before you hand the seat over, and once when you take a seat over. No rung warns of any of these. |
 | 3. The owner asks, as with `/handoff` | Whatever the rung. |
 | 4. Your usage reading is UNKNOWN: once per finished wave, when its pull requests go to the Lander, or for a seat that runs no waves, once per finished owner task | The case no rung can see. Not once per event. |
@@ -103,9 +101,9 @@ takeover write.
 trigger.** A Builder report belongs on the pull request its Manager opens; the other three already
 live where a successor reads them.
 
-**One Manager session rewrote its handoff 19 times** (2026-11-17, carried from its Manager's brief),
-each a dated append of state already on pull requests. The rule lived only in this skill, loaded
-once a seat is already writing. An UNKNOWN reading had no trigger, so seats wrote at every event.
+**Why trigger 4 is bounded.** An UNKNOWN reading had no trigger, so seats wrote at every event.
+[MANAGER.md](../../../roles/MANAGER.md), *Your work has to survive your exit*, the *Your handoff*
+row, records how often one Manager rewrote its handoff.
 
 **RETRACTED 2026-11-17, as the only trigger: "do not update your handoff until a usage rung fires"
 (owner-set 2026-08-28).** Its rung is trigger 1, and constant updating does waste tokens. But a seat
@@ -129,25 +127,11 @@ load-bearing.
 
 ### Write pointers, and replace the file
 
-Write the whole current state, never a dated append. Draft it in your own worktree, then copy it in
-with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft>`.
+Write the whole current state, never a dated append, with engine
+`scripts/coord/handoff.ps1 -Write <name> -From <file>`.
 
-**Run `handoff.ps1` from an engine worktree.** It resolves the coordination root from the current
-directory. With no `MEFOR_COORD_ROOT` set, from a korus or vault checkout it writes into that
-repository's `.git`, where no arriving seat looks.
-
-**Add `-Replace` only to rewrite a file this session wrote.** At takeover your
-`<SEAT>-<date>-HANDOFF-SEAT.md` has the same name as a predecessor's file from the same day. If that
-file exists, retire it FIRST with `handoff.ps1 -Retire`, whose holds *Retire what is done* covers,
-then write yours without `-Replace`.
-
-A `SEAT` file takes no `-<slug>`, so do not take the `-<slug>` fix the script's refusal names.
-COMMON's finder would never match the result. A name that collides with another live session's file
-is a stop: report it, and write nothing over it.
-
-**Delete the draft, and never leave it in a korus worktree.** Delete it once `-Write` succeeds. If
-`-Write` fails, delete it once its content is somewhere a successor reads, such as your last report.
-Measured 2026-11-17: korus ignores no draft name, so a draft left there can reach a commit.
+**Add `-Replace` only to rewrite a file this session wrote.** When the name is another file's, the
+script refuses and names the fix: a `-<slug>` suffix.
 
 | Part | What it holds |
 | --- | --- |
@@ -161,34 +145,6 @@ shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../
 *A skill owns the handoff format; five things are builder-only*, lists instead.
 
 **The test: a successor can act on it after one read.**
-
-### Retire what is done
-
-Retire at takeover or seat end, never at another time.
-
-Retire your own `SEAT` file at seat end only when every row in it is merged or closed AND no owner
-question or judgment hold in it is still open. Use engine
-`scripts/coord/handoff.ps1 -Retire <name>`, which moves the file to a `_retired-<date>` directory
-and never deletes.
-
-A seat that takes over retires its predecessor's file once its own `SEAT` file is written. When the
-two files share a name, it retires the predecessor's first, as *Write pointers, and replace the file*
-says. **Never retire another live seat's file.**
-
-`-Retire` refuses on any hold and names it, and `-Force` names what it overrode. Read each hold
-before you force past it. A seat record that points at the file is the `POINTED-AT` hold, so expect
-it whenever the file's writer declared it with `seat.ps1 -Declare -Handoff`.
-
-**Then clear the pointer, so `fleet.ps1` reports no broken one.** Run engine
-`scripts/coord/seat.ps1 -ClearHandoff -Box <box> -SessionId <session>` for each seat record that
-named the retired file. It clears only a dead or stale session's pointer to a file that is gone, so
-run it after `-Retire`.
-
-At takeover that is your predecessor's record. At seat end your own session is still live and the
-script refuses, so name the pointer in your last report for the next seat to clear.
-
-**Why.** Carried from the same brief of 2026-11-17: the handoffs directory held 79 files, 2.8 MB,
-dead ones among them. The harm is not disk: a stale file reads as a live instruction to an arriving seat.
 
 ### Every panel earns its space at the steady state, not at the exception
 
