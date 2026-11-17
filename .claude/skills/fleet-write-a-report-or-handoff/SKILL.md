@@ -53,7 +53,7 @@ count... THERE IS NO -Lane AND NO -BoxKey PARAMETER, AND ADDING ONE DEFEATS THE 
 | Item | Rule |
 | --- | --- |
 | The split | The role file holds only what stays true. A dated episode note holds live state. *This file holds only what never expires*. |
-| Filenames | Name every handoff file `<SEAT>-<YYYY-MM-DD>-HANDOFF-<KIND>[-<slug>].md`. |
+| Filenames | Name every handoff file `<SEAT>-<YYYY-MM-DD>-HANDOFF-<KIND>[-<slug>].md`. A `SEAT` file takes no `-<slug>`: COMMON's finder takes only a name that ends `-HANDOFF-SEAT.md`. |
 | Builder numbers | A builder handoff carries its number, because two builders write the same name without one. |
 | Resumable kind | Only the `SEAT` kind is resumable, so write your state there. |
 | Header block | Start a seat file with the update time, session, worktree, branch, status and tip. |
@@ -130,12 +130,24 @@ load-bearing.
 ### Write pointers, and replace the file
 
 Write the whole current state, never a dated append. Draft it in your own worktree, then copy it in
-with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft> -Replace`. Use `-Replace` only on
-your own file; for another seat's name, the script's refusal names the `-<slug>` fix.
+with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft>`.
 
-**Keep the draft out of a commit.** Before you write it, run `git check-ignore <draft>` in your
-worktree. If it prints nothing, the repository does not ignore the draft, so delete it once
-`-Write` succeeds. Measured 2026-11-17: korus ignores no draft name.
+**Run `handoff.ps1` from an engine worktree.** It resolves the coordination root from the current
+directory. With no `MEFOR_COORD_ROOT` set, from a korus or vault checkout it writes into that
+repository's `.git`, where no arriving seat looks.
+
+**Add `-Replace` only to rewrite a file this session wrote.** At takeover your
+`<SEAT>-<date>-HANDOFF-SEAT.md` has the same name as a predecessor's file from the same day. If that
+file exists, retire it FIRST with `handoff.ps1 -Retire`, whose holds *Retire what is done* covers,
+then write yours without `-Replace`.
+
+A `SEAT` file takes no `-<slug>`, so do not take the `-<slug>` fix the script's refusal names.
+COMMON's finder would never match the result. A name that collides with another live session's file
+is a stop: report it, and write nothing over it.
+
+**Delete the draft, and never leave it in a korus worktree.** Delete it once `-Write` succeeds. If
+`-Write` fails, delete it once its content is somewhere a successor reads, such as your last report.
+Measured 2026-11-17: korus ignores no draft name, so a draft left there can reach a commit.
 
 | Part | What it holds |
 | --- | --- |
@@ -159,8 +171,9 @@ question or judgment hold in it is still open. Use engine
 `scripts/coord/handoff.ps1 -Retire <name>`, which moves the file to a `_retired-<date>` directory
 and never deletes.
 
-A seat that takes over retires its predecessor's file once its own `SEAT` file is written. **Never
-retire another live seat's file.**
+A seat that takes over retires its predecessor's file once its own `SEAT` file is written. When the
+two files share a name, it retires the predecessor's first, as *Write pointers, and replace the file*
+says. **Never retire another live seat's file.**
 
 `-Retire` refuses on any hold and names it, and `-Force` names what it overrode. Read each hold
 before you force past it. A seat record that points at the file is the `POINTED-AT` hold, so expect

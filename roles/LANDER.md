@@ -391,7 +391,7 @@ restates them; the routing does not.
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
 | File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. They hand you the item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
 | Protect against lost work | At a usage cutoff. See *Usage monitoring -- prevent lost work*. |
-| Keep an episode note current | So the role survives your own cutoff. See *The role file holds only what never expires*. |
+| Write your handoff at its triggers | The skill [fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md), *When to write a handoff*. RETRACTED 2026-11-17: this row read "Keep an episode note current. So the role survives your own cutoff." |
 
 ### The usage exemption covers every channel, not just a message from the Steward
 
