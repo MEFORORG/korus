@@ -635,9 +635,9 @@ none of them looks for a NEW correctness defect.
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
-| Repairing a prose finding | Delete the sentence, rewrite it true, or link to its one statement (SDS-3.5). Add a caveat or case only where a rule requires it. Each repair commit message states that round's net prose-line change. |
+| Repairing a prose finding, added 2026-11-16 (owner ruling) | Delete the sentence, rewrite it true, or link to its one statement (`docs/HOUSE-STYLE.md` HS-3). Add a caveat or case only where a rule requires it. Each repair commit message states its own net prose-line change. |
 | **TWO ROUNDS, and the second is the last** | Apply what round one confirms, commit, re-anchor, run it again. Round two is where you stop, whatever it says. |
-| Round two reviews the delta | From round two, also name <last reviewed head>..HEAD in the review arguments, and repair only findings inside that range. A finding on text an earlier round already saw ships as open, not repaired. |
+| Round two reviews the delta, added 2026-11-16 (owner ruling) | From round two, also name `<last reviewed head>..HEAD` in the review arguments. Repair, if at all, only findings inside that range or caused by a change in it. A finding on text an earlier round already saw ships as open. |
 | What you do with a round-two finding | **Ship, and hand the notes to the Manager for the pull request body.** Naming an open finding is not a failure to fix it; hiding one is. |
 | A final unrepaired round, added 2026-10-29 | If a fix commit landed after the last review that ran, run one more round on the pushed head, fix nothing it finds, ship its findings, and write the QA line as `Rounds: 2 + 1 unrepaired` (decision d20261029T165623191-578690). |
 | After each round | **Run `review_tag.py --target <nonce> --since "$T"`**, with the round's nonce. It is `scripts/quality/review_tag.py` in korus, and section 4e says how to run it from another repository and what to quote. |
@@ -812,7 +812,7 @@ Rounds: 2. Findings: 3 confirmed and fixed, 1 rejected (null path), 0 open.
 | Tag, where the tool refused and running it again does not clear it | `not read: refused, exit <n>`, then its message in quotes. A refusal is not `none returned`: the tool found something it could not tell apart, place or read. |
 | Rounds | 1 or 2. Say 1 only if round one came back empty. Add ` + 1 unrepaired` when 4c's final unrepaired round ran. |
 | Findings | Confirmed, rejected with the reason, and still open. A zero is a result. |
-| Prose lines, optional | The net prose-line change across your repair commits, as each commit message states it under 4c. |
+| Prose lines, optional | The sum of the net prose-line changes your repair commit messages state under 4c. |
 
 **Never write a level you did not pass as though you had.** That is the inference 4c bans, wearing
 this field's clothes. `inherited, not passed` is the honest spelling, and it costs a reader nothing.
