@@ -2164,7 +2164,7 @@ your successor can resume* and *When to write a handoff*.
 | AN OPEN-BLOCKER LIST NAMES THE PARTY THAT CAN MOVE EACH ITEM | It applies to the handoff's own open-PR list too. A blocker recorded only in a handoff is lost when the handoff ages. |
 | The distinction that changes a reader's next action | **A blocker whose only mover is a named seat that is idle is a different state from one any seat can pick up, and without that column the two render identically.** |
 | Both of those rules came from playbooks now RETIRED | They were stated in what were then the Liaison and Dispatcher playbooks. The rules survive; the source files may not be on disk. |
-| Cadence | The skill's *When to write a handoff*. The owner request of 2026-11-17 resolved the contradiction this row recorded, between this section's old "keep the episode note current at each meaningful state change" and the 2026-08-28 rung rule. |
+| Cadence | The skill's *When to write a handoff*. This row recorded a contradiction between the old "keep the episode note current at each meaningful state change" and the 2026-08-28 rung rule. A rewrite under the owner's request of 2026-11-17 replaced both. |
 | Before every handoff, not just every commit | Run the two-dot / three-dot check. Committing clean and handing off clean are different checks, because `main` moves in between. |
 | Tone | The useful handoff sentence is the measured one, not the alarming one. **The cost of being wrong scales with how good the sentence sounds.** |
 

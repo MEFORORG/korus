@@ -77,8 +77,9 @@ condition that ends it. Re-run it yourself before repeating it.
 
 ### When to write a handoff
 
-Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. Owner request
-2026-11-17 set them; trigger 1 is the owner-set rule of 2026-08-28, kept.
+Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. They were written
+under the owner's request of 2026-11-17, "optimize the handoff creation rules". Trigger 1 keeps the
+rung from the owner-set rule of 2026-08-28.
 
 | Trigger | The case it must fire in |
 | --- | --- |
@@ -89,20 +90,19 @@ Write or REPLACE your `SEAT` handoff at these four triggers and at no other time
 
 A reading is UNKNOWN only after you ran the reader yourself, as `fleet-read-usage` says; a hook
 banner alone is not one. A desktop-app session can be one, because the statusLine executor never
-runs there. A seat that runs no waves, such as the Lander, has the other three triggers.
+runs there. A seat that runs no waves has triggers 1 to 3 only.
 
-**Never write it after a Builder report, a pull request comment, a decision-log entry or a mail.**
-Each already lives where a successor reads it, so a copy in the handoff only adds a stale one.
+**A Builder report, a pull request comment, a decision-log entry or a mail is not a trigger.** A
+Builder report belongs on the pull request its Manager opens; the other three already live where a
+successor reads them.
 
-**Measured 2026-11-17: one Manager session rewrote its handoff 19 times**, each a dated append of
-state already on pull requests, branches and the decision log. The rule lived only in this skill,
-loaded once a seat is already writing. An UNKNOWN reading had no trigger, so seats wrote at every
-event.
+**One Manager session rewrote its handoff 19 times** (2026-11-17, carried from its Manager's brief),
+each a dated append of state already on pull requests. The rule lived only in this skill, loaded
+once a seat is already writing. An UNKNOWN reading had no trigger, so seats wrote at every event.
 
-**RETRACTED 2026-11-17: "do not update your handoff until a usage rung fires" (owner-set
-2026-08-28).** Its rung is trigger 1, and it was right that constant updating wastes tokens. It was
-wrong to make the rung the only trigger: a seat can end with no rung, and an UNKNOWN reading never
-shows one.
+**RETRACTED 2026-11-17, as the only trigger: "do not update your handoff until a usage rung fires"
+(owner-set 2026-08-28).** Its rung is trigger 1, and constant updating does waste tokens. But a seat
+can end with no rung, and an UNKNOWN reading never shows one.
 
 **When you write a trigger, name the case it must fire in and check the trigger can see that case.**
 
@@ -123,8 +123,8 @@ load-bearing.
 ### Write pointers, and replace the file
 
 Write the whole current state, never a dated append. Draft it in your own worktree, then copy it in
-with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft> -Replace`. Without `-Replace` an
-existing name refuses.
+with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft> -Replace`. Use `-Replace` only on
+your own file; for another seat's name, the script's refusal names the `-<slug>` fix.
 
 | Part | What it holds |
 | --- | --- |
@@ -133,8 +133,9 @@ existing name refuses.
 | Owner decisions pending | Verbatim. A pointer into a session dies with the session. |
 | Judgment holds | Labelled as judgment, as *This file holds only what never expires* asks. |
 
-Do not copy review findings, QA lines, test counts or history; they are on the pull request. A
-Builder's handoff also carries what [BUILDER.md](../../../roles/BUILDER.md) section 6 lists.
+Do not copy review findings, QA lines, test counts or history; they are on the pull request. This
+shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../../../roles/BUILDER.md),
+*A skill owns the handoff format; five things are builder-only*, lists instead.
 
 **The test: a successor can act on it after one read.**
 
@@ -150,8 +151,8 @@ retire a live seat's file.**
 `-Retire` refuses on any hold and names it, and `-Force` names what it overrode. Read each hold
 before you force past it.
 
-**Why.** On 2026-11-17 the handoffs directory held 79 files, 2.8 MB, dead ones among them. The harm
-is not disk: a stale file reads as a live instruction to an arriving seat.
+**Why.** Carried from the same brief of 2026-11-17: the handoffs directory held 79 files, 2.8 MB,
+dead ones among them. The harm is not disk: a stale file reads as a live instruction to an arriving seat.
 
 ### Every panel earns its space at the steady state, not at the exception
 
