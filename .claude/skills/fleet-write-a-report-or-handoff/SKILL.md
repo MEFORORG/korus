@@ -75,46 +75,83 @@ person who checks. This kind disarms the checker.
 If you write one -- "not on main yet", "that tool is broken", "the queue is empty" -- attach the
 condition that ends it. Re-run it yourself before repeating it.
 
-### The handoff write is armed by a rung
+### When to write a handoff
 
-**Owner-set 2026-08-28: do not update your handoff until a usage rung fires.** Write it after rung 1
-(HOLD NEW WORK) or rung 2 (PROTECT AND WRAP), and not before. When the window resets, go back to not
-updating until another rung 1 or rung 2 fires.
+Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. Owner request
+2026-11-17 set them; trigger 1 is the owner-set rule of 2026-08-28, kept.
 
-The duty is armed by a rung, not by the clock and not by finishing a task.
+| Trigger | The case it must fire in |
+| --- | --- |
+| 1. Rung 1 (HOLD NEW WORK) or rung 2 (PROTECT AND WRAP) fires | A session that can read its usage, before the window cuts it off. [COMMON.md](../../../roles/COMMON.md), *The three usage states*, sets the rungs. |
+| 2. Seat end | Before the session is archived or closed, before an account switch, and before you hand the seat over. No rung warns of any of these. |
+| 3. The owner asks, as with `/handoff` | Whatever the rung. |
+| 4. Your usage reading is UNKNOWN: once per completed wave, when its pull requests go to the Lander | The case no rung can see. Not once per event. |
 
-**ARMING FIX, RETIRED 2026-10-31.** The rule once armed on a 5-hour rung and the weekly meter had no
-rungs, so a night where weekly exhausted first left every handoff unwritten (measured 2026-08-29). A
-seat widened the trigger to the binding window within a projected hour or two of exhaustion.
+A reading is UNKNOWN only after you ran the reader yourself, as `fleet-read-usage` says; a hook
+banner alone is not one. A desktop-app session can be one, because the statusLine executor never
+runs there. A seat that runs no waves, such as the Lander, has the other three triggers.
 
-The owner ruling of 2026-10-31 gave the weekly window the rungs and removed the five-hour window
-([COMMON.md](../../../roles/COMMON.md), *The three usage states*). Rung 1 now sees the case the widening was written
-for, at the shorter lead COMMON's table sets. **Write at rung 1 or rung 2.**
+**Never write it after a Builder report, a pull request comment, a decision-log entry or a mail.**
+Each already lives where a successor reads it, so a copy in the handoff only adds a stale one.
 
-A seat found the widening by breaking the rule deliberately. It said so in its own artifact's first
-paragraph, rather than let a reader guess whether it forgot or overrode.
+**Measured 2026-11-17: one Manager session rewrote its handoff 19 times**, each a dated append of
+state already on pull requests, branches and the decision log. The rule lived only in this skill,
+loaded once a seat is already writing. An UNKNOWN reading had no trigger, so seats wrote at every
+event.
 
-**The shape is a condition that cannot fire on the path that matters most.** Same family as a
-warning that says do not bother checking, and a panel comparing projections against an
-already-expired instant. The arming condition was not wrong -- it was unreachable in the case it
-existed for.
+**RETRACTED 2026-11-17: "do not update your handoff until a usage rung fires" (owner-set
+2026-08-28).** Its rung is trigger 1, and it was right that constant updating wastes tokens. It was
+wrong to make the rung the only trigger: a seat can end with no rung, and an UNKNOWN reading never
+shows one.
 
 **When you write a trigger, name the case it must fire in and check the trigger can see that case.**
-This rule's stated premise was "the usage ladder is the warning": true then of the 5-hour window,
-silently false of the weekly one.
 
-**These cadence rows replace "update the episode note at each change of state", which this file
-carried until 2026-08-28.** That rule was written when a cutoff gave no warning.
+The rung rule failed that test once before. Its premise, "the usage ladder is the warning", was true
+of the 5-hour window and false of the weekly one. A night when the weekly window ran out first left
+every handoff unwritten (measured 2026-08-29).
 
-The usage ladder is the warning now, so continuous updating buys nothing and spends the tokens the
-handoff exists to protect. **The retracted version is kept because the reasoning changed rather than
-being wrong.** Its premise -- no warning before a cutoff -- was true when written and is now false.
+A seat then widened the trigger to the binding window. The owner ruling of 2026-10-31 retired that
+fix by giving the weekly window the rungs.
 
-A rule whose justification has expired is not one you weaken; it is one you re-derive.
+The rung rule itself retracted "update the episode note at each change of state", written when a
+cutoff gave no warning.
 
-Worked example, against the seat that wrote this rule: on 2026-08-28 it rewrote its own handoff **six
-times** across a single session, most of them well below any rung. Only the addendum written at rung 3
-was load-bearing.
+Worked example: on 2026-08-28 the seat that wrote the rung rule rewrote its own handoff **six
+times** in one session, most of them below any rung. Only the addendum written at rung 3 was
+load-bearing.
+
+### Write pointers, and replace the file
+
+Write the whole current state, never a dated append. Draft it in your own worktree, then copy it in
+with engine `scripts/coord/handoff.ps1 -Write <name> -From <draft> -Replace`. Without `-Replace` an
+existing name refuses.
+
+| Part | What it holds |
+| --- | --- |
+| Header block | As *Hand off so your successor can resume* sets it. |
+| One row per work item | Item, branch, pull request, head SHA, next action, and who can move it. A row that needs more than two lines means the detail belongs on the pull request, so link it. |
+| Owner decisions pending | Verbatim. A pointer into a session dies with the session. |
+| Judgment holds | Labelled as judgment, as *This file holds only what never expires* asks. |
+
+Do not copy review findings, QA lines, test counts or history; they are on the pull request. A
+Builder's handoff also carries what [BUILDER.md](../../../roles/BUILDER.md) section 6 lists.
+
+**The test: a successor can act on it after one read.**
+
+### Retire what is done
+
+At seat end, retire your own `SEAT` file once every row in it is merged or closed, with engine
+`scripts/coord/handoff.ps1 -Retire <name>`. It moves the file to a `_retired-<date>` directory and
+never deletes.
+
+A seat that takes over retires its predecessor's file once its own `SEAT` file is written. **Never
+retire a live seat's file.**
+
+`-Retire` refuses on any hold and names it, and `-Force` names what it overrode. Read each hold
+before you force past it.
+
+**Why.** On 2026-11-17 the handoffs directory held 79 files, 2.8 MB, dead ones among them. The harm
+is not disk: a stale file reads as a live instruction to an arriving seat.
 
 ### Every panel earns its space at the steady state, not at the exception
 
@@ -146,7 +183,7 @@ standing block in a brief all sit under it.
 | Label the KIND of a hold when you hand one over | A mechanical hold and a hold resting on your own judgment inherit differently. Say which yours is. |
 | A deliberate hold carries the deferred content verbatim | Not a pointer to it. A pointer into a session's context does not survive the session, and a release condition alone will not reconstruct the text. |
 | An open-blocker list names the party that can move each item | Without that column, a blocker only one idle seat can move renders the same as one any seat can pick up. |
-| Cadence | *The handoff write is armed by a rung* arms it on a usage rung. Do not restate it here. |
+| Cadence | *When to write a handoff* sets it. Do not restate it here. |
 | Before every handoff, not just every commit | Committing clean and handing off clean are different checks, because `main` moves in between. |
 | Tone | The useful handoff sentence is the measured one, not the alarming one. **The cost of being wrong scales with how good the sentence sounds.** |
 

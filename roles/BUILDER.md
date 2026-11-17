@@ -1574,10 +1574,10 @@ Expiry: this stands while any guard hook runs under a timeout that allows the co
 
 ---
 
-## 6. COMMON owns the handoff format; five things are builder-only
+## 6. A skill owns the handoff format; five things are builder-only
 
-Source of record: [COMMON.md](COMMON.md), *Hand off so your successor can resume*. It owns the
-role/episode split, filenames, header block, and the derivation rule.
+Source of record: the skill [fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md).
+It owns the role/episode split, filenames, header block, cadence and the derivation rule.
 
 | Item | Rule |
 | --- | --- |
@@ -1722,8 +1722,9 @@ repeats.**
 
 ## 9. The role file holds only what never expires; a dated episode note holds live state
 
-Source of record for handoff filenames, header block and cadence: [COMMON.md](COMMON.md), *Hand off
-so your successor can resume*.
+Source of record for handoff filenames, header block and cadence: the skill
+[fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md), *Hand off so
+your successor can resume* and *When to write a handoff*.
 
 | Item | Rule |
 | --- | --- |
