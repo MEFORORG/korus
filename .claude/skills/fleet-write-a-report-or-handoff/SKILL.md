@@ -77,8 +77,8 @@ condition that ends it. Re-run it yourself before repeating it.
 
 ### When to write a handoff
 
-Write or REPLACE your `SEAT` handoff at these four triggers, or to record a ruling when it is
-made, as *Your own ruling expires in a message* requires, and at no other time.
+Write or REPLACE your `SEAT` handoff at these four triggers and at no other time. The one exception
+is recording a ruling when it is made, as *Your own ruling expires in a message* requires.
 
 The triggers were written under the owner's request of 2026-11-17, "optimize the handoff creation
 rules". Trigger 1 keeps the rung from the owner-set rule of 2026-08-28 and adds rung 3, where the
@@ -141,8 +141,10 @@ script refuses and names the fix: a `-<slug>` suffix.
 | Judgment holds | Labelled as judgment, as *This file holds only what never expires* asks. |
 
 Do not copy review findings, QA lines, test counts or history; they are on the pull request or in
-the Builder's report to its Manager. This shape is for a `SEAT` handoff. A Builder's handoff carries
-what [BUILDER.md](../../../roles/BUILDER.md), *A skill owns the handoff format; five things are builder-only*, lists instead.
+the Builder's report to its Manager.
+
+This shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../../../roles/BUILDER.md),
+*A skill owns the handoff format; five things are builder-only*, lists instead.
 
 **The test: a successor can act on it after one read.**
 
