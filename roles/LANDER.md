@@ -391,7 +391,7 @@ restates them; the routing does not.
 | Coordinate peers | Other sessions run in their own worktrees. Unblock them on conflicts, ledger collisions and queue ordering. Do not do their builds. |
 | File new ledger items | Allocation and the commit that files it **cannot be split across worktrees**, so this routes here and is not delegable. They hand you the item's CONTENT, never a number. See *Filing a new ledger item routes to the Lander*. |
 | Protect against lost work | At a usage cutoff. See *Usage monitoring -- prevent lost work*. |
-| Keep an episode note current | So the role survives your own cutoff. See *The role file holds only what never expires*. |
+| Write your handoff at its triggers | The skill [fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md), *When to write a handoff*. RETRACTED 2026-11-17: this row read "Keep an episode note current. So the role survives your own cutoff." |
 
 ### The usage exemption covers every channel, not just a message from the Steward
 
@@ -2142,8 +2142,9 @@ Three refusals landed on one lander in a day and all three were the control work
 
 ## 17. The role file holds only what never expires; a dated episode note holds live state
 
-Source of record for handoff filenames, header block and cadence: COMMON.md, *Hand off so your
-successor can resume*.
+Source of record for handoff filenames, header block and cadence: the skill
+[fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md), *Hand off so
+your successor can resume* and *When to write a handoff*.
 
 | Item | Rule |
 | --- | --- |
@@ -2163,9 +2164,7 @@ successor can resume*.
 | AN OPEN-BLOCKER LIST NAMES THE PARTY THAT CAN MOVE EACH ITEM | It applies to the handoff's own open-PR list too. A blocker recorded only in a handoff is lost when the handoff ages. |
 | The distinction that changes a reader's next action | **A blocker whose only mover is a named seat that is idle is a different state from one any seat can pick up, and without that column the two render identically.** |
 | Both of those rules came from playbooks now RETIRED | They were stated in what were then the Liaison and Dispatcher playbooks. The rules survive; the source files may not be on disk. |
-| Cadence, and it is a live contradiction | This section formerly read "keep the episode note current at each meaningful state change, not just at the end -- a cutoff does not announce itself". |
-| What changed | COMMON.md now carries an owner-set 2026-08-28 rule arming the write on a usage rung instead. |
-| Do not pick a winner | COMMON's *Where a role playbook and this file disagree* makes that an owner question, so put it to the Manager, unless a recorded delegated decision already resolves it. |
+| Cadence | The skill's *When to write a handoff*. This row recorded a contradiction between the old "keep the episode note current at each meaningful state change" and the 2026-08-28 rung rule. A rewrite under the owner's request of 2026-11-17 replaced both. |
 | Before every handoff, not just every commit | Run the two-dot / three-dot check. Committing clean and handing off clean are different checks, because `main` moves in between. |
 | Tone | The useful handoff sentence is the measured one, not the alarming one. **The cost of being wrong scales with how good the sentence sounds.** |
 

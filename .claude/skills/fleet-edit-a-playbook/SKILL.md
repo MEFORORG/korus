@@ -126,8 +126,8 @@ numbering.
 | `COMMON 2.11` | *The owner reads by sampling*, the recommendations row. |
 | `COMMON 3.3` | *Coordinate before you write*, the match on the directory row. |
 | `COMMON 3.4` | *One-line rules*, the past statement row. |
-| `COMMON 5.3` | *This file holds only what never expires*, the *State it once* row. |
-| `COMMON 5.7` | *Hand off so your successor can resume*, the derivation row. |
+| `COMMON 5.3` | The skill `fleet-write-a-report-or-handoff`, *This file holds only what never expires*, the *State it once* row. |
+| `COMMON 5.7` | The skill `fleet-write-a-report-or-handoff`, *Hand off so your successor can resume*, the derivation row. |
 | `COMMON 5.9a` | *A usage number warns about lost work*, the report a stop row. |
 | `COMMON 5.10` | *A usage number warns about lost work*, the whole section. |
 

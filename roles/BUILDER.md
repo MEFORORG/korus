@@ -1574,10 +1574,10 @@ Expiry: this stands while any guard hook runs under a timeout that allows the co
 
 ---
 
-## 6. COMMON owns the handoff format; five things are builder-only
+## 6. A skill owns the handoff format; five things are builder-only
 
-Source of record: [COMMON.md](COMMON.md), *Hand off so your successor can resume*. It owns the
-role/episode split, filenames, header block, and the derivation rule.
+Source of record: the skill [fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md).
+It owns the role/episode split, filenames, header block, cadence and the derivation rule.
 
 | Item | Rule |
 | --- | --- |
@@ -1722,8 +1722,9 @@ repeats.**
 
 ## 9. The role file holds only what never expires; a dated episode note holds live state
 
-Source of record for handoff filenames, header block and cadence: [COMMON.md](COMMON.md), *Hand off
-so your successor can resume*.
+Source of record for handoff filenames, header block and cadence: the skill
+[fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md), *Hand off so
+your successor can resume* and *When to write a handoff*.
 
 | Item | Rule |
 | --- | --- |
@@ -1737,7 +1738,7 @@ so your successor can resume*.
 | Label the kind of a hold when you hand one over | A mechanical hold and a hold resting on your own judgment inherit differently. **Beside mechanical rows, an unlabelled judgment call reads as mechanical and stops being examined.** |
 | A deliberate hold carries the deferred content verbatim | Not a pointer to it. A pointer into a session's context does not survive the session. |
 | An open-blocker list names the party that can move each item | A blocker whose only mover is an idle named seat is a different state from one any seat can pick up. Without that column the two render identically. |
-| Write it before you exit, not only at the end of the build | Your process exits when the work is done, and a cutoff does not announce itself. |
+| Write it at your exit, which is your seat end | Trigger 2 of the skill's *When to write a handoff*. Until 2026-11-17 this row read "Write it before you exit ... a cutoff does not announce itself". |
 
 **Two measured instances of the mixed-document decay live in this file.** The banner rule in *The
 banner requirement is CONDITIONAL* was stated as absolute, and **three seats inherited a blocker that

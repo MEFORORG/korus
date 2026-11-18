@@ -764,6 +764,7 @@ you can find later: nothing survives the moment you close the instance.
 | Never say "finish and I will push for you" | You may not be there. |
 | Never say "hold this until I say" | There is no later. |
 | Check before you close | A Manager that exits with unpushed subagent work destroys it silently, and nothing anywhere records that it existed. |
+| Your handoff | [fleet-write-a-report-or-handoff](../.claude/skills/fleet-write-a-report-or-handoff/SKILL.md) sets when and what to write. Reported by a Manager session on 2026-11-17, not measured here: one Manager rewrote its handoff 19 times, as dated appends. |
 
 **The pull request is now the one thing that can be lost with you, so close the window.** A pushed
 branch survives anything, and an unopened pull request survives too, as long as somebody can read the
