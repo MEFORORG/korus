@@ -92,8 +92,7 @@ worked example below found the only load-bearing write.
 | 4. Your usage reading is UNKNOWN: once per finished wave, when its pull requests go to the Lander, or for a seat that runs no waves, once per finished owner task | The case no rung can see. Not once per event. |
 
 A reading is UNKNOWN only after you ran the reader yourself, as `fleet-read-usage` says; a hook
-banner alone is not one. A desktop-app session can be one, because the statusLine executor never
-runs there.
+banner alone is not one.
 
 Arrival is a takeover, so the file the `carry-on` skill has you write on arrival is trigger 2's one
 takeover write.
@@ -130,8 +129,7 @@ load-bearing.
 Write the whole current state, never a dated append, with engine
 `scripts/coord/handoff.ps1 -Write <name> -From <file>`.
 
-**Add `-Replace` only to rewrite a file this session wrote.** When the name is another file's, the
-script refuses and names the fix: a `-<slug>` suffix.
+**Add `-Replace` only to rewrite a file this session wrote.**
 
 | Part | What it holds |
 | --- | --- |
@@ -140,8 +138,7 @@ script refuses and names the fix: a `-<slug>` suffix.
 | Owner decisions pending | Verbatim. A pointer into a session dies with the session. |
 | Judgment holds | Labelled as judgment, as *This file holds only what never expires* asks. |
 
-Do not copy review findings, QA lines, test counts or history; they are on the pull request or in
-the Builder's report to its Manager.
+Do not copy review findings, QA lines, test counts or history.
 
 This shape is for a `SEAT` handoff. A Builder's handoff carries what [BUILDER.md](../../../roles/BUILDER.md),
 *A skill owns the handoff format; five things are builder-only*, lists instead.
