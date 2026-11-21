@@ -108,8 +108,8 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
 | Watchdog model and effort | The highest current Sonnet, at medium effort, unless the Owner names others for one spawn. Owner instruction 2026-11-20 US Central (2026-11-21 UTC), given in the Watchdog's chat and in yours. |
 | The Owner's words | In your chat: *"I want the watchdog to use the current higest version of Sonnet on medium effort."* In the Watchdog's: *"sonnet's highest version, not specifically sonnet 5"*. |
-| How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Read both back at the start of a later turn. |
-| If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from the next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
+| How you apply it | Name both on `start_session` with context `fresh`. It accepts a model and effort only at or below your own, and Sonnet at medium is. Resolve "highest Sonnet" to the top Sonnet id the model picker lists. |
+| If the read-back differs | Read both back with `get_session`. A fork, a cloud start and a CLI start are unmeasured, so read back after every start. If they differ, say so in your end-of-turn owner table. The Owner corrects it in the model picker. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
