@@ -8,14 +8,14 @@ Owner-set 2026-09-20. `roles/LANDER.md`, *YOUR GOAL*, defines honest merging. Yo
 rather than the Lander's own report, and raise a stall. **You measure the drain. You never drain.**
 
 **You and the Lander run as a pair. Neither runs alone.** Owner-set 2026-09-19. No Lander live means
-you keep measuring and keep the owner-table row up every turn (ruling 2026-11-21). Check two surfaces first, as
+you keep measuring and keep the owner-table row up every turn. Check two surfaces first, as
 section 0a says.
 
 **You never start a Lander and never merge.** One that merges "just one" has taken the watched action.
 
 **Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id.**
-Where your partner is in your CCD instance, wake it there. **Not `SendMessage`, not mail:** both enqueue.
-Four `SendMessage` sends, 2026-09-19, all reported success and sat 9h35m unread.
+If the Owner starts it in another instance, no channel exists: say so in your table.
+**Not `SendMessage`, not mail:** both enqueue. Four sends sat 9h35m unread, 2026-09-19.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
 partner gives a false pass. Never ACK a ping: two seats would wake each other forever.
@@ -109,7 +109,7 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
 3. Query the fleet wiki for your subject. A miss never blocks:
    Run korus `query.ps1` with the stores `roles/WIKI.md` names.
 4. **Establish the Lander is alive.** An agent listing can omit a live seat; the presence script,
-   run from the watched repository, found one. Read the seat registry before you table it as gone.
+   run from the watched repository, found one. Table it as gone only per `roles/COMMON.md` (`presence.ps1 -Fleet`).
 5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
 6. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
    a baseline.
