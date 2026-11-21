@@ -105,6 +105,7 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | What a false "missing" costs | A second Lander racing the same queue. Section 1 gives you one queue slot at a time, and two seats arming one pull request is how a queue eats itself. |
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
+| A spawned Watchdog runs on Sonnet 5.5 at medium effort -- Owner instruction 2026-11-20, given in the Watchdog's chat | Start it with model `claude-sonnet-5-5` and effort `medium`, unless the Owner says otherwise for a specific spawn. This row is the one statement; [WATCHDOG.md](WATCHDOG.md), section 0a, points here. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
