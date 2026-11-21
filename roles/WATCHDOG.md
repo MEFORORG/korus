@@ -141,7 +141,7 @@ seat's work from yours.
 | Spawn, brief, stand back | Give it the readings you hold, then resume measuring. Do not stay in the queue until it looks settled. |
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
-| Model and effort of a spawned Watchdog | Owner instruction 2026-11-20: Sonnet 5.5, medium effort. [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, holds the rule. |
+| Model and effort of a spawned Watchdog | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *Watchdog model and effort*. On the wrong model, you cannot change your own: tell the Lander, which corrects it with `set_session_model` / `set_session_effort`. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
 | **`METHOD.md` already provided for this, and needs no edit** | Read at `origin/main` `a4f05452a`, line 24: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first (owner ruling 2026-09-16)."* |
 | So this is the permission, not an exception to it | That clause is a route, not a wall. This seat took the route. |
