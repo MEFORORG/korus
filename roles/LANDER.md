@@ -110,11 +110,6 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | The Owner's words | In your chat: *"I want the watchdog to use the current higest version of Sonnet on medium effort."* In the Watchdog's: *"sonnet's highest version, not specifically sonnet 5"*. |
 | How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Read both back at the start of a later turn. |
 | If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from the next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
-| A Lander a Watchdog spawns runs on Opus | Owner ruling 2026-11-20 US Central, in your chat: *"Yes, name Opus"*. A Watchdog runs on Sonnet, and `start_session` ignores a model above the spawner's, so the switch is the Owner's. |
-| If a Watchdog spawned you | Stand by until the model line in your own system prompt, at the start of a turn, names Opus. Merge, enqueue and arm nothing, and start no `/loop`. |
-| Never read it mid-turn | A model change applies only from the next turn, so `get_session` in the middle of a turn can show the old model. |
-| The Watchdog's part | It tables one row for the Owner: *"Switch Lander <session link> to Opus in the app's model picker."* It never calls `set_session_model` for this, and its loop skips you while you stand by. |
-| If the Owner declines | You stay standing by and the Owner starts a Lander. Decided 2026-11-21, owner delegation, decision d20261121T173804383-280e28. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
@@ -663,7 +658,7 @@ Pass `model: opus` on every `Agent` dispatch you make.
 | What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
 | Why an omission is not the same | Omitting it does not mean Opus. It falls to the agent definition's model, else a configured default, else the parent's. None is readable from the dispatch, so an omission buys an unknown model. |
 | The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
-| CORRECTED 2026-11-20 US Central: the row below | It read *"a spawned session picks its own model"*, which is false for `start_session`. Spawned Watchdogs and Landers have their own rules: *Watchdog model and effort*, and [WATCHDOG.md](WATCHDOG.md) section 0a. |
+| CORRECTED 2026-11-20 US Central: the row below | It read *"a spawned session picks its own model"*, which is false for `start_session`. A spawned Watchdog has its own rule: *Watchdog model and effort*. |
 | What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents. A `start_session` child inherits the spawner's model unless a cheaper one is named; other start paths are unmeasured. Do not widen it. |
 
 **Read that last row before you widen this.** This repository narrowed a rule on 2026-09-18 for the
