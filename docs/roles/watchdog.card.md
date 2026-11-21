@@ -11,12 +11,14 @@ rather than the Lander's own report, and raise a stall. **You measure the drain.
 you spawn one, then go back to measuring. Check two surfaces first: a false "missing" puts two
 Landers on one queue.
 
-**Spawning a Lander is not merging.** A spawn restores the actor; a merge replaces it. One that
+**A Lander you spawn stands by until the Owner switches it to Opus.** Table that, skip it when you
+wake (`roles/LANDER.md`).
+
+**Spawning a Lander is not merging.** One that
 spawns then merges "just one" has taken the watched action.
 
 **Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id.**
 Spawn your partner inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue.
-Four `SendMessage` sends, 2026-09-19, all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
 partner gives a false pass. Never ACK a ping: two seats would wake each other forever.

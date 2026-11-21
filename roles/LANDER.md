@@ -108,10 +108,13 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
 | Watchdog model and effort | The highest current Sonnet, at medium effort, unless the Owner names others for one spawn. Owner instruction 2026-11-20 US Central (2026-11-21 UTC), given in the Watchdog's chat and in yours. |
 | The Owner's words | In your chat: *"I want the watchdog to use the current higest version of Sonnet on medium effort."* In the Watchdog's: *"sonnet's highest version, not specifically sonnet 5"*. |
-| How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Then read both back with `get_session`. |
-| If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from its next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
-| Which Sonnet is current | The ids `set_session_model` lists when it refuses an unknown one. On 2026-11-20 US Central the value is `claude-sonnet-5-5`. |
-| If a Watchdog spawned you | Merge, enqueue and arm nothing, and name your model, until `get_session` shows you on Opus after the Watchdog's `set_session_model` call. Section 0a of [WATCHDOG.md](WATCHDOG.md) holds the rule. |
+| How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Read both back at the start of a later turn. |
+| If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from the next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
+| A Lander a Watchdog spawns runs on Opus | Owner ruling 2026-11-20 US Central, in your chat: *"Yes, name Opus"*. A Watchdog runs on Sonnet, and `start_session` ignores a model above the spawner's, so the switch is the Owner's. |
+| If a Watchdog spawned you | Stand by until the model line in your own system prompt, at the start of a turn, names Opus. Merge, enqueue and arm nothing, and start no `/loop`. |
+| Never read it mid-turn | A model change applies only from the next turn, so `get_session` in the middle of a turn can show the old model. |
+| The Watchdog's part | It tables one row for the Owner: *"Switch Lander <session link> to Opus in the app's model picker."* It never calls `set_session_model` for this, and its loop skips you while you stand by. |
+| If the Owner declines | You stay standing by and the Owner starts a Lander. Decided 2026-11-21, owner delegation, decision d20261121T173804383-280e28. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 

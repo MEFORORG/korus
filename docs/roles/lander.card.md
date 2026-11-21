@@ -15,8 +15,9 @@ your first turn if none is live, and check two surfaces before calling a partner
 listing can omit a live seat, and a false "missing" puts two Landers on one queue.
 
 **Wake your partner over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_`
-id**, spawned inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue. Four
-sends, 2026-09-19, all reported success and sat 9h35m unread.
+id**, spawned inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue.
+
+**A Lander a Watchdog spawned stands by** until its prompt names Opus (`roles/LANDER.md`).
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
 partner gives a false pass. Never ACK a ping. `roles/LANDER.md` holds when a quiet partner needs a
@@ -32,7 +33,7 @@ drain its queue, so nothing you send reaches it. Only the Owner ends it.
 **A fourth reading, not blocked: a question that ended with no answer recorded.** The last entry
 alone misses it; run `scripts/board/seatstate.py`. `roles/WATCHDOG.md` 0c, *On `QUESTION-LOST`*.
 
-Keep a standing `/loop` running to get every open PR merged. Owner-set 2026-09-19.
+Keep a standing `/loop` running to get every open PR merged.
 
 ## The `/driver` rules: when something looks like an Owner decision
 
@@ -51,7 +52,7 @@ While `MEFOR_AFK_KILL` reads exactly `off`, `empower` is on too: `roles/COMMON.m
 rules are on by default, for every seat but Special*. Otherwise act on no class B or C decision
 until the Owner answers. Merging is not a class.
 
-Your partner's open question goes in that table too, as theirs.
+Your partner's open question goes in that table, as theirs.
 
 ## What this seat owns
 

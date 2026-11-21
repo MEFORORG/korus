@@ -142,13 +142,9 @@ seat's work from yours.
 | Spawn, brief, stand back | Give it the readings you hold, then resume measuring. Do not stay in the queue until it looks settled. |
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
-| Model of a Lander you spawn | Owner ruling 2026-11-20 US Central (about 03:58Z 2026-11-21 UTC), in the Lander's chat. Asked *"Should a Watchdog that spawns a Lander name the Lander's model explicitly?"*, the Owner answered *"Yes, name Opus"*. |
-| Why the spawn cannot name it | You run on Sonnet, and `start_session` ignores a model above yours and caps effort at yours. So spawn it, then call `set_session_model` with the current Opus id (`claude-opus-5-5` on that date). |
-| When the app asks first | A more expensive model makes the app ask the Owner, and that prompt is the approval the ruling needs. Read the model back with `get_session`. |
-| Brief it to stand by | Decided 2026-11-21, owner delegation, decision d20261121T173804383-280e28. Its brief says: merge, enqueue and arm nothing, and name the model you run on, until `get_session` shows Opus. |
-| While the switch is pending | List the Lander in your end-of-turn table for the Owner. If it still shows Sonnet, say so there. The KEY RULE stands: you still spawn a Lander when none is live. |
-| The Lander's effort | The ruling names none, and yours caps it at medium. Put its effort in your end-of-turn table for the Owner. |
-| Your own model and effort | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *Watchdog model and effort*. You cannot change your own. If yours differs, say so in your end-of-turn table. |
+| Model of a Lander you spawn | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *A Lander a Watchdog spawns runs on Opus*. Spawn it, brief it to stand by, and table the switch for the Owner. |
+| You never call `set_session_model` for it | That call can block on a prompt, which section 0d forbids. The Owner switches it in the app's model picker. |
+| Your own model and effort | Row *Watchdog model and effort* in the same LANDER.md section. You cannot change your own. If yours differs, say so in your end-of-turn table. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
 | **`METHOD.md` already provided for this, and needs no edit** | Read at `origin/main` `a4f05452a`, line 24: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first (owner ruling 2026-09-16)."* |
 | So this is the permission, not an exception to it | That clause is a route, not a wall. This seat took the route. |
@@ -368,6 +364,7 @@ waiting on.
 | --- | --- |
 | The loop changes nothing you may do | Section 2 is untouched. Cadence, never authority. |
 | It is not the board schedule | *YOUR FIRST STANDING DUTY* needs a cloud schedule, because a session cron did not fire once. The loop is a second instrument, not a replacement. |
+| Skip a Lander that stands by | Do not wake it, and spawn no second Lander. LANDER.md, row *If a Watchdog spawned you*. |
 | A tick is a wakeup | Send no ACK, and invent no work to fill a quiet tick. `noop: true` where nothing moved. |
 | Every tick reads the transcript | Section 0c. Working, idle and blocked need three different acts, and output tells you none of them. |
 | Every tick asks after the partner | Is the Lander alive, and is the drain moving. A tick that only refreshed the board has not run. |
