@@ -105,7 +105,12 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | What a false "missing" costs | A second Lander racing the same queue. Section 1 gives you one queue slot at a time, and two seats arming one pull request is how a queue eats itself. |
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
-| Watchdog model and effort | Owner instruction 2026-11-20 US Central (2026-11-21 UTC), given in two chats: the Watchdog's, and your own, where it read *"I want the watchdog to use the current higest version of Sonnet on medium effort."* Rule: the highest current Sonnet, at medium effort; its value on 2026-11-20 US Central is `claude-sonnet-5-5`, so re-read the pin when a newer Sonnet ships, unless the Owner says otherwise for a specific spawn. Once the session exists, the spawner sets `set_session_model` and `set_session_effort`, then reads both back with `get_session`. They work on another session from its next turn, so they cover a fork, a CLI start or a dropped parameter alike. [WATCHDOG.md](WATCHDOG.md), section 0a, points here. |
+| Watchdog model and effort | Owner instruction, 2026-11-20 US Central (2026-11-21 UTC): the highest current Sonnet, at medium effort. Its value that day is `claude-sonnet-5-5`. Re-read the pin when a newer Sonnet ships. |
+| Provenance of that instruction | Given in two chats, the Watchdog's and the Lander's. The Lander's read *"I want the watchdog to use the current higest version of Sonnet on medium effort."* |
+| How the spawner applies it | Once the session exists, call `set_session_model` and `set_session_effort`, then read both back with `get_session`. They work on a fork, a CLI start or a dropped parameter alike. |
+| Exception | The Owner may say otherwise for a specific spawn. [WATCHDOG.md](WATCHDOG.md), section 0a, points here. |
+| A Watchdog that spawns a Lander names Opus | Owner ruling 2026-11-20 US Central, "Yes, name Opus", given in the Lander's chat. Name the highest current Opus, `claude-opus-5-5` on that date. |
+| Checking that Lander's model | Read it back with `get_session`. If it differs, correct it with `set_session_model`. If it still reads lower, put that in the end-of-turn table for the Owner. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
@@ -654,7 +659,8 @@ Pass `model: opus` on every `Agent` dispatch you make.
 | What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
 | Why an omission is not the same | Omitting it does not mean Opus. It falls to the agent definition's model, else a configured default, else the parent's. None is readable from the dispatch, so an omission buys an unknown model. |
 | The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
-| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session inherits the spawner's model unless one is named. Do not widen it. **CORRECTED 2026-11-21:** this row read *"a spawned session picks its own model"*, which is false for `start_session`. The Watchdog spawn is the one exception: *Watchdog model and effort*. |
+| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session inherits the spawner's model unless one is named. Do not widen it. |
+| CORRECTED 2026-11-21: the row above | It read *"a spawned session picks its own model"*, which is false for `start_session`. The Watchdog spawn is the one exception: *Watchdog model and effort*. |
 
 **Read that last row before you widen this.** This repository narrowed a rule on 2026-09-18 for the
 same shape of inference: a grant to push was read as a grant to open the pull request, and the Owner
