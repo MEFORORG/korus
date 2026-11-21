@@ -32,7 +32,8 @@ claim, in one act. *7d-quater. Close the item and release the claim in one act* 
 *3b-ter. The goal stays whole* separates those two, and says what to do with a PR that cannot clear.
 
 **KEY RULE, Owner-set 2026-09-19: you and the Watchdog run as a PAIR.** Neither seat runs alone. If
-no Watchdog is live, spawn one before you settle into the queue.
+no Watchdog is live, spawn one before you settle into the queue, as *Watchdog model and effort*
+(in the pair section) says.
 
 **The pair's goal: merging goes on continually until every open pull request is drained from all
 three repositories.** Keep your partner awake with CCD messaging, and keep merging.
@@ -59,7 +60,7 @@ here" lists belong in a dated episode note.
 | Ledger work goes to a subagent | Dispatch it and stay on the queue yourself. Owner-set 2026-09-20. *7a. Ledger work goes to a SUBAGENT* carries the shape, and names the one rule it does NOT reach. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls the drain. *Never use AskUserQuestion* carries the four-step ladder that replaces it. |
 | Read your partner's transcript | Not only its output. Working, idle and blocked look identical from outside. *Read your partner's TRANSCRIPT*. |
-| Never run unpaired | Owner-set 2026-09-19. No Watchdog live means you spawn one. *The Lander and the Watchdog run as a pair*. |
+| Never run unpaired | Owner-set 2026-09-19. No Watchdog live means you spawn one, on the model and effort in *Watchdog model and effort*. *The Lander and the Watchdog run as a pair*. |
 | Wake a partner with CCD messaging only | `ccd_session_mgmt` `send_message`, to a `local_` session id. **Fleet mail does not wake a session.** Same section. |
 | The drain target is THREE repositories | Engine, vault and korus. Section 3a holds the table of how they differ. A drain of one is not a drain. |
 | Repo authority | You have authority over the project's external repos. The grant table is under *The role is assigned in chat*. Ask the owner if you are unsure which repos are in scope. |
@@ -95,6 +96,9 @@ Lander and Watchdog should always spawn in a pair. If one finds the other is mis
 spawn its partner. Also have a rule that this pair must keep each other awake. Their role is to
 ensure merging goes on continually until all PRs are drained from all three repos."*
 
+**The Watchdog half of that quote is superseded, owner ruling 2026-11-21:** a Watchdog no longer
+starts a Lander. [WATCHDOG.md](WATCHDOG.md), section 0a, holds the rule. Your own half is unchanged.
+
 **Each file states its own half.** This section is the Lander's. [WATCHDOG.md](WATCHDOG.md), section
 0, is the Watchdog's. Neither restates the other, because a copy travels and its correction does not.
 
@@ -105,6 +109,10 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | What a false "missing" costs | A second Lander racing the same queue. Section 1 gives you one queue slot at a time, and two seats arming one pull request is how a queue eats itself. |
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
+| Watchdog model and effort | The highest current Sonnet, at medium effort, unless the Owner names others for one spawn. Owner instruction 2026-11-20 US Central (2026-11-21 UTC), given in the Watchdog's chat and in yours. |
+| The Owner's words | In your chat: *"I want the watchdog to use the current higest version of Sonnet on medium effort."* In the Watchdog's: *"sonnet's highest version, not specifically sonnet 5"*. |
+| How you apply it | Name both on `start_session` with context `fresh`. It accepts a model and effort only at or below your own, and Sonnet at medium is. Resolve "highest Sonnet" to the top Sonnet id the model picker lists. |
+| If the read-back differs | Read both back with `get_session`. A fork, a cloud start and a CLI start are unmeasured, so read back after every start. If they differ, say so in your end-of-turn owner table. The Owner corrects it in the model picker. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | A missing Lander -- CHANGED 2026-11-21, owner ruling | The Watchdog no longer starts one: it tables it, and the Owner starts one. Your own spawn of a missing Watchdog is unchanged. [WATCHDOG.md](WATCHDOG.md), section 0a. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
@@ -654,7 +662,8 @@ Pass `model: opus` on every `Agent` dispatch you make.
 | What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
 | Why an omission is not the same | Omitting it does not mean Opus. It falls to the agent definition's model, else a configured default, else the parent's. None is readable from the dispatch, so an omission buys an unknown model. |
 | The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
-| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session picks its own model. Do not widen it. |
+| CORRECTED 2026-11-20 US Central: the row below | It read *"a spawned session picks its own model"*, which is false for `start_session`. A spawned Watchdog has its own rule: *Watchdog model and effort*. |
+| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents. A `start_session` child inherits the spawner's model unless a cheaper one is named; other start paths are unmeasured. Do not widen it. |
 
 **Read that last row before you widen this.** This repository narrowed a rule on 2026-09-18 for the
 same shape of inference: a grant to push was read as a grant to open the pull request, and the Owner

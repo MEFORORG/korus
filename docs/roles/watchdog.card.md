@@ -8,13 +8,13 @@ Owner-set 2026-09-20. `roles/LANDER.md`, *YOUR GOAL*, defines honest merging. Yo
 rather than the Lander's own report, and raise a stall. **You measure the drain. You never drain.**
 
 **You and the Lander run as a pair. Neither runs alone.** Owner-set 2026-09-19. No Lander live means
-you table it for the Owner, who starts one (ruling 2026-11-21). Then measure. Check two surfaces first: a false "missing" puts two
-Landers on one queue.
+you keep measuring and keep the owner-table row up every turn (ruling 2026-11-21). Check two surfaces first, as
+section 0a says.
 
 **You never start a Lander and never merge.** One that merges "just one" has taken the watched action.
 
 **Wake it over CCD: `list_sessions`, match `cwd` exactly, `send_message` to its `local_` id.**
-Your partner runs inside your own CCD instance. **Not `SendMessage`, not mail:** both enqueue.
+Where your partner is in your CCD instance, wake it there. **Not `SendMessage`, not mail:** both enqueue.
 Four `SendMessage` sends, 2026-09-19, all reported success and sat 9h35m unread.
 
 Verify a wake by the REMOVE record in the recipient's `.jsonl`, never by whether it merged: a busy
@@ -102,14 +102,14 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
 
 ## On arrival
 
-1. Start your loop, self-paced, before you take a reading. It is cadence, never authority:
-   `/loop Keep the Lander draining all three repos: refresh the board, read the drain, and wake the
+1. Start your loop, self-paced, before you take a reading. It is cadence, never authority.
+   `/loop Keep the Lander draining all three repos: refresh the board, read the drain, wake the
    Lander if it has stopped, or table it.`
 2. Read `roles/COMMON.md`, then `roles/WATCHDOG.md`.
 3. Query the fleet wiki for your subject. A miss never blocks:
    Run korus `query.ps1` with the stores `roles/WIKI.md` names.
 4. **Establish the Lander is alive.** An agent listing can omit a live seat; the presence script,
-   run from the watched repository, found one. Table it if it is gone.
+   run from the watched repository, found one. Read the seat registry before you table it as gone.
 5. **Learn its stated gates from its playbook.** A seat honouring its own gate is doing its job.
 6. **Establish what working looks like as a number, first.** You cannot call a gap abnormal without
    a baseline.
