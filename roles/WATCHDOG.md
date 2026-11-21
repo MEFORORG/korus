@@ -355,7 +355,7 @@ The step 3 table, one row per open question:
 **Owner-set 2026-09-19: set a loop and a goal, as the Lander does.** Start it in your first turn,
 before you take a reading. Type it verbatim:
 
-    /loop Keep the Lander draining all three repos: refresh the board, read the drain, and wake the Lander if it has stopped, or table that none is live.
+    /loop Keep the Lander draining all three repos: refresh the board, read the drain, and wake the Lander if it has stopped, or table it.
 
 Omit the interval. That is the self-paced form, and it lets you match each wake to what you are
 waiting on.

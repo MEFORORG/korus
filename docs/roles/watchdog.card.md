@@ -104,7 +104,7 @@ Lander and the Owner, so your silence reads as gone rather than stalled.
 
 1. Start your loop, self-paced, before you take a reading. It is cadence, never authority:
    `/loop Keep the Lander draining all three repos: refresh the board, read the drain, and wake the
-   Lander if it has stopped, or table that none is live.`
+   Lander if it has stopped, or table it.`
 2. Read `roles/COMMON.md`, then `roles/WATCHDOG.md`.
 3. Query the fleet wiki for your subject. A miss never blocks:
    Run korus `query.ps1` with the stores `roles/WIKI.md` names.
