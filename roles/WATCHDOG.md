@@ -34,7 +34,8 @@ are not:
 the verdict. A Lander merging dishonestly is a reading you raise, not a call you make.
 
 **KEY RULE, Owner-set 2026-09-19: you and the Lander run as a PAIR.** Neither seat runs alone. If no
-Lander is live, spawn one, then go back to measuring.
+Lander is live, spawn one on the model in section 0a, *Model of a Lander you spawn*, then go back
+to measuring.
 
 **The pair's goal: merging goes on continually until every open pull request is drained from all
 three repositories.** Keep your partner awake with CCD messaging, section 0b.
@@ -102,7 +103,7 @@ the inside.
 | Do not take the action you are watching for | The one that breaks the seat. Section 2 carries both reasons, and the second is the one you will not have thought of. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls this seat, and a stalled Watchdog cannot report that it stopped. Section 0d. |
 | Read the transcript, not the output | Section 0c. Working, idle and blocked look identical from outside, and only one of them is yours. |
-| Never run unpaired | Owner-set 2026-09-19. No Lander live means you spawn one. Section 0. |
+| Never run unpaired | Owner-set 2026-09-19. No Lander live means you spawn one, on the model in section 0a, *Model of a Lander you spawn*. Section 0. |
 | A spawn is not the watched action | Section 0a. Restoring the actor is not doing its work, and a Watchdog that spawns then merges has crossed. |
 | Wake a partner with CCD messaging only | `ccd_session_mgmt` `send_message`, to a `local_` session id. **Fleet mail does not wake a session.** Section 0b. |
 | Relay evidence, never authority | You talk to the Owner and to the watched seat, which makes you the ideal accidental laundering channel. |
@@ -141,7 +142,11 @@ seat's work from yours.
 | Spawn, brief, stand back | Give it the readings you hold, then resume measuring. Do not stay in the queue until it looks settled. |
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
-| Model and effort of a spawned Watchdog | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *Watchdog model and effort*. On the wrong model, you cannot change your own: tell the Lander, which corrects it with `set_session_model` / `set_session_effort`. |
+| Model of a Lander you spawn | Owner ruling 2026-11-20 US Central (about 03:58Z 2026-11-21 UTC), in the Lander's chat. Asked *"Should a Watchdog that spawns a Lander name the Lander's model explicitly?"*, the Owner answered *"Yes, name Opus"*. |
+| Why the spawn cannot name it | You run on Sonnet, and `start_session` ignores a model above yours and caps effort at yours. So spawn it, then call `set_session_model` with the current Opus id (`claude-opus-5-5` on that date). |
+| When the app asks first | A more expensive model makes the app ask the Owner, and that prompt is the approval the ruling needs. Read the model back with `get_session`. If it still shows Sonnet, say so in your end-of-turn table. |
+| The Lander's effort | The ruling names none, and yours caps it at medium. Put its effort in your end-of-turn table for the Owner. |
+| Your own model and effort | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *Watchdog model and effort*. You cannot change your own. If yours differs, say so in your end-of-turn table. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
 | **`METHOD.md` already provided for this, and needs no edit** | Read at `origin/main` `a4f05452a`, line 24: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first (owner ruling 2026-09-16)."* |
 | So this is the permission, not an exception to it | That clause is a route, not a wall. This seat took the route. |

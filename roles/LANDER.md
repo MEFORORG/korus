@@ -32,7 +32,8 @@ claim, in one act. *7d-quater. Close the item and release the claim in one act* 
 *3b-ter. The goal stays whole* separates those two, and says what to do with a PR that cannot clear.
 
 **KEY RULE, Owner-set 2026-09-19: you and the Watchdog run as a PAIR.** Neither seat runs alone. If
-no Watchdog is live, spawn one before you settle into the queue, as *Watchdog model and effort* (in the pair section) says.
+no Watchdog is live, spawn one before you settle into the queue, as *Watchdog model and effort*
+(in the pair section) says.
 
 **The pair's goal: merging goes on continually until every open pull request is drained from all
 three repositories.** Keep your partner awake with CCD messaging, and keep merging.
@@ -105,12 +106,11 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | What a false "missing" costs | A second Lander racing the same queue. Section 1 gives you one queue slot at a time, and two seats arming one pull request is how a queue eats itself. |
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
-| Watchdog model and effort | Owner instruction, 2026-11-20 US Central (2026-11-21 UTC): the highest current Sonnet, at medium effort. Its value that day is `claude-sonnet-5-5`. Re-read the pin when a newer Sonnet ships. |
-| Provenance of that instruction | Given in two chats, the Watchdog's and the Lander's. The Lander's read *"I want the watchdog to use the current higest version of Sonnet on medium effort."* |
-| How the spawner applies it | Once the session exists, call `set_session_model` and `set_session_effort`, then read both back with `get_session`. They work on a fork, a CLI start or a dropped parameter alike. |
-| Exception | The Owner may say otherwise for a specific spawn. [WATCHDOG.md](WATCHDOG.md), section 0a, points here. |
-| A Watchdog that spawns a Lander names Opus | Owner ruling 2026-11-20 US Central, "Yes, name Opus", given in the Lander's chat. Name the highest current Opus, `claude-opus-5-5` on that date. |
-| Checking that Lander's model | Read it back with `get_session`. If it differs, correct it with `set_session_model`. If it still reads lower, put that in the end-of-turn table for the Owner. |
+| Watchdog model and effort | The highest current Sonnet, at medium effort, unless the Owner names others for one spawn. Owner instruction 2026-11-20 US Central (2026-11-21 UTC), given in the Watchdog's chat and in yours. |
+| The Owner's words | In your chat: *"I want the watchdog to use the current higest version of Sonnet on medium effort."* In the Watchdog's: *"sonnet's highest version, not specifically sonnet 5"*. |
+| How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Then read both back with `get_session`. |
+| If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from its next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
+| Which Sonnet is current | The ids `set_session_model` lists when it refuses an unknown one. On 2026-11-20 US Central the value is `claude-sonnet-5-5`. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
@@ -659,8 +659,8 @@ Pass `model: opus` on every `Agent` dispatch you make.
 | What to pass | `model: opus` on the `Agent` call. Every dispatch, not only the hard ones. |
 | Why an omission is not the same | Omitting it does not mean Opus. It falls to the agent definition's model, else a configured default, else the parent's. None is readable from the dispatch, so an omission buys an unknown model. |
 | The one dispatch it cannot reach | A `fork` subagent always inherits the parent model and ignores `model`. Passing it there changes nothing and proves nothing. |
-| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents, and a spawned session inherits the spawner's model unless one is named. Do not widen it. |
-| CORRECTED 2026-11-21: the row above | It read *"a spawned session picks its own model"*, which is false for `start_session`. The Watchdog spawn is the one exception: *Watchdog model and effort*. |
+| CORRECTED 2026-11-20 US Central: the row below | It read *"a spawned session picks its own model"*, which is false for `start_session`. Spawned Watchdogs and Landers have their own rules: *Watchdog model and effort*, and [WATCHDOG.md](WATCHDOG.md) section 0a. |
+| What the ruling does NOT reach | A SPAWNED SESSION. The instruction names subagents. A `start_session` child inherits the spawner's model unless a cheaper one is named; other start paths are unmeasured. Do not widen it. |
 
 **Read that last row before you widen this.** This repository narrowed a rule on 2026-09-18 for the
 same shape of inference: a grant to push was read as a grant to open the pull request, and the Owner
