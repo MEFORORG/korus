@@ -106,6 +106,7 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. *Only CCD messaging wakes a partner* has the reason. |
 | Where the spawn grant lives | *The PR route*, the row *Where the spawn grant lives*. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
+| A missing Lander -- CHANGED 2026-11-21, owner ruling | The Watchdog no longer starts one: it tables it, and the Owner starts one. Your own spawn of a missing Watchdog is unchanged. [WATCHDOG.md](WATCHDOG.md), section 0a. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
 #### Only CCD messaging wakes a partner, and fleet mail never does
