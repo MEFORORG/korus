@@ -144,14 +144,14 @@ seat's work from yours.
 
 | Item | Rule |
 | --- | --- |
-| Check both surfaces first | Section 3, item 2. An agent listing can omit a live seat, and the presence script found one it missed. One surface is a guess. |
+| Judge liveness by one instrument | [COMMON.md](COMMON.md)'s liveness rule (`presence.ps1 -Fleet`). A false "none live" leads the Owner to start a duplicate Lander. |
 | What a false "missing" costs | The Owner starts a second Lander, two race one queue, and you caused it by measuring badly. That is section 4's subject turned on its own seat. |
 | RETIRED 2026-11-21, as it read: what a false "missing" costs | Two Landers racing one queue, and you caused it by measuring badly. That is section 4's subject turned on its own seat. |
-| Brief a new Lander | Once the Owner has started one and it is live, give it the readings you hold, then resume measuring. Where it runs in your CCD instance, section 0b's wake channel applies. |
+| Brief a new Lander | Ask the Owner, in your table row, to start it in your own CCD instance, so section 0b's wake channel exists. Once it is live, give it the readings you hold, then resume measuring. |
 | RETIRED 2026-11-21, as it read: Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. Section 0b. |
 | RETIRED 2026-11-21, as it read: Spawn, brief, stand back | Give it the readings you hold, then resume measuring. Do not stay in the queue until it looks settled. |
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
-| Spawn grant for a Lander | You hold none now. [LANDER.md](LANDER.md), *The PR route*, names the Lander's own. |
+| Spawn grant for a Lander | The harness grant still permits a spawn on every root; this rule, not the harness, forbids it. [LANDER.md](LANDER.md), *The PR route*, names it. |
 | RETIRED 2026-11-21, as it read: Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
 | Model and effort of a Watchdog a Lander spawns | This covers only a Watchdog, and says nothing about a Lander's model. [LANDER.md](LANDER.md), row *Watchdog model and effort*. You cannot change your own. If yours differs, say so in your end-of-turn table and message the Lander. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
