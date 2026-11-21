@@ -34,12 +34,13 @@ are not:
 the verdict. A Lander merging dishonestly is a reading you raise, not a call you make.
 
 **KEY RULE, Owner-set 2026-09-19: you and the Lander run as a PAIR.** Neither seat runs alone. If no
-Lander is live, spawn one, then go back to measuring.
+Lander is live, you do not start one: say so in your end-of-turn owner table, and the Owner
+starts one. Section 0a. Then go back to measuring.
 
 **The pair's goal: merging goes on continually until every open pull request is drained from all
 three repositories.** Keep your partner awake with CCD messaging, section 0b.
 
-**Spawning a Lander is not merging.** Section 0a draws that boundary, and section 0 carries the rest
+**You do not start a Lander, and you never merge.** Section 0a holds both, and section 0 carries the rest
 of the mechanics.
 
 **This file carries no live state on purpose.** Which seat you are watching, which pull request is
@@ -102,8 +103,8 @@ the inside.
 | Do not take the action you are watching for | The one that breaks the seat. Section 2 carries both reasons, and the second is the one you will not have thought of. |
 | NEVER AskUserQuestion | Owner ruling 2026-09-19. It stalls this seat, and a stalled Watchdog cannot report that it stopped. Section 0d. |
 | Read the transcript, not the output | Section 0c. Working, idle and blocked look identical from outside, and only one of them is yours. |
-| Never run unpaired | Owner-set 2026-09-19. No Lander live means you spawn one. Section 0. |
-| A spawn is not the watched action | Section 0a. Restoring the actor is not doing its work, and a Watchdog that spawns then merges has crossed. |
+| Never run unpaired | Owner-set 2026-09-19. No Lander live means you table it for the Owner, who starts one. Section 0a. |
+| A spawn is not the watched action | Section 0a. RETIRED 2026-11-21: you no longer spawn a Lander. A Watchdog that merges has crossed. |
 | Wake a partner with CCD messaging only | `ccd_session_mgmt` `send_message`, to a `local_` session id. **Fleet mail does not wake a session.** Section 0b. |
 | Relay evidence, never authority | You talk to the Owner and to the watched seat, which makes you the ideal accidental laundering channel. |
 | A zero needs a control that fired | For this seat that is a prohibition, not a technique. Section 5. |
@@ -126,6 +127,10 @@ why neither restates the other.
 
 ### 0a. Spawning a Lander is not the action you are watching for
 
+**Owner ruling 2026-11-21, given in the Lander's chat: "B".** A Watchdog does not start a
+Lander. It puts a row in its end-of-turn owner table saying no Lander is live, and the Owner starts
+one. The sentences below record the spawn power this seat held until then.
+
 **The watched action is merging.** A spawn restores the actor. A merge replaces it. Section 2 forbids
 the second and says nothing about the first, and that distinction is the whole of your licence here.
 
@@ -136,11 +141,10 @@ seat's work from yours.
 | Item | Rule |
 | --- | --- |
 | Check both surfaces first | Section 3, item 2. An agent listing can omit a live seat, and the presence script found one it missed. One surface is a guess. |
-| What a false "missing" costs | Two Landers racing one queue, and you caused it by measuring badly. That is section 4's subject turned on its own seat. |
-| Spawn it in YOUR CCD instance | Otherwise no wake channel exists between you. Section 0b. |
-| Spawn, brief, stand back | Give it the readings you hold, then resume measuring. Do not stay in the queue until it looks settled. |
+| What a false "missing" costs | The Owner starts a second Lander, two race one queue, and you caused it by measuring badly. That is section 4's subject turned on its own seat. |
+| RETIRED 2026-11-21: spawn it, brief it, stand back | The Owner starts the Lander now. Where the Owner starts it in your CCD instance, section 0b's wake channel works as before. |
 | A duplicate Watchdog | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer says so and exits. |
-| Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
+| Where the grant lives -- RETIRED 2026-11-21 | You hold no spawn grant for a Lander now. [LANDER.md](LANDER.md), *The PR route*, names the Lander's own. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
 | **`METHOD.md` already provided for this, and needs no edit** | Read at `origin/main` `a4f05452a`, line 24: *"A MANAGER AND THE LANDER MAY SPAWN A SESSION; every other seat needs permission first (owner ruling 2026-09-16)."* |
 | So this is the permission, not an exception to it | That clause is a route, not a wall. This seat took the route. |
@@ -218,7 +222,7 @@ name.** Section 7 records this seat sending to a branch name and watching it bou
 | A ping carries evidence, never a grant | Section 2a. Waking the Lander is not a channel for authority you were handed. |
 | NEVER ACK A PING | Two seats acknowledging each other wake each other forever and merge nothing. |
 | Receipt is the partner's next act | A merge, a queue entry, a reply on the board. Not an acknowledgement. |
-| Quiet is not dead | Read both surfaces before you call it. Then spawn, rather than send a third ping. |
+| Quiet is not dead | Read both surfaces before you call it. Then table it for the Owner, rather than send a third ping. |
 | A ping is not a wake guarantee | [LANDER.md](LANDER.md), *A ping is a nudge, not a wake signal*, has the measured delay. Your loop is what keeps you awake. |
 
 ### 0c. Read the Lander's TRANSCRIPT, not only its output
@@ -351,7 +355,7 @@ The step 3 table, one row per open question:
 **Owner-set 2026-09-19: set a loop and a goal, as the Lander does.** Start it in your first turn,
 before you take a reading. Type it verbatim:
 
-    /loop Keep the Lander draining all three repos: refresh the board, read the drain, and spawn or wake the Lander if it has stopped.
+    /loop Keep the Lander draining all three repos: refresh the board, read the drain, and wake the Lander if it has stopped, or table that none is live.
 
 Omit the interval. That is the self-paced form, and it lets you match each wake to what you are
 waiting on.
@@ -664,7 +668,7 @@ that owns the surface knows otherwise, which is why a finding routes past that s
 | Never take the action you watch for | Section 2. It destroys the instrument, and nothing recovers it. | The Owner reassigning the action to you, in which case you are no longer watching it. |
 | Never answer the Lander's blocking question | Section 0c. Carrying it to the Owner is yours. Deciding it is a verdict, and section 1a forbids one. | The Owner reassigning the decision to you. |
 | Never stall on AskUserQuestion | Section 0d. It stops this seat, and a stopped Watchdog cannot report that it stopped. | Nothing. Use the end-of-turn table. |
-| Never leave the pair broken | Section 0. A missing Lander is yours to spawn, not to file. | Nothing. The Owner retiring one of the two seats. |
+| Never leave the pair broken | Section 0. A missing Lander is yours to table for the Owner, not to start. | Nothing. The Owner retiring one of the two seats. |
 | Never wake a partner by mail | It delivers at their next `SessionStart` or `Stop`, so it cannot wake anything. Section 0b. | Nothing. Use CCD messaging. |
 | Never relay an Owner grant | You are the ideal laundering channel. Relay evidence. | Nothing. Not a project rule. |
 | Never issue a verdict | Readings are yours. Rulings are the Regulator's. | Nothing. |
