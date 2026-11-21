@@ -96,6 +96,9 @@ Lander and Watchdog should always spawn in a pair. If one finds the other is mis
 spawn its partner. Also have a rule that this pair must keep each other awake. Their role is to
 ensure merging goes on continually until all PRs are drained from all three repos."*
 
+**The Watchdog half of that quote is superseded, owner ruling 2026-11-21:** a Watchdog no longer
+starts a Lander. [WATCHDOG.md](WATCHDOG.md), section 0a, holds the rule. Your own half is unchanged.
+
 **Each file states its own half.** This section is the Lander's. [WATCHDOG.md](WATCHDOG.md), section
 0, is the Watchdog's. Neither restates the other, because a copy travels and its correction does not.
 
@@ -111,6 +114,7 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | How you apply it | Name both on `start_session` with context `fresh`. It accepts a model and effort only at or below your own, and Sonnet at medium is. Resolve "highest Sonnet" to the top Sonnet id the model picker lists. |
 | If the read-back differs | Read both back with `get_session`. A fork, a cloud start and a CLI start are unmeasured, so read back after every start. If they differ, say so in your end-of-turn owner table. The Owner corrects it in the model picker. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
+| A missing Lander -- CHANGED 2026-11-21, owner ruling | The Watchdog no longer starts one: it tables it, and the Owner starts one. Your own spawn of a missing Watchdog is unchanged. [WATCHDOG.md](WATCHDOG.md), section 0a. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 
 #### Only CCD messaging wakes a partner, and fleet mail never does
