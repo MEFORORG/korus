@@ -111,6 +111,7 @@ ensure merging goes on continually until all PRs are drained from all three repo
 | How you apply it | Name both on `start_session` with context `fresh`. A cheaper model and a lower effort are accepted, so they apply from its first turn. Then read both back with `get_session`. |
 | If the read-back differs | Correct it with `set_session_model` and `set_session_effort`, which apply from its next turn. A fork, a cloud start and a CLI start are unmeasured for either, so read back after every start. |
 | Which Sonnet is current | The ids `set_session_model` lists when it refuses an unknown one. On 2026-11-20 US Central the value is `claude-sonnet-5-5`. |
+| If a Watchdog spawned you | Merge, enqueue and arm nothing, and name your model, until `get_session` shows you on Opus after the Watchdog's `set_session_model` call. Section 0a of [WATCHDOG.md](WATCHDOG.md) holds the rule. |
 | If a duplicate does appear | SEAT PRACTICE, not measured. The session holding the seat longer keeps it; the newer one says so to the Owner and exits. |
 | Spawn, do not report and carry on | Nothing else creates your partner. A Lander that files a missing Watchdog and keeps merging has left the pair broken. |
 

@@ -144,7 +144,9 @@ seat's work from yours.
 | Where the grant lives | [LANDER.md](LANDER.md), *The PR route*, the row naming the spawn grant. Per config root, under `permissions.allow`. |
 | Model of a Lander you spawn | Owner ruling 2026-11-20 US Central (about 03:58Z 2026-11-21 UTC), in the Lander's chat. Asked *"Should a Watchdog that spawns a Lander name the Lander's model explicitly?"*, the Owner answered *"Yes, name Opus"*. |
 | Why the spawn cannot name it | You run on Sonnet, and `start_session` ignores a model above yours and caps effort at yours. So spawn it, then call `set_session_model` with the current Opus id (`claude-opus-5-5` on that date). |
-| When the app asks first | A more expensive model makes the app ask the Owner, and that prompt is the approval the ruling needs. Read the model back with `get_session`. If it still shows Sonnet, say so in your end-of-turn table. |
+| When the app asks first | A more expensive model makes the app ask the Owner, and that prompt is the approval the ruling needs. Read the model back with `get_session`. |
+| Brief it to stand by | Decided 2026-11-21, owner delegation, decision d20261121T173804383-280e28. Its brief says: merge, enqueue and arm nothing, and name the model you run on, until `get_session` shows Opus. |
+| While the switch is pending | List the Lander in your end-of-turn table for the Owner. If it still shows Sonnet, say so there. The KEY RULE stands: you still spawn a Lander when none is live. |
 | The Lander's effort | The ruling names none, and yours caps it at medium. Put its effort in your end-of-turn table for the Owner. |
 | Your own model and effort | [LANDER.md](LANDER.md), *The Lander and the Watchdog run as a pair*, row *Watchdog model and effort*. You cannot change your own. If yours differs, say so in your end-of-turn table. |
 | The Owner set this in chat | Not a peer relay. Section 2a is untouched: you still never relay a grant you were handed. |
