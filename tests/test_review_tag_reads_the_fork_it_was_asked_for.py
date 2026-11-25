@@ -2146,8 +2146,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         self.assertNotIn("tag:", out)
 
     def test_an_unread_fork_elsewhere_refuses_beside_a_readable_one_in_a_third_worktree(self):
-        # The same with a readable tagged fork in C and nothing here: exit 12 sent the caller to
-        # C, where a rerun read C's fork alone and never saw the unread one in B.
+        # The same with a readable tagged fork in C and nothing here. On main this exited 12,
+        # and the advised rerun with --worktree C then refused with 10; it now refuses at once.
         self._unread_elsewhere('{"type": "user", "message": {"content": "Review target: `'
                                f'{self.NONCE} Review this')
         self._write("bC", self._head(), self.C, timestamp=self.LATE)
@@ -2219,31 +2219,46 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         # Vault #4703 finding 4, inverting what this case pinned at fbe0e17: a file that could be
         # stat'ed but not opened was read as not holding the nonce, so --since dropped it here and
         # it was out of scope elsewhere, and the fork here read at exit 0. What it holds is
-        # unknown, so it may be the round's real fork: it refuses as unread. Its content holds
-        # the nonce, so on main only the failed open ruled it out.
-        for name, worktree, call, message in (
-            ("here, before --since", self.HERE, self._since, review_tag.UNREAD_MESSAGE),
-            ("elsewhere", self.B, self._probe, review_tag.UNREAD_ELSEWHERE_MESSAGE),
-        ):
+        # unknown, so it may be the round's real fork: it refuses, and --verbose names it. Its
+        # content is another round's, so only the failed open can keep it; the control below is
+        # the same file opened.
+        other = '{"message": "Review target: `round-00000000ab Review'
+        for name, worktree, call in (("here, before --since", self.HERE, self._since),
+                                     ("elsewhere", self.B, self._probe),
+                                     ("elsewhere, nothing here", self.B, self._probe)):
             with self.subTest(locked=name):
-                self.projects = Path(self._tmp.name) / ("projects-locked-" + name[:4])
+                self.projects = Path(self._tmp.name) / ("projects-locked-" + name.replace(" ", "-").replace(",", ""))
                 self.projects.mkdir()
-                self._unread_at(worktree, "2026-10-24T08:00:00Z", agent="locked")
-                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=other, agent="locked")
+                if "nothing" not in name:
+                    self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
                 with self._deny_open():
                     code, out = call()
                 self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-                self.assertIn(message, out)
+                self.assertIn(review_tag.UNOPENABLE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
-    def test_control_an_openable_file_elsewhere_without_the_nonce_stays_out_of_scope(self):
-        # The nearest shape that still reads: the same file elsewhere, openable, holding another
-        # round's nonce. Only a failed open keeps it.
-        self._unread_at(self.B, "2026-10-24T08:00:00Z", agent="locked",
-                        content='{"message": "Review target: `round-00000000ab Review')
-        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-        code, out = self._probe()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
+    def test_control_the_same_file_opened_is_out_of_scope(self):
+        other = '{"message": "Review target: `round-00000000ab Review'
+        for name, worktree, call in (("here, before --since", self.HERE, self._since),
+                                     ("elsewhere", self.B, self._probe)):
+            with self.subTest(opened=name):
+                self.projects = Path(self._tmp.name) / ("projects-opened-" + name[:4])
+                self.projects.mkdir()
+                self._unread_at(worktree, "2026-10-24T08:00:00Z", content=other, agent="locked")
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+
+    def test_verbose_names_a_transcript_that_could_not_be_opened(self):
+        self._unread_at(self.B, "2026-10-24T08:00:00Z", agent="locked")
+        out, err = io.StringIO(), io.StringIO()
+        argv = ["--target", self.NONCE, "--worktree", self.HERE, "--any-session", "--verbose",
+                "--projects-dir", str(self.projects)]
+        with self._deny_open(), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main(argv)
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out.getvalue())
+        self.assertIn("agent-locked.jsonl", err.getvalue())
 
     def test_a_nonce_after_a_json_escape_in_an_unread_fork_is_read(self):
         # Review of 63605f1, H2: the nonce's no-letter left boundary ran over raw JSON, where a
@@ -2380,23 +2395,39 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     OLD = "2026-10-24T08:00:00Z"
 
-    def _meta_unread(self, body, agent="brief"):
-        # Record 0 parses, here, written before --since; its meta does not.
-        record = json.dumps({"type": "user", "timestamp": self.OLD, "cwd": self.HERE,
+    def _meta_unread(self, body, agent="brief", written=OLD):
+        # Record 0 parses, here; its meta does not.
+        record = json.dumps({"type": "user", "timestamp": written, "cwd": self.HERE,
                              "message": {"content": body}})
-        self._unread_at(self.HERE, self.OLD, content=record + "\n", agent=agent)
+        self._unread_at(self.HERE, written, content=record + "\n", agent=agent)
         meta = self.projects / "D--probe" / "s1" / "subagents" / f"agent-{agent}.meta.json"
         meta.write_text("{", encoding="utf-8")
 
-    def test_a_brief_naming_the_nonce_beside_an_unread_meta_is_bounded_by_since(self):
+    def test_a_brief_naming_the_nonce_beside_an_unread_meta_does_not_refuse(self):
         # Finding 1: with the meta unreadable and record 0 parsing, any mention of the nonce in
-        # record 0 kept the file past --since, so a helper's brief naming the round's nonce
-        # refused a correct fork with exit 10.
-        self._meta_unread(f"Run /code-review xhigh {self.NONCE} Review this branch's diff, report.")
-        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-        code, out = self._since()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("agent mine", out)
+        # record 0 counted it unread, so a helper's brief naming the round's nonce refused a
+        # correct fork with exit 10, before --since or after it. Record 0 is filtered as a
+        # readable fork's is, and a brief is no fork.
+        brief = f"Run /code-review xhigh {self.NONCE} Review this branch's diff, report."
+        for name, written, call in (("before --since", self.OLD, self._since),
+                                    ("after --since", "2026-10-24T09:04:00Z", self._since),
+                                    ("no --since", self.OLD, self._probe)):
+            with self.subTest(brief=name):
+                self.projects = Path(self._tmp.name) / ("projects-brief-" + name[:5])
+                self.projects.mkdir()
+                self._meta_unread(brief, written=written)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = call()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_a_truncated_brief_elsewhere_naming_the_nonce_is_no_fork(self):
+        # Finding 1 for a record 0 that does not parse: the raw search reads the nonce only as
+        # the first after a target line, so a cut brief elsewhere leaves an inline round at 3.
+        self._unread_elsewhere('{"type": "user", "message": {"content": "Builder brief: when done'
+                               f' run /code-review xhigh {self.NONCE} and rep')
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
 
     def test_control_the_rounds_own_head_beside_an_unread_meta_still_refuses(self):
         # The nonce as the fork's own, opening record 0 or pasted below a brief: kept past
@@ -2425,23 +2456,30 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
     def test_a_lone_carriage_return_in_record_zero_is_one_line_to_both_readers(self):
         # Finding 3: read_record_zero ended record 0 at a lone carriage return, in text mode,
         # while raw_holds_nonce re-opened the file and read on to the newline. JSONL frames a
-        # record at the newline, so both now read that one line, and a lone return inside it
-        # refuses as unread rather than be cut there. On main this file read at exit 0.
+        # record at the newline, so both now read that one line, and a line a return splits into
+        # two objects refuses as unread rather than be cut there. On main it read at exit 0.
         transcript = self._cr_file("\r")
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertNotIn("tag:", out)
         record, lines, raw = review_tag.read_record_zero(transcript)
         self.assertIsNone(record)
         self.assertEqual(lines, [])
         self.assertIn('"later"', raw, "the raw text stopped at the carriage return")
         self.assertTrue(review_tag.raw_holds_nonce(raw, self.NONCE))
-        code, out = self._probe()
-        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-        self.assertNotIn("tag:", out)
 
-    def test_control_a_crlf_ending_still_reads(self):
-        self._cr_file("\r\n")
-        code, out = self._probe()
-        self.assertEqual(code, review_tag.EXIT_FOUND, out)
-        self.assertIn("agent cr", out)
+    def test_control_a_crlf_ending_and_a_return_as_whitespace_still_read(self):
+        for name, ending in (("crlf", "\r\n"), ("whitespace", "\n")):
+            with self.subTest(shape=name):
+                self.projects = Path(self._tmp.name) / ("projects-cr-" + name)
+                self.projects.mkdir()
+                transcript = self._cr_file(ending)
+                if name == "whitespace":
+                    data = transcript.read_bytes().replace(b'{"type": "user"', b'{"type":\r"user"', 1)
+                    transcript.write_bytes(data)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent cr", out)
 
 
 class OneFileReachedTwiceIsOneFork(Fixture):
