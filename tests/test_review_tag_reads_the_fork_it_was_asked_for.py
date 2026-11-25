@@ -2329,6 +2329,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         code, out = self._since()
         self.assertEqual(code, review_tag.EXIT_AMBIGUOUS, out)
         self.assertNotIn("tag:", out)
+        # Vault #4704 finding 5: the refusal names its remedy, which only BUILDER.md said.
+        self.assertIn("fresh nonce", out)
         self._write("fresh", self._head(nonce=self.FRESH), self.HERE, timestamp=self.LATE)
         code, out = self._since(nonce=self.FRESH)
         self.assertEqual(code, review_tag.EXIT_FOUND, out)

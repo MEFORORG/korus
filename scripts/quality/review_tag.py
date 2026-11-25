@@ -225,8 +225,9 @@ NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your
 AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; with a round nonce, two forks carry it:"
     " a reused nonce, a head pasted in this worktree, or one file read twice while being"
-    " written, and a later run clears only the last; without one, narrow with --since set"
-    " before the round, --target or --session"
+    " written, and a later run clears only the last; run the round again with a fresh nonce to"
+    " clear the first two; without one, narrow with --since set before the round, --target or"
+    " --session"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
