@@ -11,7 +11,8 @@
 
     AN EVENT NOTHING NAMED IS READ AS SessionStart, AND MARKS NOTHING SHOWN. That covers no -Event
     with stdin empty, unparseable, or naming no event. Such a run shows its box, but mints no marker,
-    so no Stop files anything on that display. Get-DrainEvent states the risk this leaves.
+    so no Stop files anything on that display. Input the hook-input resolver refuses, unparseable
+    input included, shows NO BOX instead. Get-DrainEvent states the risk this leaves.
 
     CHANGED 2026-10-26: the posture read "FAILS OPEN, AND NEVER BLOCKS", and at Stop it was false.
     Claude Code reads a Stop hook's additionalContext as a block that re-invokes the model, so exit
@@ -1001,7 +1002,8 @@ try {
                 # the helper cannot use is still a Reason. Its Dir is not entered: a `cd` must not
                 # move the box from the one SessionStart showed.
                 # Not $startCommon: PowerShell names are case-blind. This fills the cache
-                # Get-DrainFaultPrefix reads, so the start checkout is walked once here, not again there.
+                # Get-DrainFaultPrefix reads, so in a checkout it does not walk the start again. The
+                # resolver still walks it once more inside, and with no checkout nothing is cached.
                 $script:StartRoot = Get-CcxWorktreeRoot $script:StartDir
                 $script:StartCommon = Get-CcxGitCommonDir $script:StartRoot
                 # -AllowOutside is passed only here, so the resolver's in-checkout -AllowOutside branch

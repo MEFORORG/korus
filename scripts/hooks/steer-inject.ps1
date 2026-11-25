@@ -24,8 +24,8 @@
 # a worktree session's CLI with `--project-config-root <primary checkout>`, and CLAUDE_PROJECT_DIR then
 # names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
 # on stdin. It falls back to CLAUDE_PROJECT_DIR only when the helper names no worktree and no fault:
-# at least when the input names no cwd and no pin answers, and when the hook started in no checkout
-# and the cwd is its start directory or a folder below it.
+# at least when the input names no cwd and no pin answers, and when CLAUDE_PROJECT_DIR is in no
+# checkout and the cwd is that directory or a folder below it that holds no checkout of its own.
 #
 # BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
 # text the user typed. The korus#223 review measured it reading and deleting steer.txt in another

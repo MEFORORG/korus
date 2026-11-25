@@ -323,9 +323,11 @@ try {
     # --- 5. PAYLOAD ----------------------------------------------------------------------------------
     # Read in step 0, before the first git call, which says why it skips stdin under -SelfTest.
     $selfId = ''
-    # The resolver's session id where it read the input, so input it refuses as a whole (a
-    # one-element array, a case twin, a non-string session_id) names no session here either.
-    if ($session) { $selfId = $session.SessionId }
+    # The resolver's session id where it parsed the input, so JSON plain ConvertFrom-Json refuses
+    # (an empty key, a nested case twin) still names its session. Input the resolver refuses as a
+    # whole is read the old way: its session id carries it to step 9a, which says it announced
+    # nothing and why, rather than to a NO_SESSION_ID receipt nobody is shown.
+    if ($session -and $session.Payload) { $selfId = $session.SessionId }
     elseif ($raw) {
         try {
             $payload = $raw | ConvertFrom-Json

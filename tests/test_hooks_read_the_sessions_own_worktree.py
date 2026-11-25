@@ -431,14 +431,21 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         named = (self.base / "announce-unnamed" / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
         self.assertIn("no session_id in the hook payload", named)
 
-    def test_input_the_resolver_refuses_names_no_session_to_announce(self):
-        """Step 5 parsed the input again with no -NoEnumerate, so a one-element array announced the
-        session the resolver had refused. Its receipt now names the resolver's Reason."""
+    def test_input_the_resolver_refuses_announces_nothing_and_says_so(self):
+        """A one-element array is no object to the resolver. The session is told, at step 9a, that
+        nothing was announced and why, not left with a NO_SESSION_ID receipt nobody is shown."""
         self.launch("sess-arr", self.worktree)
         out = self.announce([{"session_id": "sess-arr", "cwd": str(self.worktree)}], "arr")
         self.assertNotIn("[SESSION-ANNOUNCE]", out)
-        receipt = (self.base / "announce-arr" / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
-        self.assertIn("not a JSON object", receipt)
+        self.assertIn("not a JSON object", out)
+        self.assertIn("announced nothing", out)
+
+    def test_json_only_convertfrom_json_refuses_still_announces(self):
+        """Step 5 parsed with plain ConvertFrom-Json, which throws on an empty key, so a session the
+        resolver read was reported as NO_SESSION_ID and never announced."""
+        self.launch("sess-ek", self.worktree)
+        out = self.announce({"": 1, "session_id": "sess-ek", "cwd": str(self.worktree)}, "ek")
+        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
 
     def test_the_cannot_tell_line_obeys_the_kill_switch(self):
         """korus#223 review: the line ignored the OFF file."""
@@ -879,8 +886,6 @@ class TheResolverFaultsOnInputItCannotUse(_Fixture):
                 self.assertEqual("", got["PReason"], got)
 
     def junction(self, link: Path, target: Path) -> None:
-        if os.name != "nt":
-            self.skipTest("a junction is a Windows link")
         subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
                        check=True, capture_output=True, timeout=TIMEOUT_SECONDS)
 
@@ -890,17 +895,25 @@ class TheResolverFaultsOnInputItCannotUse(_Fixture):
         start = self.base / "no-repo-start"
         sub = start / "deeper" / "still"
         sub.mkdir(parents=True)
-        self.junction(self.base / "jn", start)
-        for cwd in (sub, start / "deeper", self.base / "jn", self.base / "jn" / "deeper"):
+        sibling = self.base / "no-repo-sibling"
+        sibling.mkdir()
+        nested = start / "nested"
+        nested.mkdir()
+        self.git(nested, "init", "-q", "-b", "main")
+        taken, refused = [sub, start / "deeper"], [sibling, self.base, nested]
+        if os.name == "nt":
+            self.junction(self.base / "jn", start)
+            self.junction(start / "out", sibling)
+            taken += [self.base / "jn", self.base / "jn" / "deeper"]
+            refused += [start / "out"]
+        for cwd in taken:
             with self.subTest(cwd=cwd):
                 got = self.resolve(json.dumps({"cwd": str(cwd), "session_id": "s1"}), start=start)
                 self.assertEqual("", got["Reason"], got)
                 self.assertIsNone(got["Dir"], got)
-        # The controls: a sibling, a junction out to it, and a parent are still a fault.
-        sibling = self.base / "no-repo-sibling"
-        sibling.mkdir()
-        self.junction(start / "out", sibling)
-        for cwd in (sibling, start / "out", self.base):
+        # The controls: a sibling, a parent, a folder below holding its own checkout, and a junction
+        # out to the sibling are still a fault.
+        for cwd in refused:
             with self.subTest(cwd=cwd):
                 got = self.resolve(json.dumps({"cwd": str(cwd), "session_id": "s1"}), start=start)
                 self.assertIn("in no checkout this hook can read", got["Reason"])
