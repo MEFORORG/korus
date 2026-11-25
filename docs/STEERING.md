@@ -176,7 +176,8 @@ report "queued" from the wrong directory even though no hook read that note.
 The hook reads only `<worktree>/.claude/steer.txt`, for the session's own worktree. When its input
 is a JSON object with no `cwd` field, it reads the worktree the session's pin names.
 
-With no pin, or no input at all, it falls back to `CLAUDE_PROJECT_DIR`. With neither, it exits 0
+With no pin, or no input at all, it falls back to `CLAUDE_PROJECT_DIR`. So does a hook started in
+no checkout whose `cwd` is its start directory or a folder below it. With neither, it exits 0
 without searching.
 
 Which `cwd` it accepts is set by the rules at the top of `scripts/hooks/_hookinput.ps1`, because it

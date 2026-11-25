@@ -158,7 +158,10 @@ if (-not $target) {
     }
     # The cwd serves one purpose here: the base for a RELATIVE file_path. A cwd that is missing or
     # unusable leaves the gate's own directory as that base, and the check still runs.
-    if ($haveHelper) { try { $payloadCwd = (Get-CcxHookPayloadCwd -Text $text).Cwd } catch { $payloadCwd = $null } }
+    # -Payload, on the gate's own parse, as the engine's gate does: -Text refuses the whole input
+    # over a field that is not the cwd, such as a non-string session_id, and the base would then be
+    # the gate's start directory in silence.
+    if ($haveHelper -and $hook) { try { $payloadCwd = (Get-CcxHookPayloadCwd -Payload $hook).Cwd } catch { $payloadCwd = $null } }
     # Parsed, but to nothing. An empty payload or a literal `null` on stdin does not throw, so this
     # used to be the one unreadable-input path that still exited silently -- the gate had learned no
     # more than in the case above, and said no more than an all-clear.

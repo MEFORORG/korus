@@ -237,9 +237,10 @@ try {
         elseif ([Console]::IsInputRedirected) { try { $raw = [Console]::In.ReadToEnd() } catch { $raw = '' } }
     }
     $startedIn = $PWD.Path
+    $session = $null
     if ($raw -and $haveInput) {
         # -SelfTest is a diagnostic, so it reads the session pin and never writes one.
-        try { $cwdNote = (Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest).Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
+        try { $session = Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest; $cwdNote = $session.Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
     }
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
@@ -322,7 +323,10 @@ try {
     # --- 5. PAYLOAD ----------------------------------------------------------------------------------
     # Read in step 0, before the first git call, which says why it skips stdin under -SelfTest.
     $selfId = ''
-    if ($raw) {
+    # The resolver's session id where it read the input, so input it refuses as a whole (a
+    # one-element array, a case twin, a non-string session_id) names no session here either.
+    if ($session) { $selfId = $session.SessionId }
+    elseif ($raw) {
         try {
             $payload = $raw | ConvertFrom-Json
             $selfId = [string]$payload.session_id
@@ -377,8 +381,10 @@ try {
             if (-not $recent) {
                 if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }
                 Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('o') -Encoding ascii
-                # A read that timed out or threw left no payload to blame; say what failed.
+                # A read that timed out or threw, or input the resolver refused as a whole, left no
+                # payload to blame; say what failed.
                 $why = [string](Get-Variable -Name CcxHookInputFault -Scope Script -ValueOnly -ErrorAction Ignore)
+                if (-not $why -and $session -and $null -eq $session.Payload) { $why = $cwdNote }
                 if (-not $why) { $why = 'no session_id in the hook payload' }
                 Write-Receipt 'NO_SESSION_ID' @{ note = $why }
             }

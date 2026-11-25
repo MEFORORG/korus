@@ -431,6 +431,15 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         named = (self.base / "announce-unnamed" / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
         self.assertIn("no session_id in the hook payload", named)
 
+    def test_input_the_resolver_refuses_names_no_session_to_announce(self):
+        """Step 5 parsed the input again with no -NoEnumerate, so a one-element array announced the
+        session the resolver had refused. Its receipt now names the resolver's Reason."""
+        self.launch("sess-arr", self.worktree)
+        out = self.announce([{"session_id": "sess-arr", "cwd": str(self.worktree)}], "arr")
+        self.assertNotIn("[SESSION-ANNOUNCE]", out)
+        receipt = (self.base / "announce-arr" / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
+        self.assertIn("not a JSON object", receipt)
+
     def test_the_cannot_tell_line_obeys_the_kill_switch(self):
         """korus#223 review: the line ignored the OFF file."""
         state = self.base / "announce-h"

@@ -414,6 +414,9 @@ so a rewrite between the two steps was deleted unshown.
 An event that nothing names is read as `SessionStart`. That is a hook with no `-Event`, whose
 input is empty, will not parse, or names no event. It shows what it finds and marks nothing shown.
 
+Input the hook-input resolver refuses as a whole, unparseable input included, finds `NO BOX`. A
+`Stop` that such input still names keeps stdout empty.
+
 What it finds can be the wrong box. With no `cwd` to read, the drain stays where it started, which
 is the primary under the desktop app, so a worktree session is shown the primary's mail. The line
 it prints names the box.

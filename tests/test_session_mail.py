@@ -905,14 +905,16 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         self.assertEqual("", r.stdout)
         self.assertIn("could not load _mail.ps1", r.stderr)
 
-    def test_with_no_mail_module_a_one_element_array_names_no_event(self):
-        """MessageFoundry #5586 added item 5, the early parse: without -NoEnumerate a one-element
-        array read as its object, so it named a Stop the resolver refuses as input. The control is
-        the test above, where the same Stop as an object keeps stdout empty."""
+    def test_with_no_mail_module_a_stop_the_resolver_refuses_still_writes_no_stdout(self):
+        """MessageFoundry #5586 added item 5, the early parse. It now takes the resolver's parse, so
+        a one-element array names no session, but the Stop it names must still keep stdout empty:
+        stdout at a Stop blocks the turn."""
         lone = self.lone_copy(mail_module=False, input_reader=True)
-        ctx = self.ctx(self.run_raw(json.dumps([{"stop_hook_active": False}]), script=lone))
-        self.assertIn("could not load _mail.ps1", ctx)
-        self.assertIn("NO EVENT NAMED", ctx)
+        for refused in ([{"stop_hook_active": False}], {"hook_event_name": ["Stop"]}):
+            with self.subTest(stdin=refused):
+                r = self.run_raw(json.dumps(refused), script=lone)
+                self.assertEqual("", r.stdout)
+                self.assertIn("could not load _mail.ps1", r.stderr)
 
 
 class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
@@ -1069,13 +1071,16 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
         stop = {"session_id": "w2", "hook_event_name": "Stop", "cwd": str(self.peer)}
-        for refused in ([stop], {**stop, "Session_Id": "w9"}, {**stop, "hook_event_name": ["Stop"]}):
-            with self.subTest(stdin=refused):
-                r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
-                                   input=json.dumps(refused), capture_output=True, text=True,
-                                   cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
-                self.assertEqual(0, r.returncode, r.stderr)
-                self.assertEqual(1, len(self.markers()), "refused input consumed a shown stamp")
+        for refused in ([stop], {**stop, "hook_event_name": ["Stop"]}, {**stop, "Session_Id": "w9"}):
+            for args in ([], ["-Event", "Stop"]):
+                with self.subTest(stdin=refused, args=args):
+                    r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN), *args],
+                                       input=json.dumps(refused), capture_output=True, text=True,
+                                       cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+                    self.assertEqual(0, r.returncode, r.stderr)
+                    # A Stop still: stdout at a Stop would block the turn.
+                    self.assertEqual("", r.stdout)
+                    self.assertEqual(1, len(self.markers()), "refused input consumed a shown stamp")
         self.healthy_stop("w2")
         self.assertEqual([], self.markers(), "the control Stop consumed nothing")
 
