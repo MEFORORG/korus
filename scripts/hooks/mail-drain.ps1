@@ -182,7 +182,9 @@ function Get-DrainEvent {
         SessionStart and gets stdout. A Stop with such an input would block its turn. For those inputs
         a SessionStart and a Stop are the same bytes, so no rule can tell them apart. The 2.1.308
         Stop input names hook_event_name, so a real Stop reaches that path only if its stdin breaks.
-        A read that timed out is not given that default: the caller checks.
+        A read that timed out or threw is not given that default: the caller checks
+        $script:CcxHookInputFault. Input the resolver refuses as a whole names no event here, since
+        $Payload is the resolver's parse.
     #>
     param([object] $Payload)
     if ($Payload -isnot [pscustomobject]) { return '' }
@@ -852,7 +854,8 @@ catch {
         if ($reader) {
             $early = $null
             $text = Read-CcxHookInput
-            try { $early = $text | ConvertFrom-Json -ErrorAction Stop } catch { }
+            # The resolver's own parse, so input it refuses (a one-element array, say) names nothing here.
+            try { $early = (ConvertFrom-CcxHookJson $text).Value } catch { }
             if ($early -is [pscustomobject]) {
                 if ($early.PSObject.Properties['cwd']) { $script:FaultAbout = [string]$early.cwd }
                 if ($early.PSObject.Properties['session_id'] -and $early.session_id) {
@@ -974,9 +977,14 @@ try {
                 # NO BOX and its Stop would file nothing. -AllowOutside clears only that fault; input
                 # the helper cannot use is still a Reason. Its Dir is not entered: a `cd` must not
                 # move the box from the one SessionStart showed.
-                # Not $startCommon: PowerShell names are case-blind, and $script:StartCommon is a cache.
-                $inCheckout = Get-CcxGitCommonDir (Get-CcxWorktreeRoot (Get-Location).ProviderPath)
-                if ($inCheckout) { $entered = Enter-CcxHookSession -Text $raw }
+                # Not $startCommon: PowerShell names are case-blind. This fills the cache
+                # Get-DrainFaultPrefix reads, so the start checkout is walked once here, not again there.
+                $script:StartRoot = Get-CcxWorktreeRoot $script:StartDir
+                $script:StartCommon = Get-CcxGitCommonDir $script:StartRoot
+                # -AllowOutside is passed only here, so the resolver's in-checkout -AllowOutside branch
+                # and $script:CcxHookInputTimedOut go unused in korus. Both stay, because the engine's
+                # mail-drain and afk-kill use them and the two copies of _hookinput.ps1 are identical.
+                if ($script:StartCommon) { $entered = Enter-CcxHookSession -Text $raw }
                 else { $entered = Resolve-CcxHookSession -Text $raw -AllowOutside }
                 $cwdNote = $entered.Reason
             }
@@ -988,16 +996,20 @@ try {
             if ($entered -and -not $cwdNote) { $script:FaultAbout = (Get-Location).ProviderPath }
         }
         # No helper means NO BOX below, so stdin is not read: an unbounded read here could only hang.
+        # The resolver's parse, not a second one: input it refuses as a whole (a one-element array, a
+        # case twin, a non-string event) gives no Payload, so it names no event or session here, and
+        # a Stop cannot consume shown stamps on input the resolver called a fault.
         $payload = $null
-        if ($raw) {
-            try { $payload = $raw | ConvertFrom-Json -ErrorAction Stop } catch { $payload = $null }
+        if ($entered) { $payload = $entered.Payload }
+        elseif ($raw -and $haveInput) {
+            try { $payload = (ConvertFrom-CcxHookJson $raw).Value } catch { $payload = $null }
         }
         if ($payload -is [pscustomobject]) {
             if ($payload.PSObject.Properties['session_id'] -and $payload.session_id) {
                 $sessionId = ConvertTo-DrainSessionId ([string]$payload.session_id)
                 $script:DrainSession = $sessionId
             }
-            if (-not $script:FaultAbout -and $payload.PSObject.Properties['cwd']) {
+            if (-not $script:FaultAbout -and $payload.PSObject.Properties['cwd'] -and $payload.cwd -is [string]) {
                 $script:FaultAbout = [string]$payload.cwd
             }
         }

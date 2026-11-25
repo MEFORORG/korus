@@ -377,7 +377,10 @@ try {
             if (-not $recent) {
                 if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }
                 Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('o') -Encoding ascii
-                Write-Receipt 'NO_SESSION_ID' @{ note = 'no session_id in the hook payload' }
+                # A read that timed out or threw left no payload to blame; say what failed.
+                $why = [string](Get-Variable -Name CcxHookInputFault -Scope Script -ValueOnly -ErrorAction Ignore)
+                if (-not $why) { $why = 'no session_id in the hook payload' }
+                Write-Receipt 'NO_SESSION_ID' @{ note = $why }
             }
             exit 0
         }
