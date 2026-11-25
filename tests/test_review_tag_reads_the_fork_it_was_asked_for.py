@@ -2259,6 +2259,12 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
             code = review_tag.main(argv)
         self.assertEqual(code, review_tag.EXIT_UNREAD, out.getvalue())
         self.assertIn("agent-locked.jsonl", err.getvalue())
+        # Without --verbose no path is printed: a QA line is published text.
+        out, err = io.StringIO(), io.StringIO()
+        with self._deny_open(), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = review_tag.main([a for a in argv if a != "--verbose"])
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out.getvalue())
+        self.assertNotIn("agent-locked", out.getvalue() + err.getvalue())
 
     def test_a_nonce_after_a_json_escape_in_an_unread_fork_is_read(self):
         # Review of 63605f1, H2: the nonce's no-letter left boundary ran over raw JSON, where a
@@ -2428,6 +2434,32 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                                f' run /code-review xhigh {self.NONCE} and rep')
         code, out = self._probe()
         self.assertEqual(code, review_tag.EXIT_NO_FORK, out)
+
+    def test_a_truncated_brief_elsewhere_naming_the_nonce_does_not_refuse_a_fork_here(self):
+        # The case main got wrong: the raw search matched any mention, so beside a fork here a cut
+        # brief elsewhere refused with exit 10. A target prefix quoted mid-sentence is no target
+        # line either.
+        for name, text in (("no prefix", "Builder brief: when done run /code-review xhigh"
+                                          f" {self.NONCE} and rep"),
+                           ("prefix mid-sentence", "Builder brief: quote the tag after the"
+                                                   " `Review target:` line; run /code-review"
+                                                   f" xhigh {self.NONCE} and rep")):
+            with self.subTest(brief=name):
+                self.projects = Path(self._tmp.name) / ("projects-cut-" + name.replace(" ", "-"))
+                self.projects.mkdir()
+                self._unread_elsewhere('{"type": "user", "message": {"content": "' + text)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
+        sub = self.projects / "D--probe" / "s1" / "subagents"
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / "agent-deep.jsonl").write_text("[" * 200000 + "\n", encoding="utf-8")
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
 
     def test_control_the_rounds_own_head_beside_an_unread_meta_still_refuses(self):
         # The nonce as the fork's own, opening record 0 or pasted below a brief: kept past

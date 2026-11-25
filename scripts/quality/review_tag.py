@@ -133,7 +133,8 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
     9  nothing selects a fork: no --target, a --target holding only a level or flags, or one with
        no round nonce (unless --no-nonce, whose answer is not attributable)
-   10  a fork transcript in scope could not be read, so it could be the run asked for
+   10  a fork transcript in scope could not be read, so it could be the run asked for; with a
+       nonce, also a transcript anywhere that could not be opened
    11  --no-nonce with a target that carries no nonce: exactly one fork matched, tag or none,
        but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
        `tag:` line, so it cannot be pasted as a QA reading
@@ -203,7 +204,8 @@ UNREAD_MESSAGE = (
 )
 UNREAD_ELSEWHERE_MESSAGE = (
     "fork(s) in another worktree carry this round's nonce and could not be read, so any could be"
-    " the one asked for"
+    " the one asked for; if a rerun after the round ends still reads this, run the round again"
+    " with a fresh nonce"
 )
 UNOPENABLE_MESSAGE = (
     "transcript(s) could not be opened, so any could be the one asked for, here or in another"
@@ -502,7 +504,9 @@ def read_record_zero(transcript: Path) -> tuple[dict | None, list[str], str]:
         raw = fh.readline().decode("utf-8", errors="replace")
     try:
         record = json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # A deeply nested record 0 raises RecursionError, which once ended the run with a
+        # traceback; it refuses as unread instead.
         return None, [], raw
     if not isinstance(record, dict):
         return None, [], raw
@@ -831,19 +835,21 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
     target line, past an escaped newline too, so its JSON escapes are decoded before matching.
     """
-    nonces = NONCE_SHAPE.findall(wanted)
-    if not nonces:
+    if not NONCE_SHAPE.search(wanted):
         return False
-    text = unescape_json(raw[:RAW_NONCE_PREFIX])
-    want = nonces[0].casefold()
-    start = text.find(TARGET_PREFIX)
-    while start != -1:
-        found = NONCE_SHAPE.search(text, start + len(TARGET_PREFIX))
-        if found is None:
-            return False
-        if found.group(0).casefold() == want:
+    lines = unescape_json(raw[:RAW_NONCE_PREFIX]).splitlines()
+    for index, line in enumerate(lines):
+        bare = line.lstrip(" \t>")
+        # A target line opens a line, or, on record 0's first line, the JSON string it sits in.
+        # A prefix mid-sentence, as a brief writes it, is no target line.
+        at = 0 if bare.startswith(TARGET_PREFIX) else bare.find('"' + TARGET_PREFIX) + 1
+        if at == 0 and not bare.startswith(TARGET_PREFIX):
+            continue
+        # Read by the head reader's own rules, so an unparseable record 0 and a parsed one agree
+        # on which nonce is the fork's own.
+        own = read_target([bare[at:]] + lines[index + 1 :], 0).own_nonce
+        if own_nonce_matches(wanted, own):
             return True
-        start = text.find(TARGET_PREFIX, start + len(TARGET_PREFIX))
     return False
 
 
@@ -890,6 +896,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     #: Forks whose record 0 could not be read, placed in another worktree by their meta.
     unread_elsewhere = 0
     seen: set[tuple[int, int, int, int] | str] = set()
+    unopenable_seen: set[str] = set()
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -923,7 +930,11 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     # What it holds is unknown, so it may be the round's fork, here or elsewhere:
                     # it refuses and is named, never read as not holding the nonce, which let
                     # --since drop it and a fork here read at exit 0 (vault #4703 finding 4).
-                    result.unopenable.append(transcript)
+                    # Its stat may have failed too, so it is counted once by its real path.
+                    real = os.path.normcase(os.path.realpath(transcript))
+                    if real not in unopenable_seen:
+                        unopenable_seen.add(real)
+                        result.unopenable.append(transcript)
                     continue
                 record, head, raw = None, [], ""
             if record is None:
@@ -991,7 +1002,8 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # that would place it cannot be read, so it could be the run asked for. Unread, not
                 # absent. A record 0 out of scope -- a brief that only names the nonce -- was once
                 # counted here too and refused a correct fork (vault #4703 finding 1).
-                if filters.since and not nonced and (fork.time is None or fork.time < filters.since):
+                # A time it cannot tell does not rule it out, as for any unread fork (m19).
+                if filters.since and not nonced and fork.time and fork.time < filters.since:
                     continue
                 result.unreadable_files += 1
                 continue
@@ -1213,6 +1225,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.verbose:
         for root in result.unreadable_roots:
             print(f"review_tag: could not read {root}", file=sys.stderr)
+        # Named here, before any refusal, so a run that exits 4 still says which file blocks.
+        for path in result.unopenable:
+            print(f"review_tag: could not open {path}", file=sys.stderr)
 
     # Every refusal comes BEFORE any row is rendered, so a refused run prints no quotable tag. Each
     # one fires whether or not a readable fork also matched: whatever could not be read, placed or
@@ -1225,9 +1240,6 @@ def main(argv: list[str] | None = None) -> int:
         print(PARTIAL_ROOT_MESSAGE)
         return EXIT_NO_ROOT
     if result.unopenable:
-        if args.verbose:
-            for path in result.unopenable:
-                print(f"review_tag: could not open {path}", file=sys.stderr)
         print(f"{len(result.unopenable)} {UNOPENABLE_MESSAGE}")
         return EXIT_UNREAD
     if result.unreadable_files:
