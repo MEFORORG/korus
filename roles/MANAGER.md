@@ -34,7 +34,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
-| Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
+| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the newer owner ruling wins*. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 | A filed build row is not new product scope (owner rulings 2026-11-09 and 2026-11-10) | Once engine `origin/main` carries the narrowing, picking and splitting one is class B, with its review. New directions and every other class C item stay the owner's. [COMMON.md](COMMON.md), *A filed build row is not new product scope*, has the rest. |
 

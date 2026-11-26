@@ -28,7 +28,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
 | The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
-| Conflicts between this file and a role playbook | Raise it to the owner, unless a recorded delegated decision already resolves it. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
+| Conflicts between this file and a role playbook | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. *Where a role playbook and this file disagree*. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
@@ -303,18 +303,20 @@ Source of record: root `CLAUDE.md`, its documentation rules.
 
 ---
 
-## Where a role playbook and this file disagree, the owner decides
+## Where a role playbook and this file disagree, the newer owner ruling wins
 
-**Owner ruling, 2026-08-28, verbatim:** *"Where a role's playbook contradicts common, raise the issue
-to the Owner for clarification."*
+**The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C
+item in the digest.** Owner approval 2026-10-21, engine `docs/AUTONOMY-PLAN.md` section 5, item 2.
+The owner extended it to every seat playbook and [README.md](README.md) on 2026-11-25.
+
+It replaced the owner ruling of 2026-08-28, which sent every such conflict to the owner.
+*The empower rules are on by default* says where a digest item goes until a digest runs.
 
 | Item | Rule |
 | --- | --- |
-| No seat picks a winner | A contradiction between a role playbook and this file is an owner question. Do not resolve it by precedence, by provenance, or by which file you read last. |
 | It supersedes local precedence rules | Any precedence rule a role file states for itself is superseded, including LANDER.md's former "THIS FILE WINS". |
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
-| Still open | What a seat DOES while it waits for the clarification. "Follow COMMON until told otherwise" is an inference, not the ruling. Ask; do not assume. |
-| A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it, so nothing is raised. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
+| A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
 
 **A citation by section name failed the same way a number would.** Six files -- ASVS-TRACKER,
 DISPATCHER, LANDER, LIAISON, PM and STEWARD -- cite "COMMON's PROVENANCE AND PRECEDENCE section" in

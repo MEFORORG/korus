@@ -114,7 +114,7 @@ the inside.
 | Name the instrument and the ref | Every number. [COMMON.md](COMMON.md), *Publish what produced the number*. |
 | Correct yourself faster than you correct anyone else | Your errors carry the authority the role lends them. |
 | You cannot watch yourself | Your own stall, blind spot and staleness are all invisible from here. |
-| Conflicts between this file and COMMON | Raise it to the Owner, unless a recorded delegated decision already resolves it. No seat picks a winner. |
+| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`: section 0d. |
 
 ---

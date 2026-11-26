@@ -92,7 +92,7 @@ moment they can win.
 | Naming what you did not run is the half that gets dropped | A hosted-only leg you cannot run locally is unread until CI reads it, and nobody downstream can tell it from a green one. |
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
 | The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
-| The precedence row | If COMMON and LANDER conflict on the same point, that is an owner question, unless a recorded delegated decision already resolves it. Route it, do not pick. |
+| The precedence row | If COMMON and LANDER conflict on the same point, the newer owner ruling wins; failing that, the stricter rule wins. Record it as a class C item. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
 
 Measured 2026-08-28: LANDER claims precedence over COMMON for its own seat, and cites a COMMON
 precedence section that no longer exists. A reader resolving this alone gets whichever file they read
