@@ -770,8 +770,10 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
     `hook_event_name` nor `stop_hook_active`. The user-level SessionStart row passes no -Event.
 
     On main such a run was a SessionStart that minted shown-markers. This branch's first draft
-    gave it NO EVENT on stderr, so that SessionStart showed nothing. Now it is shown, on stdout,
-    and it mints NO marker, so no Stop files mail on a display nobody proved.
+    gave it NO EVENT on stderr, so that SessionStart showed nothing. Now it is a SessionStart, on
+    stdout, and it mints NO marker, so no Stop files mail on a display nobody proved. An empty input
+    or one naming no event is shown its box. Input the hook-input resolver refuses, unparseable
+    input included, is shown NO BOX instead (MessageFoundry #5586).
 
     THE RISK THIS LEAVES, stated where a reader will meet it. For an empty or unparseable input, a
     Stop wired with no -Event is the same process with the same bytes as these SessionStarts, so it
@@ -902,6 +904,17 @@ class AnEventNothingNamedIsShownButNeverMarked(_LaneCase):
         r = self.run_raw(json.dumps({"stop_hook_active": False}), script=lone)
         self.assertEqual("", r.stdout)
         self.assertIn("could not load _mail.ps1", r.stderr)
+
+    def test_with_no_mail_module_a_stop_the_resolver_refuses_still_writes_no_stdout(self):
+        """MessageFoundry #5586 added item 5, the early parse. It now takes the resolver's parse, so
+        a one-element array names no session, but the Stop it names must still keep stdout empty:
+        stdout at a Stop blocks the turn."""
+        lone = self.lone_copy(mail_module=False, input_reader=True)
+        for refused in ([{"stop_hook_active": False}], {"hook_event_name": ["Stop"]}):
+            with self.subTest(stdin=refused):
+                r = self.run_raw(json.dumps(refused), script=lone)
+                self.assertEqual("", r.stdout)
+                self.assertIn("could not load _mail.ps1", r.stderr)
 
 
 class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
@@ -1050,6 +1063,65 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.assertIn("\tw2\t", left[0].read_text(encoding="utf-8"), "w2's own new fault was lost")
         self.assertEqual([], self.markers())
 
+    def test_input_the_resolver_refuses_consumes_no_shown_stamp(self):
+        """MessageFoundry #5586 added item 5. The drain parsed its input a second time with no
+        -NoEnumerate, so a one-element array named a Stop and its session, and consumed the stamps
+        that session was shown, while the resolver refused the same input. The control is the case
+        above: the same Stop as an object does consume them."""
+        self.measured_stop()
+        self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
+        stop = {"session_id": "w2", "hook_event_name": "Stop", "cwd": str(self.peer)}
+        for refused in ([stop], {**stop, "hook_event_name": ["Stop"]}, {**stop, "Session_Id": "w9"}):
+            for args in ([], ["-Event", "Stop"]):
+                with self.subTest(stdin=refused, args=args):
+                    r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN), *args],
+                                       input=json.dumps(refused), capture_output=True, text=True,
+                                       cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+                    self.assertEqual(0, r.returncode, r.stderr)
+                    # A Stop still: stdout at a Stop would block the turn.
+                    self.assertEqual("", r.stdout)
+                    self.assertEqual(1, len(self.markers()), "refused input consumed a shown stamp")
+        self.healthy_stop("w2")
+        self.assertEqual([], self.markers(), "the control Stop consumed nothing")
+
+    def test_input_the_resolver_refuses_still_stamps_the_worktree_its_cwd_names(self):
+        """Korus PR 278's Lander hold, round-3 finding 1. The resolver refuses an input whose
+        session_id or event is not a string, and the drain then dropped its cwd too, so the fault
+        stamp keyed on the start checkout, the primary. Main's loose parse kept the cwd of input it
+        could read. The stamp
+        must land on the worktree the cwd names, which the peer's SessionStart shows; the control
+        is the primary's own SessionStart, which shows none. The lone copy with no `_mail.ps1`
+        covers the early path, which reads its input before the event; one shape is enough there."""
+        lone = self.lone_copy(mail_module=False, input_reader=True)
+        base = {"cwd": str(self.peer), "stop_hook_active": False}
+        shapes = ({**base, "session_id": 7, "hook_event_name": "Stop"},
+                  {**base, "session_id": "w1", "hook_event_name": ["Stop"]},
+                  {**base, "session_id": "w1", "Session_Id": "w9", "hook_event_name": "Stop"},
+                  [{**base, "session_id": "w1", "hook_event_name": "Stop"}])
+        for refused in shapes:
+            for args in ([], ["-Event", "Stop"]):
+                self.assert_refused_stop_stamps_peer(DRAIN, refused, args)
+        self.assert_refused_stop_stamps_peer(lone, shapes[0], [])
+
+    def assert_refused_stop_stamps_peer(self, script, refused, args):
+        with self.subTest(script="drain" if script == DRAIN else "lone", stdin=refused, args=args):
+            if self.faults_dir().is_dir():
+                for p in self.faults_dir().iterdir():
+                    p.unlink()
+            r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(script), *args],
+                               input=json.dumps(refused), capture_output=True, text=True,
+                               cwd=str(self.primary), timeout=TIMEOUT_SECONDS)
+            self.assertEqual(0, r.returncode, r.stderr)
+            self.assertEqual("", r.stdout)
+            self.assertEqual(1, len(self.stamps()), f"the refused Stop left no stamp: {r.stderr}")
+            home = self.drain(self.primary, event="SessionStart", session_id="c1",
+                              fields={"cwd": str(self.primary), "source": "startup"},
+                              pass_event=False)
+            # Only a display that reached its box lists stamps, so the control must reach it.
+            self.assertNotIn("NO BOX", self.ctx(home), "the control display reached no box")
+            self.assertNotIn("UNSEEN FAULT", self.ctx(home), "the stamp keyed on the start checkout")
+            self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")), "the peer was not told")
+
     def test_a_shown_stamp_is_consumed_at_a_stop_under_delivery_off(self):
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))
@@ -1176,10 +1248,19 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
                 "2099\tStop\tw1\t" + chr(0x20AC) * 2000, encoding="utf-8")
         for i in range(5):
             self.plant(("line %d\n" % i) * 2000)
-        r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
-                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}),
-                           capture_output=True, text=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        # MessageFoundry #5586 added item 9: read as text, this measured the console code page, not
+        # the drain. At 437 each euro sign was written as one `?`; at 65001 its three UTF-8 bytes
+        # were decoded as three cp1252 characters and re-encoded as seven bytes, so it failed. The
+        # child now writes UTF-8 whatever the console's page, and the bytes are read as UTF-8.
+        call = ("[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); & '"
+                + str(DRAIN).replace("'", "''") + "'")
+        r = subprocess.run([self.pwsh, "-NoProfile", "-Command", call],
+                           input=json.dumps({"session_id": "u1", "cwd": str(self.peer)}).encode("utf-8"),
+                           capture_output=True, cwd=str(self.peer), timeout=TIMEOUT_SECONDS)
+        r.stdout = r.stdout.decode("utf-8")
+        r.stderr = r.stderr.decode("utf-8", "replace")
         ctx = self.ctx(r)
+        self.assertIn(chr(0x20AC), ctx, "the planted stamps' euro signs did not survive the read")
         self.assertIn("line 0", ctx, "nothing was rendered, so the cap below measured nothing")
         self.assertEqual(3, len(self.fault_lines(ctx)))
         self.assertIn("1 more stamp file(s)", ctx)
