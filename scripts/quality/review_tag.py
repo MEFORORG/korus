@@ -39,7 +39,8 @@ A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here w
 head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
 before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
 cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce as
-a fork's own -- the first nonce after a target line, never a brief's mere mention -- and it does so
+a fork's own -- a head read_head would read in one of its JSON strings, or, in a string the raw
+text cuts off, the first nonce after any target line; never a brief's mere mention -- and it does so
 with no fork read here too, never exit 3. A tagless fork here exits 5, unless such an unread fork
 sits elsewhere: then 10. With a nonce, a transcript that cannot be opened refuses (exit 10) wherever
 it sits: what it holds is unknown. `--verbose` names it. The same argument
@@ -830,9 +831,9 @@ def unescape_json(text: str) -> str:
 
 
 def json_values(raw: str) -> Iterator[tuple[str, bool]]:
-    """Each string value in raw JSON text, decoded, and whether the text cut it off; keys are
-    skipped. Outside a string every quote opens one, so a quote that content escapes never starts
-    a string of its own."""
+    """Each string value in raw JSON text, decoded, and whether the text cut it off. A whole key
+    is skipped; a key the text cuts off before its colon is yielded as a cut value. Outside a
+    string every quote opens one, so a quote that content escapes never starts a string."""
     at = raw.find('"')
     while at != -1:
         body = JSON_STRING_BODY.match(raw, at + 1)
@@ -847,19 +848,18 @@ def json_values(raw: str) -> Iterator[tuple[str, bool]]:
 
 def raw_holds_nonce(raw: str, wanted: str) -> bool:
     """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
-    as a fork's own, in its first RAW_NONCE_PREFIX characters: the first nonce after a target
-    line opens, as the target filter reads a readable fork. Never a later record, and never a mere
-    mention: a brief that names the nonce with no target line before it is not the round's fork
-    (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a correct
-    fork (exit 10).
+    as a fork's own, in its first RAW_NONCE_PREFIX characters. Never a later record, and never a
+    mere mention: a brief that names the nonce with no target line before it is not the round's
+    fork (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a
+    correct fork (exit 10).
 
     For a transcript whose record 0 cannot be parsed, each JSON string value in it is decoded and
-    read by read_head's rules: a target line opening the string, past notices only, or one with a
-    tag-shaped line below it. Content that quotes the prefix, an escaped quote in the raw bytes,
-    opens no string; decoding the whole record first once read it as a head (korus PR 279, Lander
-    hold finding 1). A string the text cuts off may have lost the tag below a target line, so
-    there any line the prefix opens counts, a quoted one too: that errs toward refusing. So does
-    reading every string, where read_head reads only the message's first text block.
+    a whole one is read by read_head itself. Content that quotes the prefix, an escaped quote in
+    the raw bytes, opens no string; decoding the whole record first once read it as a head (korus
+    PR 279, Lander hold finding 1). A string the text cuts off may have lost the tag below a
+    target line, and the lines that split its arguments, so there the first nonce after any line
+    the prefix opens, a quoted one too, counts: that errs toward refusing. So does reading every
+    string, where read_head reads only the message's first text block.
     """
     if not NONCE_SHAPE.search(wanted):
         return False
@@ -867,18 +867,18 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
         if TARGET_PREFIX not in value:
             continue
         lines = value.splitlines()
-        heads = displaced_heads(lines)
-        start, _ = target_index(lines)
-        if start is not None:
-            heads.append(read_target(lines, start))
         if cut:
             bare = [line.lstrip(" \t>") for line in lines]
-            heads += [
-                read_target(bare, index)
+            owns = [
+                first_nonce("\n".join(bare[index:])[len(TARGET_PREFIX) :])
                 for index, line in enumerate(bare)
                 if line.startswith(TARGET_PREFIX)
             ]
-        if any(own_nonce_matches(wanted, head.own_nonce) for head in heads):
+        else:
+            found = read_head(lines)
+            heads = [found, *found.candidates] if found.review else []
+            owns = [head.own_nonce for head in heads]
+        if any(own_nonce_matches(wanted, own) for own in owns):
             return True
     return False
 

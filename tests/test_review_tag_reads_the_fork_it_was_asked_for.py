@@ -2457,8 +2457,9 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         # Lander hold on korus PR 279, finding 1: the raw search decoded JSON escapes before it
         # looked for a quote opening the target prefix, so a brief elsewhere that quotes the
         # prefix, an escaped quote in the raw bytes, read as a fork head and refused a correct
-        # fork here with exit 10. Only a quote the JSON itself opens a string with is a head; an
-        # escaped backslash before the escaped quote leaves it escaped.
+        # fork here with exit 10. An escaped quote opens no JSON string, so the quoted prefix sits
+        # mid-line in the brief's string and is no head; an escaped backslash before the escaped
+        # quote leaves it escaped.
         for name, quote in (("escaped quote", "\\" + '"'),
                             ("after a backslash", "\\" * 3 + '"')):
             with self.subTest(quote=name):
@@ -2510,6 +2511,10 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
             ("blockquote, cut string", opening + f'"> Review target: `{n} x`{nl}{nl}', True),
             ("nonce in a later string", opening + '[{"type": "text", "text": "Review target: `Review x`"}, '
                                          f'{{"type": "text", "text": "{n} later', False),
+            ("unknown notice, whole string, no tag", opening
+             + f'"(A new note.){nl}{nl}Review target: `{n} x`{nl}{nl}Go."}}', False),
+            ("nonce on a continuation line, cut string", opening
+             + f'"Review target: some words{nl}{n} more', True),
             ("a key", '{"Review target: ' + n + '": 1, "type": "us', False),
         ):
             with self.subTest(content=name):
