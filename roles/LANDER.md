@@ -1374,7 +1374,8 @@ of it.
 | A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control, unless it errs only in the safe direction. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
 | False only in the safe direction | Such text does not weaken a control. The finding is filed under ledger ruling R2 and does not hold the merge. Name it on the pull request, as for any open finding. |
-| What the safe direction is | A reader who acts on the text does more than the control needs, never less. The usual cases are text that overstates what is stored, exposed or retained, or understates what a control guarantees, but only where acting on it passes that test. |
+| What the safe direction is | A reader who acts on the text does more than the control needs, never less. |
+| The usual cases | Text that overstates what is stored, exposed or retained, or understates what a control guarantees, but only where acting on it passes that test. |
 | Where storing or retaining is the guarantee | Overstating it is the unsafe direction. An audit trail, a backup or a retention period are examples. |
 | Understating a guarantee so a reader drops or bypasses the control | Unsafe. The reader test governs every case above. |
 | Only a statement of what a control does | What it stores, exposes or retains included, can be false in the safe direction. A false score or anchor always goes to the owner. |
