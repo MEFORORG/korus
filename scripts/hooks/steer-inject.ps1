@@ -23,7 +23,9 @@
 # session's worktree, writes <worktree>\.claude\steer.txt. Measured 2026-10-12: the desktop app starts
 # a worktree session's CLI with `--project-config-root <primary checkout>`, and CLAUDE_PROJECT_DIR then
 # names the PRIMARY, so this hook read a file nobody wrote. It now walks up from the `cwd` in the JSON
-# on stdin, and falls back to CLAUDE_PROJECT_DIR only when the input names no cwd at all.
+# on stdin. It falls back to CLAUDE_PROJECT_DIR only when the helper names no worktree and no fault:
+# at least when the input names no cwd and no pin answers, and when CLAUDE_PROJECT_DIR is in no
+# checkout and the cwd is that directory or a folder below it that holds no checkout of its own.
 #
 # BUT ONLY A CWD IN THE PROJECT'S OWN CLONE. This hook DELETES the note it delivers, and delivers it as
 # text the user typed. The korus#223 review measured it reading and deleting steer.txt in another
@@ -33,7 +35,7 @@
 # A REFUSAL READS NOTHING. Any Reason the helper returns, or a helper that is missing or throws,
 # leaves the hook unable to tell whose note is under CLAUDE_PROJECT_DIR: the primary's, under the
 # desktop app. At least a refused cwd, input still open when the read gave up, a read that threw,
-# input that is not one JSON object, and a blank or relative cwd return one.
+# input that is not one JSON object, and a blank, relative or non-string cwd return one.
 # Delivering and deleting it would hand one session another's note, so the hook reads none and says
 # why on stderr. That is not the chat, because this hook runs before every tool call.
 
