@@ -114,7 +114,8 @@ the inside.
 | Name the instrument and the ref | Every number. [COMMON.md](COMMON.md), *Publish what produced the number*. |
 | Correct yourself faster than you correct anyone else | Your errors carry the authority the role lends them. |
 | You cannot watch yourself | Your own stall, blind spot and staleness are all invisible from here. |
-| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. While `MEFOR_AFK_KILL` reads anything but `off`, the conflict goes to the Owner instead. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
+| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
+| A conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, the conflict goes to the Owner instead of the rule above. Same COMMON section. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`: section 0d. |
 
 ---
