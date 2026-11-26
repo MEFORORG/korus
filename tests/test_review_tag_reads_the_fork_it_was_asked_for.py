@@ -2524,10 +2524,11 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
     def test_a_cut_record_zero_that_is_no_object_falls_back_to_the_line_scan(self):
         # Review of 187048b: clean_cut checked for an object only on a whole parse, so a cut record
         # 0 whose top-level value is a JSON string or an array read as clean, the line scan did
-        # not run, and the fork here read at exit 0, where e2fd46e refused with exit 10.
+        # not run, and the fork here read at exit 0, where e2fd46e refused with exit 10. Each
+        # holds the head JSON-encoded, so only the line scan reads it.
         head = {"type": "user", "message": {"content": self._head()}}
         for name, content in (("string", json.dumps(json.dumps(head))[:-12]),
-                              ("array", json.dumps([head])[:-12])):
+                              ("array", json.dumps([json.dumps(head)])[:-12])):
             with self.subTest(top=name):
                 self.assertFalse(review_tag.clean_cut(content))
                 self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
@@ -2571,6 +2572,10 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
             ("cut exponent", '{"a": 1e+', True),
             ("trailing newline", '{"a": 1, \r\n', True),
             ("not an object", '"{}"', False),
+            # Review of 187048b: a cut text must open an object as well.
+            ("cut string", '"abc', False),
+            ("cut array", '[1, ', False),
+            ("cut object after whitespace", ' \r\n\t{"a": "abc', True),
         ):
             with self.subTest(raw=name):
                 self.assertIs(review_tag.clean_cut(raw), clean)
