@@ -1084,6 +1084,30 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         self.healthy_stop("w2")
         self.assertEqual([], self.markers(), "the control Stop consumed nothing")
 
+    def test_input_the_resolver_refuses_still_stamps_the_worktree_its_cwd_names(self):
+        """Korus PR 278's Lander hold, round-3 finding 1. The resolver refuses an input whose
+        session_id or event is not a string, and the drain then dropped its cwd too, so the fault
+        stamp keyed on the start checkout, the primary. Main's loose parse kept the cwd. The stamp
+        must land on the worktree the cwd names, which the peer's SessionStart shows; the control
+        is the primary's own SessionStart, which shows none."""
+        for refused in ({"session_id": 7, "hook_event_name": "Stop"},
+                        {"session_id": "w1", "hook_event_name": ["Stop"]}):
+            with self.subTest(stdin=refused):
+                for p in self.stamps():
+                    p.unlink()
+                payload = {**refused, "cwd": str(self.peer), "stop_hook_active": False}
+                r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
+                                   input=json.dumps(payload), capture_output=True, text=True,
+                                   cwd=str(self.primary), timeout=TIMEOUT_SECONDS)
+                self.assertEqual(0, r.returncode, r.stderr)
+                self.assertEqual("", r.stdout)
+                self.assertEqual(1, len(self.stamps()), f"the refused Stop left no stamp: {r.stderr}")
+                home = self.drain(self.primary, event="SessionStart", session_id="c1",
+                                  fields={"cwd": str(self.primary), "source": "startup"},
+                                  pass_event=False)
+                self.assertNotIn("UNSEEN FAULT", self.ctx(home), "the stamp keyed on the start checkout")
+                self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")), "the peer was not told")
+
     def test_a_shown_stamp_is_consumed_at_a_stop_under_delivery_off(self):
         self.measured_stop()
         self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")))

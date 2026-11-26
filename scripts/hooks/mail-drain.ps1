@@ -185,7 +185,7 @@ function Get-DrainEvent {
         Stop input names hook_event_name, so a real Stop reaches that path only if its stdin breaks.
         A read that timed out or threw is not given that default: the caller checks
         $script:CcxHookInputFault. For input the resolver refuses as a whole, $Payload is $null and
-        the caller reads the event with Get-DrainLooseEvent instead.
+        the caller reads the event from ConvertFrom-DrainLooseJson instead.
     #>
     param([object] $Payload)
     if ($Payload -isnot [pscustomobject]) { return '' }
@@ -199,26 +199,36 @@ function Get-DrainEvent {
     return $name
 }
 
-function Get-DrainLooseEvent {
+function ConvertFrom-DrainLooseJson {
     <#
     .SYNOPSIS
-        The event a hook input names, read as ConvertFrom-Json reads it, for input the resolver
-        refused as a whole.
+        A hook input read as ConvertFrom-Json reads it, for input the resolver refused as a whole.
+        Or $null.
     .DESCRIPTION
-        Such input names no session and no cwd here, so a Stop on it consumes no stamp. But stdout
-        at a Stop blocks the turn, so a Stop it names must still be read as one: a one-element array
-        or a non-string hook_event_name names its event as it did before the resolver refused it.
+        Such input names no session here, so a Stop on it consumes no stamp. Two things are still
+        read from it. Its event, because stdout at a Stop blocks the turn, so a Stop it names must
+        still be read as one: a one-element array or a non-string hook_event_name names its event
+        as it did before the resolver refused it. And its cwd, which only keys the fault stamp, so
+        the worktree the session names is told, as main's loose parse told it.
     #>
     param([string] $Text)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return '' }
-    try { $loose = $Text | ConvertFrom-Json -ErrorAction Stop }
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
+    try { return ($Text | ConvertFrom-Json -ErrorAction Stop) }
     catch {
         # Keys that differ only in case make ConvertFrom-Json throw; the resolver's rebuild reads
         # the rest, leaving the twins out.
-        try { $loose = ConvertTo-CcxJsonObject ($Text | ConvertFrom-Json -AsHashtable -ErrorAction Stop) $null }
-        catch { return '' }
+        try { return (ConvertTo-CcxJsonObject ($Text | ConvertFrom-Json -AsHashtable -ErrorAction Stop) $null) }
+        catch { return $null }
     }
-    return Get-DrainEvent $loose
+}
+
+function Get-DrainLooseCwd {
+    # The cwd a refused input names, when it is a non-blank string, else ''. It keys a fault stamp
+    # and nothing else: it never names a box, a session, or a directory to enter.
+    param([object] $Loose)
+    if ($Loose -is [pscustomobject] -and $Loose.PSObject.Properties['cwd'] -and $Loose.cwd -is [string] -and
+        -not [string]::IsNullOrWhiteSpace($Loose.cwd)) { return $Loose.cwd }
+    return ''
 }
 
 function Get-DrainFaultPrefix {
@@ -886,7 +896,11 @@ catch {
                 }
             }
             $named = Get-DrainEvent $early
-            if (-not $named -and $null -eq $early) { $named = Get-DrainLooseEvent $text }
+            if ($null -eq $early) {
+                $loose = ConvertFrom-DrainLooseJson $text
+                if (-not $named) { $named = Get-DrainEvent $loose }
+                if (-not $script:FaultAbout) { $script:FaultAbout = Get-DrainLooseCwd $loose }
+            }
             if ($named) { $Event = $named }
             elseif (-not $Event -and -not $script:CcxHookInputFault) { $Event = 'SessionStart'; $script:Unproven = $true }
         }
@@ -1022,8 +1036,9 @@ try {
         }
         # No helper means NO BOX below, so stdin is not read: an unbounded read here could only hang.
         # The resolver's parse, not a second one: input it refuses as a whole (a one-element array, a
-        # case twin, a non-string event) gives no Payload, so it names no session or cwd here, and a
-        # Stop on it consumes no stamp a session was shown. Get-DrainLooseEvent still reads its event.
+        # case twin, a non-string event) gives no Payload, so it names no session here, and a Stop on
+        # it consumes no stamp a session was shown. ConvertFrom-DrainLooseJson still reads its event,
+        # and its cwd for the fault stamp alone.
         $payload = $null
         if ($entered) { $payload = $entered.Payload }
         elseif ($raw -and $haveInput) {
@@ -1040,7 +1055,11 @@ try {
         }
         # THE INPUT WINS over -Event. The .PARAMETER note says why.
         $named = Get-DrainEvent $payload
-        if (-not $named -and $null -eq $payload -and $raw) { $named = Get-DrainLooseEvent $raw }
+        if ($null -eq $payload -and $raw) {
+            $loose = ConvertFrom-DrainLooseJson $raw
+            if (-not $named) { $named = Get-DrainEvent $loose }
+            if (-not $script:FaultAbout) { $script:FaultAbout = Get-DrainLooseCwd $loose }
+        }
         if ($named) { $Event = $named }
         elseif (-not $Event -and $haveInput -and -not $script:CcxHookInputFault) {
             # CHANGED 2026-10-26: on main, such a run was a SessionStart that minted markers on an
