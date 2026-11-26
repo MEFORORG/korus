@@ -180,7 +180,7 @@ this channel and is holding it.
 | --- | --- |
 | Your replies | Go in the chat the Owner used. Do not route your own answer through the Manager. |
 | Anything outside your instruction | Goes to the Manager, like any other seat, except a playbook conflict, the *A playbook conflict* row. A defect you noticed in passing is Manager traffic, not yours. |
-| A playbook conflict | The exception: raise it with the Owner directly, in the chat the Owner used. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
+| A playbook conflict | The exception: raise it with the Owner directly, in the chat the Owner used. While a kill-switch conflict waits on the Owner, COMMON's row of that name binds you too. Owner decisions d20261126T095349708-facf0d and d20261126T103011339-41c9a1, 2026-11-26 US Central. |
 | Every item you do route | Carries a recommendation, or says why you cannot offer one. |
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act, and no retry makes that message the Owner's. |
 
