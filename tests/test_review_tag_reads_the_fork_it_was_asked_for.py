@@ -2440,7 +2440,7 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
     def test_a_truncated_brief_elsewhere_naming_the_nonce_refuses_a_fork_here(self):
         # A false refusal, pinned, and it fails closed: main's any-token match counts a mere
         # mention in a cut record 0, a target prefix quoted mid-sentence too, and the raw search
-        # keeps it so it is no less strict than main (Lander hold on korus PR 279). Vault #4703
+        # is that match, so it is no less strict than main (Lander hold on korus PR 279). Vault #4703
         # finding 1's exit 0 here is given up for that, as on main.
         for name, text in (("no prefix", "Builder brief: when done run /code-review xhigh"
                                           f" {self.NONCE} and rep"),
@@ -2474,8 +2474,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         JSON-encoded one level down, which read exit 0 where e2fd46e reads 10 (Manager decision
         d20261126T125645270-539f51). Do not relax this test to exit 0 without closing that.
 
-        The raw search now also ORs in main's any-token match (Lander hold on korus PR 279), which
-        counts any mention of the nonce in a cut record 0, so this case refuses on either scan.
+        The raw search is main's any-token match again (Lander hold on korus PR 279), which
+        counts any mention of the nonce in a cut record 0.
         """
         for name, quote in (("escaped quote", "\\" + '"'),
                             ("after a backslash", "\\" * 3 + '"')):
@@ -2534,10 +2534,9 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     def test_the_raw_search_counts_these_quote_opened_target_prefixes(self):
         # Fail-closed controls: the raw search decodes record 0's escapes once, then counts the
-        # nonce as any whole token, or as the first nonce after a target prefix on a line that
-        # opens it or follows a quote directly, so these shapes, a mention, a key, a later string
-        # and a head with no tag below it among them, all count. A repair that told these apart by
-        # JSON string boundaries opened fail-opens elsewhere (PR 279 hold finding 1). Shapes the
+        # nonce as any whole token, so these shapes, a mention, a key, a later string and a head
+        # with no tag below it among them, all count. A repair that told these apart by JSON
+        # string boundaries opened fail-opens elsewhere (PR 279 hold finding 1). Shapes a
         # target-line scan alone missed are fail-open controls below.
         n = self.NONCE
         nl = "\\n"
@@ -2558,8 +2557,8 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
 
     # Fail-open controls from the Lander hold on korus PR 279. On a record 0 that cannot be
     # parsed, each shape holds a head that e2fd46e's target-line scan did not count, so the fork
-    # here read exit 0 where main's any-token match refuses with exit 10. The raw search ORs in
-    # main's match, so each must refuse end to end. The variants listed are those measured, not
+    # here read exit 0 where main's any-token match refuses with exit 10. The raw search is
+    # main's match again, so each must refuse end to end. The variants listed are those measured, not
     # every one.
 
     def test_a_blockquoted_target_line_after_the_opening_quote_refuses(self):
@@ -2583,7 +2582,7 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self._assert_refuses_as_unread(content, "space-" + name)
 
     def test_a_nonce_on_the_line_after_the_target_line_refuses(self):
-        # Also a fail-open under e2fd46e's scan alone; main's match closes it.
+        # Also a fail-open under e2fd46e's target-line scan; main's match closes it.
         content = ('{"type": "user", "message": {"content": "Review target: some words\\n'
                    f'{self.NONCE} more')
         self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))

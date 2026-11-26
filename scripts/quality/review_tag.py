@@ -38,9 +38,8 @@ refuses rather than exit 12, unless a head elsewhere reads with its tag.
 A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
 head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
 before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
-cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce:
-anywhere as a whole token, a brief's mere mention included, as on main, or as the first nonce after
-a target line. It does so with no fork read here too, never exit 3. A mention cannot be told from a
+cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce
+anywhere as a whole token, a brief's mere mention included, as on main. It does so with no fork read here too, never exit 3. A mention cannot be told from a
 head in raw bytes, so a cut brief that only names the nonce refuses: a false refusal, which fails
 closed. A tagless fork here exits 5, unless such an unread fork
 sits elsewhere: then 10. With a nonce, a transcript that cannot be opened refuses (exit 10) wherever
@@ -828,16 +827,16 @@ def unescape_json(text: str) -> str:
 
 def raw_holds_nonce(raw: str, wanted: str) -> bool:
     """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
-    in its first RAW_NONCE_PREFIX characters. Never a later record: one that mentions the nonce
-    once made an unread file elsewhere refuse a correct fork (exit 10).
+    as a whole token anywhere in its first RAW_NONCE_PREFIX characters, as on main. Never a later
+    record: one that mentions the nonce once made an unread file elsewhere refuse a correct fork
+    (exit 10).
 
-    Two scans, either one a hit, so the second can only add refusals. The first is main's: any
-    whole token equal to the nonce, a mere mention in a brief included. The second reads the first
-    nonce after a target line, as the target filter reads a readable fork. The first is what keeps
-    this no less strict than main: the second alone read a cut record 0 holding a blockquoted
-    target line, a head under a notice one level down, or a space or tab after the quote as not
-    holding the nonce, and a fork here then read at exit 0 (Lander hold on korus PR 279). Its cost
-    is a false refusal on a cut brief that only names the nonce, which fails closed.
+    A mere mention in a brief counts, so a cut brief that only names the nonce refuses: a false
+    refusal, which fails closed. A scan that counted only the first nonce after a target line read
+    a cut record 0 holding a blockquoted target line, a head under a notice one level down, or a
+    space or tab after the quote as not holding the nonce, and a fork here then read at exit 0
+    (Lander hold on korus PR 279). Any nonce that scan finds is also a whole token here, so it
+    adds no refusal and is gone.
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
     target line, past an escaped newline too, so its JSON escapes are decoded before matching.
@@ -846,22 +845,7 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
     if not nonces:
         return False
     text = unescape_json(raw[:RAW_NONCE_PREFIX])
-    if any(found.casefold() == nonces[0].casefold() for found in NONCE_SHAPE.findall(text)):
-        return True
-    lines = text.splitlines()
-    for index, line in enumerate(lines):
-        bare = line.lstrip(" \t>")
-        # A target line opens a line, or, on record 0's first line, the JSON string it sits in.
-        # A prefix mid-sentence, as a brief writes it, is no target line.
-        at = 0 if bare.startswith(TARGET_PREFIX) else bare.find('"' + TARGET_PREFIX) + 1
-        if at == 0 and not bare.startswith(TARGET_PREFIX):
-            continue
-        # Read by the head reader's own rules, so an unparseable record 0 and a parsed one agree
-        # on which nonce is the fork's own.
-        own = read_target([bare[at:]] + lines[index + 1 :], 0).own_nonce
-        if own_nonce_matches(wanted, own):
-            return True
-    return False
+    return any(found.casefold() == nonces[0].casefold() for found in NONCE_SHAPE.findall(text))
 
 
 def file_identity(path: Path) -> tuple[int, int, int, int] | str | None:
