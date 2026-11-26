@@ -864,10 +864,14 @@ def clean_cut(raw: str) -> bool:
     it. A record 0 that fails earlier, on a malformed string such as "C:\" for one, can invert
     every boundary after it, so the string walk never reads the real head (review of f1963bf).
     The allowlist is closed: extra data after a whole value, a value that is no object, any error
-    wording it does not know, and any other tail read as not clean, which errs toward refusing."""
+    wording it does not know, and any other tail read as not clean, which errs toward refusing.
+    A cut text must open an object too, so a cut string or array is not clean (review of
+    187048b)."""
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as err:
+        if not raw.lstrip(" \t\n\r").startswith("{"):
+            return False
         rest = raw[err.pos :]
         if err.msg.startswith("Unterminated string"):
             return rest.startswith('"') and JSON_STRING_BODY.match(raw, err.pos + 1) is None

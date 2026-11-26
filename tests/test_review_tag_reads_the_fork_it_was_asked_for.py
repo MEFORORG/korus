@@ -2521,6 +2521,25 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
+    def test_a_cut_record_zero_that_is_no_object_falls_back_to_the_line_scan(self):
+        # Review of 187048b: clean_cut checked for an object only on a whole parse, so a cut record
+        # 0 whose top-level value is a JSON string or an array read as clean, the line scan did
+        # not run, and the fork here read at exit 0, where e2fd46e refused with exit 10.
+        head = {"type": "user", "message": {"content": self._head()}}
+        for name, content in (("string", json.dumps(json.dumps(head))[:-12]),
+                              ("array", json.dumps([head])[:-12])):
+            with self.subTest(top=name):
+                self.assertFalse(review_tag.clean_cut(content))
+                self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
+                self.projects = Path(self._tmp.name) / ("projects-top-" + name)
+                self.projects.mkdir()
+                self._unread_elsewhere(content)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("tag:", out)
+
     def test_a_clean_cut_is_told_from_a_malformed_record_zero(self):
         # Review of fc5233e: CPython reports a cut \u escape at the u, so a 64K cut inside one
         # read as malformed and the line scan brought Lander hold finding 1 back. Only a record 0
