@@ -1376,19 +1376,19 @@ of it.
 | The Lander reads a finding declined in one written line as closed, not open | The owner did not say it. It never covers a finding the sweep table gives no decline: a defect the merge would ship, one that changes behaviour or weakens a control, or one you cannot classify. |
 | Name each finding on the pull request before you merge | One line each: the finding's subject, then its filed row or "queued for filing". Paste no row text, in any repository; the decision's record says *"No verbatim paste"*. |
 | A factual error in prose, decision d20261029T165623191-578690 | A factual error in prose is a filed row, except a false statement in a security or assurance record about what a control does, a score or an anchor: that weakens a control. |
-| What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. Only a statement of what a control does can be false in the safe direction, below. |
+| What that false statement gets | It goes to the owner under the 2026-10-12 ruling, and the pull request waits for that ruling. Only a statement of what a control does can be false in the safe direction, below. Not draft register row text: its subsection. |
 | False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
 | What merges open | Only a finding that none of those rows, *False program output* or *A false control claim in any text* sends to the owner, or one the owner ruled may merge, merges while it is open. |
 | False program output | It changes behaviour. At least: log lines, alerts, refusal and error text, ACK or NAK text, API error bodies, and CLI and web console text. |
 | A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control, unless it errs only in the safe direction where *False only in the safe direction* allows. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
 | False only in the safe direction | Where engine `main`'s `CLAUDE.md` section 5 states the same exception, such text does not weaken a control. The finding is filed under ledger ruling R2 and does not hold the merge. Name it on the pull request. |
-| What narrows that exception | *Register row text, signed or drafted for signing*, a subsection of this section, takes register row text out of it. |
+| What narrows that exception | *Register row text, signed or drafted for signing*, a subsection of this section, takes register row text out of it, and sets the owner route for draft register row text. |
 | What the safe direction is | A reader who acts on the text does more than the control needs, never less. |
 | The usual cases | Text that overstates what is stored, exposed or retained, or understates what a control guarantees, but only where acting on it passes that test. |
 | Where storing or retaining is the guarantee | Overstating it is the unsafe direction. An audit trail, a backup or a retention period are examples. |
 | Understating a guarantee so a reader drops or bypasses the control | Unsafe. The reader test governs every case above. |
-| Only a statement of what a control does | What it stores, exposes or retains included, can be false in the safe direction. A false score or anchor always goes to the owner. |
+| Only a statement of what a control does | What it stores, exposes or retains included, can be false in the safe direction. A false score or anchor always goes to the owner, outside draft register row text. |
 | What still goes to the owner, at least | A false score. A false anchor. False program output, or any finding that changes behaviour. A present-tense claim of a live exposure, under engine `CLAUDE.md` section 0. Text false in the unsafe direction too. |
 | A finding you cannot classify | Still goes to the owner. |
 | Its authority | The owner's instruction of 2026-11-26, *"Change the rules to allow you and future landers to be more proactive"*, as set out in the Lander's brief the owner directed the Manager to follow. |
@@ -1414,19 +1414,27 @@ of it.
 #### Register row text, signed or drafted for signing
 
 **Decided by the Lander under the owner's delegation of 2026-11-26,** record
-d20261126T225830018-38a483. Asked *"Should the safe-direction carve-out exclude register text the
-owner signs? Reply A or B"*, the owner answered *"/driver"*.
+d20261126T225830018-38a483. The record gives the question as *"should the safe-direction carve-out
+exclude register text the owner signs, A or B"*, and the owner's answer as *"/driver"*.
 
-Engine `CLAUDE.md` section 5 is to state the same rule, in an engine change made beside this one.
-Where the two differ, the guard near the top of *Repair a held PR at once* says which governs.
+Engine `CLAUDE.md` section 5 states the same rule in its merge bullet, on the companion engine
+branch `builder/register-text-safe-direction`. Where the two differ, the guard near the top of
+*Repair a held PR at once* says which governs.
 
 | Item | Rule |
 | --- | --- |
-| Register row text, signed or drafted for signing | It is outside the safe-direction exception, *False only in the safe direction*. The other *4a-quinquies* rows still apply to it. |
+| The rejected alternative | The record lists it as *"A as first put, holding every merge on it"*. |
+| Register row text, signed or drafted for signing | It is outside the safe-direction exception, *False only in the safe direction*. |
 | A falsehood in signed register row text | It goes to the owner as a void-or-correction question. |
-| A falsehood in a draft register row | It must be fixed, or disclosed in the signing guide, before the row is put up for signature. It blocks the signing, not the merge, unless another *4a-quinquies* row sends it to the owner. |
-| A pull request that records an owner signature | It holds on a falsehood in the row text whose signature it records. That text is signed register row text. |
-| A dated marker on a register row | It is not register row text in this table. It stays under the safe-direction exception, as other text does, except a marker that reads an acceptance as void or fired. That one goes to the owner. |
+| The owner answers it in person | Voiding or correcting signed text is re-signing. A `/driver` or `/empower` answer does not delegate it: engine `CLAUDE.md` section 5, *"Still mine in person"*. |
+| What a signed-text falsehood holds | Only a pull request that changes that text or records a signature on it. One in signed text the pull request does not touch goes to the owner without holding it, under ledger ruling R2. |
+| A falsehood in draft register row text | In any direction, a false score or anchor included, it must be fixed, or disclosed in the signing guide, before the row is put up for signature. It blocks the signing, not the merge. |
+| What the draft rule replaces | For draft register row text only, *What that false statement gets*: it goes to the owner, and the pull request waits. Disclosure in the signing guide is how it reaches the owner. |
+| What the draft rule leaves alone | Every other owner route, at least false program output, a present-tense claim of a live exposure, and anything outside register row text. |
+| Who makes the draft fix | The fix is ASVS record work, a Manager's, under the owner ruling of 2026-09-23. |
+| A pull request that records an owner signature | It holds on an undisclosed falsehood in the row text whose signature it records. A falsehood disclosed in the signing guide and then signed does not hold it, and is not raised again as a void question. |
+| A dated marker on a register row | It stays under the safe-direction exception, except a marker that reads an acceptance as void or fired. That one goes to the owner. |
+| A marker that reads a fired or void acceptance as in force | It is false in the unsafe direction, and goes to the owner under the base rule, *What still goes to the owner, at least*. |
 | CHANGED 2026-11-26 | Until this subsection, *False only in the safe direction* also covered register row text, as PR 283 wrote it that day. |
 
 ### 4b. UNKNOWN is not NOT-BEHIND
