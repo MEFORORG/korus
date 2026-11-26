@@ -2491,6 +2491,29 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
                 code, out = self._probe()
                 self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("tag:", out)
+
+    def test_the_raw_search_reads_each_json_string_by_the_head_readers_rules(self):
+        # Review of 036b321: each string value is decoded to its own end and read as read_head
+        # reads a message, so a nonce in a later string is not the head's, a key is no head, and
+        # a quoted target line with no tag below it in a whole string is no head. A string the
+        # text cuts off still counts any target line, a blockquoted one too.
+        n = self.NONCE
+        nl = "\\n"
+        opening = '{"type": "user", "message": {"content": '
+        for name, content, holds in (
+            ("unicode-escaped quote", opening + f'"paste \\u0022Review target: `{n} x` and rep', False),
+            ("own line, whole string, no tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then"}}', False),
+            ("own line, whole string, a tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}`{TAG_XHIGH}`"}}', True),
+            ("own line, cut string", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then', True),
+            ("blockquote, cut string", opening + f'"> Review target: `{n} x`{nl}{nl}', True),
+            ("nonce in a later string", opening + '[{"type": "text", "text": "Review target: `Review x`"}, '
+                                         f'{{"type": "text", "text": "{n} later', False),
+            ("a key", '{"Review target: ' + n + '": 1, "type": "us', False),
+        ):
+            with self.subTest(content=name):
+                self.assertIs(review_tag.raw_holds_nonce(content, n), holds)
 
     def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
         sub = self.projects / "D--probe" / "s1" / "subagents"

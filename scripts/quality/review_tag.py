@@ -158,6 +158,7 @@ import re
 import stat
 import subprocess
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -808,9 +809,10 @@ RAW_NONCE_PREFIX = 64 * 1024
 #: One JSON string escape: a backslash and u with four hex digits, or a backslash and one character.
 JSON_ESCAPE = re.compile(r"\\(u[0-9a-fA-F]{4}|.)", re.DOTALL)
 JSON_SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
-#: A quote that opens a JSON string with the target prefix: none or an even run of backslashes
-#: before it, so the JSON wrote it rather than escaped it. The match ends at the quote.
-JSON_STRING_TARGET = re.compile(r'(?<!\\)(?:\\\\)*"(?=' + re.escape(TARGET_PREFIX) + ")")
+#: The rest of one JSON string after its opening quote, up to and including its closing quote.
+JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
+#: What follows an object key: whitespace, then a colon.
+JSON_KEY_COLON = re.compile(r"\s*:")
 
 
 def unescape_json(text: str) -> str:
@@ -827,6 +829,22 @@ def unescape_json(text: str) -> str:
     return JSON_ESCAPE.sub(decode, text)
 
 
+def json_values(raw: str) -> Iterator[tuple[str, bool]]:
+    """Each string value in raw JSON text, decoded, and whether the text cut it off; keys are
+    skipped. Outside a string every quote opens one, so a quote that content escapes never starts
+    a string of its own."""
+    at = raw.find('"')
+    while at != -1:
+        body = JSON_STRING_BODY.match(raw, at + 1)
+        if body is None:
+            yield unescape_json(raw[at + 1 :]), True
+            return
+        end = body.end()
+        if not JSON_KEY_COLON.match(raw, end):
+            yield unescape_json(raw[at + 1 : end - 1]), False
+        at = raw.find('"', end)
+
+
 def raw_holds_nonce(raw: str, wanted: str) -> bool:
     """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
     as a fork's own, in its first RAW_NONCE_PREFIX characters: the first nonce after a target
@@ -835,31 +853,34 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
     (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a correct
     fork (exit 10).
 
-    For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
-    target line, past an escaped newline too, so its JSON escapes are decoded before matching. A
-    target line opens a decoded line, or a JSON string: a quote the raw bytes leave unescaped.
-    Content that quotes the prefix is an escaped quote in the raw bytes, and no head; decoding
-    before that check once read it as one (korus PR 279, Lander hold finding 1).
+    For a transcript whose record 0 cannot be parsed, each JSON string value in it is decoded and
+    read by read_head's rules: a target line opening the string, past notices only, or one with a
+    tag-shaped line below it. Content that quotes the prefix, an escaped quote in the raw bytes,
+    opens no string; decoding the whole record first once read it as a head (korus PR 279, Lander
+    hold finding 1). A string the text cuts off may have lost the tag below a target line, so
+    there any line the prefix opens counts, a quoted one too: that errs toward refusing. So does
+    reading every string, where read_head reads only the message's first text block.
     """
     if not NONCE_SHAPE.search(wanted):
         return False
-    prefix = raw[:RAW_NONCE_PREFIX]
-    # Each JSON string that opens with the target prefix, found on the still-escaped bytes.
-    heads = [
-        unescape_json(prefix[found.end() :]).splitlines()
-        for found in JSON_STRING_TARGET.finditer(prefix)
-    ]
-    lines = unescape_json(prefix).splitlines()
-    # Or a decoded line the target prefix opens. A prefix mid-sentence, as a brief writes it, is
-    # no target line.
-    heads += [
-        [line.lstrip(" \t>")] + lines[index + 1 :]
-        for index, line in enumerate(lines)
-        if line.lstrip(" \t>").startswith(TARGET_PREFIX)
-    ]
-    # Read by the head reader's own rules, so an unparseable record 0 and a parsed one agree on
-    # which nonce is the fork's own.
-    return any(own_nonce_matches(wanted, read_target(head, 0).own_nonce) for head in heads)
+    for value, cut in json_values(raw[:RAW_NONCE_PREFIX]):
+        if TARGET_PREFIX not in value:
+            continue
+        lines = value.splitlines()
+        heads = displaced_heads(lines)
+        start, _ = target_index(lines)
+        if start is not None:
+            heads.append(read_target(lines, start))
+        if cut:
+            bare = [line.lstrip(" \t>") for line in lines]
+            heads += [
+                read_target(bare, index)
+                for index, line in enumerate(bare)
+                if line.startswith(TARGET_PREFIX)
+            ]
+        if any(own_nonce_matches(wanted, head.own_nonce) for head in heads):
+            return True
+    return False
 
 
 def file_identity(path: Path) -> tuple[int, int, int, int] | str | None:
