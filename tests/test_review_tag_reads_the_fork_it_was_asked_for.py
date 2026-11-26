@@ -2453,27 +2453,32 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertEqual(code, review_tag.EXIT_FOUND, out)
                 self.assertIn("agent mine", out)
 
-    def test_an_escaped_target_prefix_inside_content_is_no_fork_head(self):
-        # Lander hold on korus PR 279, finding 1: the raw search decoded JSON escapes before it
-        # looked for a quote opening the target prefix, so a brief elsewhere that quotes the
-        # prefix, an escaped quote in the raw bytes, read as a fork head and refused a correct
-        # fork here with exit 10. An escaped quote opens no JSON string, so the quoted prefix sits
-        # mid-line in the brief's string and is no head; an escaped backslash before the escaped
-        # quote leaves it escaped.
+    def test_an_escaped_target_prefix_inside_content_is_still_refused_a_known_limitation(self):
+        """KNOWN LIMITATION, pinned: Lander hold finding 1 on korus PR 279.
+
+        A brief elsewhere that quotes the target prefix behind an escaped quote, a mention and no
+        fork head, still reads as an unread fork elsewhere and refuses a correct fork here with
+        exit 10. That is a false refusal, and it fails closed. It stays because a mention one JSON
+        encoding level down cannot be told from a real head in raw bytes: every repair that let
+        this case read exit 0 opened a fail-open, the last a cut record 0 holding the head
+        JSON-encoded one level down, which read exit 0 where e2fd46e reads 10 (Manager decision
+        d20261126T125645270-539f51). Do not relax this test to exit 0 without closing that.
+        """
         for name, quote in (("escaped quote", "\\" + '"'),
                             ("after a backslash", "\\" * 3 + '"')):
             with self.subTest(quote=name):
                 content = ('{"type": "user", "message": {"content": "Builder brief: paste '
                            + quote + f'Review target: `{self.NONCE} Review x`' + quote
                            + ' then run it and rep')
-                self.assertFalse(review_tag.raw_holds_nonce(content, self.NONCE))
+                self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
                 self.projects = Path(self._tmp.name) / ("projects-esc-" + name[:5])
                 self.projects.mkdir()
                 self._unread_elsewhere(content)
                 self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
                 code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_FOUND, out)
-                self.assertIn("agent mine", out)
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("tag:", out)
 
     def test_control_a_string_the_json_opens_with_the_target_prefix_is_a_fork_head(self):
         # The quote the JSON opens the content string with, in either content form, is a head,
@@ -2495,12 +2500,11 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
-    def test_a_malformed_earlier_string_falls_back_to_the_line_scan(self):
-        # Review of f1963bf: the string walk counts quotes from the start of record 0, so in a
-        # record 0 that fails to parse for a malformed earlier string, not a clean cut, the
-        # string boundaries invert and the real head is never read. The fork elsewhere was
-        # dropped and the fork here read at exit 0, where e2fd46e refused with exit 10. Where the
-        # walk cannot be trusted, the decode-and-scan of e2fd46e still runs.
+    def test_a_malformed_earlier_string_still_refuses(self):
+        # Fail-open control from the PR 279 repair rounds: a record 0 that fails to parse for a
+        # malformed earlier string, whole or cut, holds the head and must refuse with exit 10. A
+        # string walk counting quotes from the start of record 0 inverted the string boundaries
+        # here and read the fork here at exit 0.
         n = self.NONCE
         nl = "\\n"
         bad = "\\" + '"'
@@ -2521,18 +2525,18 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
-    def test_a_cut_record_zero_that_is_no_object_falls_back_to_the_line_scan(self):
-        # Review of 187048b: clean_cut checked for an object only on a whole parse, so a cut record
-        # 0 whose top-level value is a JSON string or an array read as clean, the line scan did
-        # not run, and the fork here read at exit 0, where e2fd46e refused with exit 10. Each
-        # holds the head JSON-encoded, so only the line scan reads it.
+    def test_a_record_zero_holding_the_head_encoded_one_level_down_still_refuses(self):
+        # Fail-open control from the PR 279 repair rounds: a record 0 whose top-level value is a
+        # JSON string or an array, whole or cut, holds the head JSON-encoded one level down. It
+        # must refuse with exit 10; a repair that read such a cut record as clean read the fork
+        # here at exit 0.
         head = {"type": "user", "message": {"content": self._head()}}
-        for name, content in (("string", json.dumps(json.dumps(head))[:-12]),
-                              ("array", json.dumps([json.dumps(head)])[:-12])):
+        for name, content in (("cut string", json.dumps(json.dumps(head))[:-12]),
+                              ("cut array", json.dumps([json.dumps(head)])[:-12]),
+                              ("whole string", json.dumps(json.dumps(head)))):
             with self.subTest(top=name):
-                self.assertFalse(review_tag.clean_cut(content))
                 self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
-                self.projects = Path(self._tmp.name) / ("projects-top-" + name)
+                self.projects = Path(self._tmp.name) / ("projects-top-" + name.replace(" ", "-"))
                 self.projects.mkdir()
                 self._unread_elsewhere(content)
                 self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
@@ -2541,84 +2545,50 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
-    def test_a_clean_cut_is_told_from_a_malformed_record_zero(self):
-        # Review of fc5233e: CPython reports a cut \u escape at the u, so a 64K cut inside one
-        # read as malformed and the line scan brought Lander hold finding 1 back. Only a record 0
-        # that fails where its text ends is a clean cut.
+    def test_the_raw_search_counts_a_target_prefix_wherever_a_quote_opens_it(self):
+        # Fail-closed controls: the raw search decodes record 0's escapes, then counts a target
+        # prefix that opens a line or follows a quote, so a mention, a key, a later string or a
+        # head with no tag below it all count. A repair that told these apart by JSON string
+        # boundaries opened fail-opens elsewhere (PR 279 hold finding 1).
+        n = self.NONCE
+        nl = "\\n"
         b = "\\"
-        for name, raw, clean in (
-            ("open string", '{"a": "abc', True),
-            ("trailing backslash", '{"a": "ab' + b, True),
-            ("cut \\u escape", '{"a": "x' + b + "u00", True),
-            ("cut bare \\u", '{"a": "x' + b + "u", True),
-            ("cut number", '{"a": 1.', True),
-            ("cut literal", '{"a": tr', True),
-            ("after a comma", '{"a": 1, ', True),
-            ("whole record", '{"a": "x"}', True),
-            ("malformed earlier string", '{"cwd": "C:' + b + '", "x": "y"}', False),
-            ("bad \\u escape mid-string", '{"a": "x' + b + 'u00zz", "b": "c"}', False),
-            ("bad escape", '{"a": "C:' + b + 'q"}', False),
-            ("extra data", '{"a": 1}\r{"b": 2}', False),
-            # Review of f586fcd: tails no cut of one record 0 can leave.
-            ("extra number", '{"a": 1}1', False),
-            ("extra literal", '{"a": 1}true', False),
-            ("form feed", '{"a": "x"}\x0c', False),
-            ("no-break space", '{"a": "x"}\xa0', False),
-            ("stray number", '{"a": "x" 1', False),
-            ("bare fraction", '{"a": .5', False),
-            ("literal at a key", '{"a": 1, tr', False),
-            ("raw tab in a string", '{"a": "x\t', False),
-            ("whole literal", '{"a": true', True),
-            ("cut exponent", '{"a": 1e+', True),
-            ("trailing newline", '{"a": 1, \r\n', True),
-            ("not an object", '"{}"', False),
-            # Review of 187048b: a cut text must open an object as well.
-            ("cut string", '"abc', False),
-            ("cut array", '[1, ', False),
-            ("cut object after whitespace", ' \r\n\t{"a": "abc', True),
+        opening = '{"type": "user", "message": {"content": '
+        for name, content in (
+            ("unicode-escaped quote", opening + f'"paste \\u0022Review target: `{n} x` and rep'),
+            ("own line, whole string, no tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then"}}'),
+            ("own line, whole string, a tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}`{TAG_XHIGH}`"}}'),
+            ("own line, cut string", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then'),
+            ("nonce in a later string", opening + '[{"type": "text", "text": "Review target: `Review x`"}, '
+                                         f'{{"type": "text", "text": "{n} later'),
+            ("unknown notice, whole string, no tag", opening
+             + f'"(A new note.){nl}{nl}Review target: `{n} x`{nl}{nl}Go."}}'),
+            ("a key", '{"Review target: ' + n + '": 1, "type": "us'),
         ):
-            with self.subTest(raw=name):
-                self.assertIs(review_tag.clean_cut(raw), clean)
-        # The escaped-quote mention, cut by RAW_NONCE_PREFIX inside a later \u escape, is still
-        # no head: the cut is clean and the walk alone reads it.
+            with self.subTest(content=name):
+                self.assertTrue(review_tag.raw_holds_nonce(content, n))
+        # The escaped-quote mention cut inside a later \u escape at RAW_NONCE_PREFIX, and the same
+        # mention followed by a malformed string or extra data, all count.
         mention = ('{"type": "user", "message": {"content": "Builder brief: paste ' + b + '"'
-                   + f'Review target: `{self.NONCE} Review x`' + b + '" then ')
+                   + f'Review target: `{n} Review x`' + b + '" then ')
         pad = "x" * (review_tag.RAW_NONCE_PREFIX - len(mention) - 4)
-        self.assertFalse(review_tag.raw_holds_nonce(mention + pad + b + "u001b rest", self.NONCE))
-        # A record 0 read whole decides, not the searched prefix: one malformed past the prefix,
-        # or wrapped in a JSON string, falls back to the line scan and refuses.
-        late = mention + pad + '", "cwd": "C:' + b + '", "x": "y"}'
-        self.assertFalse(review_tag.clean_cut(late))
-        self.assertTrue(review_tag.raw_holds_nonce(late, self.NONCE))
-        self.assertTrue(review_tag.raw_holds_nonce(mention + '"}}1', self.NONCE))
-        head = {"type": "user", "message": {"content": f"Review target: `{self.NONCE} Review x`"
-                                                       f"\n\n`{TAG_XHIGH}`\n\nGo."}}
-        self.assertTrue(review_tag.raw_holds_nonce(json.dumps(json.dumps(head)), self.NONCE))
+        for raw in (mention + pad + b + "u001b rest",
+                    mention + pad + '", "cwd": "C:' + b + '", "x": "y"}',
+                    mention + '"}}1'):
+            self.assertTrue(review_tag.raw_holds_nonce(raw, n))
 
-    def test_the_raw_search_reads_each_json_string_by_the_head_readers_rules(self):
-        # Review of 036b321: each string value is decoded to its own end and read as read_head
-        # reads a message, so a nonce in a later string is not the head's, a key is no head, and
-        # a quoted target line with no tag below it in a whole string is no head. A string the
-        # text cuts off still counts any target line, a blockquoted one too.
+    @unittest.expectedFailure
+    def test_known_gap_a_cut_record_zero_whose_head_is_not_on_the_first_quote_is_missed(self):
+        # KNOWN GAP in e2fd46e's raw search, pinned so a fix shows as an unexpected success: on a
+        # record 0 that cannot be parsed, a target line blockquoted right after the opening
+        # quote, or a nonce on the line after a target line, is not counted. The PR 279 repair
+        # commits counted both; restoring e2fd46e dropped that.
         n = self.NONCE
         nl = "\\n"
         opening = '{"type": "user", "message": {"content": '
-        for name, content, holds in (
-            ("unicode-escaped quote", opening + f'"paste \\u0022Review target: `{n} x` and rep', False),
-            ("own line, whole string, no tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then"}}', False),
-            ("own line, whole string, a tag", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}`{TAG_XHIGH}`"}}', True),
-            ("own line, cut string", opening + f'"paste:{nl}{nl}Review target: `{n} x`{nl}{nl}then', True),
-            ("blockquote, cut string", opening + f'"> Review target: `{n} x`{nl}{nl}', True),
-            ("nonce in a later string", opening + '[{"type": "text", "text": "Review target: `Review x`"}, '
-                                         f'{{"type": "text", "text": "{n} later', False),
-            ("unknown notice, whole string, no tag", opening
-             + f'"(A new note.){nl}{nl}Review target: `{n} x`{nl}{nl}Go."}}', False),
-            ("nonce on a continuation line, cut string", opening
-             + f'"Review target: some words{nl}{n} more', True),
-            ("a key", '{"Review target: ' + n + '": 1, "type": "us', False),
-        ):
-            with self.subTest(content=name):
-                self.assertIs(review_tag.raw_holds_nonce(content, n), holds)
+        for content in (opening + f'"> Review target: `{n} x`{nl}{nl}',
+                        opening + f'"Review target: some words{nl}{n} more'):
+            self.assertTrue(review_tag.raw_holds_nonce(content, n))
 
     def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
         sub = self.projects / "D--probe" / "s1" / "subagents"

@@ -39,11 +39,7 @@ A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here w
 head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
 before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
 cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce as
-a fork's own -- a head read_head would read in one of its JSON strings, or, in a string the raw
-text cuts off, the first nonce after any target line; never a brief's mere mention. That walk is
-trusted only where record 0, read whole, parses as an object or is cut cleanly: valid JSON up to
-where its text ends. Any other record 0 also takes e2fd46e's decode-and-scan, which can count a
-brief's mention, so it refuses. It does so
+a fork's own -- the first nonce after a target line, never a brief's mere mention -- and it does so
 with no fork read here too, never exit 3. A tagless fork here exits 5, unless such an unread fork
 sits elsewhere: then 10. With a nonce, a transcript that cannot be opened refuses (exit 10) wherever
 it sits: what it holds is unknown. `--verbose` names it. The same argument
@@ -162,7 +158,6 @@ import re
 import stat
 import subprocess
 import sys
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -813,18 +808,6 @@ RAW_NONCE_PREFIX = 64 * 1024
 #: One JSON string escape: a backslash and u with four hex digits, or a backslash and one character.
 JSON_ESCAPE = re.compile(r"\\(u[0-9a-fA-F]{4}|.)", re.DOTALL)
 JSON_SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
-#: The rest of one JSON string after its opening quote, up to and including its closing quote.
-JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
-#: What follows an object key: whitespace, then a colon.
-JSON_KEY_COLON = re.compile(r"\s*:")
-#: JSON's own whitespace, which Python's \s is wider than.
-JSON_WHITESPACE = re.compile(r"[ \t\n\r]*\Z")
-#: What a cut can leave where JSON expects a value: a minus sign or part of a literal.
-JSON_CUT_VALUE = re.compile(r"(?:-|t(?:r(?:u)?)?|f(?:a(?:l(?:s)?)?)?|n(?:u(?:l)?)?)\Z")
-#: What a cut can leave right after a number's digits: its fraction point or exponent, unfinished.
-JSON_CUT_NUMBER = re.compile(r"(?:\.|[eE][-+]?)\Z")
-#: Part of a \u escape, inside a string the cut ends, from the u on: where CPython reports it.
-JSON_CUT_ESCAPE = re.compile(r"u[0-9a-fA-F]{0,3}\Z")
 
 
 def unescape_json(text: str) -> str:
@@ -841,61 +824,20 @@ def unescape_json(text: str) -> str:
     return JSON_ESCAPE.sub(decode, text)
 
 
-def json_values(raw: str) -> Iterator[tuple[str, bool]]:
-    """Each string value in raw JSON text, decoded, and whether the text cut it off. A whole key
-    is skipped; a key the text cuts off before its colon is yielded as a cut value. Outside a
-    string every quote opens one, so a quote that content escapes never starts a string."""
-    at = raw.find('"')
-    while at != -1:
-        body = JSON_STRING_BODY.match(raw, at + 1)
-        if body is None:
-            yield unescape_json(raw[at + 1 :]), True
-            return
-        end = body.end()
-        if not JSON_KEY_COLON.match(raw, end):
-            yield unescape_json(raw[at + 1 : end - 1]), False
-        at = raw.find('"', end)
+def raw_holds_nonce(raw: str, wanted: str) -> bool:
+    """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
+    as a fork's own, in its first RAW_NONCE_PREFIX characters: the first nonce after a target
+    line opens, as the target filter reads a readable fork. Never a later record, and never a mere
+    mention: a brief that names the nonce with no target line before it is not the round's fork
+    (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a correct
+    fork (exit 10).
 
-
-def clean_cut(raw: str) -> bool:
-    """Whether raw JSON text parses as an object, or is cut cleanly: the parser fails only where
-    the text ends, in an open string, in a partial escape or token, or with only JSON whitespace
-    left. Before that point every string boundary is the parser's own, so json_values agrees with
-    it. A record 0 that fails earlier, on a malformed string such as "C:\" for one, can invert
-    every boundary after it, so the string walk never reads the real head (review of f1963bf).
-    The allowlist is closed: extra data after a whole value, a value that is no object, any error
-    wording it does not know, and any other tail read as not clean, which errs toward refusing.
-    A cut text must open an object too, so a cut string or array is not clean (review of
-    187048b)."""
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError as err:
-        if not raw.lstrip(" \t\n\r").startswith("{"):
-            return False
-        rest = raw[err.pos :]
-        if err.msg.startswith("Unterminated string"):
-            return rest.startswith('"') and JSON_STRING_BODY.match(raw, err.pos + 1) is None
-        if err.msg.startswith("Invalid \\uXXXX escape"):
-            return raw[err.pos - 1 : err.pos] == "\\" and JSON_CUT_ESCAPE.match(rest) is not None
-        if not err.msg.startswith("Expecting"):
-            return False
-        if JSON_WHITESPACE.match(rest) is not None:
-            return True
-        if err.msg.startswith("Expecting value"):
-            return JSON_CUT_VALUE.match(rest) is not None
-        if err.msg.startswith("Expecting ',' delimiter"):
-            return raw[err.pos - 1 : err.pos].isdigit() and JSON_CUT_NUMBER.match(rest) is not None
+    For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
+    target line, past an escaped newline too, so its JSON escapes are decoded before matching.
+    """
+    if not NONCE_SHAPE.search(wanted):
         return False
-    except (ValueError, RecursionError):
-        return False
-    return isinstance(value, dict)
-
-
-def line_scan_holds_nonce(raw: str, wanted: str) -> bool:
-    """The search of e2fd46e, kept for a record 0 whose string walk cannot be trusted: decode every
-    escape, then read each line a target line opens, or the JSON string on a line the prefix
-    opens. It errs toward refusing."""
-    lines = unescape_json(raw).splitlines()
+    lines = unescape_json(raw[:RAW_NONCE_PREFIX]).splitlines()
     for index, line in enumerate(lines):
         bare = line.lstrip(" \t>")
         # A target line opens a line, or, on record 0's first line, the JSON string it sits in.
@@ -907,57 +849,6 @@ def line_scan_holds_nonce(raw: str, wanted: str) -> bool:
         # on which nonce is the fork's own.
         own = read_target([bare[at:]] + lines[index + 1 :], 0).own_nonce
         if own_nonce_matches(wanted, own):
-            return True
-    return False
-
-
-def raw_holds_nonce(raw: str, wanted: str) -> bool:
-    """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
-    as a fork's own, in its first RAW_NONCE_PREFIX characters. Never a later record, and never a
-    mere mention: a brief that names the nonce with no target line before it is not the round's
-    fork (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a
-    correct fork (exit 10).
-
-    For a transcript whose record 0 cannot be parsed, each JSON string value in it is decoded and a
-    whole one is read by read_head itself. On a clean cut, content that quotes the prefix, an
-    escaped quote in the raw bytes, opens no string; decoding the whole record first once read it as
-    a head (korus PR 279, Lander hold finding 1). A string the text cuts off may have lost the tag
-    below a target line, and the lines that split its arguments, so there the first nonce after any
-    line the prefix opens, a quoted one too, counts: that errs toward refusing. So does reading
-    every string, where read_head reads only the message's first text block.
-
-    The walk is trusted only where clean_cut accepts record 0 read whole, not just the searched
-    prefix: there it is deliberately less strict than e2fd46e, as a mention is no head. On every
-    other record 0 line_scan_holds_nonce, the search of e2fd46e, runs too over the same prefix, so
-    there the result is never less strict than e2fd46e's, a mention included (review of
-    f1963bf).
-    """
-    if not NONCE_SHAPE.search(wanted):
-        return False
-    text = raw[:RAW_NONCE_PREFIX]
-    if not clean_cut(raw) and line_scan_holds_nonce(text, wanted):
-        return True
-    return walk_holds_nonce(text, wanted)
-
-
-def walk_holds_nonce(text: str, wanted: str) -> bool:
-    """raw_holds_nonce's string walk, over text already cut to RAW_NONCE_PREFIX."""
-    for value, cut in json_values(text):
-        if TARGET_PREFIX not in value:
-            continue
-        lines = value.splitlines()
-        if cut:
-            bare = [line.lstrip(" \t>") for line in lines]
-            owns = [
-                first_nonce("\n".join(bare[index:])[len(TARGET_PREFIX) :])
-                for index, line in enumerate(bare)
-                if line.startswith(TARGET_PREFIX)
-            ]
-        else:
-            found = read_head(lines)
-            heads = [found, *found.candidates] if found.review else []
-            owns = [head.own_nonce for head in heads]
-        if any(own_nonce_matches(wanted, own) for own in owns):
             return True
     return False
 
