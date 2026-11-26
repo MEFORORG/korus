@@ -313,6 +313,7 @@ It replaced the owner ruling of 2026-08-28, which sent every such conflict to th
 | While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, the Owner, not the rule above, decides which side of a playbook conflict wins. *While a kill-switch conflict waits on the Owner* says what a seat does meanwhile. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
 | While a kill-switch conflict waits on the Owner | Every seat, Special included, follows the stricter of the two conflicting rules until the Owner rules. Owner decisions d20261126T095346944-a71f0a and d20261126T103011339-41c9a1, 2026-11-26 US Central. |
 | While it waits, if neither rule is stricter or three texts disagree | Take neither conflicting act and wait for the Owner, carrying on with everything else. A Builder puts the question in its report. Owner decision d20261126T103014945-2c7e51, 2026-11-26 US Central. |
+| If the kill switch reads `off` while the ruling is pending | From then on this section's rule, the newer owner ruling wins, settles the conflict. The Owner's later ruling still wins. Owner decision d20261126T103017342-b8ee1a, 2026-11-26 US Central. |
 | The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision d20261126T043233562-3f4336, 2026-11-25 US Central. |
 
 ### Your worktree, not your seat, decides which coordination record you touch
