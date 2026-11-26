@@ -593,16 +593,15 @@ That record is history for the old 2 hours. The 30 minutes comes from the 2026-1
 **While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 
-`held_pr_turns.py` on engine `main` still expires an ack at 2 hours, its `ACK_TTL`. Every
-30-minute rule in this section takes effect when engine PR 3345 merges, which moves `ACK_TTL` too.
-Until then engine `main`'s section 5 governs, at 2 hours.
+`held_pr_turns.py` reads these windows as `ACK_TTL` and `HOLD_TTL`. Where engine `main`'s section 5
+differs from this section, [LANDER.md](LANDER.md), *Repair a held PR at once*, says which governs.
 
 Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
 
 **A hold naming one determinate fix may get the Lander's repair Builder as soon as it is posted**,
-unless you answered it in the last 30 minutes. That holds once engine PR 3345 merges. [LANDER.md](LANDER.md), *Repair a held PR at once*,
-holds the rule. So answer a hold at once, or expect the repair.
+unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a held PR at once*,
+states the rule. So answer a hold at once, or expect the repair.
 
 **CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
 and future landers to be more proactive"*. The `hold-ack` and transfer windows read 2 hours until
@@ -894,7 +893,8 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | If it names another session | Stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
-| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, and stop at any refusal. They make only the fixes the hold names. |
+| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, and stop at any refusal. They use the checkout and push in [LANDER.md](LANDER.md), *Repair a held PR at once*. |
+| Their scope | Working a hold, only the fixes the hold names. On a non-held repair, only the fixes their brief names. |
 | The head to compare | For the first Builder, the hold's head. |
 | A Builder that stops | It reports to you, and you tell the Lander. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
