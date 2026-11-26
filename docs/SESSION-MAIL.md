@@ -415,7 +415,9 @@ An event that nothing names is read as `SessionStart`. That is a hook with no `-
 input is empty, will not parse, or names no event. It shows what it finds and marks nothing shown.
 
 Input the hook-input resolver refuses as a whole, unparseable input included, finds `NO BOX`. A
-`Stop` that such input still names keeps stdout empty.
+`Stop` that such input still names keeps stdout empty. Its fault stamp keys on the worktree its
+`cwd` names, when that is a fully qualified directory that exists, and on the start checkout
+otherwise.
 
 What it finds can be the wrong box. With no `cwd` to read, the drain stays where it started, which
 is the primary under the desktop app, so a worktree session is shown the primary's mail. The line

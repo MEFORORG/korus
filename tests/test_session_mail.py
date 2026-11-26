@@ -1089,24 +1089,34 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
         session_id or event is not a string, and the drain then dropped its cwd too, so the fault
         stamp keyed on the start checkout, the primary. Main's loose parse kept the cwd. The stamp
         must land on the worktree the cwd names, which the peer's SessionStart shows; the control
-        is the primary's own SessionStart, which shows none."""
-        for refused in ({"session_id": 7, "hook_event_name": "Stop"},
-                        {"session_id": "w1", "hook_event_name": ["Stop"]}):
-            with self.subTest(stdin=refused):
-                for p in self.stamps():
-                    p.unlink()
-                payload = {**refused, "cwd": str(self.peer), "stop_hook_active": False}
-                r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(DRAIN)],
-                                   input=json.dumps(payload), capture_output=True, text=True,
-                                   cwd=str(self.primary), timeout=TIMEOUT_SECONDS)
-                self.assertEqual(0, r.returncode, r.stderr)
-                self.assertEqual("", r.stdout)
-                self.assertEqual(1, len(self.stamps()), f"the refused Stop left no stamp: {r.stderr}")
-                home = self.drain(self.primary, event="SessionStart", session_id="c1",
-                                  fields={"cwd": str(self.primary), "source": "startup"},
-                                  pass_event=False)
-                self.assertNotIn("UNSEEN FAULT", self.ctx(home), "the stamp keyed on the start checkout")
-                self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")), "the peer was not told")
+        is the primary's own SessionStart, which shows none. The lone copy with no `_mail.ps1`
+        covers the early path, which reads its input before the event."""
+        lone = self.lone_copy(mail_module=False, input_reader=True)
+        base = {"cwd": str(self.peer), "stop_hook_active": False}
+        shapes = ({**base, "session_id": 7, "hook_event_name": "Stop"},
+                  {**base, "session_id": "w1", "hook_event_name": ["Stop"]},
+                  {**base, "session_id": "w1", "Session_Id": "w9", "hook_event_name": "Stop"},
+                  [{**base, "session_id": "w1", "hook_event_name": "Stop"}])
+        for script in (DRAIN, lone):
+            for refused in shapes:
+                for args in ([], ["-Event", "Stop"]):
+                    self.assert_refused_stop_stamps_peer(script, refused, args)
+
+    def assert_refused_stop_stamps_peer(self, script, refused, args):
+        with self.subTest(script="drain" if script == DRAIN else "lone", stdin=refused, args=args):
+            for p in self.stamps():
+                p.unlink()
+            r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(script), *args],
+                               input=json.dumps(refused), capture_output=True, text=True,
+                               cwd=str(self.primary), timeout=TIMEOUT_SECONDS)
+            self.assertEqual(0, r.returncode, r.stderr)
+            self.assertEqual("", r.stdout)
+            self.assertEqual(1, len(self.stamps()), f"the refused Stop left no stamp: {r.stderr}")
+            home = self.drain(self.primary, event="SessionStart", session_id="c1",
+                              fields={"cwd": str(self.primary), "source": "startup"},
+                              pass_event=False)
+            self.assertNotIn("UNSEEN FAULT", self.ctx(home), "the stamp keyed on the start checkout")
+            self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")), "the peer was not told")
 
     def test_a_shown_stamp_is_consumed_at_a_stop_under_delivery_off(self):
         self.measured_stop()

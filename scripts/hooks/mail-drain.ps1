@@ -209,25 +209,36 @@ function ConvertFrom-DrainLooseJson {
         read from it. Its event, because stdout at a Stop blocks the turn, so a Stop it names must
         still be read as one: a one-element array or a non-string hook_event_name names its event
         as it did before the resolver refused it. And its cwd, which only keys the fault stamp, so
-        the worktree the session names is told, as main's loose parse told it.
+        the worktree the session names is told, as main's loose parse told it. Get-DrainLooseCwd
+        holds that rule.
     #>
     param([string] $Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
-    try { return ($Text | ConvertFrom-Json -ErrorAction Stop) }
+    try { $loose = $Text | ConvertFrom-Json -ErrorAction Stop }
     catch {
         # Keys that differ only in case make ConvertFrom-Json throw; the resolver's rebuild reads
         # the rest, leaving the twins out.
-        try { return (ConvertTo-CcxJsonObject ($Text | ConvertFrom-Json -AsHashtable -ErrorAction Stop) $null) }
+        try { $loose = ConvertTo-CcxJsonObject ($Text | ConvertFrom-Json -AsHashtable -ErrorAction Stop) $null }
         catch { return $null }
     }
+    # The comma keeps an array whole. A bare return enumerates it once more, so a doubly nested
+    # array would name an event and cwd that main's loose parse never read.
+    return , $loose
 }
 
 function Get-DrainLooseCwd {
-    # The cwd a refused input names, when it is a non-blank string, else ''. It keys a fault stamp
-    # and nothing else: it never names a box, a session, or a directory to enter.
+    <#
+    .SYNOPSIS
+        The cwd a refused input names, for its fault stamp alone, else ''.
+    .DESCRIPTION
+        The resolver's own cwd rule, Get-CcxHookPayloadCwd: a string, fully qualified, and a
+        directory that exists. So a relative cwd, which would resolve against the start checkout,
+        keys nothing here either. It never names a box, a session, or a directory to enter.
+    #>
     param([object] $Loose)
-    if ($Loose -is [pscustomobject] -and $Loose.PSObject.Properties['cwd'] -and $Loose.cwd -is [string] -and
-        -not [string]::IsNullOrWhiteSpace($Loose.cwd)) { return $Loose.cwd }
+    if ($Loose -isnot [System.Management.Automation.PSCustomObject]) { return '' }
+    $cwd = (Get-CcxHookPayloadCwd -Payload $Loose).Cwd
+    if ($cwd) { return $cwd }
     return ''
 }
 
@@ -887,7 +898,8 @@ catch {
         if ($reader) {
             $early = $null
             $text = Read-CcxHookInput
-            # The resolver's own parse, so input it refuses (a one-element array, say) names nothing here.
+            # The resolver's own parse, so input it refuses (a one-element array, say) names no session
+            # here. Its event and cwd are still read loosely below, the cwd for the fault stamp alone.
             try { $early = (ConvertFrom-CcxHookJson $text).Value } catch { }
             if ($early -is [pscustomobject]) {
                 if ($early.PSObject.Properties['cwd'] -and $early.cwd -is [string]) { $script:FaultAbout = $early.cwd }
@@ -898,8 +910,8 @@ catch {
             $named = Get-DrainEvent $early
             if ($null -eq $early) {
                 $loose = ConvertFrom-DrainLooseJson $text
-                if (-not $named) { $named = Get-DrainEvent $loose }
-                if (-not $script:FaultAbout) { $script:FaultAbout = Get-DrainLooseCwd $loose }
+                $named = Get-DrainEvent $loose
+                $script:FaultAbout = Get-DrainLooseCwd $loose
             }
             if ($named) { $Event = $named }
             elseif (-not $Event -and -not $script:CcxHookInputFault) { $Event = 'SessionStart'; $script:Unproven = $true }
@@ -1057,7 +1069,9 @@ try {
         $named = Get-DrainEvent $payload
         if ($null -eq $payload -and $raw) {
             $loose = ConvertFrom-DrainLooseJson $raw
-            if (-not $named) { $named = Get-DrainEvent $loose }
+            $named = Get-DrainEvent $loose
+            # Not over a FaultAbout already set: the resolver may have entered a cwd and refused
+            # only what came after.
             if (-not $script:FaultAbout) { $script:FaultAbout = Get-DrainLooseCwd $loose }
         }
         if ($named) { $Event = $named }
