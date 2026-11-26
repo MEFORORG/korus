@@ -141,10 +141,6 @@ confirm it returns heads at all. A failed `ls-remote` looks exactly like a branc
 Owner ruling 2026-09-20. The Builder runs the `code-review` skill at step 11 and then exits, so
 the pull request does not exist while the seat that ran the check is still alive.
 
-**That sentence said "its `code-review` subagent" until 2026-09-22.** *CORRECTED 2026-09-20* in
-section 4 retired that word and this copy kept it. A retraction that reaches one of two sites
-leaves the other as the version a reader meets first.
-
 **You are the seat that can post it.** `BUILDER.md` section 4e holds the shape, the Builder writes
 the text, and you post it as given rather than summarising it.
 
@@ -828,24 +824,6 @@ Prefer the fresh branch to a spawn. A subagent cannot outlive a mistake; a spawn
 ---
 
 ## 6. Never Do These
-
-**Two rows in *Standing rules* cited this section by a heading that has never existed here, and
-2026-09-18 repointed them.** They named it *Four acts stay outside this seat*.
-
-Measured at `ff11047`, before the repair:
-
-```bash
-git show ff11047:roles/MANAGER.md | grep -cE '^#{2,3} .*Four acts'
-```
-
-It returns 0. Control, the same pattern over every heading in that file, `'^#{2,3} '`: 10, so the
-extraction read the file rather than returning empty.
-
-The name also promised four acts against a table of two. A reader following it found nothing, and
-could not tell a missing section from a missing rule.
-
-**Do not measure the phrase's absence in THIS file.** The paragraph you are reading contains it, and
-so does the repair's own commit message.
 
 | Item | Rule | What would end it |
 | --- | --- | --- |
