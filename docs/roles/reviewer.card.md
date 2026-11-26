@@ -6,10 +6,10 @@ It is kept because archived pages on this site link to it. Deleting it would tur
 404, which reads as "this page never existed" rather than "this seat went away".
 
 **Nothing replaced it.** The review gate this seat fed was retired on 2026-09-04: no label blocks a
-merge, and the required checks on `main` are `gates (ubuntu-latest)` and `gates (windows-latest)`.
+merge, and no repository's `main` requires a label; read the live set from branch protection.
 
 Reading a diff and posting findings nobody is required to act on stopped being a seat's job.
-[The Lander](lander.card.md) already merges without waiting for one. Do not add a review step back.
+[The Lander](lander.card.md) already merges without waiting for one. Do not add a review seat back.
 
 **Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `reviewer`, the
 role-card hook injects no card and says the seat was retired. Set a live seat instead:
@@ -22,7 +22,8 @@ Live seats: manager, builder, lander, special, watchdog.
 
 ## What this seat owns
 
-Nothing. A pull request merges on its two required checks, with no review step ahead of it.
+Nothing. A pull request merges on its repository's required checks, once the Lander holds proof
+that code review ran (owner ruling 2026-09-29).
 
 ## What it must not do
 

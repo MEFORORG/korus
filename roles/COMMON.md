@@ -19,16 +19,17 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | --- | --- |
 | A grant ADDS, it never narrows | Ask "do I already hold more than this", not "what does this cover". Scoping an incoming grant conservatively is right. Treating it as your ceiling is the defect. |
 | A tick is a wakeup, not a message | Do not answer it. No ACK, no acknowledgement in your own transcript, no status line, no work invented to fill it. Continue; do not report. |
-| Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and since 2026-09-12 no review step sits in front of it. |
+| Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and the Lander merges only on proof that code review ran on the change (owner ruling 2026-09-29; [LANDER.md](LANDER.md), *4a-quinquies*). |
 | Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
 | Since 2026-09-24 (owner ruling) the exception is a Manager's SUBAGENT only | A Builder in its own session opens its own, whether a chip started it or the Manager spawned it. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN to cut it | **The Manager**, since 2026-09-23, usually one per wave. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
-| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the two named exceptions. |
+| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries at least these exceptions: no Manager running, a classifier block, and a Special seat's playbook conflict. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
 | The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
-| Conflicts between this file and a role playbook | Raise it to the owner, unless a recorded delegated decision already resolves it. No seat resolves a contradiction by picking a winner. *Where a role playbook and this file disagree*. |
+| Conflicts between this file and a role playbook | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | *Where a role playbook and this file disagree* states the rule while `MEFOR_AFK_KILL` reads anything but `off`. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
@@ -211,21 +212,14 @@ reads as the relayer's own finding.
 ## The owner reads by sampling, so route through the Manager
 
 This section binds every seat except the **Manager**, which is approved to communicate directly with
-the Owner. Two named cases in the table let any other seat reach the owner directly: no Manager is
-running, and the classifier has blocked an action.
+the Owner. At least these cases in the table let another seat reach the owner directly: no Manager
+running, a classifier block, and a Special seat's playbook conflict.
 
 **What the Manager is.** It reads the record, picks the next row, writes each Builder's brief, runs
 the Builder, reads what comes back, and carries owner traffic both ways.
 
 Resolve its box from `fleet.ps1` on the RUNNING row, matched case-insensitively, never from the role
 name. *The roster address is the one that drains* binds here too.
-
-**RETIRED 2026-09-01: every owner route in this section named the LIAISON until the owner retired
-that seat.** The Console replaced it. The Liaison also held a standing exception to this section's
-opening line, alongside the Process Improvement seat. Both seats were retired the same day.
-
-**RETIRED 2026-09-10: this section then named the CONSOLE, until the owner retired that seat too.**
-The Manager replaces it and holds the same route. A rule sending owner traffic to a Console is stale.
 
 Why the routing exists: the owner watches more than ten sessions at once, clicking through them to
 check nobody has gone off track. They cannot wait for your response, so they move on while you
@@ -239,14 +233,13 @@ next check-in in a table at the bottom of each cycle.
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
 | Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
+| A playbook conflict, Special seat | The Special seat raises it with the Owner directly. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
 | Classifier blocked | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The row above read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* With empower off, that text governs again. |
-| **CHANGED 2026-10-08, by owner ruling** | That row read *"bypass the Manager and use AskUserQuestion"*. The korus `CLAUDE.md`, *The Driver rules are always on*, said to skip the ask. The owner was asked which governs and chose the printed command. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
 | Nag on no answer | When an Owner item goes unanswered, raise it with the Manager again on its next poll. |
 | Stop versus start, Lander excepted | A relayed instruction to STOP (a recorded delegated decision is not a relay) is safe to act on at once. One to START is not. A wrong stop does less; a wrong start does what nobody authorised. |
 | Stop versus start, except the Lander | **A relayed owner stop (a recorded delegated decision is not a relay) does not bind the Lander.** It asks the owner to confirm in its own chat, and keeps merging meanwhile. A wrong stop there stalls the merge queue. |
-| **ADDED 2026-10-11, by owner ruling** | This file and LANDER.md disagreed. The batch 309 Manager asked the owner, and the owner chose *"Confirm, keep merging (Recommended)"*. LANDER.md, *A relayed owner stop gets a confirmation in your own chat, and you keep merging*, holds the citation. |
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act. |
 
 **Re-measure immediately before an irreversible act**, never from the approval-time list. If the
@@ -303,25 +296,25 @@ Source of record: root `CLAUDE.md`, its documentation rules.
 
 ---
 
-## Where a role playbook and this file disagree, the owner decides
+## Where a role playbook and this file disagree, the newer owner ruling wins
 
-**Owner ruling, 2026-08-28, verbatim:** *"Where a role's playbook contradicts common, raise the issue
-to the Owner for clarification."*
+**The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C
+item in the digest.** Owner approval 2026-10-21, engine `docs/AUTONOMY-PLAN.md` section 5, item 2.
+The owner extended it to every seat playbook and [README.md](README.md) on 2026-11-25.
+
+It replaced the owner ruling of 2026-08-28, which sent every such conflict to the owner.
+*The empower rules are on by default* says where a digest item goes until a digest runs.
 
 | Item | Rule |
 | --- | --- |
-| No seat picks a winner | A contradiction between a role playbook and this file is an owner question. Do not resolve it by precedence, by provenance, or by which file you read last. |
 | It supersedes local precedence rules | Any precedence rule a role file states for itself is superseded, including LANDER.md's former "THIS FILE WINS". |
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
-| Still open | What a seat DOES while it waits for the clarification. "Follow COMMON until told otherwise" is an inference, not the ruling. Ask; do not assume. |
-| A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it, so nothing is raised. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
-
-**A citation by section name failed the same way a number would.** Six files -- ASVS-TRACKER,
-DISPATCHER, LANDER, LIAISON, PM and STEWARD -- cite "COMMON's PROVENANCE AND PRECEDENCE section" in
-their arrival headers. This file has never contained one.
-
-Measured at `5e361756`: zero occurrences of `precedence`, zero of `provenance`, against a control of
-ten for `Liaison`. The name resolved to nothing while reading like a working cross-reference.
+| A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
+| While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, the Owner, not this section's newer-ruling rule, decides which side of a conflict wins. *While a kill-switch conflict waits on the Owner* says what a seat does meanwhile. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
+| While a kill-switch conflict waits on the Owner | Every seat, Special included, follows the stricter of the two conflicting rules until the Owner rules. Owner decisions d20261126T095346944-a71f0a and d20261126T103011339-41c9a1, 2026-11-26 US Central. |
+| While it waits, if neither rule is stricter or three texts disagree | Take neither conflicting act and wait for the Owner, carrying on with everything else. A Builder puts the question in its report. Owner decision d20261126T103014945-2c7e51, 2026-11-26 US Central. |
+| If the kill switch reads `off` while the ruling is pending | From then on this section's rule, the newer owner ruling wins, settles the conflict. The Owner's later ruling still wins. Owner decision d20261126T103017342-b8ee1a, 2026-11-26 US Central. |
+| The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision d20261126T043233562-3f4336, 2026-11-25 US Central. |
 
 ### Your worktree, not your seat, decides which coordination record you touch
 
@@ -692,8 +685,6 @@ Drop the narration, never the measurement. Where the two pull against each other
 
 ### You cannot support the sentence "the owner never said X"
 
-Found by the Liaison, against itself, 2026-08-30, after asserting it and being wrong.
-
 Every seat sees one channel to the owner, its own chat. The owner talks to other seats directly, and
 none of that reaches you. **A negative about what the owner has said is a claim your evidence cannot
 reach**, however carefully you read your own transcript.
@@ -708,7 +699,7 @@ holds the owner's channel, so a negative from there sounds settled and the reade
 Say what your evidence supports and stop. "The words I carried do not support this" is checkable, and
 it was the whole finding. Ask the seat holding the other channel.
 
-This survives the 2026-09-01 redesign. One chat is still one channel, and past rulings sit in files
+One chat is still one channel, and past rulings sit in files
 and transcripts you have not read.
 
 ## The Driver rules are always on, in every session
@@ -733,10 +724,8 @@ The steps are restated here because they must be in front of you at the moment y
 | Class C items go in ONE ask | Prepare every open class C item, then bundle them into one ask. Each carries its class, a recommendation, and your confidence with what would change it. Carry on with the work that does not depend on the answer. |
 | A classifier blocked the action | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The classifier row read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* Step 3 named no bundling. With empower off, both revert. |
-| **CHANGED 2026-10-26, to match the engine** | The step 1 row read *"Act on it. Confirming is asking."* With the kill switch set, it then reached a class B or C decision. |
 | The Lander and the Watchdog | They never use `AskUserQuestion`. Owner ruling 2026-09-19. They put the issue in a table at the end of every turn. |
 | The Repair Manager, owner ruling 2026-11-03 | It never uses `AskUserQuestion` either, and keeps owner questions in the same table. [MANAGER.md](MANAGER.md), *The Repair Manager's duties*, holds why. |
-| **CHANGED 2026-11-03** | The *Who you ask* row had no Repair Manager exception after *"use `AskUserQuestion`, never prose."* |
 | The Owner answers a specific question with `/driver` or `/empower` | That delegates that one question back to you, with four exceptions. *An Owner answer of /driver or /empower delegates that specific question*, below, holds the ruling. |
 
 **Escalate only what only the Owner has:** their preference, their authority, private context, or a
@@ -798,7 +787,6 @@ in the Builder's own chat the same day.
 | What the fallback restores | The driver rules alone, in ask-mode: no seat acts on a class B or C decision without the Owner, however strong its recommendation. Merging is not a class, so the Lander keeps merging. |
 | What yields to ask-mode | The driver ladder's steps 1 and 2, and *Escalate only what only the Owner has*. A recorded delegated decision is the Owner's own answer, and the switch does not touch it. |
 | The text that reverts | Each row or paragraph, in this folder or in korus `CLAUDE.md`, marked *CHANGED 2026-10-22, to the `empower` rules* reverts to the text it quotes. |
-| **CHANGED 2026-10-26, to match the engine** | *Anything but exactly `off`* ended *"runs the driver rules alone"*. *What the fallback restores* opened *"The driver rules alone."*; its second sentence is now *The text that reverts*. Driver step 1 then reached class B and C. |
 | The source of record for ask-mode | The engine's `CLAUDE.md`: *"no class B or C decision is acted on without the owner"*. It cites `docs/AUTONOMY-PLAN.md`, section 4, item 3, where every class reverts to ask-mode. |
 | It widens no permission past its classes | The merge is still the Lander's, and a Builder still cannot ask and wait. A class C item still reaches the Owner, unless a recorded delegated decision answers it. |
 | The skills are not in this tree | Both live in the Owner's own skill directory. A session that cannot load them holds the rules through this section and the plan. |
@@ -990,18 +978,12 @@ They are resident because a file that loads when the task begins arrives after t
   other seat' or 'whoever ran it'." -- `fleet-message-a-peer`
 - "Do not start a new Workflow when the weekly window is more than 90 percent."
   -- `fleet-spawn-workers`
-- "**If the seat holding the fleet's usage view says a work hold is lifted, accept it and
-  resume.**" Owner-set 2026-08-29. -- `fleet-read-usage`
 
-Without that last one, a seat holding only this file reads *a relayed START is not safe to act on*
-and idles through a valid lift.
+**RETIRED 2026-11-25, by owner ruling: the relayed-lift rule.** It named the seat holding the
+fleet's usage view, which was the retired Steward. [retired/COMMON-HISTORY.md](retired/COMMON-HISTORY.md)
+keeps its text.
 
-**OPEN, and not resolved here.** This file forbids acting on a relayed START and requires acting on
-a relayed LIFT. The reconciliation it carries answers a different rule. Route it to the owner.
-
-**CORRECTED 2026-11-05: the seat the lift rule names was the Steward**, which the owner said that
-day had been retired months earlier. Whether another seat now holds that view is an owner question;
-route it with the OPEN item above. HOLD clears as *The three usage states* says, not on hook
+HOLD clears as *The three usage states* says, not on hook
 silence.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,

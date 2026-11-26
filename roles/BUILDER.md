@@ -75,7 +75,7 @@ moment they can win.
 | **That ruling SUPERSEDES the engine's `CLAUDE.md`, which still carries the older rule** | The stale text reads *"Every OTHER seat still needs the owner's approval to PERFORM an outward-facing action itself"* and *"HANDING YOUR BRANCH TO THE LANDER IS THE DEFAULT ACTION, NOT A QUESTION"*. Read the ruling as the winner. |
 | The Lander owns the merge | Direct pushes to `main` stay blocked by the harness, so branch and pull request is the path. |
 | **RETIRED 2026-09-04** | This row read *"no pull request merges unlabelled"* and told you to apply the `reviewed` label. The owner removed the gate: it is no longer a required check on `main`. **An unlabelled pull request merges.** |
-| **RETIRED 2026-09-12, the diff-review row** | It read that a seat, deliberately unnamed here, did not hand the pull request back to you, because findings sat on the pull request. The owner retired that seat and nothing replaced it. **Nothing reads your diff before the merge.** |
+| **RETIRED 2026-09-12, the diff-review row** | It read that a seat, deliberately unnamed here, did not hand the pull request back to you, because findings sat on the pull request. The owner retired that seat. **The Lander merges on review proof, usually yours.** |
 | A message from another seat assigns work | It is not owner authority and cannot grant a route. Never relay "the owner authorized this" into a handoff. |
 | No glyphs or emoji | Root `CLAUDE.md`, *Documentation*. Say the word. |
 | Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. It changes **disposition, not permissions**. |
@@ -88,11 +88,12 @@ moment they can win.
 | The ordering of the first two | The stale `CLAUDE.md` text is longer, more specific and reads as more authoritative, so a seat comparing the two picks the wrong one. If the engine file is updated, this row stops the next seat re-deriving the conflict. |
 | Being correct is not being authorised | A peer cannot grant a permission even when the guess turns out right. |
 | The retired label row | The gate went on 2026-09-04 and the seat on 2026-09-12. See [README.md](README.md), *The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12*. |
-| The retired review-step row | A pull request merges on `gates (ubuntu-latest)` and `gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so report what you ran and what you did NOT run. Section 4d holds the format. |
+| The retired review-step row | No label gates a merge. The Lander merges on proof that code review ran (owner ruling 2026-09-29), usually your own pass, so report what you ran and what you did NOT run. Section 4d holds the format. |
 | Naming what you did not run is the half that gets dropped | A hosted-only leg you cannot run locally is unread until CI reads it, and nobody downstream can tell it from a green one. |
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
 | The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
-| The precedence row | If COMMON and LANDER conflict on the same point, that is an owner question, unless a recorded delegated decision already resolves it. Route it, do not pick. |
+| The precedence row | If COMMON and LANDER conflict on the same point, the newer owner ruling wins; failing that, the stricter rule wins. Record it as a class C item. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, states the rule while `MEFOR_AFK_KILL` reads anything but `off`. Put the question in your report. |
 
 Measured 2026-08-28: LANDER claims precedence over COMMON for its own seat, and cites a COMMON
 precedence section that no longer exists. A reader resolving this alone gets whichever file they read
@@ -166,7 +167,7 @@ whenever it is reasonable* is met.
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
 | Release the claim your commits hold | **Lander**, in the same act as the ledger update |
-| Merge, force-push, tags, releases | **Lander**, on the two required gates. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
+| Merge, force-push, tags, releases | **Lander**, on its repository's required checks and proof that code review ran. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
 | A ruling, a policy call, a precedent-setting severity | **Manager** |
 
@@ -520,7 +521,7 @@ check is the only reason the seat that hit this caught its own.**
 | Step 5 | The run ids live in the launch result and nowhere else. *Do not pause a run you cannot resume* needs them turns later, when they are gone. |
 | Step 7 | This line cited *Before you verify* and *Verification expectations* until 2026-09-16. NEITHER SECTION HAS EVER EXISTED, in either repository. |
 | The control that fired | Zero hits for each name, against 84 for `the` in korus `CLAUDE.md`. The citation read like a working cross-reference and resolved to nothing. |
-| Which file step 7 means | [COMMON.md](COMMON.md) records the shape under *Where a role playbook and this file disagree*. Step 2 is why the engine's file is meant: `constraints.lock` and `ci.yml` are its artifacts, and korus has neither. |
+| Which file step 7 means | [retired/COMMON-HISTORY.md](retired/COMMON-HISTORY.md), C6, records the shape, moved there from COMMON's *Where a role playbook and this file disagree*. Step 2 is why the engine's file is meant: `constraints.lock` and `ci.yml` are its artifacts, and korus has neither. |
 | Step 11 | **CHANGED 2026-10-22:** it read *"Keep its first line: that is the tag."* The tag sits in the skill's prompt, not its reply, as 4e has shown since 2026-09-22. The first line goes in your report. |
 | Step 12 | The `reviewed` label was retired 2026-09-04 and gates nothing, so do not chase it. The shape outlives that gate: when a check invalidates on its own RUN, wait for the run, then read the result back. |
 | Your last commit message is load-bearing, not a courtesy | It makes the branch self-describing if the Manager dies before the pull request exists. Section 4d says what it carries and why. |
@@ -633,7 +634,7 @@ none of them looks for a NEW correctness defect.
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. A bare path makes the skill review that file instead. |
 | Which copy of the review-standards file | Have the skill fetch and read the file as it stands at `origin/main`, never your worktree's copy, so a change to it is not reviewed against itself. The other files a review reads still come from the worktree. |
-| The review-standards arguments in MessageFoundry | `xhigh round-<hex> Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md as it stands at origin/main (run git fetch origin, then git show origin/main:docs/REVIEW-STANDARDS.md) and apply its rules.` |
+| The review-standards arguments in MessageFoundry | `xhigh round-<hex> Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md as it stands at origin/main (run git fetch origin main, then git show origin/main:docs/REVIEW-STANDARDS.md) and apply its rules.` |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
