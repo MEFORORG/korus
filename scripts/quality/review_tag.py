@@ -35,22 +35,23 @@ whatever fork reads beside it: nothing in record 0 tells the skill's own prompt 
 pasted it, so the readable one may be the brief. With nothing read here, a refused head elsewhere
 refuses rather than exit 12, unless a head elsewhere reads with its tag.
 
-A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
-head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
-before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
-cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce
-anywhere as a whole token, a brief's mere mention included, as on main. It does so with no fork read here too, never exit 3. A mention cannot be told from a
-head in raw bytes, so a cut brief that only names the nonce refuses: a false refusal, which fails
-closed. A tagless fork here exits 5, unless such an unread fork
-sits elsewhere: then 10. With a nonce, a transcript that cannot be opened refuses (exit 10) wherever
-it sits: what it holds is unknown. `--verbose` names it. The same argument
-holds across worktrees: the head elsewhere may be the round's real fork, under a notice this tool
-does not know or displaced, and the readable one here a helper that pasted it. It once exited 0
-there and quoted the helper's tag, a `low` one under an `xhigh` round among them. Record times do
-not tell them apart: a helper's head can be written before the round, from the caller's own
-arguments and a documented tag. A fresh round clears it: a pasted head carries the OLD round's
-nonce, and a nonce matches only as the fork's own. A rerun of this tool does not, and a head
-pasted elsewhere later blocks a re-check of the old round for good: a refusal, never a wrong tag.
+A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a head
+in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable, before
+`--since` or after it -- refuses the reading. A fork in another worktree whose record 0 cannot be
+read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce as a whole
+token in its first RAW_NONCE_PREFIX characters, a brief's mere mention included, and it does so
+with no fork read here too, never exit 3. A mention cannot be told from a head in raw bytes, so a
+cut brief that only names the nonce refuses: a false refusal, which fails closed. A tagless fork
+here exits 5, unless such an unread fork sits elsewhere: then 10. With a nonce, a transcript that
+cannot be opened refuses (exit 10) wherever it sits: what it holds is unknown. `--verbose` names
+it. The same argument holds across worktrees: the head elsewhere may be the round's real fork,
+under a notice this tool does not know or displaced, and the readable one here a helper that pasted
+it. It once exited 0 there and quoted the helper's tag, a `low` one under an `xhigh` round among
+them. Record times do not tell them apart: a helper's head can be written before the round, from
+the caller's own arguments and a documented tag. A fresh round clears it: a pasted head carries the
+OLD round's nonce, and a nonce matches only as the fork's own. A rerun of this tool does not, and a
+head pasted elsewhere later blocks a re-check of the old round for good: a refusal, never a wrong
+tag.
 
 ONE FILE IS ONE FORK. A projects directory reached twice -- two roots naming one directory, or a
 junction or link inside one -- once listed the same fork twice and refused it as ambiguous. A file
@@ -827,16 +828,15 @@ def unescape_json(text: str) -> str:
 
 def raw_holds_nonce(raw: str, wanted: str) -> bool:
     """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
-    as a whole token anywhere in its first RAW_NONCE_PREFIX characters, as on main. Never a later
-    record: one that mentions the nonce once made an unread file elsewhere refuse a correct fork
-    (exit 10).
+    as a whole token in its first RAW_NONCE_PREFIX characters; a nonce past them is not seen. Never
+    a later record: one that mentions the nonce once made an unread file elsewhere refuse a correct
+    fork (exit 10).
 
     A mere mention in a brief counts, so a cut brief that only names the nonce refuses: a false
-    refusal, which fails closed. A scan that counted only the first nonce after a target line read
-    a cut record 0 holding a blockquoted target line, a head under a notice one level down, or a
+    refusal, which fails closed. Counting only the first nonce after a target line instead read a
+    cut record 0 holding a blockquoted target line, a head under a notice one level down, or a
     space or tab after the quote as not holding the nonce, and a fork here then read at exit 0
-    (Lander hold on korus PR 279). Any nonce that scan finds is also a whole token here, so it
-    adds no refusal and is gone.
+    (Lander hold on korus PR 279).
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
     target line, past an escaped newline too, so its JSON escapes are decoded before matching.
