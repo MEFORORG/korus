@@ -588,6 +588,8 @@ delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the ow
 and no commit of yours has landed since it. It then transfers only if you also read not live: no
 live session, or a transcript ending on a question unanswered over 30 minutes.
 
+That record set 2 hours. The 30 minutes is a reading of the 2026-11-26 instruction, below.
+
 **While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 

@@ -76,7 +76,7 @@ here" lists belong in a dated episode note.
 | A `/driver` or `/empower` answer to a specific question is a delegation | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling. COMMON.md holds it; *What you check on a delegated record* is your part. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
-| Repair a held PR at once | Owner instruction 2026-11-26. A hold naming one determinate fix gets a repair Builder subagent as soon as it is posted, two per PR. *Repair a held PR at once*, under *Prefer a SPAWNED SESSION*, holds the steps. |
+| Repair a held PR at once | Owner instruction 2026-11-26. A hold naming one determinate fix gets a repair Builder subagent as soon as it is posted, two per PR. *Repair a held PR at once*, after *Prefer a SPAWNED SESSION*, holds the steps. |
 | An unacknowledged hold transfers to the Repair Manager | Owner ruling 2026-11-03. Keep one Repair Manager alive in your CCD instance and check it every tick. Transfer a hold unacknowledged for 30 minutes (2 hours until 2026-11-26). *3b-quater* holds the order and what stays with the author. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
@@ -664,13 +664,14 @@ older conditions, and this newer instruction wins.
 | Item | Rule |
 | --- | --- |
 | When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, an owner ruling or behaviour is not one. |
-| Wait for an author who just answered | If the original author answered the hold in the last 30 minutes, with a `hold-ack`, a comment or a commit, wait for that author. A `hold-ack` expires 30 minutes after it. *3b-quater* says whose events count. |
+| Only while the hold still stands | Send one only while the hold names the current head and no author answer since disputes it. Otherwise post a fresh hold first. |
+| An author who answered in the last 30 minutes | Read the answer on your turn, as *3b-quater* says. A `hold-ack`, a comment or a commit then defers the repair Builder for 30 minutes from it. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
 | Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal. |
-| Its worktree | Dispatch it with `isolation: worktree`, as engine `CLAUDE.md` section 5 asks of every worker. |
+| Its worktree | Dispatch it with `isolation: worktree`, and have it run `ensure-venv.ps1` before its first `pytest`, `mypy` or `ruff` run. Engine `CLAUDE.md` section 5 asks both of every worker. |
 | Its scope | Only the fixes the hold names. |
 | Two repairs per pull request | A later hold is not a repair Builder's. It goes to the Repair Manager when *3b-quater* says it transfers. |
-| Count them on the pull request | Say so in a comment when you send one, numbered, so the count survives your session. A subagent leaves no other record. |
+| Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post nothing on the pull request instead, since a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
 | ASVS record content | Stays a Manager's, under the owner ruling of 2026-09-23. A repair Builder never takes it. |
 | Your review, unchanged | Every repair head gets your own review fork before the merge, and the repair Builder's own QA never counts. *Independence, and the risk left open*, *You land, and you review*, states it. |
 | Also unchanged | The review-proof rule, and what goes to the owner. *4a-quinquies* holds both. |
@@ -1001,7 +1002,7 @@ got a seat to push at 14:04Z. It enqueued within the hour.
 ### 3b-quater. A hold its author does not acknowledge transfers to the Repair Manager
 
 **Owner ruling 2026-11-03, in the Lander's session.** Asked *"Which tiers do you want to adopt?"*,
-the owner answered *"Tiers 1 and 2"*. Tier 1 loosened the quiet-author repair Builder, in *Prefer a
+the owner answered *"Tiers 1 and 2"*. Tier 1 loosened the quiet-author repair Builder, now *Repair a held PR at once*, in *Prefer a
 SPAWNED SESSION*. Tier 2 is this section.
 
 **Held pull requests waited hours on their authors, and the cause was reachability.** A session
@@ -1056,6 +1057,7 @@ transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this s
 
 The expiry was decided by the Lander under the owner's delegation of 2026-11-03. Asked *"should a
 hold-ack expire 2h after it"*, the owner answered *"/driver"*. Record d20261103T190111765-2aa8b6.
+That record set 2 hours; the 30 minutes is the 2026-11-26 reading above.
 
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
