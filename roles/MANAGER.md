@@ -586,7 +586,7 @@ delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the ow
 
 **A `hold-ack` expires 30 minutes after it**, while it is still your newest event since the hold
 and no commit of yours has landed since it. It then transfers only if you also read not live: no
-live session, or a transcript ending on a question unanswered over 30 minutes.
+live session, or a transcript ending on a question unanswered over 2 hours.
 
 That record is history for the old 2 hours. The 30 minutes comes from the 2026-11-26 instruction, below.
 
@@ -605,10 +605,8 @@ unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a
 holds the rule. So answer a hold at once, or expect the repair.
 
 **CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
-and future landers to be more proactive"*. Each window here read 2 hours until then.
-
-The Lander's brief under that instruction set the `hold-ack` and transfer windows. Only the not-live
-question window is the Manager's reading.
+and future landers to be more proactive"*. The `hold-ack` and transfer windows read 2 hours until
+then. The Lander's brief under that instruction set both. The not-live question window stays 2 hours.
 
 **CORRECTED 2026-11-26:** the line opening *Since engine PR 2720 merged* read *"Once engine PR 2720
 merges"*. It had merged.
@@ -900,4 +898,4 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
-| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 30 minutes. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |
+| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 2 hours. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |

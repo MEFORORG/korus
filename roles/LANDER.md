@@ -690,7 +690,7 @@ older conditions, and this newer instruction wins.
 | *A quiet author's held PR, decided 2026-10-29* | *"It may get a repair Builder subagent, under engine `CLAUDE.md` section 5 (decision d20261029T165610526-c13ae6)."* |
 | What that path needed | 2 hours with no author comment or commit, mail to the author with no reply, and an author with no live session. All three are gone. |
 | *Its quiet window is 2 hours, owner ruling 2026-11-03* | This path has no quiet window now. It was 4 hours before 2026-11-03. |
-| *A question unanswered for over 2 hours is quiet* | It was part of this path's not-live test. That test now binds only a transfer, at 30 minutes, in *3b-quater*. |
+| *A question unanswered for over 2 hours is quiet* | It was part of this path's not-live test. That test now binds only a transfer, still at 2 hours, in *3b-quater*. |
 | One repair per pull request | Engine section 5 read *"One repair per PR; a second hold goes to a spawned Manager."* |
 
 #### Every subagent spawns on Opus
@@ -1019,8 +1019,8 @@ running a new wave puts repairs second.
 session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 
 **CHANGED 2026-11-26, by the owner instruction quoted in *Repair a held PR at once*.** Every 2-hour
-window here became 30 minutes. The Lander's brief under that instruction set the transfer and
-`hold-ack` windows. The not-live question window is the Manager's reading. The steps did not change.
+window here but one became 30 minutes: the transfer and `hold-ack` windows, set in the Lander's
+brief under that instruction. The not-live question window stays 2 hours. The steps did not change.
 
 Engine `main` states 2 hours until the engine pull request carrying the instruction merges. This
 newer instruction wins.
@@ -1056,7 +1056,7 @@ since the hold and no commit by the original author has landed since it.
 
 An expired hold counts as unacknowledged, so it may go to a repair Builder. **It transfers only when
 the original author also reads not live:** no live session, or a transcript ending on a question
-unanswered for more than 30 minutes. A hold never acknowledged at all transfers at 30 minutes.
+unanswered for more than 2 hours. A hold never acknowledged at all transfers at 30 minutes.
 
 Read that question with `list_events` or `scripts/board/seatstate.py`. Confirm it is the
 transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this state.
@@ -1137,7 +1137,7 @@ At least these:
 | A stacked set, or a landing order | The fix needs the batch's context, and the author holds it. |
 | A question of the author's intent | Only the author can answer it. |
 | Anything waiting on an owner ruling | A transfer does not answer a ruling. |
-| ASVS record content | A Manager's, under the 2026-09-23 ruling, so the Repair Manager may take it only when the author is gone: no live session, or a transcript ending on a question unanswered over 30 minutes. Say so on the marker's third line. |
+| ASVS record content | A Manager's, under the 2026-09-23 ruling, so the Repair Manager may take it only when the author is gone: no live session, or a transcript ending on a question unanswered over 2 hours. Say so on the marker's third line. |
 
 #### Every hold that names a fix carries four lines
 
