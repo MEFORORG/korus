@@ -36,7 +36,7 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
 | Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the newer owner ruling wins*. |
 | A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. Same COMMON section. |
-| Until the Owner rules on it | Follow the stricter of the two conflicting rules. Same COMMON section. |
+| While a kill-switch conflict waits on the Owner | Follow the stricter of the two conflicting rules until the Owner rules. Same COMMON section. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 | A filed build row is not new product scope (owner rulings 2026-11-09 and 2026-11-10) | Once engine `origin/main` carries the narrowing, picking and splitting one is class B, with its review. New directions and every other class C item stay the owner's. [COMMON.md](COMMON.md), *A filed build row is not new product scope*, has the rest. |
 

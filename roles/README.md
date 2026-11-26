@@ -108,7 +108,7 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 | Every seat runs in the Proactive output style | [COMMON.md](COMMON.md), *Run in the Proactive output style*, is its single definition. **It changes disposition, not permissions.** Routing, the DEMAND-GATE pause and every approval gate bind as before. |
 | A playbook that contradicts COMMON | The newer owner ruling wins, then the stricter rule. Record the conflict as a class C item. A recorded delegated decision that resolves it is the owner's answer. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
 | A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the owner instead of being settled by the newer ruling or the stricter rule. Same COMMON section. |
-| Until the owner rules on it | Follow the stricter of the two conflicting rules. Same COMMON section. |
+| While a kill-switch conflict waits on the owner | Follow the stricter of the two conflicting rules until the owner rules. Same COMMON section. |
 | The `driver` and `empower` rules are on by default | Every seat but Special. [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. |
 | Why the seat files point rather than restate | Nine copies of a behaviour contract have no drift signal between them. This project has hit that defect repeatedly. Make a pointer, never a second summary. |
 

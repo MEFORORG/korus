@@ -30,7 +30,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
 | Conflicts between this file and a role playbook | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. *Where a role playbook and this file disagree*. |
 | A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. *Where a role playbook and this file disagree*. |
-| Until the Owner rules on it | Follow the stricter of the two conflicting rules. *Where a role playbook and this file disagree*. |
+| While a kill-switch conflict waits on the Owner | Follow the stricter of the two conflicting rules until the Owner rules. *Where a role playbook and this file disagree*. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
@@ -213,8 +213,8 @@ reads as the relayer's own finding.
 ## The owner reads by sampling, so route through the Manager
 
 This section binds every seat except the **Manager**, which is approved to communicate directly with
-the Owner. Three named cases in the table let another seat reach the owner directly. No Manager is
-running, the classifier has blocked an action, or the Special seat has a playbook conflict.
+the Owner. Three named cases in the table let another seat reach the owner directly: no Manager
+running, a classifier block, and a Special seat's playbook conflict.
 
 **What the Manager is.** It reads the record, picks the next row, writes each Builder's brief, runs
 the Builder, reads what comes back, and carries owner traffic both ways.
@@ -234,7 +234,7 @@ next check-in in a table at the bottom of each cycle.
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
 | Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
-| A playbook conflict, Special seat | The Special seat raises it with the Owner directly, and records no class C item. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
+| A playbook conflict, Special seat | The Special seat raises it with the Owner directly. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
 | Classifier blocked | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The row above read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* With empower off, that text governs again. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
@@ -312,7 +312,7 @@ It replaced the owner ruling of 2026-08-28, which sent every such conflict to th
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
 | A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
 | While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, a playbook conflict goes to the Owner instead of being settled by the newer ruling or the stricter rule. *The empower rules are on by default* defines it. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
-| Until the Owner rules on it | A seat follows the stricter of the two conflicting rules until the Owner rules. Owner decision d20261126T095346944-a71f0a, 2026-11-26 US Central. |
+| While a kill-switch conflict waits on the Owner | A seat follows the stricter of the two conflicting rules until the Owner rules. Owner decision d20261126T095346944-a71f0a, 2026-11-26 US Central. |
 | The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision d20261126T043233562-3f4336, 2026-11-25 US Central. |
 
 ### Your worktree, not your seat, decides which coordination record you touch
