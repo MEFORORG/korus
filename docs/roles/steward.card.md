@@ -18,7 +18,7 @@ repository.
 
 **The three usage states still bind.** `roles/COMMON.md`, *The three usage states*,
 holds the triggers and the stop on starting. The relayed-lift rule that named this seat was
-retired by owner ruling on 2026-11-25: a relayed lift does not clear a HOLD.
+retired by owner ruling on 2026-11-25.
 
 **Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `steward`,
 the role-card hook injects no card and says the seat was retired. Set a live seat instead:

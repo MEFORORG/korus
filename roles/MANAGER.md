@@ -457,7 +457,7 @@ conclude the label is gone, because it is not.
 | `MEFORORG/korus`, named `wshallwshall/korus` here until 2026-09-24 | REMOVED | deleted |
 
 **CORRECTED 2026-11-25: the engine row's workflow cell said it was STILL RUNNING and stripped
-`reviewed` on every push.** That was false. Nothing posts the check now, and the label still
+`reviewed` on every push.** Engine PR 889 deleted the workflow on 2026-09-05. The label still
 exists, but nothing adds, removes or reads it (engine `docs/CI.md`).
 
 **The two paragraphs below describe that check from before it went, and stay as the record.**
