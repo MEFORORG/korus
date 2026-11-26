@@ -576,23 +576,38 @@ genuinely independent code changes separate."* Batch independent code changes to
 the owner answered *"Tiers 1 and 2"*. Tier 2 lets the Lander hand a held pull request to a Repair
 Manager.
 
-**A hold you do not acknowledge within 2 hours may transfer.** An acknowledgement is your comment or
-commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its unambiguous
-form.
+**A hold you do not acknowledge within 30 minutes may transfer.** An acknowledgement is your comment
+or commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its
+unambiguous form.
 
 **The expiry below is not part of that ruling.** It was decided by the Lander under the owner's
 delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the owner answered
 *"/driver"*. Record d20261103T190111765-2aa8b6.
 
-**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
-since the hold and no commit by the original author has landed since it. It then transfers only if you also read not live: no live
-session, or a transcript ending on a question unanswered over 2 hours.
+**A `hold-ack` expires 30 minutes after it**, while it is still your newest event since the hold
+and no commit of yours has landed since it. It then transfers only if you also read not live: no
+live session, or a transcript ending on a question unanswered over 30 minutes.
 
-**While you are still working, post a fresh `hold-ack` at least every 2 hours.** The newest ack
+**While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 
-Once engine PR 2720 merges, `held_pr_turns.py` shows `ack-expired` only while the head is
+`held_pr_turns.py` on engine `main` still expires an ack at 2 hours, its `ACK_TTL`. It reads 30
+minutes once the engine pull request that moves `ACK_TTL` merges. The Lander checks the ack's age
+itself until then.
+
+Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
+
+**A hold naming one determinate fix may get the Lander's repair Builder as soon as it is posted**,
+unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a held PR at once*,
+holds the rule. So answer a hold at once, or expect the repair.
+
+**CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
+and future landers to be more proactive"*. Each window in this section read 2 hours until then, and
+the repair Builder waited 2 hours on a quiet author.
+
+**CORRECTED 2026-11-26:** the line opening *Since engine PR 2720 merged* read *"Once engine PR 2720
+merges"*. It had merged.
 
 The transfer is a comment whose first line is the marker and whose second is the Lander's signature:
 
@@ -881,4 +896,4 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
-| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 2 hours. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |
+| When the marker comment says the author is gone | Only ASVS record content comes to you. Gone means no live session, or a transcript ending on a question unanswered over 30 minutes. [LANDER.md](LANDER.md), *A hold its author does not acknowledge transfers to the Repair Manager*, holds the case. |
