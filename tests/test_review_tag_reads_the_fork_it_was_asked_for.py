@@ -2495,6 +2495,32 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
+    def test_a_malformed_earlier_string_falls_back_to_the_line_scan(self):
+        # Review of f1963bf: the string walk counts quotes from the start of record 0, so in a
+        # record 0 that fails to parse for a malformed earlier string, not a clean cut, the
+        # string boundaries invert and the real head is never read. The fork elsewhere was
+        # dropped and the fork here read at exit 0, where e2fd46e refused with exit 10. Where the
+        # walk cannot be trusted, the decode-and-scan of e2fd46e still runs.
+        n = self.NONCE
+        nl = "\\n"
+        bad = "\\" + '"'
+        for name, content in (
+            ("whole record", '{"cwd": "C:' + bad + ', "type": "user", "message": {"content": '
+                             f'"Review target: `{n} Review x`{nl}{nl}`{TAG_XHIGH}`{nl}{nl}Go."}}}}'),
+            ("cut record", '{"cwd": "C:' + bad + ', "type": "user", "message": {"content": '
+                           f'"Review target: `{n} Review x`{nl}{nl}then'),
+        ):
+            with self.subTest(record=name):
+                self.assertTrue(review_tag.raw_holds_nonce(content, n))
+                self.projects = Path(self._tmp.name) / ("projects-bad-" + name[:5])
+                self.projects.mkdir()
+                self._unread_elsewhere(content)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+                self.assertNotIn("tag:", out)
+
     def test_the_raw_search_reads_each_json_string_by_the_head_readers_rules(self):
         # Review of 036b321: each string value is decoded to its own end and read as read_head
         # reads a message, so a nonce in a later string is not the head's, a key is no head, and

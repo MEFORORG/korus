@@ -814,6 +814,13 @@ JSON_SIMPLE_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f"}
 JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
 #: What follows an object key: whitespace, then a colon.
 JSON_KEY_COLON = re.compile(r"\s*:")
+#: What a clean cut can leave after the last token JSON parsed: whitespace, or part of a number or
+#: of a literal.
+JSON_CUT_TAIL = re.compile(
+    r"(?:\s*|[-+.0-9eE]+|t(?:r(?:ue?)?)?|f(?:a(?:l(?:se?)?)?)?|n(?:u(?:ll?)?)?)\Z"
+)
+#: Part of a \u escape, inside a string the cut ends.
+JSON_CUT_ESCAPE = re.compile(r"\\u[0-9a-fA-F]{0,3}\Z")
 
 
 def unescape_json(text: str) -> str:
@@ -846,6 +853,45 @@ def json_values(raw: str) -> Iterator[tuple[str, bool]]:
         at = raw.find('"', end)
 
 
+def clean_cut(raw: str) -> bool:
+    """Whether raw JSON text parses, or fails only where the text ends: a prefix of a valid JSON
+    text. Only there do json_values' string boundaries agree with the parser's. A record 0 that
+    fails earlier, on a malformed string such as "C:\" for one, can invert every boundary after
+    it, so the string walk never reads the real head (review of f1963bf)."""
+    try:
+        json.loads(raw)
+    except json.JSONDecodeError as err:
+        rest = raw[err.pos :]
+        if err.msg.startswith("Unterminated string"):
+            return rest.startswith('"') and JSON_STRING_BODY.match(raw, err.pos + 1) is None
+        if err.msg.startswith("Invalid \\uXXXX escape"):
+            return JSON_CUT_ESCAPE.match(rest) is not None
+        return JSON_CUT_TAIL.match(rest) is not None
+    except (ValueError, RecursionError):
+        return False
+    return True
+
+
+def line_scan_holds_nonce(raw: str, wanted: str) -> bool:
+    """The search of e2fd46e, kept for a record 0 whose string walk cannot be trusted: decode every
+    escape, then read each line a target line opens, or the JSON string on a line the prefix
+    opens. It errs toward refusing."""
+    lines = unescape_json(raw).splitlines()
+    for index, line in enumerate(lines):
+        bare = line.lstrip(" \t>")
+        # A target line opens a line, or, on record 0's first line, the JSON string it sits in.
+        # A prefix mid-sentence, as a brief writes it, is no target line.
+        at = 0 if bare.startswith(TARGET_PREFIX) else bare.find('"' + TARGET_PREFIX) + 1
+        if at == 0 and not bare.startswith(TARGET_PREFIX):
+            continue
+        # Read by the head reader's own rules, so an unparseable record 0 and a parsed one agree
+        # on which nonce is the fork's own.
+        own = read_target([bare[at:]] + lines[index + 1 :], 0).own_nonce
+        if own_nonce_matches(wanted, own):
+            return True
+    return False
+
+
 def raw_holds_nonce(raw: str, wanted: str) -> bool:
     """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
     as a fork's own, in its first RAW_NONCE_PREFIX characters. Never a later record, and never a
@@ -860,10 +906,22 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
     target line, and the lines that split its arguments, so there the first nonce after any line
     the prefix opens, a quoted one too, counts: that errs toward refusing. So does reading every
     string, where read_head reads only the message's first text block.
+
+    The walk is trusted only on a clean cut. On any other failure line_scan_holds_nonce, the
+    search of e2fd46e, runs too, so the result is never less strict than e2fd46e's (review of
+    f1963bf).
     """
     if not NONCE_SHAPE.search(wanted):
         return False
-    for value, cut in json_values(raw[:RAW_NONCE_PREFIX]):
+    text = raw[:RAW_NONCE_PREFIX]
+    if not clean_cut(text) and line_scan_holds_nonce(text, wanted):
+        return True
+    return walk_holds_nonce(text, wanted)
+
+
+def walk_holds_nonce(text: str, wanted: str) -> bool:
+    """raw_holds_nonce's string walk, over text already cut to RAW_NONCE_PREFIX."""
+    for value, cut in json_values(text):
         if TARGET_PREFIX not in value:
             continue
         lines = value.splitlines()
