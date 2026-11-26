@@ -58,7 +58,7 @@ those seats are stale.
 | Retired seat | What replaced it |
 |---|---|
 | Steward, recorded 2026-11-05 | Nothing. The Owner said it had been retired months earlier. Its usage hook still runs, and each seat reads its own. |
-| The ninth seat to retire, 2026-09-12, deliberately unnamed | Nothing, by Owner decision. The review gate it fed was retired on 2026-09-04, so a pull request merges on its two required checks with no review step. |
+| The ninth seat to retire, 2026-09-12, deliberately unnamed | Nothing, by Owner decision. The review gate it fed was retired on 2026-09-04, so no label blocks a merge. Since 2026-09-29 the Lander merges only on proof that code review ran on the change (owner ruling 2026-09-29). |
 | Console, 2026-09-10 | The Manager. Broad oversight across every account did not work. |
 | Dispatcher | The Console replaced it in September 2026, then retired. Use the Manager. |
 | Liaison | The Console replaced it in September 2026, then retired. The Owner talks to the Manager. |

@@ -114,8 +114,8 @@ gh pr edit <N> --add-label qa
 gh pr comment <N> --body "<the Builder's QA line>"
 ```
 
-The label gates nothing. `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and
-nothing else, so never hold the hand-off for it. No line means no label.
+The label gates nothing. No repository's `main` requires it; each one's branch protection holds
+its live set. So never hold the hand-off for it. No line means no label.
 
 Then message the Lander with five fields: PR number, head SHA, unread legs, known defects, and any
 landing-order constraint.

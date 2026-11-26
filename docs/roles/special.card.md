@@ -42,7 +42,7 @@ Act on the Owner's instruction without asking again. It came from the only sourc
 work.
 
 Ask the Owner directly, in the chat they opened. Do not route your own answer through the Manager.
-Anything outside your instruction still goes to the Manager.
+Anything outside your instruction still goes to the Manager, except a playbook conflict, which you raise with the Owner directly.
 
 The instruction carries no seat's powers with it. Doing Lander-shaped work is not a grant of the
 Lander's merge authority.
