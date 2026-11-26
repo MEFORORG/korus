@@ -35,18 +35,23 @@ whatever fork reads beside it: nothing in record 0 tells the skill's own prompt 
 pasted it, so the readable one may be the brief. With nothing read here, a refused head elsewhere
 refuses rather than exit 12, unless a head elsewhere reads with its tag.
 
-A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a
-head in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable,
-before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
-cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce. A
-tagless fork here exits 5, unless such an unread fork sits elsewhere: then 10. The same argument
-holds across worktrees: the head elsewhere may be the round's real fork, under a notice this tool
-does not know or displaced, and the readable one here a helper that pasted it. It once exited 0
-there and quoted the helper's tag, a `low` one under an `xhigh` round among them. Record times do
-not tell them apart: a helper's head can be written before the round, from the caller's own
-arguments and a documented tag. A fresh round clears it: a pasted head carries the OLD round's
-nonce, and a nonce matches only as the fork's own. A rerun of this tool does not, and a head
-pasted elsewhere later blocks a re-check of the old round for good: a refusal, never a wrong tag.
+A HEAD ELSEWHERE CONTESTS A FORK HERE (exit 16). Beside a fork that reads here with its tag, a head
+in another worktree carrying the round's nonce and a tag-shaped line -- refused or readable, before
+`--since` or after it -- refuses the reading. A fork in another worktree whose record 0 cannot be
+read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce as a whole
+token in its first RAW_NONCE_PREFIX characters, a brief's mere mention included, and it does so
+with no fork read here too, never exit 3. A mention cannot be told from a head in raw bytes, so a
+cut brief that only names the nonce refuses: a false refusal, which fails closed. A tagless fork
+here exits 5, unless such an unread fork sits elsewhere: then 10. With a nonce, a transcript that
+cannot be opened refuses (exit 10) wherever it sits: what it holds is unknown. `--verbose` names
+it. The same argument holds across worktrees: the head elsewhere may be the round's real fork,
+under a notice this tool does not know or displaced, and the readable one here a helper that pasted
+it. It once exited 0 there and quoted the helper's tag, a `low` one under an `xhigh` round among
+them. Record times do not tell them apart: a helper's head can be written before the round, from
+the caller's own arguments and a documented tag. A fresh round clears it: a pasted head carries the
+OLD round's nonce, and a nonce matches only as the fork's own. A rerun of this tool does not, and a
+head pasted elsewhere later blocks a re-check of the old round for good: a refusal, never a wrong
+tag.
 
 ONE FILE IS ONE FORK. A projects directory reached twice -- two roots naming one directory, or a
 junction or link inside one -- once listed the same fork twice and refused it as ambiguous. A file
@@ -77,7 +82,9 @@ no worktree.
 
 WITH A NONCE, `--since` DROPS NOTHING THE NONCE KEEPS. A fork carrying the round's own nonce is
 that round's whatever its time, so an older real fork cannot be cut away from a newer helper.
-An unreadable file whose record 0 holds the nonce is kept the same way, here or elsewhere.
+An unreadable file whose record 0 holds the nonce, or that cannot be opened, is kept the same way,
+here or elsewhere. A record 0 that parses beside a meta that cannot be read is filtered as a
+readable fork is, then counted unread.
 `--since` still bounds an unreadable file whose record 0 lacks it, and a `--no-nonce` search.
 
 IT NEVER WIDENS ON ITS OWN. A `--target` holding only a level selects nothing and is refused. A
@@ -128,7 +135,8 @@ Exit codes. Each failure has its own, so a caller can tell them apart without pa
     8  no git toplevel here, and neither --worktree nor --any-worktree was given
     9  nothing selects a fork: no --target, a --target holding only a level or flags, or one with
        no round nonce (unless --no-nonce, whose answer is not attributable)
-   10  a fork transcript in scope could not be read, so it could be the run asked for
+   10  a fork transcript in scope could not be read, so it could be the run asked for; with a
+       nonce, also a transcript anywhere that could not be opened
    11  --no-nonce with a target that carries no nonce: exactly one fork matched, tag or none,
        but the answer is not attributable. A tag prints on a NOT-ATTRIBUTABLE line, never on a
        `tag:` line, so it cannot be pasted as a QA reading
@@ -198,7 +206,12 @@ UNREAD_MESSAGE = (
 )
 UNREAD_ELSEWHERE_MESSAGE = (
     "fork(s) in another worktree carry this round's nonce and could not be read, so any could be"
-    " the one asked for beside the fork here"
+    " the one asked for; if a rerun after the round ends still reads this, run the round again"
+    " with a fresh nonce"
+)
+UNOPENABLE_MESSAGE = (
+    "transcript(s) could not be opened, so any could be the one asked for, here or in another"
+    " worktree; a rerun clears it only once each opens, and --verbose names each"
 )
 UNSPLIT_MESSAGE = (
     "fork(s) in scope may have arguments spanning lines, so no line can be read as the tag;"
@@ -225,8 +238,9 @@ NO_WORDS_MESSAGE = "--target holds only a level or flags; pass the words of your
 AMBIGUOUS_MESSAGE = (
     "more than one fork could be the one asked for; with a round nonce, two forks carry it:"
     " a reused nonce, a head pasted in this worktree, or one file read twice while being"
-    " written, and a later run clears only the last; without one, narrow with --since set"
-    " before the round, --target or --session"
+    " written, and a later run clears only the last; run the round again with a fresh nonce to"
+    " clear the first two; without one, narrow with --since set before the round, --target or"
+    " --session"
 )
 NO_TOPLEVEL_MESSAGE = "no git toplevel here; run this from your worktree, or pass --worktree"
 
@@ -479,17 +493,26 @@ def read_meta(transcript: Path) -> tuple[dict, bool]:
     return (value, True) if isinstance(value, dict) else ({}, False)
 
 
-def read_record_zero(transcript: Path) -> tuple[dict | None, list[str]]:
-    """Record 0 only, and its message's lines. Never a later record."""
-    with transcript.open(encoding="utf-8", errors="replace") as fh:
-        first = fh.readline()
+def read_record_zero(transcript: Path) -> tuple[dict | None, list[str], str]:
+    """Record 0 only, its message's lines, and its raw text. Never a later record.
+
+    Record 0 is the bytes up to the first newline, as JSONL frames it. The raw nonce search reads
+    this same text, so the two cannot disagree on where record 0 ends: a text-mode read once ended
+    it at a lone carriage return while the raw search ran on to the newline (vault #4704 finding
+    3). A line a carriage return splits into two objects does not parse, so it refuses as unread
+    rather than be cut there; a carriage return between JSON tokens is whitespace.
+    """
+    with transcript.open("rb") as fh:
+        raw = fh.readline().decode("utf-8", errors="replace")
     try:
-        record = json.loads(first)
-    except ValueError:
-        return None, []
+        record = json.loads(raw)
+    except (ValueError, RecursionError):
+        # A deeply nested record 0 raises RecursionError, which once ended the run with a
+        # traceback; it refuses as unread instead.
+        return None, [], raw
     if not isinstance(record, dict):
-        return None, []
-    return record, message_text(record).splitlines()
+        return None, [], raw
+    return record, message_text(record).splitlines(), raw
 
 
 def unquote(text: str) -> str:
@@ -775,8 +798,10 @@ class Scan:
     )
     #: Beside a fork here, every head in another worktree that carries the round's nonce.
     contested: list[Fork] = field(default_factory=list)
-    #: Beside a fork here, unread forks in another worktree whose record 0 holds the nonce.
+    #: Unread forks in another worktree whose record 0 holds the nonce.
     unread_elsewhere: int = 0
+    #: With a nonce, transcripts in scope that could not be opened, here or elsewhere.
+    unopenable: list[Path] = field(default_factory=list)
 
 
 #: The most of an unreadable record 0 searched for the round's nonce.
@@ -801,25 +826,25 @@ def unescape_json(text: str) -> str:
     return JSON_ESCAPE.sub(decode, text)
 
 
-def raw_holds_nonce(transcript: Path, wanted: str) -> bool:
-    """Whether record 0's raw text -- the first line, up to RAW_NONCE_PREFIX bytes -- holds the
-    first nonce of `wanted`, as a whole token. Never a later record: one that mentions the nonce
-    once made an unread file elsewhere refuse a correct fork (exit 10).
+def raw_holds_nonce(raw: str, wanted: str) -> bool:
+    """Whether record 0's raw text, as read_record_zero read it, holds the first nonce of `wanted`
+    as a whole token in its first RAW_NONCE_PREFIX characters; a nonce past them is not seen. Never
+    a later record: one that mentions the nonce once made an unread file elsewhere refuse a correct
+    fork (exit 10).
+
+    A mere mention in a brief counts, so a cut brief that only names the nonce refuses: a false
+    refusal, which fails closed. Counting only the first nonce after a target line instead read a
+    cut record 0 holding a blockquoted target line, a head under a notice one level down, or a
+    space or tab after the quote as not holding the nonce, and a fork here then read at exit 0
+    (Lander hold on korus PR 279).
 
     For a transcript whose record 0 cannot be parsed: a truncated record 0 can still hold the
-    target line, past an escaped newline too, so its JSON escapes are decoded before matching. A
-    file that cannot be opened or read, deleted mid-scan among them, is read as not holding it, as
-    on main: --since bounds it by write time, and elsewhere it is out of scope.
+    target line, past an escaped newline too, so its JSON escapes are decoded before matching.
     """
     nonces = NONCE_SHAPE.findall(wanted)
     if not nonces:
         return False
-    try:
-        with transcript.open("rb") as fh:
-            text = fh.readline(RAW_NONCE_PREFIX).decode("utf-8", errors="replace")
-    except OSError:
-        return False
-    text = unescape_json(text)
+    text = unescape_json(raw[:RAW_NONCE_PREFIX])
     return any(found.casefold() == nonces[0].casefold() for found in NONCE_SHAPE.findall(text))
 
 
@@ -866,6 +891,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     #: Forks whose record 0 could not be read, placed in another worktree by their meta.
     unread_elsewhere = 0
     seen: set[tuple[int, int, int, int] | str] = set()
+    unopenable_seen: set[str] = set()
     for root in roots:
         try:
             # The probe is the unreadable-root check, and it comes before any is_dir: on 3.13 a
@@ -893,10 +919,20 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
             meta, meta_read = read_meta(transcript)
             fork = Fork(transcript, agent_id, session_id, meta)
             try:
-                record, head = read_record_zero(transcript)
+                record, head, raw = read_record_zero(transcript)
             except OSError:
-                record, head = None, []
-            if record is None or not meta_read:
+                if nonced:
+                    # What it holds is unknown, so it may be the round's fork, here or elsewhere:
+                    # it refuses and is named, never read as not holding the nonce, which let
+                    # --since drop it and a fork here read at exit 0 (vault #4703 finding 4).
+                    # Its stat may have failed too, so it is counted once by its real path.
+                    real = os.path.normcase(os.path.realpath(transcript))
+                    if real not in unopenable_seen:
+                        unopenable_seen.add(real)
+                        result.unopenable.append(transcript)
+                    continue
+                record, head, raw = None, [], ""
+            if record is None:
                 # Unread is not absent: a fork still being written could be the very run asked
                 # for. Only what proves it is elsewhere rules it out -- a recorded worktree that
                 # differs, or a file last written before --since.
@@ -907,7 +943,7 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                 # round's fork whatever its write time, as a readable one is. --since once dropped
                 # an older unread real fork, and a newer helper's low tag read at exit 0.
                 raw_nonce = bool(
-                    nonced and filters.target and raw_holds_nonce(transcript, filters.target)
+                    nonced and filters.target and raw_holds_nonce(raw, filters.target)
                 )
                 if filters.since and not raw_nonce:
                     try:
@@ -956,6 +992,16 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
                     )
                 except OSError:
                     pass
+            if not meta_read:
+                # Record 0 put it in scope, by the same filters as a readable fork, but the meta
+                # that would place it cannot be read, so it could be the run asked for. Unread, not
+                # absent. A record 0 out of scope -- a brief that only names the nonce -- was once
+                # counted here too and refused a correct fork (vault #4703 finding 1).
+                # A time it cannot tell does not rule it out, as for any unread fork (m19).
+                if filters.since and not nonced and fork.time and fork.time < filters.since:
+                    continue
+                result.unreadable_files += 1
+                continue
             cwd = record.get("cwd")
             fork.cwd = cwd if isinstance(cwd, str) else ""
             placed = place(fork, want)
@@ -996,9 +1042,12 @@ def scan(roots: list[Path], filters: Filters) -> Scan:
     # then exit 12 says where, and a rerun there either reads, refuses on what it finds, or is
     # contested by the head it left. A refused head in scope always refuses, never set aside
     # beside a readable fork.
+    # An unread fork elsewhere holding the nonce refuses whether or not a fork reads here: with
+    # nothing read here it once exited 3, "no fork found", over a fork it had found and could not
+    # read (vault #4703 finding 2).
+    result.unread_elsewhere = unread_elsewhere
     if result.forks:
         result.contested = nonce_elsewhere
-        result.unread_elsewhere = unread_elsewhere
     elif readable_elsewhere:
         result.elsewhere += len(refused_elsewhere)
     else:
@@ -1171,6 +1220,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.verbose:
         for root in result.unreadable_roots:
             print(f"review_tag: could not read {root}", file=sys.stderr)
+        # Named here, before any refusal, so a run that exits 4 still says which file blocks.
+        for path in result.unopenable:
+            print(f"review_tag: could not open {path}", file=sys.stderr)
 
     # Every refusal comes BEFORE any row is rendered, so a refused run prints no quotable tag. Each
     # one fires whether or not a readable fork also matched: whatever could not be read, placed or
@@ -1182,6 +1234,9 @@ def main(argv: list[str] | None = None) -> int:
     if result.unreadable_roots:
         print(PARTIAL_ROOT_MESSAGE)
         return EXIT_NO_ROOT
+    if result.unopenable:
+        print(f"{len(result.unopenable)} {UNOPENABLE_MESSAGE}")
+        return EXIT_UNREAD
     if result.unreadable_files:
         print(f"{result.unreadable_files} {UNREAD_MESSAGE}")
         return EXIT_UNREAD
