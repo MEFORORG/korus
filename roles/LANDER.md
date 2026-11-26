@@ -1372,6 +1372,8 @@ of it.
 | False only in the safe direction | Such text does not weaken a control. The finding is filed under ledger ruling R2 and does not hold the merge. Name it on the pull request, as for any open finding. |
 | What the safe direction is | A reader who acts on the text does more than the control needs, never less. At least: it overstates what is stored, exposed or retained, or understates what a control guarantees. |
 | Where storing or retaining is the guarantee | Overstating it is the unsafe direction. An audit trail, a backup or a retention period are examples. |
+| Understating a guarantee so a reader drops or bypasses the control | Unsafe. The reader test governs every case above. |
+| Only a statement of what a control does | Can be false in the safe direction. A false score or anchor always goes to the owner. |
 | What still goes to the owner, at least | A false score. A false anchor. False program output, or any finding that changes behaviour. A present-tense claim of a live exposure, under engine `CLAUDE.md` section 0. Text false in the unsafe direction too. |
 | A finding you cannot classify | Still goes to the owner. |
 | Its authority | The owner's instruction of 2026-11-26, *"Change the rules to allow you and future landers to be more proactive"*, as set out in the Lander's brief the owner directed the Manager to follow. |
