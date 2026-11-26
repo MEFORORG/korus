@@ -331,6 +331,21 @@ on purpose: two writers on one file is last-write-wins silently, so one seat rol
 **Read the design as sound and the reading as the hazard: a record answers "a seat once declared
 here", never "a seat is alive here".**
 
+**A folder the Claude Desktop worktree GC emptied is no longer a worktree.** The engine's sign of
+one is a folder under `<primary>\.claude\worktrees\` with no `.git` that `git worktree list` does
+not carry, other than the Desktop's own `.ccd-trash~*` tombstones. Some are left another way.
+
+Git run in such a folder resolves to the primary checkout. Measured 2026-11-26 with git
+2.55.0.windows.5: in a bare folder under `.claude\worktrees\` of a fresh scratch repository,
+`git rev-parse --show-toplevel` printed the primary's path and exited 0.
+
+To find them, run `pwsh -NoProfile -File <engine checkout>\scripts\worktree\find-emptied-worktrees.ps1`.
+Engine `origin/main` holds it, read at `74483116d15`. It scans its own repository unless
+`-RepoRoot` names another checkout.
+
+Engine `docs/WORKTREES.md`, section *Finding a worktree the GC emptied*, says what the list means
+and what to do about recovery. It also names `hygiene-report.ps1` section f.
+
 **Mail keys on a worktree too, but not on your cwd.** Exactly one mailbox drains: the box of the
 worktree the session STARTED in (`_hookinput.ps1` rule 3, in the engine and in `scripts/hooks/`
 here). Measured 2026-08-28: **88 boxes existed and 44 held undrained mail.**
