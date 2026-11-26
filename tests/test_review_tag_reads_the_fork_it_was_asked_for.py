@@ -2453,6 +2453,17 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertEqual(code, review_tag.EXIT_FOUND, out)
                 self.assertIn("agent mine", out)
 
+    def _assert_refuses_as_unread(self, content, label):
+        """An unread fork elsewhere whose record 0 is `content` refuses the fork here: exit 10."""
+        self.projects = Path(self._tmp.name) / ("projects-" + label)
+        self.projects.mkdir()
+        self._unread_elsewhere(content)
+        self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+        code, out = self._probe()
+        self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+        self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
+        self.assertNotIn("tag:", out)
+
     def test_an_escaped_target_prefix_inside_content_is_still_refused_a_known_limitation(self):
         """KNOWN LIMITATION, pinned: Lander hold finding 1 on korus PR 279.
 
@@ -2471,14 +2482,7 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                            + quote + f'Review target: `{self.NONCE} Review x`' + quote
                            + ' then run it and rep')
                 self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
-                self.projects = Path(self._tmp.name) / ("projects-esc-" + name[:5])
-                self.projects.mkdir()
-                self._unread_elsewhere(content)
-                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-                code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
-                self.assertNotIn("tag:", out)
+                self._assert_refuses_as_unread(content, "esc-" + name[:5])
 
     def test_control_a_string_the_json_opens_with_the_target_prefix_is_a_fork_head(self):
         # The quote the JSON opens the content string with, in either content form, is a head,
@@ -2491,14 +2495,7 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         ):
             with self.subTest(head=name):
                 self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
-                self.projects = Path(self._tmp.name) / ("projects-quote-" + name)
-                self.projects.mkdir()
-                self._unread_elsewhere(content)
-                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-                code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
-                self.assertNotIn("tag:", out)
+                self._assert_refuses_as_unread(content, "quote-" + name)
 
     def test_a_malformed_earlier_string_still_refuses(self):
         # Fail-open control from the PR 279 repair rounds: a record 0 that fails to parse for a
@@ -2516,40 +2513,29 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         ):
             with self.subTest(record=name):
                 self.assertTrue(review_tag.raw_holds_nonce(content, n))
-                self.projects = Path(self._tmp.name) / ("projects-bad-" + name[:5])
-                self.projects.mkdir()
-                self._unread_elsewhere(content)
-                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-                code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
-                self.assertNotIn("tag:", out)
+                self._assert_refuses_as_unread(content, "bad-" + name[:5])
 
     def test_a_record_zero_holding_the_head_encoded_one_level_down_still_refuses(self):
-        # Fail-open control from the PR 279 repair rounds: a record 0 whose top-level value is a
-        # JSON string or an array, whole or cut, holds the head JSON-encoded one level down. It
-        # must refuse with exit 10; a repair that read such a cut record as clean read the fork
-        # here at exit 0.
+        # Fail-open controls from the PR 279 repair rounds: a record 0, whole or cut, that holds
+        # a head with no notice above its target line JSON-encoded one level down, as a top-level
+        # string, in an array, or as a string value inside an object. Each must refuse with exit
+        # 10. The cut object is the case that reverted the repairs: their string walk read it at
+        # exit 0. A head with a notice above it is a known gap, pinned below.
         head = {"type": "user", "message": {"content": self._head()}}
         for name, content in (("cut string", json.dumps(json.dumps(head))[:-12]),
                               ("cut array", json.dumps([json.dumps(head)])[:-12]),
+                              ("cut object", json.dumps({"x": json.dumps(head)})[:-12]),
                               ("whole string", json.dumps(json.dumps(head)))):
             with self.subTest(top=name):
                 self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
-                self.projects = Path(self._tmp.name) / ("projects-top-" + name.replace(" ", "-"))
-                self.projects.mkdir()
-                self._unread_elsewhere(content)
-                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
-                code, out = self._probe()
-                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
-                self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
-                self.assertNotIn("tag:", out)
+                self._assert_refuses_as_unread(content, "top-" + name.replace(" ", "-"))
 
-    def test_the_raw_search_counts_a_target_prefix_wherever_a_quote_opens_it(self):
-        # Fail-closed controls: the raw search decodes record 0's escapes, then counts a target
-        # prefix that opens a line or follows a quote, so a mention, a key, a later string or a
-        # head with no tag below it all count. A repair that told these apart by JSON string
-        # boundaries opened fail-opens elsewhere (PR 279 hold finding 1).
+    def test_the_raw_search_counts_these_quote_opened_target_prefixes(self):
+        # Fail-closed controls: the raw search decodes record 0's escapes once, then counts the
+        # first target prefix on a line that opens it or follows a quote directly, so these
+        # shapes, a mention, a key, a later string and a head with no tag below it among them,
+        # all count. A repair that told these apart by JSON string boundaries opened fail-opens
+        # elsewhere (PR 279 hold finding 1). Shapes it misses are pinned as known gaps below.
         n = self.NONCE
         nl = "\\n"
         b = "\\"
@@ -2572,23 +2558,53 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         mention = ('{"type": "user", "message": {"content": "Builder brief: paste ' + b + '"'
                    + f'Review target: `{n} Review x`' + b + '" then ')
         pad = "x" * (review_tag.RAW_NONCE_PREFIX - len(mention) - 4)
-        for raw in (mention + pad + b + "u001b rest",
-                    mention + pad + '", "cwd": "C:' + b + '", "x": "y"}',
-                    mention + '"}}1'):
-            self.assertTrue(review_tag.raw_holds_nonce(raw, n))
+        for name, raw in (("cut in a later escape", mention + pad + b + "u001b rest"),
+                          ("malformed later string", mention + pad + '", "cwd": "C:' + b
+                           + '", "x": "y"}'),
+                          ("extra data", mention + '"}}1')):
+            with self.subTest(raw=name):
+                self.assertTrue(review_tag.raw_holds_nonce(raw, n))
+
+    # KNOWN GAPS in e2fd46e's raw search, one test each, pinned so a fix to any one shows as an
+    # unexpected success. On a record 0 elsewhere that cannot be parsed, each shape holds a
+    # head the search does not count, so the fork here reads exit 0 where it should refuse: a
+    # fail-open. The PR 279 repair commits counted the first two; restoring e2fd46e dropped
+    # that. Each asserts the raw search only, so a changed signature errors rather than passing
+    # as the expected failure.
+
+    def _gap(self, content):
+        try:
+            holds = review_tag.raw_holds_nonce(content, self.NONCE)
+        except Exception as error:  # an error is not the pinned gap
+            raise AssertionError(f"raw_holds_nonce raised: {error!r}") from error
+        if not holds:
+            raise AssertionError("gap still open")
 
     @unittest.expectedFailure
-    def test_known_gap_a_cut_record_zero_whose_head_is_not_on_the_first_quote_is_missed(self):
-        # KNOWN GAP in e2fd46e's raw search, pinned so a fix shows as an unexpected success: on a
-        # record 0 that cannot be parsed, a target line blockquoted right after the opening
-        # quote, or a nonce on the line after a target line, is not counted. The PR 279 repair
-        # commits counted both; restoring e2fd46e dropped that.
-        n = self.NONCE
-        nl = "\\n"
-        opening = '{"type": "user", "message": {"content": '
-        for content in (opening + f'"> Review target: `{n} x`{nl}{nl}',
-                        opening + f'"Review target: some words{nl}{n} more'):
-            self.assertTrue(review_tag.raw_holds_nonce(content, n))
+    def test_known_gap_a_blockquoted_target_line_after_the_opening_quote(self):
+        self._gap('{"type": "user", "message": {"content": "> Review target: `'
+                  f'{self.NONCE} x`\\n\\n')
+
+    @unittest.expectedFailure
+    def test_known_gap_a_nonce_on_the_line_after_the_target_line(self):
+        self._gap('{"type": "user", "message": {"content": "Review target: some words\\n'
+                  f'{self.NONCE} more')
+
+    @unittest.expectedFailure
+    def test_known_gap_a_head_under_a_notice_encoded_one_level_down(self):
+        head = {"type": "user", "message": {"content": "(A notice.)\n\n" + self._head()}}
+        self._gap(json.dumps(json.dumps(head))[:-12])
+
+    @unittest.expectedFailure
+    def test_known_gap_an_earlier_quoted_target_prefix_on_the_same_line(self):
+        self._gap('{"type": "user", "message": {"content": [{"type": "text", "text": '
+                  '"Review target: `round-0000aaaa11 x`"}, {"type": "text", "text": '
+                  f'"Review target: `{self.NONCE} x`\\n\\n`')
+
+    @unittest.expectedFailure
+    def test_known_gap_a_space_after_the_opening_quote(self):
+        self._gap('{"type": "user", "message": {"content": " Review target: `'
+                  f'{self.NONCE} x`\\n\\n`')
 
     def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
         sub = self.projects / "D--probe" / "s1" / "subagents"
