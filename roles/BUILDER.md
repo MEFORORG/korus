@@ -633,7 +633,7 @@ none of them looks for a NEW correctness defect.
 | Commit and anchor first | Step 10 makes the pre-review tip recoverable. Never review an uncommitted tree. |
 | If the repository has a review-standards file | Name it in the arguments as an instruction, not a bare path. A bare path makes the skill review that file instead. |
 | Which copy of the review-standards file | Have the skill fetch and read the file as it stands at `origin/main`, never your worktree's copy, so a change to it is not reviewed against itself. The other files a review reads still come from the worktree. |
-| The review-standards arguments in MessageFoundry | `xhigh round-<hex> Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md as it stands at origin/main (run git fetch origin, then git show origin/main:docs/REVIEW-STANDARDS.md) and apply its rules.` |
+| The review-standards arguments in MessageFoundry | `xhigh round-<hex> Review this branch's diff against origin/main; read docs/REVIEW-STANDARDS.md as it stands at origin/main (run git fetch origin main, then git show origin/main:docs/REVIEW-STANDARDS.md) and apply its rules.` |
 | A finding is a claim | Check it against the diff yourself. Reject a wrong one and give the reason. |
 | Record the rejection | A reader cannot tell a rejected finding from one nobody read. |
 | Empty is a result | The skill is told not to pad. Report that it ran and found nothing. |
