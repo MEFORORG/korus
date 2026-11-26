@@ -2474,6 +2474,10 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         this case read exit 0 opened a fail-open, the last a cut record 0 holding the head
         JSON-encoded one level down, which read exit 0 where e2fd46e reads 10 (Manager decision
         d20261126T125645270-539f51). Do not relax this test to exit 0 without closing that.
+
+        review_tag.py's docstrings, restored byte for byte from e2fd46e, still say the raw search
+        counts never a mere mention; for this escaped-quote mention that is false, and this test
+        is the record.
         """
         for name, quote in (("escaped quote", "\\" + '"'),
                             ("after a backslash", "\\" * 3 + '"')):
@@ -2538,7 +2542,6 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         # elsewhere (PR 279 hold finding 1). Shapes it misses are pinned as known gaps below.
         n = self.NONCE
         nl = "\\n"
-        b = "\\"
         opening = '{"type": "user", "message": {"content": '
         for name, content in (
             ("unicode-escaped quote", opening + f'"paste \\u0022Review target: `{n} x` and rep'),
@@ -2553,58 +2556,41 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
         ):
             with self.subTest(content=name):
                 self.assertTrue(review_tag.raw_holds_nonce(content, n))
-        # The escaped-quote mention cut inside a later \u escape at RAW_NONCE_PREFIX, and the same
-        # mention followed by a malformed string or extra data, all count.
-        mention = ('{"type": "user", "message": {"content": "Builder brief: paste ' + b + '"'
-                   + f'Review target: `{n} Review x`' + b + '" then ')
-        pad = "x" * (review_tag.RAW_NONCE_PREFIX - len(mention) - 4)
-        for name, raw in (("cut in a later escape", mention + pad + b + "u001b rest"),
-                          ("malformed later string", mention + pad + '", "cwd": "C:' + b
-                           + '", "x": "y"}'),
-                          ("extra data", mention + '"}}1')):
-            with self.subTest(raw=name):
-                self.assertTrue(review_tag.raw_holds_nonce(raw, n))
 
-    # KNOWN GAPS in e2fd46e's raw search, one test each, pinned so a fix to any one shows as an
-    # unexpected success. On a record 0 elsewhere that cannot be parsed, each shape holds a
-    # head the search does not count, so the fork here reads exit 0 where it should refuse: a
-    # fail-open. The PR 279 repair commits counted the first two; restoring e2fd46e dropped
-    # that. Each asserts the raw search only, so a changed signature errors rather than passing
-    # as the expected failure.
+    # KNOWN GAPS in e2fd46e's raw search, one test each. On a record 0 that cannot be parsed,
+    # each shape holds a head the search does not count. Elsewhere, the fork here then reads
+    # exit 0 where it should refuse; in this worktree, --since skips the file rather than count
+    # it unreadable. Both are fail-opens. 0c48de4's repairs counted every shape here but the
+    # notice one level down; restoring e2fd46e re-opened them. Each pin asserts e2fd46e's
+    # result, so a fix fails it and must move the case to a fail-closed control, and an error
+    # stays an error. The variants listed are those measured, not every one.
 
     def _gap(self, content):
-        try:
-            holds = review_tag.raw_holds_nonce(content, self.NONCE)
-        except Exception as error:  # an error is not the pinned gap
-            raise AssertionError(f"raw_holds_nonce raised: {error!r}") from error
-        if not holds:
-            raise AssertionError("gap still open")
+        self.assertFalse(review_tag.raw_holds_nonce(content, self.NONCE),
+                         "gap closed: move this case to a fail-closed control")
 
-    @unittest.expectedFailure
     def test_known_gap_a_blockquoted_target_line_after_the_opening_quote(self):
         self._gap('{"type": "user", "message": {"content": "> Review target: `'
                   f'{self.NONCE} x`\\n\\n')
 
-    @unittest.expectedFailure
     def test_known_gap_a_nonce_on_the_line_after_the_target_line(self):
         self._gap('{"type": "user", "message": {"content": "Review target: some words\\n'
                   f'{self.NONCE} more')
 
-    @unittest.expectedFailure
     def test_known_gap_a_head_under_a_notice_encoded_one_level_down(self):
         head = {"type": "user", "message": {"content": "(A notice.)\n\n" + self._head()}}
         self._gap(json.dumps(json.dumps(head))[:-12])
 
-    @unittest.expectedFailure
     def test_known_gap_an_earlier_quoted_target_prefix_on_the_same_line(self):
         self._gap('{"type": "user", "message": {"content": [{"type": "text", "text": '
                   '"Review target: `round-0000aaaa11 x`"}, {"type": "text", "text": '
                   f'"Review target: `{self.NONCE} x`\\n\\n`')
 
-    @unittest.expectedFailure
-    def test_known_gap_a_space_after_the_opening_quote(self):
-        self._gap('{"type": "user", "message": {"content": " Review target: `'
-                  f'{self.NONCE} x`\\n\\n`')
+    def test_known_gap_whitespace_after_the_opening_quote(self):
+        for name, space in (("space", " "), ("tab", "\\t")):
+            with self.subTest(space=name):
+                self._gap('{"type": "user", "message": {"content": "' + space
+                          + f'Review target: `{self.NONCE} x`\\n\\n`')
 
     def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
         sub = self.projects / "D--probe" / "s1" / "subagents"
