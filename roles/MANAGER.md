@@ -588,7 +588,7 @@ delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the ow
 and no commit of yours has landed since it. It then transfers only if you also read not live: no
 live session, or a transcript ending on a question unanswered over 30 minutes.
 
-That record set 2 hours. The 30 minutes is a reading of the 2026-11-26 instruction, below.
+That record is history for the old 2 hours. The 30 minutes comes from the 2026-11-26 instruction, below.
 
 **While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
@@ -605,8 +605,10 @@ unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a
 holds the rule. So answer a hold at once, or expect the repair.
 
 **CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
-and future landers to be more proactive"*. Each window here read 2 hours until then. The 30
-minutes is the Manager's reading of an instruction that named no number.
+and future landers to be more proactive"*. Each window here read 2 hours until then.
+
+The Lander's brief under that instruction set the `hold-ack` and transfer windows. Only the not-live
+question window is the Manager's reading.
 
 **CORRECTED 2026-11-26:** the line opening *Since engine PR 2720 merged* read *"Once engine PR 2720
 merges"*. It had merged.
@@ -680,9 +682,9 @@ marker.
 **The collision is not hypothetical.** On 2026-11-03 the author of engine PR 2716 resumed after its
 repair had started, and nearly pushed too.
 
-**A Builder already in flight does not read the marker.** For a repair Builder, the only collision
-control is the head-moved check it is briefed with: fetch before the push, and stop if the head
-moved. An author's own Builder in flight may have no such check. It may rebase onto the repair and
+**A Builder already in flight does not read the marker.** A repair Builder's controls include at
+least the head-moved check: fetch before the push, and stop if the head moved. An author's own
+Builder in flight may have no such check. It may rebase onto the repair and
 push.
 
 So brief that check into every Builder you send to a held pull request.

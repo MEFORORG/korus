@@ -657,6 +657,10 @@ Section 2 carries the grant: a Manager and the Lander may spawn a session.
 landers to be more proactive"*. The board showed six pull requests ready and none enqueued. Held
 ones sat for hours on slow or usage-limited authors.
 
+**The owner's sentence named no number.** The 30-minute windows, the cap of two repairs and the
+30-minute exception were set in the Lander's brief written under it. The owner directed the Manager
+to follow that brief exactly, on 2026-11-26 in the Manager's chat.
+
 Engine `CLAUDE.md` section 5 states when you may send a repair Builder, and this table is the
 procedure. Until the engine pull request carrying this instruction merges, engine `main` states the
 older conditions, and this newer instruction wins.
@@ -664,17 +668,19 @@ older conditions, and this newer instruction wins.
 | Item | Rule |
 | --- | --- |
 | When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, an owner ruling or behaviour is not one. |
-| Only while the hold still stands | Send one only while the hold names the current head and no author answer since disputes it. Otherwise post a fresh hold first. |
-| An author who answered in the last 30 minutes | Read the answer on your turn, as *3b-quater* says. A `hold-ack`, a comment or a commit then defers the repair Builder for 30 minutes from it. |
+| Only while the hold names the head | After a commit, post a fresh hold at the new head before any repair. An author answer that disputes the hold returns the pull request to the author. |
+| An author who answered in the last 30 minutes | With a `hold-ack`, a comment or a commit: wait for that author until 30 minutes after that answer. Read it on your turn, as *3b-quater* says. |
+| Not on a transferred pull request | No unminimized repair-owner marker may be on it. A transferred pull request's repairs are the Repair Manager's. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
 | Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal. |
 | Its worktree | Dispatch it with `isolation: worktree`, and have it run `ensure-venv.ps1` before its first `pytest`, `mypy` or `ruff` run. Engine `CLAUDE.md` section 5 asks both of every worker. |
 | Its scope | Only the fixes the hold names. |
-| Two repairs per pull request | A later hold is not a repair Builder's. It goes to the Repair Manager when *3b-quater* says it transfers. |
+| Two repairs per pull request | After two, a further hold goes to the Repair Manager by the transfer steps in *3b-quater*, acknowledged or not. The 30-minute exception still defers it. It never sits with neither. |
 | Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post nothing on the pull request instead, since a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
 | ASVS record content | Stays a Manager's, under the owner ruling of 2026-09-23. A repair Builder never takes it. |
+| Before you merge a repair head | Re-read the pull request's comments since the hold. An author objection there returns it to the author. Fleet wiki lesson 20261124T012815379Z-wd9e1o. |
 | Your review, unchanged | Every repair head gets your own review fork before the merge, and the repair Builder's own QA never counts. *Independence, and the risk left open*, *You land, and you review*, states it. |
-| Also unchanged | The review-proof rule, and what goes to the owner. *4a-quinquies* holds both. |
+| Also unchanged by this section | The review-proof rule, and what goes to the owner. *4a-quinquies* holds both. |
 | The risk the speed raises | *Independence, and the risk left open*, in *3b-quater*, names it. |
 
 **CHANGED 2026-11-26, by that instruction.** At least these rules read otherwise until then:
@@ -1002,7 +1008,7 @@ got a seat to push at 14:04Z. It enqueued within the hour.
 ### 3b-quater. A hold its author does not acknowledge transfers to the Repair Manager
 
 **Owner ruling 2026-11-03, in the Lander's session.** Asked *"Which tiers do you want to adopt?"*,
-the owner answered *"Tiers 1 and 2"*. Tier 1 loosened the quiet-author repair Builder, now *Repair a held PR at once*, in *Prefer a
+the owner answered *"Tiers 1 and 2"*. Tier 1 loosened the quiet-author repair Builder, now *Repair a held PR at once*, after *Prefer a
 SPAWNED SESSION*. Tier 2 is this section.
 
 **Held pull requests waited hours on their authors, and the cause was reachability.** A session
@@ -1013,8 +1019,8 @@ running a new wave puts repairs second.
 session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 
 **CHANGED 2026-11-26, by the owner instruction quoted in *Repair a held PR at once*.** Every 2-hour
-window here became 30 minutes, the Manager's reading of an instruction that named no number. The
-transfer's steps and their order did not change.
+window here became 30 minutes. The Lander's brief under that instruction set the transfer and
+`hold-ack` windows. The not-live question window is the Manager's reading. The steps did not change.
 
 Engine `main` states 2 hours until the engine pull request carrying the instruction merges. This
 newer instruction wins.
@@ -1057,7 +1063,7 @@ transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this s
 
 The expiry was decided by the Lander under the owner's delegation of 2026-11-03. Asked *"should a
 hold-ack expire 2h after it"*, the owner answered *"/driver"*. Record d20261103T190111765-2aa8b6.
-That record set 2 hours; the 30 minutes is the 2026-11-26 reading above.
+That record is history for the old 2 hours. The 30 minutes comes from the 2026-11-26 instruction.
 
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
@@ -1075,9 +1081,9 @@ other head move already reads as your turn, flagged `new-commit`.
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
 
-**A hold that names one determinate fix goes to a repair Builder instead, up to two per pull
-request.** *Repair a held PR at once* holds that rule. Every other unacknowledged hold transfers, an
-expired one only under the not-live guard above.
+**A hold that *Repair a held PR at once* takes goes to a repair Builder instead.** A hold after a
+pull request's second repair transfers, acknowledged or not, once the 30-minute exception has
+passed. Every other unacknowledged hold transfers, an expired one only under the not-live guard.
 
 **Never transfer a PR that is queued or has an armed auto-merge request.** A write-access push does
 not disarm auto-merge, so a repair head could merge before your review. Disarm or dequeue first, and
@@ -1155,9 +1161,11 @@ hold, so the research cost falls where it is cheapest.
 | The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, and stops if the head moved. |
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. Unchanged on 2026-11-26. |
 | Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
-| What the shorter windows raise, 2026-11-26 | At least this: an author's own Builder may already be mid-fix on a held pull request that looks quiet. Fleet wiki lesson 20261103T145659705Z-kqwvhx found one on 2 of 4 quiet pull requests. No new control was added. |
+| What the shorter windows raise, 2026-11-26 | At least this: an author's own Builder may already be mid-fix on a held pull request that looks quiet. Fleet wiki lesson 20261103T145659705Z-kqwvhx found one on 2 of 4 quiet pull requests. |
+| What that change removed | At least two checks that also guarded against it: the mail to the author and the live-session test, on the repair path. |
 | Why the 30-minute wait rarely binds | A repair sent at once leaves the author no time to answer. The wait binds only a repair you send later, and author activity before the hold is not counted. |
-| The only collision control | The head-moved check, for repair Builders. Each is briefed to fetch before it pushes and stop if the head moved. An author's own Builder in flight may have no such check, and nothing stops it. |
+| Collision controls, at least | The head-moved check briefed to every repair Builder, the test that the hold names the head, and the 30-minute deferral. An author's own Builder in flight may have none of them. |
+| CHANGED 2026-11-26 | That row was *The only collision control*, naming the head-moved check alone. |
 | A push after you arm | Your head check before arming cannot see it, and a write-access push does not disarm auto-merge. |
 | What catches it, if anything | The post-merge head comparison, step 3 of the Lander's 2026-10-07 safeguards in engine `CLAUDE.md` section 5. Run it on every PR you armed. |
 | Design-heavy repairs | A security or behaviour fix needs context the Repair Manager rebuilds from the PR and its ADR. Expect a research turn each. |
