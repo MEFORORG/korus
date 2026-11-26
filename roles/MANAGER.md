@@ -576,23 +576,40 @@ genuinely independent code changes separate."* Batch independent code changes to
 the owner answered *"Tiers 1 and 2"*. Tier 2 lets the Lander hand a held pull request to a Repair
 Manager.
 
-**A hold you do not acknowledge within 2 hours may transfer.** An acknowledgement is your comment or
-commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its unambiguous
-form.
+**A hold you do not acknowledge within 30 minutes may transfer.** An acknowledgement is your comment
+or commit. The engine's `scripts/coord/held_pr_turns.py` reads the `hold-ack` marker as its
+unambiguous form.
 
 **The expiry below is not part of that ruling.** It was decided by the Lander under the owner's
 delegation of 2026-11-03. Asked *"should a hold-ack expire 2h after it"*, the owner answered
 *"/driver"*. Record d20261103T190111765-2aa8b6.
 
-**A `hold-ack` expires 2 hours after it** while it is still the original author's newest event
-since the hold and no commit by the original author has landed since it. It then transfers only if you also read not live: no live
-session, or a transcript ending on a question unanswered over 2 hours.
+**A `hold-ack` expires 30 minutes after it**, while it is still your newest event since the hold
+and no commit of yours has landed since it. It then transfers only if you also read not live: no
+live session, or a transcript ending on a question unanswered over 2 hours.
 
-**While you are still working, post a fresh `hold-ack` at least every 2 hours.** The newest ack
+That record is history for the old 2 hours. The 30 minutes comes from the 2026-11-26 instruction, below.
+
+**While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 
-Once engine PR 2720 merges, `held_pr_turns.py` shows `ack-expired` only while the head is
+Engine `main`'s `held_pr_turns.py` may still carry `ACK_TTL` at 2 hours and no `HOLD_TTL`.
+[LANDER.md](LANDER.md), *3b-quater*, says how the Lander reads them, and *Repair a held PR at once*
+says which text governs where engine `main`'s `CLAUDE.md` section 5 differs.
+
+Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
+
+**A hold naming one determinate fix may get the Lander's repair Builder as soon as it is posted**,
+unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a held PR at once*,
+states the rule. So answer a hold at once, or expect the repair.
+
+**CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
+and future landers to be more proactive"*. The `hold-ack` and transfer windows read 2 hours until
+then. The Lander's brief under that instruction set both. The not-live question window stays 2 hours.
+
+**CORRECTED 2026-11-26:** the line opening *Since engine PR 2720 merged* read *"Once engine PR 2720
+merges"*. It had merged.
 
 The transfer is a comment whose first line is the marker and whose second is the Lander's signature:
 
@@ -663,9 +680,9 @@ marker.
 **The collision is not hypothetical.** On 2026-11-03 the author of engine PR 2716 resumed after its
 repair had started, and nearly pushed too.
 
-**A Builder already in flight does not read the marker.** For a repair Builder, the only collision
-control is the head-moved check it is briefed with: fetch before the push, and stop if the head
-moved. An author's own Builder in flight may have no such check. It may rebase onto the repair and
+**A Builder already in flight does not read the marker.** A repair Builder's controls include at
+least the head-moved check: fetch before the push, and stop if the head moved. An author's own
+Builder in flight may have no such check. It may rebase onto the repair and
 push.
 
 So brief that check into every Builder you send to a held pull request.
@@ -877,7 +894,10 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | If it names another session | Stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
-| Your Builders | They fetch before they push, never force-push, and stop if the head moved since you last read it back. For the first Builder, that is the hold's head. One that stops reports to you, and you tell the Lander. |
+| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, and stop at any refusal. They use the checkout and push in [LANDER.md](LANDER.md), *Repair a held PR at once*. |
+| Their scope | Working a hold, only the fixes the hold names. On a non-held repair, only the fixes their brief names. |
+| The head to compare | For the first Builder, the hold's head. For a later one, the head you last read back. The checkout and push use the same SHA. |
+| A Builder that stops | It reports to you, and you tell the Lander. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
