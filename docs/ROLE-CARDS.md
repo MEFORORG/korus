@@ -260,7 +260,8 @@ Console was the seventh until 2026-09-10. Its broad oversight did not work, so t
 work. The label now resolves to no card, and the hook says it was retired.
 
 A sixth seat went on 2026-09-12, unreplaced and deliberately unnamed. Its review gate was retired
-on 2026-09-04, so a pull request merges on its two required checks. That label resolves to no card too.
+on 2026-09-04, so no label blocks a merge. Since 2026-09-29 the Lander merges only on proof that
+code review ran. That label resolves to no card too.
 
 The original design record described `roles/README.md` as a partial list copied from a private
 vault. It said Dispatcher, PM, Liaison, Cleaner, Role manager, and Process improvement remained live

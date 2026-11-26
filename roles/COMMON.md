@@ -19,7 +19,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | --- | --- |
 | A grant ADDS, it never narrows | Ask "do I already hold more than this", not "what does this cover". Scoping an incoming grant conservatively is right. Treating it as your ceiling is the defect. |
 | A tick is a wakeup, not a message | Do not answer it. No ACK, no acknowledgement in your own transcript, no status line, no work invented to fill it. Continue; do not report. |
-| Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and since 2026-09-12 no review step sits in front of it. |
+| Every seat pushes its own branch | No approval needed. The merge stays the Lander's, and the Lander merges only on proof that code review ran on the change (owner ruling 2026-09-29; [LANDER.md](LANDER.md), *4a-quinquies*). |
 | Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
 | Since 2026-09-24 (owner ruling) the exception is a Manager's SUBAGENT only | A Builder in its own session opens its own, whether a chip started it or the Manager spawned it. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN to cut it | **The Manager**, since 2026-09-23, usually one per wave. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |

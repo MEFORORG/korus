@@ -158,7 +158,7 @@ gh pr comment <N> --body "<the Builder's QA line, verbatim>"
 | The label is `qa` | Not `reviewed`, which retired 2026-09-04 and still sits in the label list. |
 | The word "review" appears in neither | Owner ruling. The line cites `BUILDER.md step 11` instead, which names exactly one skill. |
 | **No line, no label** | A `qa` label with no comment under it is the retired gate rebuilt: a mark that records nothing. Ask the Builder's successor, or post the label only once you hold the text. |
-| It blocks nothing | `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and nothing else. Do not hold the hand-off to the Lander for it. |
+| It blocks nothing | The label gates no merge in any of the three repositories. Each repository's branch protection holds its own required set; read it there, never from a document. Do not hold the hand-off to the Lander for it. |
 | A thin run still gets posted | Whatever the Tag field says, post it. Hiding a weak shape is what makes the next one invisible. |
 
 **A Builder that reports no QA line has not told you the step ran.** `BUILDER.md` 4c permits an empty
@@ -457,12 +457,14 @@ conclude the label is gone, because it is not.
 
 | Repository | The required context | The workflow |
 | --- | --- | --- |
-| `MEFORORG/MessageFoundry`, the engine | REMOVED. 14 contexts to 13 | **STILL PRESENT AND STILL RUNNING.** It fires on every push and still strips `reviewed` |
+| `MEFORORG/MessageFoundry`, the engine | REMOVED | deleted. Engine `docs/CI.md` records it retired by the owner on 2026-09-04 |
 | `MEFORORG/korus`, named `wshallwshall/korus` here until 2026-09-24 | REMOVED | deleted |
 
-**So an engine pull request still carries a check named `a reviewer has read this`, and whatever it
-says, it blocks nothing.** Do not chase it. Your label will still vanish when you push. That is the
-workflow, not a peer and not a race.
+**CORRECTED 2026-11-25: the engine row's workflow cell said it was STILL RUNNING and stripped
+`reviewed` on every push.** That was false. Nothing posts the check now, and the label still
+exists, but nothing adds, removes or reads it (engine `docs/CI.md`).
+
+**The two paragraphs below describe that check from before it went, and stay as the record.**
 
 **Do not predict what that check will READ.** Queued, pending, red or green, depending only on
 whether its run has executed. None of those tells you anything about your merge any more.
@@ -490,7 +492,7 @@ The retired text follows so the measurement is not lost. Push, WAIT for the revi
 `completed` with a headSha equal to your head, re-check the tip, label, then read the label back.
 Fifteen of sixteen attempts lost this race with every command reporting success.
 
-DO NOT RE-PUSH FOR SMALL FIXES. Each push re-fires the whole suite and re-arms the label race. Batch
+DO NOT RE-PUSH FOR SMALL FIXES. Each push re-fires the whole suite. Batch
 them -- it is the only lever that reduces total work rather than reordering it.
 
 DO NOT ENQUEUE or arm auto-merge. The queue holds five and the Lander sequences it with a pairwise

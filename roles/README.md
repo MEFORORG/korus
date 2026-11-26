@@ -112,12 +112,12 @@ COMMON has been renumbered, and a stale number resolves to the wrong rule silent
 ## 3. The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12
 
 **Owner decision, 2026-09-04.** `a reviewer has read this` is no longer a required status check on
-`main`, and `.github/workflows/review-gate.yml` is deleted. Only `gates (ubuntu-latest)` and
-`gates (windows-latest)` remain required. **An unlabelled PR merges.**
+`main`, and `.github/workflows/review-gate.yml` is deleted. No label is a required check in any of
+the three repositories. **An unlabelled PR merges.**
 
 **ANSWERED 2026-09-12: the owner retired the seat, and nothing replaced it.** Its playbook is
-[retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). A PR now merges on its two
-required gates, with no review step ahead of it.
+[retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md). A PR now merges on its
+required checks and review proof (LANDER.md *4a-quinquies*).
 
 **This paragraph read "Whether the Reviewer seat survives the loss of its gate is an owner question,
 and this file does not answer it" from 2026-09-04 until 2026-09-12.** It was open for eight days, and

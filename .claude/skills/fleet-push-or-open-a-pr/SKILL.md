@@ -13,7 +13,8 @@ disable-model-invocation: false
 ### The PR route: every seat pushes its own, and the Lander merges
 
 **Two steps since 2026-09-12.** Push your own branch and open your own pull request, which needs no
-approval. The Lander merges it once the two required checks are green.
+approval. The Lander merges it once its repository's required checks are green and it holds proof that
+code review ran on the change (owner ruling 2026-09-29).
 
 **NARROWED 2026-09-18, by owner ruling: a Builder under a Manager does not open the pull request.**
 It pushes, reports and exits.
@@ -26,9 +27,9 @@ Lander with five fields. Every other seat still opens its own.
 | Whose step 2 this is | Yours, unless you are a Builder working to a Manager's brief. Then it is the Manager's. |
 | What the 2026-08-29 ruling covered | *"Sessions push their own."* The push. It never named the pull request. |
 | RETIRED 2026-09-12, the middle step | The 2026-08-29 route had three: create the pull request, a review seat posts findings or approves, then it passes the work to the Lander. The owner retired that seat and nothing replaced it. |
-| Nothing reads your diff before the merge | Your own pass is the only one it gets. Say in the pull request what you ran and what you did not vary. |
+| Nothing reads your diff before the merge | Your own pass is usually the only one it gets, and the Lander merges on proof that code review ran (owner ruling 2026-09-29). Say in the pull request what you ran and what you did not vary. |
 | Findings on a pull request are still worth posting | Any seat may write them, and the pull request outlives the session that did. Nobody waits for them. *Your pull request has to survive your own exit* covers what it must carry. |
-| RETIRED 2026-09-04, the label | No label blocks a merge. The owner removed the review gate. The required checks on `main` are `gates (ubuntu-latest)` and `gates (windows-latest)`. |
+| RETIRED 2026-09-04, the label | No label blocks a merge. The owner removed the review gate. No repository's `main` requires a label; read the live set from branch protection. |
 | Do not spend a turn on it | `reviewed` now carries no machine meaning. Do not apply it, wait on it, or read a pull request as blocked for want of it. |
 | What that label proved, kept | That a step happened, not that a party looked. A seat could label a pull request it wrote itself and satisfy the machine. Any gate keyed on a self-appliable mark has this shape. |
 | Direct pushes to `main` | Still blocked by the harness. Branch and pull request is the path. |
@@ -50,7 +51,7 @@ Reviewer, have any other running seat read the diff and label it."*
 became the whole path: push, open the pull request, and the Lander merges.
 
 **The 2026-09-18 ruling changed only who performs the second step for a Builder.** The path itself is
-unchanged, and no review step came back.
+unchanged. Since 2026-09-29 the Lander merges only on proof that code review ran on the change (owner ruling 2026-09-29).
 
 ## A new test file is unlandable until the manifest classifies it
 

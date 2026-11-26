@@ -88,7 +88,7 @@ moment they can win.
 | The ordering of the first two | The stale `CLAUDE.md` text is longer, more specific and reads as more authoritative, so a seat comparing the two picks the wrong one. If the engine file is updated, this row stops the next seat re-deriving the conflict. |
 | Being correct is not being authorised | A peer cannot grant a permission even when the guess turns out right. |
 | The retired label row | The gate went on 2026-09-04 and the seat on 2026-09-12. See [README.md](README.md), *The review gate retired on 2026-09-04, and the seat it belonged to on 2026-09-12*. |
-| The retired review-step row | A pull request merges on `gates (ubuntu-latest)` and `gates (windows-latest)` alone. Your own pass over the diff is the only one it gets, so report what you ran and what you did NOT run. Section 4d holds the format. |
+| The retired review-step row | No label gates a merge. The Lander merges on proof that code review ran (owner ruling 2026-09-29), usually your own pass, so report what you ran and what you did NOT run. Section 4d holds the format. |
 | Naming what you did not run is the half that gets dropped | A hosted-only leg you cannot run locally is unread until CI reads it, and nobody downstream can tell it from a green one. |
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
 | The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
@@ -166,7 +166,7 @@ whenever it is reasonable* is met.
 | Push your own branch | -- |
 | Open the pull request on your branch, and decide when | **Manager**. Usually one pull request per wave, owner ruling 2026-09-23. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
 | Release the claim your commits hold | **Lander**, in the same act as the ledger update |
-| Merge, force-push, tags, releases | **Lander**, on the two required gates. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
+| Merge, force-push, tags, releases | **Lander**, on its repository's required checks and proof that code review ran. **CHANGED 2026-09-18:** this read *"after the review step"*, and that seat retired 2026-09-12. |
 | Blocked item, scope change, new defect, a file outside your cluster | **Manager** |
 | A ruling, a policy call, a precedent-setting severity | **Manager** |
 
