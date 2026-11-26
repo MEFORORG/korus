@@ -603,8 +603,8 @@ unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a
 holds the rule. So answer a hold at once, or expect the repair.
 
 **CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
-and future landers to be more proactive"*. Each window in this section read 2 hours until then, and
-the repair Builder waited 2 hours on a quiet author.
+and future landers to be more proactive"*. Each window here read 2 hours until then. The 30
+minutes is the Manager's reading of an instruction that named no number.
 
 **CORRECTED 2026-11-26:** the line opening *Since engine PR 2720 merged* read *"Once engine PR 2720
 merges"*. It had merged.

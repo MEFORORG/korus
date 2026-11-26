@@ -664,13 +664,15 @@ older conditions, and this newer instruction wins.
 | Item | Rule |
 | --- | --- |
 | When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, an owner ruling or behaviour is not one. |
-| Wait for an author who just answered | If the original author answered the hold in the last 30 minutes, with a `hold-ack`, a comment or a commit, wait for that author. *3b-quater* says whose events count. |
+| Wait for an author who just answered | If the original author answered the hold in the last 30 minutes, with a `hold-ack`, a comment or a commit, wait for that author. A `hold-ack` expires 30 minutes after it. *3b-quater* says whose events count. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
 | Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal. |
+| Its worktree | Dispatch it with `isolation: worktree`, as engine `CLAUDE.md` section 5 asks of every worker. |
 | Its scope | Only the fixes the hold names. |
 | Two repairs per pull request | A later hold is not a repair Builder's. It goes to the Repair Manager when *3b-quater* says it transfers. |
+| Count them on the pull request | Say so in a comment when you send one, numbered, so the count survives your session. A subagent leaves no other record. |
 | ASVS record content | Stays a Manager's, under the owner ruling of 2026-09-23. A repair Builder never takes it. |
-| Your review, unchanged | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`, before the merge. The repair Builder's own QA never counts. |
+| Your review, unchanged | Every repair head gets your own review fork before the merge, and the repair Builder's own QA never counts. *Independence, and the risk left open*, *You land, and you review*, states it. |
 | Also unchanged | The review-proof rule, and what goes to the owner. *4a-quinquies* holds both. |
 | The risk the speed raises | *Independence, and the risk left open*, in *3b-quater*, names it. |
 
@@ -1010,8 +1012,11 @@ running a new wave puts repairs second.
 session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 
 **CHANGED 2026-11-26, by the owner instruction quoted in *Repair a held PR at once*.** Every 2-hour
-window in this section became 30 minutes. That is the Manager's reading of the instruction, which
-named no number. The transfer's steps and their order did not change.
+window here became 30 minutes, the Manager's reading of an instruction that named no number. The
+transfer's steps and their order did not change.
+
+Engine `main` states 2 hours until the engine pull request carrying the instruction merges. This
+newer instruction wins.
 
 #### Keep one Repair Manager alive, as you keep the Watchdog
 
@@ -1149,6 +1154,7 @@ hold, so the research cost falls where it is cheapest.
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. Unchanged on 2026-11-26. |
 | Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
 | What the shorter windows raise, 2026-11-26 | At least this: an author's own Builder may already be mid-fix on a held pull request that looks quiet. Fleet wiki lesson 20261103T145659705Z-kqwvhx found one on 2 of 4 quiet pull requests. No new control was added. |
+| Why the 30-minute wait rarely binds | A repair sent at once leaves the author no time to answer. The wait binds only a repair you send later, and author activity before the hold is not counted. |
 | The only collision control | The head-moved check, for repair Builders. Each is briefed to fetch before it pushes and stop if the head moved. An author's own Builder in flight may have no such check, and nothing stops it. |
 | A push after you arm | Your head check before arming cannot see it, and a write-access push does not disarm auto-merge. |
 | What catches it, if anything | The post-merge head comparison, step 3 of the Lander's 2026-10-07 safeguards in engine `CLAUDE.md` section 5. Run it on every PR you armed. |
