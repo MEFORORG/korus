@@ -237,9 +237,10 @@ try {
         elseif ([Console]::IsInputRedirected) { try { $raw = [Console]::In.ReadToEnd() } catch { $raw = '' } }
     }
     $startedIn = $PWD.Path
+    $session = $null
     if ($raw -and $haveInput) {
         # -SelfTest is a diagnostic, so it reads the session pin and never writes one.
-        try { $cwdNote = (Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest).Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
+        try { $session = Enter-CcxHookSession -Text $raw -ReadOnly:$SelfTest; $cwdNote = $session.Reason } catch { $cwdNote = "the hook could not read its input's cwd ($($_.Exception.Message))" }
     }
 
     # --- 1. COMMON DIR -------------------------------------------------------------------------------
@@ -322,7 +323,12 @@ try {
     # --- 5. PAYLOAD ----------------------------------------------------------------------------------
     # Read in step 0, before the first git call, which says why it skips stdin under -SelfTest.
     $selfId = ''
-    if ($raw) {
+    # The resolver's session id where it parsed the input, so JSON plain ConvertFrom-Json refuses
+    # (an empty key, a nested case twin) still names its session. Input the resolver refuses as a
+    # whole is read the old way: its session id carries it to step 9a, which says it announced
+    # nothing and why, rather than to a NO_SESSION_ID receipt nobody is shown.
+    if ($session -and $session.Payload) { $selfId = $session.SessionId }
+    elseif ($raw) {
         try {
             $payload = $raw | ConvertFrom-Json
             $selfId = [string]$payload.session_id
@@ -377,7 +383,12 @@ try {
             if (-not $recent) {
                 if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }
                 Set-Content -LiteralPath $stamp -Value (Get-Date).ToString('o') -Encoding ascii
-                Write-Receipt 'NO_SESSION_ID' @{ note = 'no session_id in the hook payload' }
+                # A read that timed out or threw, or input the resolver refused as a whole, left no
+                # payload to blame; say what failed.
+                $why = [string](Get-Variable -Name CcxHookInputFault -Scope Script -ValueOnly -ErrorAction Ignore)
+                if (-not $why -and $session -and $null -eq $session.Payload) { $why = $cwdNote }
+                if (-not $why) { $why = 'no session_id in the hook payload' }
+                Write-Receipt 'NO_SESSION_ID' @{ note = $why }
             }
             exit 0
         }

@@ -404,6 +404,49 @@ class TheAnnouncementNamesTheSessionsWorktree(_Fixture):
         self.assertNotIn("[SESSION-ANNOUNCE]", out)
         self.assertIn("which is in another repository", out)
 
+    def test_a_read_that_throws_is_the_no_session_id_receipts_cause(self):
+        """MessageFoundry #5586 added item 7: a stdin read that threw left no payload, and the
+        NO_SESSION_ID receipt blamed the payload for naming no session_id."""
+        stub = self.base / "presence-stub.ps1"
+        stub.write_text("param([switch]$Json)\nWrite-Output '[]'\nexit 0\n", encoding="utf-8")
+        e = dict(os.environ)
+        for leak in ("CCX_CONFIG", "CCX_TRUNK", "CLAUDE_PROJECT_DIR", "CCX_SESSION_BANNER"):
+            e.pop(leak, None)
+        state = self.base / "announce-unread"
+        sink = self.base / "write-only-announce.bin"
+        with sink.open("wb") as handle:
+            r = subprocess.run(
+                [self.pwsh, "-NoProfile", "-NonInteractive", "-File", str(ANNOUNCE),
+                 "-PresenceScript", str(stub), "-StateDir", str(state)],
+                stdin=handle, capture_output=True, encoding="utf-8", env=e, cwd=str(self.primary),
+                timeout=TIMEOUT_SECONDS,
+            )
+        self.assertEqual(0, r.returncode, r.stderr)
+        receipt = (state / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
+        self.assertIn("out=NO_SESSION_ID", receipt)
+        self.assertIn("could not be read", receipt)
+        self.assertNotIn("no session_id in the hook payload", receipt)
+        # The control: input that was read and names no session_id still blames the payload.
+        self.announce({"cwd": str(self.worktree)}, "unnamed")
+        named = (self.base / "announce-unnamed" / "receipts" / "no-session.tsv").read_text(encoding="utf-8")
+        self.assertIn("no session_id in the hook payload", named)
+
+    def test_input_the_resolver_refuses_announces_nothing_and_says_so(self):
+        """A one-element array is no object to the resolver. The session is told, at step 9a, that
+        nothing was announced and why, not left with a NO_SESSION_ID receipt nobody is shown."""
+        self.launch("sess-arr", self.worktree)
+        out = self.announce([{"session_id": "sess-arr", "cwd": str(self.worktree)}], "arr")
+        self.assertNotIn("[SESSION-ANNOUNCE]", out)
+        self.assertIn("not a JSON object", out)
+        self.assertIn("announced nothing", out)
+
+    def test_json_only_convertfrom_json_refuses_still_announces(self):
+        """Step 5 parsed with plain ConvertFrom-Json, which throws on an empty key, so a session the
+        resolver read was reported as NO_SESSION_ID and never announced."""
+        self.launch("sess-ek", self.worktree)
+        out = self.announce({"": 1, "session_id": "sess-ek", "cwd": str(self.worktree)}, "ek")
+        self.assertIn(f"[SESSION-ANNOUNCE] {slashed(self.worktree)} (wt-branch)", out)
+
     def test_the_cannot_tell_line_obeys_the_kill_switch(self):
         """korus#223 review: the line ignored the OFF file."""
         state = self.base / "announce-h"
@@ -740,6 +783,17 @@ UNUSABLE_INPUT = [
     ('{"cwd": null, "session_id": "s1"}', "blank cwd"),
     ('{"cwd": ".", "session_id": "s1"}', "relative cwd"),
     ('{"cwd": "\\\\Code", "session_id": "s1"}', "relative cwd"),
+    # #5586 added item 3: the [string] cast read a one-element array as its element.
+    ('{"cwd": ["C:\\\\"], "session_id": "s1"}', "not a string"),
+    ('{"cwd": {"path": "C:\\\\"}, "session_id": "s1"}', "not a string"),
+    ('{"cwd": 5, "session_id": "s1"}', "not a string"),
+    # #5586 added item 2: a top-level key named twice in different case is ambiguous.
+    ('{"cwd": "C:\\\\", "CWD": "D:\\\\", "session_id": "s1"}', "names cwd in keys that differ"),
+    ('{"cwd": "C:\\\\", "session_id": "s1", "Session_Id": "s2"}', "names session_id in keys"),
+    ('{"cwd": "C:\\\\", "source": "clear", "SOURCE": "startup"}', "names source in keys"),
+    ('{"cwd": "C:\\\\", "hook_event_name": ["SessionStart"]}', "hook_event_name that is not"),
+    ('{"cwd": "C:\\\\", "session_id": ["s1"]}', "session_id that is not a string"),
+    ('{"a": 1, "A": 2', "not readable JSON"),
 ]
 
 
@@ -818,6 +872,51 @@ class TheResolverFaultsOnInputItCannotUse(_Fixture):
         self.assertEqual("", self.resolve('{"session_id": "s1"}', start=outside)["Reason"])
         same = self.resolve(json.dumps({"cwd": str(outside), "session_id": "s1"}), start=outside)
         self.assertEqual("", same["Reason"], same)
+
+    def test_json_only_convertfrom_json_refuses_is_still_read(self):
+        """#5586 added item 2: an empty key, a reserved member name, or keys below the top level
+        that differ only in case are valid JSON, and read as "not readable JSON"."""
+        # A folder of the start checkout, so no pin is needed to take it.
+        cwd = json.dumps(str(self.primary / ".claude"))
+        for extra in ('"": 1', '"psobject": 1', '"Keys": ["zz"], "": 1',
+                      '"tool_input": {"path": "x", "PATH": "y"}'):
+            with self.subTest(extra=extra):
+                got = self.resolve(f'{{"cwd": {cwd}, "session_id": "s1", {extra}}}')
+                self.assertEqual("", got["Reason"], got)
+                self.assertEqual("", got["PReason"], got)
+
+    def junction(self, link: Path, target: Path) -> None:
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                       check=True, capture_output=True, timeout=TIMEOUT_SECONDS)
+
+    def test_a_cd_inside_a_start_folder_outside_every_checkout_is_not_a_fault(self):
+        """#5586 added item 1: started in no checkout, only a cwd spelled exactly as the start
+        directory was taken, so a `cd` into a subfolder, or a junction to the start, was a fault."""
+        start = self.base / "no-repo-start"
+        sub = start / "deeper" / "still"
+        sub.mkdir(parents=True)
+        sibling = self.base / "no-repo-sibling"
+        sibling.mkdir()
+        nested = start / "nested"
+        nested.mkdir()
+        self.git(nested, "init", "-q", "-b", "main")
+        taken, refused = [sub, start / "deeper"], [sibling, self.base, nested]
+        if os.name == "nt":
+            self.junction(self.base / "jn", start)
+            self.junction(start / "out", sibling)
+            taken += [self.base / "jn", self.base / "jn" / "deeper"]
+            refused += [start / "out"]
+        for cwd in taken:
+            with self.subTest(cwd=cwd):
+                got = self.resolve(json.dumps({"cwd": str(cwd), "session_id": "s1"}), start=start)
+                self.assertEqual("", got["Reason"], got)
+                self.assertIsNone(got["Dir"], got)
+        # The controls: a sibling, a parent, a folder below holding its own checkout, and a junction
+        # out to the sibling are still a fault.
+        for cwd in refused:
+            with self.subTest(cwd=cwd):
+                got = self.resolve(json.dumps({"cwd": str(cwd), "session_id": "s1"}), start=start)
+                self.assertIn("in no checkout this hook can read", got["Reason"])
 
 
 class TheSteeringHookReadsNoNoteOnInputItCannotUse(_Fixture):
