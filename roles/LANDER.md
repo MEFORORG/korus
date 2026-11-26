@@ -665,6 +665,10 @@ to follow that brief exactly, on 2026-11-26 in the Manager's chat.
 This table, *3b-quater* and *4a-quinquies* are the procedure for whatever section 5 states. Where
 the two differ, section 5 governs until both change together. Other sections point here.
 
+Two limits on that. Where *4a-quinquies* sends more to the owner, it governs, as section 5 itself
+says. Section 5's silence is not a difference: a row here that only adds care, such as the re-read
+before the merge, binds.
+
 | Item | Rule |
 | --- | --- |
 | When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, of an owner ruling or of behaviour is not one. |
@@ -672,10 +676,11 @@ the two differ, section 5 governs until both change together. Other sections poi
 | An author who answered in the last 30 minutes | With a `hold-ack`, a comment or a commit: wait for that author until 30 minutes after that answer. Read it on your turn, as *3b-quater* says. |
 | Not on a transferred pull request | No unminimized repair-owner marker may be on it. A transferred pull request's repairs are the Repair Manager's. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
-| Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal, make only the fixes the hold names. |
+| Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*, plus the checkout and push below. |
+| Its limits, in the brief | Never force-push, stop if the head moved since the hold, stop at any refusal, and make only the fixes the hold names. |
 | Its worktree | Dispatch it with `isolation: worktree`, and have it run `ensure-venv.ps1` before its first `pytest`, `mypy` or `ruff` run. Engine `CLAUDE.md` section 5 asks both of every worker. |
-| The checkout, for every repair Builder | Fetch. Detach at the fetched hold-head SHA, never from a local branch name. Check that `HEAD` equals that SHA before committing. The Repair Manager's Builders use it too. |
-| The push | Just before pushing, `git ls-remote origin refs/heads/<branch>` must still read the hold-head SHA. Then `git push origin HEAD:refs/heads/<branch>`. |
+| The checkout, for every repair Builder | Fetch. Detach at the base SHA, never a local branch name: the hold's head, or for a later Repair Manager Builder the head last read back. Before the first commit, check `HEAD` equals it. |
+| The push | Just before pushing, `git ls-remote origin refs/heads/<branch>` must still read the base SHA. Then `git push origin HEAD:refs/heads/<branch>`. The Repair Manager's Builders use both rows. |
 | Two repairs per pull request | After two, a further hold follows the ordinary transfer rule in *3b-quater*, with its acknowledgement and not-live tests. It is never a repair Builder's. |
 | Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post no comment just to count: a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
 | What you still post | At least the review proof for the repair head, and *4a-quinquies*' naming of each open finding, both before the merge. |
@@ -1055,10 +1060,9 @@ may also hand it over sooner.
 **A `hold-ack` expires 30 minutes after it** while it is still the original author's newest event
 since the hold and no commit by the original author has landed since it.
 
-An expired hold counts as unacknowledged, so it may go to a repair Builder within the two-repair
-cap. **It transfers only when the author also reads not live:** no live session, or a transcript
-ending on a question unanswered for more than 2 hours. A hold never acknowledged transfers at 30
-minutes.
+An expired hold counts as unacknowledged: a repair Builder may take it within the two-repair cap.
+**It transfers only if the original author also reads not live:** no live session, or a transcript
+ending on a question unanswered over 2 hours. An unacknowledged hold transfers at 30 minutes.
 
 Read that question with `list_events` or `scripts/board/seatstate.py`. Confirm it is the
 transcript's last turn, not an older orphaned ask. `QUESTION-LOST` is not this state.
@@ -1071,8 +1075,11 @@ That record is history for the old 2 hours. The 30 minutes comes from the 2026-1
 back, and you act on it rather than wait.
 
 **`held_pr_turns.py` reads two constants.** An ack older than `ACK_TTL` reads expired. An
-unacknowledged hold older than `HOLD_TTL` reads LANDER, flagged `hold-expired`. Both are 30 minutes
-in the section 5 text this file follows; read them on engine `main` before you rely on a flag.
+unacknowledged hold older than `HOLD_TTL` reads LANDER, flagged `hold-expired`. Read both on engine
+`main` before you rely on a flag: `main` may still carry `ACK_TTL` at 2 hours and no `HOLD_TTL`.
+
+**A `hold-expired` row on a pull request you sent a repair Builder to is that repair's**, not a
+transfer. Check your episode note before you transfer.
 
 **CORRECTED 2026-11-26:** these lines read *"`held_pr_turns.py` on `main` does not apply this
 expiry"*. Engine PR 2720 had already merged, with `ACK_TTL` at 2 hours.
@@ -1160,7 +1167,7 @@ hold, so the research cost falls where it is cheapest.
 
 | Item | Rule |
 | --- | --- |
-| The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, stops if the head moved, stops at any refusal, and uses the checkout and push in *Repair a held PR at once*. |
+| The Repair Manager authors | Through a subagent Builder, which never force-pushes, stops if the head moved or at any refusal, makes only the fixes the hold names, and uses the checkout and push in *Repair a held PR at once*. |
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. Unchanged on 2026-11-26. |
 | Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
 | What the shorter windows raise, 2026-11-26 | At least this: an author's own Builder may already be mid-fix on a held pull request that looks quiet. Fleet wiki lesson 20261103T145659705Z-kqwvhx found one on 2 of 4 quiet pull requests. |

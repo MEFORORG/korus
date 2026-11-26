@@ -895,7 +895,7 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
 | Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, and stop at any refusal. They use the checkout and push in [LANDER.md](LANDER.md), *Repair a held PR at once*. |
 | Their scope | Working a hold, only the fixes the hold names. On a non-held repair, only the fixes their brief names. |
-| The head to compare | For the first Builder, the hold's head. |
+| The head to compare | For the first Builder, the hold's head. For a later one, the head you last read back. The checkout and push use the same SHA. |
 | A Builder that stops | It reports to you, and you tell the Lander. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
