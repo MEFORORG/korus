@@ -309,6 +309,7 @@ It replaced the owner ruling of 2026-08-28, which sent every such conflict to th
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
 | A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
 | While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, a playbook conflict goes to the Owner instead of being settled by the newer-ruling rule. *The empower rules are on by default, for every seat but Special* says how to read the variable. Owner decision 2026-11-26. |
+| The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision 2026-11-26. |
 
 ### Your worktree, not your seat, decides which coordination record you touch
 
