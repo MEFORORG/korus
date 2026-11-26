@@ -2453,6 +2453,45 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertEqual(code, review_tag.EXIT_FOUND, out)
                 self.assertIn("agent mine", out)
 
+    def test_an_escaped_target_prefix_inside_content_is_no_fork_head(self):
+        # Lander hold on korus PR 279, finding 1: the raw search decoded JSON escapes before it
+        # looked for a quote opening the target prefix, so a brief elsewhere that quotes the
+        # prefix, an escaped quote in the raw bytes, read as a fork head and refused a correct
+        # fork here with exit 10. Only a quote the JSON itself opens a string with is a head; an
+        # escaped backslash before the escaped quote leaves it escaped.
+        for name, quote in (("escaped quote", "\\" + '"'),
+                            ("after a backslash", "\\" * 3 + '"')):
+            with self.subTest(quote=name):
+                content = ('{"type": "user", "message": {"content": "Builder brief: paste '
+                           + quote + f'Review target: `{self.NONCE} Review x`' + quote
+                           + ' then run it and rep')
+                self.assertFalse(review_tag.raw_holds_nonce(content, self.NONCE))
+                self.projects = Path(self._tmp.name) / ("projects-esc-" + name[:5])
+                self.projects.mkdir()
+                self._unread_elsewhere(content)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_FOUND, out)
+                self.assertIn("agent mine", out)
+
+    def test_control_a_string_the_json_opens_with_the_target_prefix_is_a_fork_head(self):
+        # The quote the JSON opens the content string with, in either content form, is a head,
+        # and refuses as unread beside a fork here. The newlines are JSON escapes.
+        for name, content in (
+            ("string", '{"type": "user", "message": {"content": "Review target: `'
+                       f'{self.NONCE} Review x`\\n\\n`'),
+            ("blocks", '{"type": "user", "message": {"content": [{"type": "text", "text": '
+                       f'"Review target: `{self.NONCE} Review x`\\n\\n`'),
+        ):
+            with self.subTest(head=name):
+                self.assertTrue(review_tag.raw_holds_nonce(content, self.NONCE))
+                self.projects = Path(self._tmp.name) / ("projects-quote-" + name)
+                self.projects.mkdir()
+                self._unread_elsewhere(content)
+                self._write("mine", self._head(), self.HERE, timestamp=self.LATE)
+                code, out = self._probe()
+                self.assertEqual(code, review_tag.EXIT_UNREAD, out)
+
     def test_a_record_zero_nested_too_deep_to_parse_refuses_as_unread(self):
         sub = self.projects / "D--probe" / "s1" / "subagents"
         sub.mkdir(parents=True, exist_ok=True)
