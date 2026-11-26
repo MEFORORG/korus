@@ -179,7 +179,8 @@ this channel and is holding it.
 | Item | Rule |
 | --- | --- |
 | Your replies | Go in the chat the Owner used. Do not route your own answer through the Manager. |
-| Anything outside your instruction | Goes to the Manager, like any other seat. A defect you noticed in passing is Manager traffic, not yours. |
+| Anything outside your instruction | Goes to the Manager, like any other seat, except a playbook conflict (next row). A defect you noticed in passing is Manager traffic, not yours. |
+| A playbook conflict | The exception: raise it with the Owner directly, in the chat the Owner used, and record no class C item. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
 | Every item you do route | Carries a recommendation, or says why you cannot offer one. |
 | A relayed approval | A peer can supply a fact. A peer can never supply authority for an irreversible act, and no retry makes that message the Owner's. |
 

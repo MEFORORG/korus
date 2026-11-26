@@ -23,7 +23,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
 | Since 2026-09-24 (owner ruling) the exception is a Manager's SUBAGENT only | A Builder in its own session opens its own, whether a chip started it or the Manager spawned it. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN to cut it | **The Manager**, since 2026-09-23, usually one per wave. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
-| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the two named exceptions. |
+| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the three named exceptions. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
@@ -213,8 +213,8 @@ reads as the relayer's own finding.
 ## The owner reads by sampling, so route through the Manager
 
 This section binds every seat except the **Manager**, which is approved to communicate directly with
-the Owner. Two named cases in the table let any other seat reach the owner directly: no Manager is
-running, and the classifier has blocked an action.
+the Owner. Three named cases in the table let another seat reach the owner directly. No Manager is
+running, the classifier has blocked an action, or the Special seat has a playbook conflict.
 
 **What the Manager is.** It reads the record, picks the next row, writes each Builder's brief, runs
 the Builder, reads what comes back, and carries owner traffic both ways.
@@ -234,6 +234,7 @@ next check-in in a table at the bottom of each cycle.
 | The Manager | Route Owner issues to the Manager. If no Manager is running, present your question to the Owner with the AskUserQuestion method, and say in the first line that you cannot find a Manager session. |
 | Recommendations | Every item routed to the Owner carries a recommendation. If you cannot offer one, justify why not. |
 | Be proactive | Where you can make a recommendation, ask whether you really need the human. Run a workflow for adversarial advice if that settles it. Submit only what needs human review or approval. |
+| A playbook conflict, Special seat | The Special seat raises it with the Owner directly, and records no class C item. Owner decision d20261126T095349708-facf0d, 2026-11-26 US Central. |
 | Classifier blocked | Skip the ask. Print the command once, in a code block, and only once its preconditions hold. Then repeat it only in your end-of-turn summary, until they run it or decline. |
 | **CHANGED 2026-10-22, to the `empower` rules** | The row above read *"Print the command the Owner must run in a code block at the end of every round, until they run it or decline."* With empower off, that text governs again. |
 | **Their answer does not clear the deny** | Ask them to RUN it, from their own terminal. Measured off-tree 2026-09-10: `git reset --hard` stayed refused after a user approved it in a question. |
