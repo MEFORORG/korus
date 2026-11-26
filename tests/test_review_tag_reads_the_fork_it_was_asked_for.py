@@ -2539,6 +2539,19 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
             ("bad \\u escape mid-string", '{"a": "x' + b + 'u00zz", "b": "c"}', False),
             ("bad escape", '{"a": "C:' + b + 'q"}', False),
             ("extra data", '{"a": 1}\r{"b": 2}', False),
+            # Review of f586fcd: tails no cut of one record 0 can leave.
+            ("extra number", '{"a": 1}1', False),
+            ("extra literal", '{"a": 1}true', False),
+            ("form feed", '{"a": "x"}\x0c', False),
+            ("no-break space", '{"a": "x"}\xa0', False),
+            ("stray number", '{"a": "x" 1', False),
+            ("bare fraction", '{"a": .5', False),
+            ("literal at a key", '{"a": 1, tr', False),
+            ("raw tab in a string", '{"a": "x\t', False),
+            ("whole literal", '{"a": true', True),
+            ("cut exponent", '{"a": 1e+', True),
+            ("trailing newline", '{"a": 1, \r\n', True),
+            ("not an object", '"{}"', False),
         ):
             with self.subTest(raw=name):
                 self.assertIs(review_tag.clean_cut(raw), clean)
@@ -2548,6 +2561,15 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                    + f'Review target: `{self.NONCE} Review x`' + b + '" then ')
         pad = "x" * (review_tag.RAW_NONCE_PREFIX - len(mention) - 4)
         self.assertFalse(review_tag.raw_holds_nonce(mention + pad + b + "u001b rest", self.NONCE))
+        # A record 0 read whole decides, not the searched prefix: one malformed past the prefix,
+        # or wrapped in a JSON string, falls back to the line scan and refuses.
+        late = mention + pad + '", "cwd": "C:' + b + '", "x": "y"}'
+        self.assertFalse(review_tag.clean_cut(late))
+        self.assertTrue(review_tag.raw_holds_nonce(late, self.NONCE))
+        self.assertTrue(review_tag.raw_holds_nonce(mention + '"}}1', self.NONCE))
+        head = {"type": "user", "message": {"content": f"Review target: `{self.NONCE} Review x`"
+                                                       f"\n\n`{TAG_XHIGH}`\n\nGo."}}
+        self.assertTrue(review_tag.raw_holds_nonce(json.dumps(json.dumps(head)), self.NONCE))
 
     def test_the_raw_search_reads_each_json_string_by_the_head_readers_rules(self):
         # Review of 036b321: each string value is decoded to its own end and read as read_head
