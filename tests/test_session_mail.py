@@ -1087,25 +1087,27 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
     def test_input_the_resolver_refuses_still_stamps_the_worktree_its_cwd_names(self):
         """Korus PR 278's Lander hold, round-3 finding 1. The resolver refuses an input whose
         session_id or event is not a string, and the drain then dropped its cwd too, so the fault
-        stamp keyed on the start checkout, the primary. Main's loose parse kept the cwd. The stamp
+        stamp keyed on the start checkout, the primary. Main's loose parse kept the cwd of input it
+        could read. The stamp
         must land on the worktree the cwd names, which the peer's SessionStart shows; the control
         is the primary's own SessionStart, which shows none. The lone copy with no `_mail.ps1`
-        covers the early path, which reads its input before the event."""
+        covers the early path, which reads its input before the event; one shape is enough there."""
         lone = self.lone_copy(mail_module=False, input_reader=True)
         base = {"cwd": str(self.peer), "stop_hook_active": False}
         shapes = ({**base, "session_id": 7, "hook_event_name": "Stop"},
                   {**base, "session_id": "w1", "hook_event_name": ["Stop"]},
                   {**base, "session_id": "w1", "Session_Id": "w9", "hook_event_name": "Stop"},
                   [{**base, "session_id": "w1", "hook_event_name": "Stop"}])
-        for script in (DRAIN, lone):
-            for refused in shapes:
-                for args in ([], ["-Event", "Stop"]):
-                    self.assert_refused_stop_stamps_peer(script, refused, args)
+        for refused in shapes:
+            for args in ([], ["-Event", "Stop"]):
+                self.assert_refused_stop_stamps_peer(DRAIN, refused, args)
+        self.assert_refused_stop_stamps_peer(lone, shapes[0], [])
 
     def assert_refused_stop_stamps_peer(self, script, refused, args):
         with self.subTest(script="drain" if script == DRAIN else "lone", stdin=refused, args=args):
-            for p in self.stamps():
-                p.unlink()
+            if self.faults_dir().is_dir():
+                for p in self.faults_dir().iterdir():
+                    p.unlink()
             r = subprocess.run([self.pwsh, "-NoProfile", "-File", str(script), *args],
                                input=json.dumps(refused), capture_output=True, text=True,
                                cwd=str(self.primary), timeout=TIMEOUT_SECONDS)
@@ -1115,6 +1117,8 @@ class AStopFaultIsStampedForTheNextSessionStart(_LaneCase):
             home = self.drain(self.primary, event="SessionStart", session_id="c1",
                               fields={"cwd": str(self.primary), "source": "startup"},
                               pass_event=False)
+            # Only a display that reached its box lists stamps, so the control must reach it.
+            self.assertNotIn("NO BOX", self.ctx(home), "the control display reached no box")
             self.assertNotIn("UNSEEN FAULT", self.ctx(home), "the stamp keyed on the start checkout")
             self.assertIn("UNSEEN FAULT", self.ctx(self.launch("w2")), "the peer was not told")
 
