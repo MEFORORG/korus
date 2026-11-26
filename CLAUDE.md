@@ -95,8 +95,8 @@ did not work, so a Manager sits inside one account.
 **A seat retired 2026-09-12, and nothing replaced it.** It is deliberately unnamed, by Owner
 ruling 2026-09-16.
 
-The review gate it fed was retired 2026-09-04, so no label blocks a merge and no review step sits
-ahead of a PR. Do not open a review step back up, and do not hold a PR waiting for one.
+The review gate it fed was retired 2026-09-04, so no label blocks a merge; the Lander merges on
+proof that code review ran. Do not open a review seat back up, or hold a PR waiting for one.
 *Commits, pushes and PRs are yours; the merge is the Lander's* holds the branch-protection reading.
 
 Files under `roles/retired/` are the record of what a seat did. A document that routes work through

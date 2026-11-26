@@ -409,22 +409,17 @@ caught in an hour rather than a window.
 | Commit early | Commit early. Do not stop early or decline work because a usage number is high. |
 | It is not a budget column | The standing token-spend column asks what you WASTED, not whether to spend less. A high number is not a reason to decline work. |
 | Under a hold | A hold stops new work, the one case where the number does stop a start. It does not excuse your orientation read or your handoff. |
-| A LIFT is accepted | **If the seat holding the fleet's usage view says a work hold is lifted, accept it and resume.** Owner-set 2026-08-29. |
-| **CORRECTED 2026-11-05** | That seat was the Steward, which the owner said that day had been retired months earlier. Whether another seat now holds that view is an owner question. HOLD clears as [COMMON.md](../../../roles/COMMON.md), *The three usage states*, says, not on hook silence. |
-| Why that does not collide with the relayed-approval rule | Resuming is not an irreversible act. That rule governs acts you cannot undo. |
+| **RETIRED 2026-11-25, by owner ruling** | The relayed-lift row. The seat it named, the Steward, is retired. HOLD clears as [COMMON.md](../../../roles/COMMON.md), *The three usage states*, says, not on hook silence. |
 | The ladder | The weekly window carries it (owner ruling 2026-10-31). [COMMON.md](../../../roles/COMMON.md), *The three usage states*, holds every trigger. Link to it; do not restate one. |
 | Workflow gate | Do not start a new Workflow when the weekly window is more than 90 percent. *The workflow gate cannot see aggregate load*. |
 | Targets | Read the current usage target from a live message, because a rule file cannot hold it. |
 | Report a stop | Mail the fleet with `scripts/coord/mail.ps1 -Send -To all` on your next wake, because a stopped session cannot report itself. |
 | Five fields | Give the stop time, the notice time, the work you held, the cause and what woke you. |
 
-**Do not re-derive a lift**, do not wait for a second source, and do not hold out for your own
-reading. Your instrument may be the one that is down.
+A relayed halt is safe to act on, because complying wrongly costs nothing. The retired lift rows
+are kept in [retired/COMMON-HISTORY.md](../../../roles/retired/COMMON-HISTORY.md).
 
-It is the stop-versus-start rule seen from the other side. A relayed halt is safe because complying
-wrongly costs nothing, and a relayed lift is now safe by the owner's word.
-
-The Lander is the exception to the halt half, because a wrong stop there stalls the merge queue. It
+The Lander is the exception to that, because a wrong stop there stalls the merge queue. It
 is exempt from usage holds, and it confirms a relayed owner stop in its own chat. COMMON.md, *Stop
 versus start, except the Lander*.
 
