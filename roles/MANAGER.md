@@ -593,9 +593,9 @@ That record is history for the old 2 hours. The 30 minutes comes from the 2026-1
 **While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 
-`held_pr_turns.py` on engine `main` still expires an ack at 2 hours, its `ACK_TTL`. It reads 30
-minutes once the engine pull request that moves `ACK_TTL` merges. The Lander checks the ack's age
-itself until then.
+`held_pr_turns.py` on engine `main` still expires an ack at 2 hours, its `ACK_TTL`. Every
+30-minute rule in this section takes effect when engine PR 3345 merges, which moves `ACK_TTL` too.
+Until then engine `main`'s section 5 governs, at 2 hours.
 
 Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
@@ -894,8 +894,8 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | If it names another session | Stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
-| Your Builders | They fetch before they push, never force-push, and stop if the head moved since you last read it back. For the first Builder, that is the hold's head. One that stops reports to you, and you tell the Lander. |
-| Their limits | They also stop at any refusal, and make only the fixes the hold names. |
+| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, stop at any refusal, and make only the fixes the hold names. |
+| A Builder that stops | For any of those reasons, it reports to you, and you tell the Lander. For the first Builder, the head to compare is the hold's. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |

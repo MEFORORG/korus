@@ -76,8 +76,8 @@ here" lists belong in a dated episode note.
 | A `/driver` or `/empower` answer to a specific question is a delegation | Owner ruling 2026-10-22. The asking seat's record is the owner's ruling. COMMON.md holds it; *What you check on a delegated record* is your part. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`. |
 | Sweep the PR comments for stranded items | Owner-set 2026-10-08. Sessions leave unhandled items, and items that need the owner's decision, in PR comments. Find them and handle them. *An item left in a PR comment is yours to carry* holds the sweep. |
-| Repair a held PR at once | Owner instruction 2026-11-26. A hold naming one determinate fix gets a repair Builder subagent as soon as it is posted, two per PR. *Repair a held PR at once*, after *Prefer a SPAWNED SESSION*, holds the steps. |
-| An unacknowledged hold transfers to the Repair Manager | Owner ruling 2026-11-03. Keep one Repair Manager alive in your CCD instance and check it every tick. Transfer a hold unacknowledged for 30 minutes (2 hours until 2026-11-26). *3b-quater* holds the order and what stays with the author. |
+| Repair a held PR at once | Owner instruction 2026-11-26, from engine PR 3345's merge. A hold naming one determinate fix gets a repair Builder subagent as soon as it is posted, two per PR. *Repair a held PR at once* holds the steps. |
+| An unacknowledged hold transfers to the Repair Manager | Owner ruling 2026-11-03. Keep one Repair Manager alive in your CCD instance and check it every tick. Transfer a hold unacknowledged for 30 minutes (2 hours until engine PR 3345 merges). *3b-quater* holds the rest. |
 
 **"This file wins" is RETRACTED.** Owner ruling, 2026-08-28. The retracted reasoning is kept because
 it is still true and was never a decision procedure.
@@ -662,8 +662,8 @@ ones sat for hours on slow or usage-limited authors.
 to follow that brief exactly, on 2026-11-26 in the Manager's chat.
 
 Engine `CLAUDE.md` section 5 states when you may send a repair Builder, and this table is the
-procedure. This section takes effect when engine PR 3345 merges. Until then, engine `main`'s
-section 5 governs, with its older conditions.
+procedure. It takes effect when engine PR 3345 merges, the one trigger every guard here names.
+Until then engine `main`'s section 5 governs when you may send one; rows that only add care bind now.
 
 | Item | Rule |
 | --- | --- |
@@ -672,11 +672,11 @@ section 5 governs, with its older conditions.
 | An author who answered in the last 30 minutes | With a `hold-ack`, a comment or a commit: wait for that author until 30 minutes after that answer. Read it on your turn, as *3b-quater* says. |
 | Not on a transferred pull request | No unminimized repair-owner marker may be on it. A transferred pull request's repairs are the Repair Manager's. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
-| Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal. |
+| Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal, make only the fixes the hold names. |
 | Its worktree | Dispatch it with `isolation: worktree`, and have it run `ensure-venv.ps1` before its first `pytest`, `mypy` or `ruff` run. Engine `CLAUDE.md` section 5 asks both of every worker. |
-| A branch another worktree holds | Fix it from a detached checkout of the branch, and push with `git push origin HEAD:refs/heads/<branch>`. |
+| A branch another worktree holds | Brief the Builder to detach at the fetched hold-head SHA, check `HEAD` equals it, and push with `git push origin HEAD:refs/heads/<branch>`. Never detach from the local branch name. |
 | Its scope | Only the fixes the hold names. |
-| Two repairs per pull request | After two, a further hold goes to the Repair Manager by the transfer steps in *3b-quater*, acknowledged or not. The 30-minute exception still defers it. It never sits with neither. |
+| Two repairs per pull request | After two, a further hold transfers to the Repair Manager by *3b-quater*'s steps, acknowledged or not. An author answer disputing it returns it to the author. The 30-minute exception still defers it. It never sits with neither. |
 | Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post no comment just to count: a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
 | What you still post | At least the review proof for the repair head, and *4a-quinquies*' naming of each open finding, both before the merge. |
 | ASVS record content | Stays a Manager's, under the owner ruling of 2026-09-23. A repair Builder never takes it. |
@@ -685,7 +685,8 @@ section 5 governs, with its older conditions.
 | Also unchanged by this section | The review-proof rule, and what goes to the owner. *4a-quinquies* holds both. |
 | The risk the speed raises | *Independence, and the risk left open*, in *3b-quater*, names it. |
 
-**CHANGED 2026-11-26, by that instruction.** At least these rules read otherwise until then:
+**CHANGED 2026-11-26, by that instruction, in force once engine PR 3345 merges.** At least these
+rules read otherwise until 2026-11-26:
 
 | Rule | What it read |
 | --- | --- |
@@ -1070,9 +1071,9 @@ That record is history for the old 2 hours. The 30 minutes comes from the 2026-1
 **Nothing expires once the turn is back with you.** An author commit or an ordinary reply hands it
 back, and you act on it rather than wait.
 
-**`held_pr_turns.py` on engine `main` still expires an ack at 2 hours**, its `ACK_TTL`. It reads 30
-minutes once the engine pull request that moves `ACK_TTL` merges. Until then, on an AUTHOR row
-flagged `acked`, check the ack's age yourself, and the author's events and commits since it.
+**`held_pr_turns.py` on engine `main` still expires an ack at 2 hours**, its `ACK_TTL`. Engine PR
+3345 moves it to 30 minutes, and the 30-minute rules here take effect with it, so the script and the
+rule agree.
 
 **CORRECTED 2026-11-26:** these lines read *"`held_pr_turns.py` on `main` does not apply this
 expiry"*. Engine PR 2720 had already merged, with `ACK_TTL` at 2 hours.
@@ -1083,9 +1084,10 @@ other head move already reads as your turn, flagged `new-commit`.
 Every seat posts as the owner's identity, so read who wrote it. Your own comments and branch updates
 do not count, nor do other seats' or workflows' comments.
 
-**A hold that *Repair a held PR at once* takes goes to a repair Builder instead.** A hold after a
-pull request's second repair transfers, acknowledged or not, once the 30-minute exception has
-passed. Every other unacknowledged hold transfers, an expired one only under the not-live guard.
+**A hold that *Repair a held PR at once* takes goes to a repair Builder.** After the second
+repair, a hold transfers, acknowledged or not, once the 30-minute exception passes, unless an
+answer disputes it. Any other unacknowledged hold transfers, an expired one only under the
+not-live guard.
 
 **Never transfer a PR that is queued or has an armed auto-merge request.** A write-access push does
 not disarm auto-merge, so a repair head could merge before your review. Disarm or dequeue first, and
