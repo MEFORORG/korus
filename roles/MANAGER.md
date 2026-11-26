@@ -593,8 +593,9 @@ That record is history for the old 2 hours. The 30 minutes comes from the 2026-1
 **While you are still working, post a fresh `hold-ack` at least every 30 minutes.** The newest ack
 counts.
 
-`held_pr_turns.py` reads these windows as `ACK_TTL` and `HOLD_TTL`. Where engine `main`'s section 5
-differs from this section, [LANDER.md](LANDER.md), *Repair a held PR at once*, says which governs.
+Engine `main`'s `held_pr_turns.py` may still carry `ACK_TTL` at 2 hours and no `HOLD_TTL`.
+[LANDER.md](LANDER.md), *3b-quater*, says how the Lander reads them, and *Repair a held PR at once*
+says which text governs where engine `main`'s `CLAUDE.md` section 5 differs.
 
 Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while the head is
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
