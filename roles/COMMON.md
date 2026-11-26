@@ -23,14 +23,13 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | Every seat opens its own pull request, EXCEPT a Builder under a Manager | **Narrowed 2026-09-18 by owner ruling.** A Builder working to a Manager's brief pushes, reports and exits; the **Manager** checks the branch reached the remote and opens the pull request. Every other seat still opens its own, unasked. |
 | Since 2026-09-24 (owner ruling) the exception is a Manager's SUBAGENT only | A Builder in its own session opens its own, whether a chip started it or the Manager spawned it. [MANAGER.md](MANAGER.md), *A Builder in its own session opens its own pull request*. |
 | Who decides WHEN to cut it | **The Manager**, since 2026-09-23, usually one per wave. [MANAGER.md](MANAGER.md), *When to cut a pull request*. |
-| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries the three named exceptions. |
+| Route owner traffic through the Manager | The Manager is the only seat the owner talks to. *The owner reads by sampling* carries at least these exceptions: no Manager running, a classifier block, and a Special seat's playbook conflict. |
 | No glyphs or emoji | Write the word. *Write the word, not the glyph* carries the rule and the one machine-parsed holdout. |
 | Proactive output style | *Run in the Proactive output style* is its single definition. It changes disposition, **not permissions**. |
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
 | The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
 | Conflicts between this file and a role playbook | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. *Where a role playbook and this file disagree*. |
-| A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. *Where a role playbook and this file disagree*. |
-| While a kill-switch conflict waits on the Owner | Follow the stricter of the two conflicting rules until the Owner rules. *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | *Where a role playbook and this file disagree* states the rule while `MEFOR_AFK_KILL` reads anything but `off`. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
@@ -213,7 +212,7 @@ reads as the relayer's own finding.
 ## The owner reads by sampling, so route through the Manager
 
 This section binds every seat except the **Manager**, which is approved to communicate directly with
-the Owner. Three named cases in the table let another seat reach the owner directly: no Manager
+the Owner. At least these cases in the table let another seat reach the owner directly: no Manager
 running, a classifier block, and a Special seat's playbook conflict.
 
 **What the Manager is.** It reads the record, picks the next row, writes each Builder's brief, runs
@@ -311,7 +310,7 @@ It replaced the owner ruling of 2026-08-28, which sent every such conflict to th
 | It supersedes local precedence rules | Any precedence rule a role file states for itself is superseded, including LANDER.md's former "THIS FILE WINS". |
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
 | A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
-| While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, a playbook conflict goes to the Owner instead of being settled by the newer ruling or the stricter rule. *The empower rules are on by default* defines it. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
+| While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, the Owner, not the rule above, decides which side of a playbook conflict wins. *While a kill-switch conflict waits on the Owner* says what a seat does meanwhile. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
 | While a kill-switch conflict waits on the Owner | A seat follows the stricter of the two conflicting rules until the Owner rules. Owner decision d20261126T095346944-a71f0a, 2026-11-26 US Central. |
 | The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision d20261126T043233562-3f4336, 2026-11-25 US Central. |
 
