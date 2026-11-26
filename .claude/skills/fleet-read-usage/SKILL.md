@@ -419,7 +419,7 @@ caught in an hour rather than a window.
 A relayed halt is safe to act on, because complying wrongly costs nothing. The retired lift rows
 are kept in [retired/COMMON-HISTORY.md](../../../roles/retired/COMMON-HISTORY.md).
 
-The Lander is the exception to the halt half, because a wrong stop there stalls the merge queue. It
+The Lander is the exception to that, because a wrong stop there stalls the merge queue. It
 is exempt from usage holds, and it confirms a relayed owner stop in its own chat. COMMON.md, *Stop
 versus start, except the Lander*.
 

@@ -9,7 +9,7 @@ It is kept because archived pages on this site link to it. Deleting it would tur
 merge, and no repository's `main` requires a label; read the live set from branch protection.
 
 Reading a diff and posting findings nobody is required to act on stopped being a seat's job.
-[The Lander](lander.card.md) already merges without waiting for one. Do not add a review step back.
+[The Lander](lander.card.md) already merges without waiting for one. Do not add a review seat back.
 
 **Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `reviewer`, the
 role-card hook injects no card and says the seat was retired. Set a live seat instead:

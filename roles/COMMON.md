@@ -961,7 +961,7 @@ They are resident because a file that loads when the task begins arrives after t
 fleet's usage view, which was the retired Steward. [retired/COMMON-HISTORY.md](retired/COMMON-HISTORY.md)
 keeps its text.
 
-A HOLD clears when the state table, read fresh, stops firing it: a relayed lift does not clear it.
+A relayed lift does not clear a HOLD.
 HOLD clears as *The three usage states* says, not on hook
 silence.
 

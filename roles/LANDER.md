@@ -350,7 +350,7 @@ routing**. It sent a notice to a middle seat, had it return the PR to you, then 
 Lander.
 
 **That seat retired on 2026-09-12 and nothing replaced it**, so the route has no middle step left to
-be stale about. A PR merges on its required checks and review proof (*4a-quinquies*). Two halves of it survive because that section
+be stale about. A PR merges on its required checks and review proof. Two halves of it survive because that section
 restates them; the routing does not.
 
 | Item | Rule |

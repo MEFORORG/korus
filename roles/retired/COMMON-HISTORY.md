@@ -59,7 +59,7 @@ The Manager replaces it and holds the same route. A rule sending owner traffic t
 
 ## C3. Two provenance rows, from *The owner reads by sampling*
 
-Copied from korus `origin/main` `42ff0d4`. The first sat under the *Classifier blocked* row, the second under *Stop versus start,
+Copied from korus `origin/main` `42ff0d4`. The first sat under the *CHANGED 2026-10-22, to the `empower` rules* row, the second under *Stop versus start,
 except the Lander*.
 
 | Item | Rule |
@@ -96,3 +96,17 @@ Copied from korus `origin/main` `42ff0d4`. The first line opened the section. Th
 Found by the Liaison, against itself, 2026-08-30, after asserting it and being wrong.
 
 This survives the 2026-09-01 redesign.
+
+## The 2026-08-28 conflict rule, replaced 2026-11-25
+
+From [COMMON.md](../COMMON.md), *Where a role playbook and this file disagree, the owner decides*,
+as that heading then read. Replaced by the owner's ruling of 2026-11-25 on decision 4. Copied from
+korus `origin/main` `42ff0d4`.
+
+**Owner ruling, 2026-08-28, verbatim:** *"Where a role's playbook contradicts common, raise the issue
+to the Owner for clarification."*
+
+| Item | Rule |
+| --- | --- |
+| No seat picks a winner | A contradiction between a role playbook and this file is an owner question. Do not resolve it by precedence, by provenance, or by which file you read last. |
+| Still open | What a seat DOES while it waits for the clarification. "Follow COMMON until told otherwise" is an inference, not the ruling. Ask; do not assume. |

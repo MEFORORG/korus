@@ -76,11 +76,12 @@ until then. Its usage hook still runs, and its rules moved to [COMMON.md](COMMON
 | Item | Rule |
 | --- | --- |
 | Where they live | [retired/DISPATCHER.md](retired/DISPATCHER.md), [retired/PM.md](retired/PM.md), [retired/LIAISON.md](retired/LIAISON.md), [retired/CLEANER.md](retired/CLEANER.md), [retired/ROLE-MANAGER.md](retired/ROLE-MANAGER.md), [retired/PROCESS IMPROVEMENT.md](<retired/PROCESS IMPROVEMENT.md>), [retired/ASVS-TRACKER.md](retired/ASVS-TRACKER.md), [retired/CONSOLE.md](retired/CONSOLE.md), [retired/SEAT-RETIRED-2026-09-12.md](retired/SEAT-RETIRED-2026-09-12.md), [retired/REGULATOR.md](retired/REGULATOR.md), [retired/STEWARD.md](retired/STEWARD.md). Eleven seats, eleven files. |
+| Two files there are not seats | [retired/COMMON-HISTORY.md](retired/COMMON-HISTORY.md) and [retired/MANAGER-HISTORY.md](retired/MANAGER-HISTORY.md) keep text moved verbatim out of live playbooks, since 2026-11-25. |
 | **RETRACTED 2026-09-04** | This table once called `ASVS-TRACKER.md` **absent from this edition**, on a `find . -iname '*asvs*'` returning zero files. True when measured. The file was then imported, and that command now returns the path above. |
 | Why the rows survive | So a reader who remembers a seat finds it retired rather than missing. What each one did is in its own file, not summarised here. |
 | Where their general rules went | Into [COMMON.md](COMMON.md), rather than lost with the seats. |
 | Who answers an owner question now | The Manager. It is the only seat the owner talks to. |
-| **Who calls a usage state now** | **No seat.** The owner said on 2026-11-05 that the Steward had been retired months earlier. Each seat reads its own usage hook. The states and stop moved to [COMMON.md](COMMON.md); who may declare a HOLD lifted is open there. |
+| **Who calls a usage state now** | **No seat.** The owner said on 2026-11-05 that the Steward had been retired months earlier. Each seat reads its own usage hook. The states and stop moved to [COMMON.md](COMMON.md). The relayed-lift rule retired on 2026-11-25. |
 | **Who attributes a red now** | **Nobody.** The Regulator retired 2026-09-19 and nothing replaced it. A red is the Lander's to triage and route, or the owner's to rule on. The Watchdog measures whether reds are being cleared; it never says whose one is. |
 
 ### 1c. `INSTRUMENTS 4.x` and `COMMON 4.x` citations resolve to a blob, not a file

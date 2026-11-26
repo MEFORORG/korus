@@ -94,8 +94,8 @@ That is a named exception to two rules in COMMON, and both still bind every othe
 | *The seat registry is the only channel that crosses accounts, so declare into it on arrival* | Declare when you announce, with the goal the Owner gave you. |
 
 **Do not raise this as a contradiction.** COMMON's *Where a role playbook and this file disagree*
-lets the newer owner ruling win. The Owner set this one, so raising it spends a turn on a settled
-question.
+settles a conflict by owner ruling. The Owner ruled on this one, so raising it spends a turn on a
+settled question.
 
 ### 2a. What the silence costs, so you can weigh it
 

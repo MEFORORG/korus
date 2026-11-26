@@ -46,7 +46,7 @@ A role name grants no merge permission. The operator must give the Lander author
 |---|---|---|
 | **Manager** | Its builders, their briefs, their results, and when to cut a pull request and what goes in it | Write application code, or check the pool before opening |
 | **Builder** | The change, the review, the commit, and the push for one brief | Guess at what the brief left open, wait for an answer, or open the pull request |
-| **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review step that no longer exists |
+| **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review seat that no longer exists |
 
 The review seat retired on 2026-09-12 and nothing replaced it. The owner had already removed the
 required `gate` check on 2026-09-04; it read the `reviewed` label, which blocks nothing.
@@ -335,8 +335,8 @@ adds the four things the queue cannot report, and it replaces nothing.
 Builders push their branches and their managers open the pull requests. The lander reads open pull
 requests and takes the ones whose checks are green.
 
-Read any comments already on the pull request. The required checks, `gates (ubuntu-latest)` and
-`gates (windows-latest)`, cannot establish that anyone read the diff. From 2026-09-12 until
+Read any comments already on the pull request. The required checks cannot establish that anyone
+read the diff. From 2026-09-12 until
 2026-09-29, no seat was assigned to read it.
 
 **CORRECTED 2026-09-29:** the sentence before read *"since 2026-09-12 no seat is assigned to"*, cut

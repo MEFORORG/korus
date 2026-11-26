@@ -17,8 +17,8 @@ a 404, which reads as "this page never existed" rather than "this seat went away
 repository.
 
 **The three usage states still bind.** `roles/COMMON.md`, *The three usage states*,
-holds the triggers and the stop on starting. Whether any seat may declare a HOLD lifted for the
-fleet is an open owner question; see that file's CORRECTED 2026-11-05 note.
+holds the triggers and the stop on starting. The relayed-lift rule that named this seat was
+retired by owner ruling on 2026-11-25: a relayed lift does not clear a HOLD.
 
 **Nothing here is an instruction.** If `.claude/seat.local.txt` in your worktree names `steward`,
 the role-card hook injects no card and says the seat was retired. Set a live seat instead:
