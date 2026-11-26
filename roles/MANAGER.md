@@ -601,7 +601,7 @@ Since engine PR 2720 merged, `held_pr_turns.py` shows `ack-expired` only while t
 unchanged. Any other head move already reads as the Lander's turn, flagged `new-commit`.
 
 **A hold naming one determinate fix may get the Lander's repair Builder as soon as it is posted**,
-unless you answered it in the last 30 minutes. [LANDER.md](LANDER.md), *Repair a held PR at once*,
+unless you answered it in the last 30 minutes. That holds once engine PR 3345 merges. [LANDER.md](LANDER.md), *Repair a held PR at once*,
 holds the rule. So answer a hold at once, or expect the repair.
 
 **CHANGED 2026-11-26, by owner instruction in the Lander's chat:** *"Change the rules to allow you
@@ -894,8 +894,9 @@ keeps it alive. If you are that Manager, these rules bind you beside the rest of
 | If it names another session | Stop and tell the Lander. |
 | What you read | The pull request body, the hold, the decision log entries the hold cites, and the diff. |
 | What you do | Brief a subagent Builder with the hold's fix. Read its commit back from the remote. Post the new head SHA on the pull request. |
-| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, stop at any refusal, and make only the fixes the hold names. |
-| A Builder that stops | For any of those reasons, it reports to you, and you tell the Lander. For the first Builder, the head to compare is the hold's. |
+| Your Builders | They fetch before they push, never force-push, stop if the head moved since you last read it back, and stop at any refusal. They make only the fixes the hold names. |
+| The head to compare | For the first Builder, the hold's head. |
+| A Builder that stops | It reports to you, and you tell the Lander. |
 | Never `AskUserQuestion` | A suspended Repair Manager recreates the stall it exists to remove. Keep each owner question in a table at the end of every turn. The Lander copies it into its own. |
 | Never open, enqueue or merge | You push to the existing branch only. The Lander lands it, after its own review of the head. |
 | Hand back what stays with the author | At least a stacked set, a landing order, a question of the author's intent, ASVS record content, and anything waiting on an owner ruling. Say which in a comment on the pull request, then stop. |
