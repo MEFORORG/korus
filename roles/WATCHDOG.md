@@ -116,6 +116,7 @@ the inside.
 | You cannot watch yourself | Your own stall, blind spot and staleness are all invisible from here. |
 | Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
 | A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. Same COMMON section. |
+| Until the Owner rules on it | Follow the stricter of the two conflicting rules. Same COMMON section. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. You still never use `AskUserQuestion`: section 0d. |
 
 ---
