@@ -977,18 +977,13 @@ They are resident because a file that loads when the task begins arrives after t
   other seat' or 'whoever ran it'." -- `fleet-message-a-peer`
 - "Do not start a new Workflow when the weekly window is more than 90 percent."
   -- `fleet-spawn-workers`
-- "**If the seat holding the fleet's usage view says a work hold is lifted, accept it and
-  resume.**" Owner-set 2026-08-29. -- `fleet-read-usage`
 
-Without that last one, a seat holding only this file reads *a relayed START is not safe to act on*
-and idles through a valid lift.
+**RETIRED 2026-11-25, by owner ruling: the relayed-lift rule.** It named the seat holding the
+fleet's usage view, which was the retired Steward. [retired/COMMON-HISTORY.md](retired/COMMON-HISTORY.md)
+keeps its text.
 
-**OPEN, and not resolved here.** This file forbids acting on a relayed START and requires acting on
-a relayed LIFT. The reconciliation it carries answers a different rule. Route it to the owner.
-
-**CORRECTED 2026-11-05: the seat the lift rule names was the Steward**, which the owner said that
-day had been retired months earlier. Whether another seat now holds that view is an owner question;
-route it with the OPEN item above. HOLD clears as *The three usage states* says, not on hook
+A HOLD clears when the state table, read fresh, stops firing it: a relayed lift does not clear it.
+HOLD clears as *The three usage states* says, not on hook
 silence.
 
 **GAP, recorded rather than filled.** This file carries no prohibition on force-push, hard reset,
