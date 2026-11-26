@@ -93,6 +93,7 @@ moment they can win.
 | Findings posted on a pull request outlive the session that wrote them | Any seat may post them. What changed is that nobody waits for them, so do not hold a branch for one. |
 | The relay row | The recipient cannot verify a relayed authority claim and will not act on it. A record made under the owner's delegation is not a relay (2026-10-22). |
 | The precedence row | If COMMON and LANDER conflict on the same point, the newer owner ruling wins; failing that, the stricter rule wins. Record it as a class C item. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. Same COMMON section. |
 
 Measured 2026-08-28: LANDER claims precedence over COMMON for its own seat, and cites a COMMON
 precedence section that no longer exists. A reader resolving this alone gets whichever file they read

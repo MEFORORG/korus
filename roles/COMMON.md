@@ -29,6 +29,7 @@ branches, unpushed SHAs and "pick up here" lists belong in a dated episode note.
 | The Driver rules are always on | Every session runs the `/driver` rules unasked, whichever seat it holds. *The Driver rules are always on, in every session* carries the steps. They change how a decision travels, **not permissions**, with one exception since 2026-10-22. |
 | The empower rules are on by default too | Every seat except Special, local or cloud. *The empower rules are on by default, for every seat but Special* names the classes, the kill switch and its fallback. |
 | Conflicts between this file and a role playbook | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. *Where a role playbook and this file disagree*. |
 | A spoken instruction against a written rule | Report the disagreement. Name both sources and ask which governs, unless a recorded delegated decision already answers it. Do not resolve it by reinterpreting either one. |
 
 **Why a fresh grant goes unread.** A new message feels operative because it is fresh, and that is
@@ -308,8 +309,8 @@ It replaced the owner ruling of 2026-08-28, which sent every such conflict to th
 | It supersedes local precedence rules | Any precedence rule a role file states for itself is superseded, including LANDER.md's former "THIS FILE WINS". |
 | Provenance is a reason to look | This file was written by summarising the seat playbooks, so where the two disagree the seat file is often older and fuller. That tells you where to LOOK, not who is right. |
 | A recorded delegated decision resolves it | Where the Owner delegated that question, the asking seat's record is the Owner's ruling on it. *An Owner answer of /driver or /empower delegates that specific question*. Added 2026-10-22. |
-| While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, a playbook conflict goes to the Owner instead of the newer-ruling rule. *The empower rules are on by default, for every seat but Special* says how to read it. Owner decision 2026-11-26. |
-| The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision 2026-11-26. |
+| While the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, a playbook conflict goes to the Owner instead of being settled by the newer ruling or the stricter rule. *The empower rules are on by default* defines it. Owner decision d20261126T043231986-609bb5, 2026-11-25 US Central. |
+| The Special seat | It raises a playbook conflict with the Owner directly and records no class C item. Owner decision d20261126T043233562-3f4336, 2026-11-25 US Central. |
 
 ### Your worktree, not your seat, decides which coordination record you touch
 

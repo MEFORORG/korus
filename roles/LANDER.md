@@ -69,7 +69,7 @@ here" lists belong in a dated episode note.
 | Proactive output style | COMMON.md, *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
 | Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
-| A conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, the conflict goes to the Owner instead of the rule above. Same COMMON section. |
+| A playbook conflict while the kill switch is on | While `MEFOR_AFK_KILL` reads anything but `off`, it goes to the Owner instead of being settled by the newer ruling or the stricter rule. Same COMMON section. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
