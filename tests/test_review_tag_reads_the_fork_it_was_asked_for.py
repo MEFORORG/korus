@@ -2521,6 +2521,34 @@ class TheHeadElsewhereContestsTheForkHere(Fixture):
                 self.assertIn(review_tag.UNREAD_ELSEWHERE_MESSAGE, out)
                 self.assertNotIn("tag:", out)
 
+    def test_a_clean_cut_is_told_from_a_malformed_record_zero(self):
+        # Review of fc5233e: CPython reports a cut \u escape at the u, so a 64K cut inside one
+        # read as malformed and the line scan brought Lander hold finding 1 back. Only a record 0
+        # that fails where its text ends is a clean cut.
+        b = "\\"
+        for name, raw, clean in (
+            ("open string", '{"a": "abc', True),
+            ("trailing backslash", '{"a": "ab' + b, True),
+            ("cut \\u escape", '{"a": "x' + b + "u00", True),
+            ("cut bare \\u", '{"a": "x' + b + "u", True),
+            ("cut number", '{"a": 1.', True),
+            ("cut literal", '{"a": tr', True),
+            ("after a comma", '{"a": 1, ', True),
+            ("whole record", '{"a": "x"}', True),
+            ("malformed earlier string", '{"cwd": "C:' + b + '", "x": "y"}', False),
+            ("bad \\u escape mid-string", '{"a": "x' + b + 'u00zz", "b": "c"}', False),
+            ("bad escape", '{"a": "C:' + b + 'q"}', False),
+            ("extra data", '{"a": 1}\r{"b": 2}', False),
+        ):
+            with self.subTest(raw=name):
+                self.assertIs(review_tag.clean_cut(raw), clean)
+        # The escaped-quote mention, cut by RAW_NONCE_PREFIX inside a later \u escape, is still
+        # no head: the cut is clean and the walk alone reads it.
+        mention = ('{"type": "user", "message": {"content": "Builder brief: paste ' + b + '"'
+                   + f'Review target: `{self.NONCE} Review x`' + b + '" then ')
+        pad = "x" * (review_tag.RAW_NONCE_PREFIX - len(mention) - 4)
+        self.assertFalse(review_tag.raw_holds_nonce(mention + pad + b + "u001b rest", self.NONCE))
+
     def test_the_raw_search_reads_each_json_string_by_the_head_readers_rules(self):
         # Review of 036b321: each string value is decoded to its own end and read as read_head
         # reads a message, so a nonce in a later string is not the head's, a key is no head, and

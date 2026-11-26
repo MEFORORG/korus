@@ -40,7 +40,9 @@ head in another worktree carrying the round's nonce and a tag-shaped line -- ref
 before `--since` or after it -- refuses the reading. A fork in another worktree whose record 0
 cannot be read refuses too, as unread (exit 10), when record 0's raw text holds the round's nonce as
 a fork's own -- a head read_head would read in one of its JSON strings, or, in a string the raw
-text cuts off, the first nonce after any target line; never a brief's mere mention -- and it does so
+text cuts off, the first nonce after any target line; never a brief's mere mention. That walk is
+trusted only where record 0 is valid JSON up to where its text ends; any other record 0 also takes
+e2fd46e's decode-and-scan, which can count a brief's mention, so it refuses. It does so
 with no fork read here too, never exit 3. A tagless fork here exits 5, unless such an unread fork
 sits elsewhere: then 10. With a nonce, a transcript that cannot be opened refuses (exit 10) wherever
 it sits: what it holds is unknown. `--verbose` names it. The same argument
@@ -819,8 +821,8 @@ JSON_KEY_COLON = re.compile(r"\s*:")
 JSON_CUT_TAIL = re.compile(
     r"(?:\s*|[-+.0-9eE]+|t(?:r(?:ue?)?)?|f(?:a(?:l(?:se?)?)?)?|n(?:u(?:ll?)?)?)\Z"
 )
-#: Part of a \u escape, inside a string the cut ends.
-JSON_CUT_ESCAPE = re.compile(r"\\u[0-9a-fA-F]{0,3}\Z")
+#: Part of a \u escape, inside a string the cut ends, from the u on: where CPython reports it.
+JSON_CUT_ESCAPE = re.compile(r"u[0-9a-fA-F]{0,3}\Z")
 
 
 def unescape_json(text: str) -> str:
@@ -854,10 +856,14 @@ def json_values(raw: str) -> Iterator[tuple[str, bool]]:
 
 
 def clean_cut(raw: str) -> bool:
-    """Whether raw JSON text parses, or fails only where the text ends: a prefix of a valid JSON
-    text. Only there do json_values' string boundaries agree with the parser's. A record 0 that
-    fails earlier, on a malformed string such as "C:\" for one, can invert every boundary after
-    it, so the string walk never reads the real head (review of f1963bf)."""
+    """Whether raw JSON text parses, or the parser fails only where the text ends: in an open
+    string, in a partial escape or token, or with nothing left. Before that point every string
+    boundary is the parser's own, so json_values agrees with it. A text this accepts need not be
+    a prefix of valid JSON, as one ending in a stray token is not, but nothing follows its failure
+    point to invert. A record 0 that fails earlier, on a malformed string such as "C:\" for one,
+    can invert every boundary after it, so the string walk never reads the real head (review of
+    f1963bf). The parser's error wording picks the branch; wording it does not know reads as not
+    clean, which errs toward refusing."""
     try:
         json.loads(raw)
     except json.JSONDecodeError as err:
@@ -865,7 +871,7 @@ def clean_cut(raw: str) -> bool:
         if err.msg.startswith("Unterminated string"):
             return rest.startswith('"') and JSON_STRING_BODY.match(raw, err.pos + 1) is None
         if err.msg.startswith("Invalid \\uXXXX escape"):
-            return JSON_CUT_ESCAPE.match(rest) is not None
+            return raw[err.pos - 1 : err.pos] == "\\" and JSON_CUT_ESCAPE.match(rest) is not None
         return JSON_CUT_TAIL.match(rest) is not None
     except (ValueError, RecursionError):
         return False
@@ -899,17 +905,18 @@ def raw_holds_nonce(raw: str, wanted: str) -> bool:
     fork (vault #4703 finding 1). A later record once made an unread file elsewhere refuse a
     correct fork (exit 10).
 
-    For a transcript whose record 0 cannot be parsed, each JSON string value in it is decoded and
-    a whole one is read by read_head itself. Content that quotes the prefix, an escaped quote in
-    the raw bytes, opens no string; decoding the whole record first once read it as a head (korus
-    PR 279, Lander hold finding 1). A string the text cuts off may have lost the tag below a
-    target line, and the lines that split its arguments, so there the first nonce after any line
-    the prefix opens, a quoted one too, counts: that errs toward refusing. So does reading every
-    string, where read_head reads only the message's first text block.
+    For a transcript whose record 0 cannot be parsed, each JSON string value in it is decoded and a
+    whole one is read by read_head itself. On a clean cut, content that quotes the prefix, an
+    escaped quote in the raw bytes, opens no string; decoding the whole record first once read it as
+    a head (korus PR 279, Lander hold finding 1). A string the text cuts off may have lost the tag
+    below a target line, and the lines that split its arguments, so there the first nonce after any
+    line the prefix opens, a quoted one too, counts: that errs toward refusing. So does reading
+    every string, where read_head reads only the message's first text block.
 
-    The walk is trusted only on a clean cut. On any other failure line_scan_holds_nonce, the
-    search of e2fd46e, runs too, so the result is never less strict than e2fd46e's (review of
-    f1963bf).
+    The walk is trusted only on a clean cut, where it is deliberately less strict than e2fd46e:
+    a mention is no head. On any other failure line_scan_holds_nonce, the search of e2fd46e, runs
+    too, so on those records the result is never less strict than e2fd46e's, a mention included
+    (review of f1963bf).
     """
     if not NONCE_SHAPE.search(wanted):
         return False
