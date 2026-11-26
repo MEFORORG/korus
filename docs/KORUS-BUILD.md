@@ -46,7 +46,7 @@ A role name grants no merge permission. The operator must give the Lander author
 |---|---|---|
 | **Manager** | Its builders, their briefs, their results, and when to cut a pull request and what goes in it | Write application code, or check the pool before opening |
 | **Builder** | The change, the review, the commit, and the push for one brief | Guess at what the brief left open, wait for an answer, or open the pull request |
-| **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review step that no longer exists |
+| **Lander** | A handed-over pull request, from the handover to the merge, the ledger and the claim | Hold a pull request waiting for a review seat that no longer exists |
 
 The review seat retired on 2026-09-12 and nothing replaced it. The owner had already removed the
 required `gate` check on 2026-09-04; it read the `reviewed` label, which blocks nothing.
@@ -184,8 +184,8 @@ Post each builder's QA line on it, verbatim, one comment per item. Label it qa o
 item has a line:
   gh pr edit <N> --add-label qa
   gh pr comment <N> --body "<the builder's QA line>"
-The label records that the builder's check ran. It gates nothing: main requires only
-gates (ubuntu-latest) and gates (windows-latest). No line means no label.
+The label records that the builder's check ran. It gates nothing: no repository's main
+requires a label. Read the live set from branch protection. No line means no label.
 
 Message the lander with five fields: pull request number, head SHA, unread legs, known defects,
 and any landing-order constraint. The pull request is the lander's from that message on.
@@ -315,9 +315,10 @@ request closes every item it names:
 The claim is another worktree's, so the script refuses and probes the holder. Read that line
 before you reach for -Force.
 
-No review step sits in front of you. That seat retired on 2026-09-12 and the
+No review seat sits in front of you. That seat retired on 2026-09-12 and the
 required check that read a reviewed label was removed on 2026-09-04, so the label blocks
-nothing. Merge on the required checks and do not wait for a review. Keep one
+nothing. Merge on the required checks once you hold proof that code review ran
+(owner ruling 2026-09-29); without it, send the change to code review. Keep one
 ledger-appending pull request in the queue at a time.
 
 Read state rather than being told it:
@@ -334,8 +335,8 @@ adds the four things the queue cannot report, and it replaces nothing.
 Builders push their branches and their managers open the pull requests. The lander reads open pull
 requests and takes the ones whose checks are green.
 
-Read any comments already on the pull request. The required checks, `gates (ubuntu-latest)` and
-`gates (windows-latest)`, cannot establish that anyone read the diff. From 2026-09-12 until
+Read any comments already on the pull request. The required checks cannot establish that anyone
+read the diff. From 2026-09-12 until
 2026-09-29, no seat was assigned to read it.
 
 **CORRECTED 2026-09-29:** the sentence before read *"since 2026-09-12 no seat is assigned to"*, cut

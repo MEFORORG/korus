@@ -57,8 +57,8 @@ ROLE_COPY_RELPATH = ".claude/ROLE.local.md"
 #: rather than announcing on arrival.
 #:
 #: FIVE from 2026-09-12, when one of the six retired and NOTHING replaced it: the review gate it fed
-#: was retired 2026-09-04, so a pull request merges on `gates (ubuntu-latest)` and
-#: `gates (windows-latest)` with no review step.
+#: was retired 2026-09-04, so no label blocks a merge. Since 2026-09-29 the Lander merges only on
+#: proof that code review ran.
 #:
 #: SIX before that, from 2026-09-10, when the Console retired and the Manager took its work. The
 #: Manager arrived 2026-09-04 as an alternative to the Console, ran alongside it for six days, and is

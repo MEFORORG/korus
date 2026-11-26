@@ -34,7 +34,8 @@ Within the limits of the following rules, you SHOULD ALWAYS BE PROACTIVE IN YOUR
 | Every brief ends with push, report, exit. | Do not lose work. Subagents die when you do, so unpushed work is destroyed silently. See *Your work has to survive your exit*. |
 | You do not edit another Manager's worktree, or the primary checkout | *Never Do These* carries it, with what would end it. |
 | A `repair-owner` marker that does not name you ends your pushes (owner ruling 2026-11-03) | *A repair-owner marker that does not name you ends your pushes* says how to read it. *The Repair Manager's duties* holds that seat's work. |
-| Conflicts between this file and COMMON | **Raise it to the owner,** unless a recorded delegated decision already resolves it. No seat picks a winner. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the owner decides*, carries the 2026-08-28 owner ruling verbatim. |
+| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree, the newer owner ruling wins*. |
+| A playbook conflict while the kill switch is on | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, states the rule while `MEFOR_AFK_KILL` reads anything but `off`. |
 | The `driver` and `empower` rules are on by default | [COMMON.md](COMMON.md), *The empower rules are on by default, for every seat but Special*, names the classes, the kill switch and its fallback. Your class C items go to the owner in one bundled ask. |
 | A filed build row is not new product scope (owner rulings 2026-11-09 and 2026-11-10) | Once engine `origin/main` carries the narrowing, picking and splitting one is class B, with its review. New directions and every other class C item stay the owner's. [COMMON.md](COMMON.md), *A filed build row is not new product scope*, has the rest. |
 
@@ -141,10 +142,6 @@ confirm it returns heads at all. A failed `ls-remote` looks exactly like a branc
 Owner ruling 2026-09-20. The Builder runs the `code-review` skill at step 11 and then exits, so
 the pull request does not exist while the seat that ran the check is still alive.
 
-**That sentence said "its `code-review` subagent" until 2026-09-22.** *CORRECTED 2026-09-20* in
-section 4 retired that word and this copy kept it. A retraction that reaches one of two sites
-leaves the other as the version a reader meets first.
-
 **You are the seat that can post it.** `BUILDER.md` section 4e holds the shape, the Builder writes
 the text, and you post it as given rather than summarising it.
 
@@ -158,7 +155,7 @@ gh pr comment <N> --body "<the Builder's QA line, verbatim>"
 | The label is `qa` | Not `reviewed`, which retired 2026-09-04 and still sits in the label list. |
 | The word "review" appears in neither | Owner ruling. The line cites `BUILDER.md step 11` instead, which names exactly one skill. |
 | **No line, no label** | A `qa` label with no comment under it is the retired gate rebuilt: a mark that records nothing. Ask the Builder's successor, or post the label only once you hold the text. |
-| It blocks nothing | `main` requires `gates (ubuntu-latest)` and `gates (windows-latest)` and nothing else. Do not hold the hand-off to the Lander for it. |
+| It blocks nothing | The label gates no merge in any of the three repositories. Each repository's branch protection holds its own required set; read it there, never from a document. Do not hold the hand-off to the Lander for it. |
 | A thin run still gets posted | Whatever the Tag field says, post it. Hiding a weak shape is what makes the next one invisible. |
 
 **A Builder that reports no QA line has not told you the step ran.** `BUILDER.md` 4c permits an empty
@@ -457,12 +454,14 @@ conclude the label is gone, because it is not.
 
 | Repository | The required context | The workflow |
 | --- | --- | --- |
-| `MEFORORG/MessageFoundry`, the engine | REMOVED. 14 contexts to 13 | **STILL PRESENT AND STILL RUNNING.** It fires on every push and still strips `reviewed` |
+| `MEFORORG/MessageFoundry`, the engine | REMOVED | deleted. Engine `docs/CI.md` records it retired by the owner on 2026-09-04 |
 | `MEFORORG/korus`, named `wshallwshall/korus` here until 2026-09-24 | REMOVED | deleted |
 
-**So an engine pull request still carries a check named `a reviewer has read this`, and whatever it
-says, it blocks nothing.** Do not chase it. Your label will still vanish when you push. That is the
-workflow, not a peer and not a race.
+**CORRECTED 2026-11-25: the engine row's workflow cell said it was STILL RUNNING and stripped
+`reviewed` on every push.** Engine PR 889 deleted the workflow on 2026-09-05. The label still
+exists, but nothing adds, removes or reads it (engine `docs/CI.md`).
+
+**The two paragraphs below describe that check from before it went, and stay as the record.**
 
 **Do not predict what that check will READ.** Queued, pending, red or green, depending only on
 whether its run has executed. None of those tells you anything about your merge any more.
@@ -490,7 +489,7 @@ The retired text follows so the measurement is not lost. Push, WAIT for the revi
 `completed` with a headSha equal to your head, re-check the tip, label, then read the label back.
 Fifteen of sixteen attempts lost this race with every command reporting success.
 
-DO NOT RE-PUSH FOR SMALL FIXES. Each push re-fires the whole suite and re-arms the label race. Batch
+DO NOT RE-PUSH FOR SMALL FIXES. Each push re-fires the whole suite. Batch
 them -- it is the only lever that reduces total work rather than reordering it.
 
 DO NOT ENQUEUE or arm auto-merge. The queue holds five and the Lander sequences it with a pairwise
@@ -826,24 +825,6 @@ Prefer the fresh branch to a spawn. A subagent cannot outlive a mistake; a spawn
 ---
 
 ## 6. Never Do These
-
-**Two rows in *Standing rules* cited this section by a heading that has never existed here, and
-2026-09-18 repointed them.** They named it *Four acts stay outside this seat*.
-
-Measured at `ff11047`, before the repair:
-
-```bash
-git show ff11047:roles/MANAGER.md | grep -cE '^#{2,3} .*Four acts'
-```
-
-It returns 0. Control, the same pattern over every heading in that file, `'^#{2,3} '`: 10, so the
-extraction read the file rather than returning empty.
-
-The name also promised four acts against a table of two. A reader following it found nothing, and
-could not tell a missing section from a missing rule.
-
-**Do not measure the phrase's absence in THIS file.** The paragraph you are reading contains it, and
-so does the repair's own commit message.
 
 | Item | Rule | What would end it |
 | --- | --- | --- |

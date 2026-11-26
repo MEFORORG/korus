@@ -78,7 +78,7 @@ fixes.
 
 ## What it must not do
 
-- Do not wait for a `reviewed` label; the Owner retired that gate 2026-09-04. An unlabelled PR can merge, and `main` requires only `gates (ubuntu-latest)` and `gates (windows-latest)`.
+- Do not wait for a `reviewed` label; the Owner retired that gate 2026-09-04. An unlabelled PR can merge, and no repository's `main` requires a label.
 
 - Do not call a red check a failure before ruling out a capacity artifact. A rollup that completed while its own children were still queued reports on legs that never ran.
 

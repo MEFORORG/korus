@@ -73,8 +73,8 @@
     "silent. Silence would send the reader looking for a card that was deliberately removed.",
     "Their playbooks stay in roles/retired/ as the record of what each seat did.",
     "Nothing replaced the PM, the Cleaner, the Role manager, the Process improvement seat, the ASVS",
-"Tracker or the seat retired on 2026-09-12, which this roster deliberately leaves unnamed. A pull request merges on its two required gates, with no review step",
-    "ahead of it.",
+"Tracker or the seat retired on 2026-09-12, which this roster deliberately leaves unnamed. A pull request merges on its repository's required checks, once the",
+    "Lander holds proof that code review ran (owner ruling 2026-09-29).",
 "EVERY observed spelling of a retired seat gets its own row, because an alias must land on",
     "a LIVE seat.",
     "A spelling left out resolves to MATCHES NO SEAT, which reads as a typo rather than as a",
@@ -84,7 +84,7 @@
     "went looking for a spawn grant its subagents do not need."
   ],
   "retired": {
-    "steward": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. NOTHING REPLACED IT. The usage mechanism it described still runs: the user-scope hook watch.py prints the usage state and writes status.json, outside this repository. The three usage states and the stop on starting moved to roles/COMMON.md, The three usage states, and bind every seat but the Lander. Whether any seat may declare a HOLD lifted for the fleet is an open owner question, recorded in that file's CORRECTED 2026-11-05 note. Do not route usage work to a seat, and do not wait for a seat to call or lift a hold.",
+    "steward": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. NOTHING REPLACED IT. The usage mechanism it described still runs: the user-scope hook watch.py prints the usage state and writes status.json, outside this repository. The three usage states and the stop on starting moved to roles/COMMON.md, The three usage states, and bind every seat but the Lander. The relayed-lift rule that named this seat was retired by owner ruling on 2026-11-25. Do not route usage work to a seat, and do not wait for a seat to call or lift a hold.",
     "steward1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
     "steward-1": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A numbered spelling of steward. Nothing replaced it. See the steward row.",
     "stewart": "Retired as a seat; on 2026-11-05 the Owner said it had been retired months earlier, and the date of that ruling is not recorded in this repository. A misspelling of steward. Nothing replaced it. See the steward row.",
@@ -94,7 +94,7 @@
     "regulator-1": "Retired 2026-09-19 by Owner instruction. A numbered spelling of regulator. Nothing replaced it. See the regulator row.",
     "regulators": "Retired 2026-09-19 by Owner instruction. A plural spelling of regulator. Nothing replaced it. See the regulator row.",
     "reg": "Retired 2026-09-19 by Owner instruction. A short spelling of regulator. Nothing replaced it. See the regulator row.",
-    "reviewer": "Retired 2026-09-12 by owner decision. Nothing replaced it. The review gate it fed lost its teeth on 2026-09-04, when the owner dropped the reviewed label as a required check, so a pull request now merges on gates (ubuntu-latest) and gates (windows-latest) alone. Do not add a review step back, and do not hold a pull request waiting for one.",
+    "reviewer": "Retired 2026-09-12 by owner decision. Nothing replaced it. The review gate it fed lost its teeth on 2026-09-04, when the owner dropped the reviewed label as a required check, so no label blocks a merge. Since 2026-09-29 the Lander merges only on proof that code review ran on the change (owner ruling 2026-09-29). Do not add a review seat back, and do not hold a pull request waiting for one.",
     "reviewer1": "Retired 2026-09-12 by owner decision. A numbered spelling of reviewer. Nothing replaced it. See the reviewer row.",
     "reviewer2": "Retired 2026-09-12 by owner decision. A numbered spelling of reviewer. Nothing replaced it. See the reviewer row.",
     "reviewer-1": "Retired 2026-09-12 by owner decision. A numbered spelling of reviewer. Nothing replaced it. See the reviewer row.",

@@ -68,7 +68,8 @@ here" lists belong in a dated episode note.
 | No glyphs or emoji | CLAUDE.md's *no glyphs or emoji* rule. The tooling policing the project's one machine-parsed glyph alphabet has itself raised `UnicodeEncodeError` on a stock Windows console. |
 | Proactive output style | COMMON.md, *Run in the Proactive output style*, is its single definition. It changes disposition, **not permissions**. |
 | Editing this folder | Landing a PR that edits a playbook is yours. Send feedback on what broke when you *ran* this playbook to the Manager. |
-| Conflicts between this file and COMMON | Raise it to the owner, unless a recorded delegated decision already resolves it. **No seat resolves a COMMON contradiction by picking a winner**, and that includes this one. |
+| Conflicts between this file and COMMON | The newer owner ruling wins; failing that, the stricter rule wins. Record the conflict as a class C item for the digest. [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*. |
+| A playbook conflict while the kill switch is on | [COMMON.md](COMMON.md), *Where a role playbook and this file disagree*, states the rule while `MEFOR_AFK_KILL` reads anything but `off`. |
 | A CONTENT conflict is YOURS | Owner ruling 2026-09-21. Resolve it yourself. Do not route it to a Builder and do not wait for a person. *4c-quinquies. A content conflict is YOURS to resolve* holds the route. |
 | You are NOT a second reader | Owner rulings 2026-09-21, 2026-09-29. Review proof means you do not need to review the diff. None means a `code-review` subagent at `xhigh`. *4a-quinquies* holds both. **WIDENED 2026-09-29** from *"A QA line on the pull request means the diff was read."* |
 | Every subagent spawns on Opus | Owner ruling 2026-09-21. Pass `model: opus` on every `Agent` dispatch. *Every subagent spawns on Opus* carries why an omitted parameter is not the same thing, and what the ruling does not reach. |
@@ -350,7 +351,7 @@ routing**. It sent a notice to a middle seat, had it return the PR to you, then 
 Lander.
 
 **That seat retired on 2026-09-12 and nothing replaced it**, so the route has no middle step left to
-be stale about. A PR merges on its two required gates. Two halves of it survive because that section
+be stale about. A PR merges on its required checks and review proof. Two halves of it survive because that section
 restates them; the routing does not.
 
 | Item | Rule |
