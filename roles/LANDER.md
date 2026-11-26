@@ -1376,7 +1376,7 @@ of it.
 | False new text: ask the owner-route rows first | Check *A factual error in prose*, *A finding that changes behaviour or weakens a control goes to the owner*, *Examples that go to the owner, at least* and *When you cannot tell which kind a finding is*. |
 | What merges open | Only a finding that none of those rows, *False program output* or *A false control claim in any text* sends to the owner, or one the owner ruled may merge, merges while it is open. |
 | False program output | It changes behaviour. At least: log lines, alerts, refusal and error text, ACK or NAK text, API error bodies, and CLI and web console text. |
-| A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control, unless it errs only in the safe direction. |
+| A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control, unless it errs only in the safe direction where *False only in the safe direction* allows. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
 | False only in the safe direction | Where engine section 5 states the same exception, such text does not weaken a control. The finding is filed under ledger ruling R2 and does not hold the merge. Name it on the pull request. |
 | What the safe direction is | A reader who acts on the text does more than the control needs, never less. |
