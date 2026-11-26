@@ -662,21 +662,23 @@ ones sat for hours on slow or usage-limited authors.
 to follow that brief exactly, on 2026-11-26 in the Manager's chat.
 
 Engine `CLAUDE.md` section 5 states when you may send a repair Builder, and this table is the
-procedure. Until the engine pull request carrying this instruction merges, engine `main` states the
-older conditions, and this newer instruction wins.
+procedure. This section takes effect when engine PR 3345 merges. Until then, engine `main`'s
+section 5 governs, with its older conditions.
 
 | Item | Rule |
 | --- | --- |
-| When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, an owner ruling or behaviour is not one. |
+| When | As soon as the hold is posted, if it names one determinate fix: a doc, comment, test, or code change the hold spells out. A question of intent, of an owner ruling or of behaviour is not one. |
 | Only while the hold names the head | After a commit, post a fresh hold at the new head before any repair. An author answer that disputes the hold returns the pull request to the author. |
 | An author who answered in the last 30 minutes | With a `hold-ack`, a comment or a commit: wait for that author until 30 minutes after that answer. Read it on your turn, as *3b-quater* says. |
 | Not on a transferred pull request | No unminimized repair-owner marker may be on it. A transferred pull request's repairs are the Repair Manager's. |
 | Not while queued or armed | The pull request must not be queued or carry an armed auto-merge request. Disarm or dequeue first, and read the state back. |
 | Its brief | The hold's four lines, from *Every hold that names a fix carries four lines*. Add: fetch before you push, never force-push, stop if the head moved since the hold, stop at any refusal. |
 | Its worktree | Dispatch it with `isolation: worktree`, and have it run `ensure-venv.ps1` before its first `pytest`, `mypy` or `ruff` run. Engine `CLAUDE.md` section 5 asks both of every worker. |
+| A branch another worktree holds | Fix it from a detached checkout of the branch, and push with `git push origin HEAD:refs/heads/<branch>`. |
 | Its scope | Only the fixes the hold names. |
 | Two repairs per pull request | After two, a further hold goes to the Repair Manager by the transfer steps in *3b-quater*, acknowledged or not. The 30-minute exception still defers it. It never sits with neither. |
-| Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post nothing on the pull request instead, since a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
+| Count them in your episode note | One line per repair: the pull request, the hold's URL and the number. A successor counts from it. Post no comment just to count: a Lander comment after the hold replaces it as your newest event in `held_pr_turns.py`. |
+| What you still post | At least the review proof for the repair head, and *4a-quinquies*' naming of each open finding, both before the merge. |
 | ASVS record content | Stays a Manager's, under the owner ruling of 2026-09-23. A repair Builder never takes it. |
 | Before you merge a repair head | Re-read the pull request's comments since the hold. An author objection there returns it to the author. Fleet wiki lesson 20261124T012815379Z-wd9e1o. |
 | Your review, unchanged | Every repair head gets your own review fork before the merge, and the repair Builder's own QA never counts. *Independence, and the risk left open*, *You land, and you review*, states it. |
@@ -1022,8 +1024,8 @@ session, 2026-11-02 to 2026-11-03. No latency was measured across sessions.
 window here but one became 30 minutes: the transfer and `hold-ack` windows, set in the Lander's
 brief under that instruction. The not-live question window stays 2 hours. The steps did not change.
 
-Engine `main` states 2 hours until the engine pull request carrying the instruction merges. This
-newer instruction wins.
+These windows take effect when engine PR 3345 merges. Until then, engine `main`'s section 5
+governs, at 2 hours.
 
 #### Keep one Repair Manager alive, as you keep the Watchdog
 
@@ -1158,7 +1160,7 @@ hold, so the research cost falls where it is cheapest.
 
 | Item | Rule |
 | --- | --- |
-| The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, and stops if the head moved. |
+| The Repair Manager authors | Through a subagent Builder, which fetches before it pushes, never force-pushes, stops if the head moved, stops at any refusal, and makes only the fixes the hold names. |
 | You land, and you review | Every repair head gets a `code-review` fork at `xhigh` that you start yourself, its tag read with `review_tag.py`. The repair's own QA does not count. Unchanged on 2026-11-26. |
 | Residual risk | An author who reads neither the marker nor its mail may still push. So may a Builder already in flight, which never reads the marker. |
 | What the shorter windows raise, 2026-11-26 | At least this: an author's own Builder may already be mid-fix on a held pull request that looks quiet. Fleet wiki lesson 20261103T145659705Z-kqwvhx found one on 2 of 4 quiet pull requests. |
