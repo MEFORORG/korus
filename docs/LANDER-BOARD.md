@@ -601,12 +601,12 @@ A Watchdog taking the seat restarts the refresh in five steps:
 
 1. **Extract the whole `scripts/board` folder from `origin/main` every time**, into a new empty
    directory. The `&&` chain stops at the first failure, in pwsh 7 and Git Bash alike. The
-   `origin/main:scripts/board` form extracts flat.
+   `refs/remotes/origin/main:scripts/board` form extracts flat.
 
        git -C <korus> fetch origin &&
          mkdir <new dir> &&
          cd <new dir> &&
-         git -C <korus> archive -o "$PWD/board.tar" origin/main:scripts/board &&
+         git -C <korus> archive -o "$PWD/board.tar" refs/remotes/origin/main:scripts/board &&
          tar -x -f board.tar
 
    **Never run a working tree's copies.**
