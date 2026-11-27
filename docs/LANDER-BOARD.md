@@ -597,7 +597,7 @@ section's first draft.
 Find it instead. The Artifact tool's `list` action returns the account's artifacts by title, and
 the board is titled **Lander Board**. Ask the owner if the listing does not show it.
 
-A Watchdog taking the seat restarts the refresh in four steps:
+A Watchdog taking the seat restarts the refresh in five steps:
 
 1. **Extract the whole `scripts/board` folder from `origin/main` every time**, into a new empty
    directory. The `&&` chain stops at the first failure, in pwsh 7 and Git Bash alike. The
@@ -614,19 +614,31 @@ A Watchdog taking the seat restarts the refresh in four steps:
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
 
-3a. **Also copy `board.html` to the owner's `lander.html`.** Owner instruction 2026-11-27.
-   The artifact stays. This is a second copy of one build, never a second board.
+4. **Also copy `board.html` to the owner's `lander.html`.** Owner instruction 2026-11-27, in the
+   Watchdog's chat: *"update the Watchdog playbook to add that you build the lander board at"*
+   the owner's dashboard `lander.html`.
 
-   - Copy only after step 2 exits zero, through a temp file and a replace.
-     A failed run then never stamps an old board as new.
-   - Name the folder as `resolve_out_dir` does, in the engine's `scripts/dashboard/render_html.py`.
-     It reads `MEFOR_DASHBOARD_DIR`, else `OneDrive\Desktop\MEFOR\dashboard` under the profile.
-   - Read the target first. The folder also holds other pages.
+   The Watchdog chose to keep the artifact, so this is a second copy of one build. Read the
+   target first, because the folder holds other pages. One command refreshes and copies, and it
+   stops at the first failure:
 
-       $dir = if ($env:MEFOR_DASHBOARD_DIR) { $env:MEFOR_DASHBOARD_DIR } else { Join-Path $HOME 'OneDrive\Desktop\MEFOR\dashboard' }
-       Copy-Item <OutDir>\board.html "$dir\lander.html.tmp"; Move-Item -Force "$dir\lander.html.tmp" "$dir\lander.html"
+   ```powershell
+   if ([Environment]::MachineName -ne 'MEFORDEV01') { Write-Host "STOP     this must run on MEFORDEV01, but this is $([Environment]::MachineName); nothing ran" } else {
+     $engine = '<engine checkout>'; $board = '<extracted scripts/board dir>'; $out = '<scratch OutDir>'
+     $dir = (python "$engine\scripts\dashboard\render_html.py" --print-out-dir)
+     if ($LASTEXITCODE -ne 0 -or -not $dir) { throw 'no dashboard folder; nothing copied' }
+     pwsh -NoProfile -File "$board\refresh.ps1" -OutDir $out -EngineCheckout $engine
+     if ($LASTEXITCODE -ne 0) { throw 'refresh failed; nothing copied' }
+     $tmp = Join-Path $dir "lander.$([guid]::NewGuid().ToString('N')).tmp"
+     Copy-Item -LiteralPath "$out\board.html" -Destination $tmp -ErrorAction Stop
+     Move-Item -LiteralPath $tmp -Destination (Join-Path $dir 'lander.html') -Force -ErrorAction Stop
+   }
+   ```
 
-4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
+   Step 3 or step 4 can fail alone. Re-run the failed one on the next tick, and say in your table
+   which page is stale, so the two never silently disagree.
+
+5. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
    cadence nothing enforces.
 
