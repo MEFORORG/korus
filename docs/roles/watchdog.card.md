@@ -71,8 +71,6 @@ three repos. **A flat open count is not calm**: arrivals matching merges reads a
 because cron runs only while a session is idle and that one never was. Use a cloud
 schedule, and stamp the cadence on the board so a stale page looks stale.
 
-Your build also goes to the owner's `lander.html`: `docs/LANDER-BOARD.md` 9b, steps 1 to 4.
-
 ## What it must not do
 
 - **Do not take the action you are watching for.** Acting destroys the instrument: once you have

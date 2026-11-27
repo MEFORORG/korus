@@ -611,8 +611,7 @@ A Watchdog taking the seat restarts the refresh in five steps:
 
    **Never run a working tree's copies.**
 2. Run that directory's `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout` naming an
-   engine checkout that you have fetched and brought to `origin/main`. Stop here if it exits
-   non-zero: steps 3 and 4 then wait for the next tick.
+   engine checkout. Stop here if it exits non-zero: steps 3 and 4 do not run this tick.
 
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
@@ -627,8 +626,12 @@ A Watchdog taking the seat restarts the refresh in five steps:
        pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <engine checkout>
 
    It finds the folder through the engine's `render_html.py`, extracted from `origin/main`. It keeps
-   the old `lander.html` on every failure, and `tests/` pins that. If step 3 or step 4 fails
-   alone, say in your table which page is stale and re-run the failed step next tick.
+   the old `lander.html` on every failure, and `tests/` pins that. Every tick runs steps 2 to 4 in
+   full. If step 3 or step 4 fails, say in your table which page is stale.
+
+   **Step 4 runs only in a session on the owner's PC.** A cloud schedule, the form 9a recommends,
+   never runs it, so `lander.html` goes stale. The Watchdog then says in its table that no
+   owner-PC tick ran, and the Owner starts the loop on that PC.
 
 5. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a

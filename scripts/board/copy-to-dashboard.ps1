@@ -23,11 +23,8 @@
 .PARAMETER EngineCheckout
   An engine checkout. Only its origin/main is read, and it is fetched first.
 
-.PARAMETER DashboardDir
-  Names the folder directly and skips the engine extraction. For tests.
-
 .PARAMETER ExpectedHost
-  The machine that may copy. Anything else refuses with exit 3 and copies nothing.
+  The machine that may copy. Any other machine throws and copies nothing.
 
 .EXAMPLE
   pwsh -NoProfile -File scripts/board/copy-to-dashboard.ps1 -BoardHtml $out\board.html -EngineCheckout D:\Code\MessageFoundry
@@ -35,14 +32,12 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $BoardHtml,
-    [string] $EngineCheckout,
-    [string] $DashboardDir,
+    [Parameter(Mandatory)] [string] $EngineCheckout,
     [string] $ExpectedHost = 'MEFORDEV01'
 )
 
 if ([Environment]::MachineName -ne $ExpectedHost) {
-    Write-Host "STOP     this must run on $ExpectedHost, but this is $([Environment]::MachineName); nothing ran"
-    exit 3
+    & { $ErrorActionPreference = 'Stop'; throw "STOP     this must run on $ExpectedHost, but this is $([Environment]::MachineName); nothing ran" }
 }
 
 $ErrorActionPreference = 'Stop'
@@ -51,22 +46,23 @@ if (-not (Test-Path -LiteralPath $BoardHtml -PathType Leaf)) { throw "copy-to-da
 
 $scratch = $null
 try {
-    if (-not $DashboardDir) {
-        if (-not $EngineCheckout) { throw 'copy-to-dashboard.ps1: name -EngineCheckout or -DashboardDir.' }
-        git -C $EngineCheckout fetch origin main
-        if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: git fetch failed; nothing copied.' }
-        $scratch = Join-Path ([IO.Path]::GetTempPath()) "board-copy-$([guid]::NewGuid().ToString('N'))"
-        New-Item -ItemType Directory -Path $scratch | Out-Null
-        $tar = Join-Path $scratch 'dash.tar'
-        git -C $EngineCheckout archive --format=tar -o $tar origin/main scripts/dashboard
-        if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: git archive failed; nothing copied.' }
-        # A relative archive name, run from inside the folder: GNU tar reads "C:" in a path as a host.
-        Push-Location -LiteralPath $scratch
-        try { tar -x -f dash.tar } finally { Pop-Location }
-        if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: tar failed; nothing copied.' }
-        $DashboardDir = (python -I (Join-Path $scratch 'scripts/dashboard/render_html.py') --print-out-dir)
-        if ($LASTEXITCODE -ne 0 -or -not $DashboardDir) { throw 'copy-to-dashboard.ps1: no dashboard folder; nothing copied.' }
-    }
+    git -C $EngineCheckout fetch origin main
+    if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: git fetch failed; nothing copied.' }
+    $scratch = Join-Path ([IO.Path]::GetTempPath()) "board-copy-$([guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Path $scratch | Out-Null
+    $tar = Join-Path $scratch 'dash.tar'
+    git -C $EngineCheckout archive --format=tar -o $tar origin/main scripts/dashboard
+    if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: git archive failed; nothing copied.' }
+    # A relative archive name, run from inside the folder: GNU tar reads "C:" in a path as a host.
+    Push-Location -LiteralPath $scratch
+    try { tar -x -f dash.tar } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: tar failed; nothing copied.' }
+    # The helper prints the folder as UTF-8; read it as UTF-8, not through the console code page.
+    $prevEncoding = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    try { $DashboardDir = (python -I -X utf8 (Join-Path $scratch 'scripts/dashboard/render_html.py') --print-out-dir) }
+    finally { [Console]::OutputEncoding = $prevEncoding }
+    if ($LASTEXITCODE -ne 0 -or -not $DashboardDir) { throw 'copy-to-dashboard.ps1: no dashboard folder; nothing copied.' }
     if (-not (Test-Path -LiteralPath $DashboardDir -PathType Container)) {
         New-Item -ItemType Directory -Path $DashboardDir | Out-Null
     }
