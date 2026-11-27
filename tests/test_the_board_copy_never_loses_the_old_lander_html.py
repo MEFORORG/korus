@@ -74,11 +74,18 @@ class CopyToDashboard(unittest.TestCase):
             cmd += ["-ExpectedHost", host]
         return subprocess.run(cmd, capture_output=True, text=True, timeout=180)
 
+    def refusal_as_a_caller_sees_it(self, engine: Path, host: str | None = None) -> subprocess.CompletedProcess[str]:
+        """Run the script inside a caller's try/catch. A throw is caught and the next statement runs;
+        an exit statement ends the caller's process, so neither CAUGHT nor AFTER prints."""
+        args = f"-BoardHtml '{self.board}' -EngineCheckout '{engine}'"
+        if host is not None:
+            args += f" -ExpectedHost '{host}'"
+        script = f"try {{ & '{SCRIPT}' {args} }} catch {{ 'CAUGHT:' + $_ }}; 'AFTER'"
+        return subprocess.run([PWSH, "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=180)
+
     def assert_thrown_refusal(self, r: subprocess.CompletedProcess[str]) -> None:
-        """A throw, not a printed line and an exit code: the error stream carries STOP, exit is 1."""
-        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("STOP", r.stderr)
-        self.assertNotIn("STOP", r.stdout)
+        self.assertIn("CAUGHT:STOP", r.stdout, r.stdout + r.stderr)
+        self.assertIn("AFTER", r.stdout)
 
     def old(self) -> Path:
         target = self.dash / "lander.html"
@@ -96,17 +103,17 @@ class CopyToDashboard(unittest.TestCase):
         # No -ExpectedHost: the shipped default decides. On any machine but its owner's the script
         # must throw and copy nothing; on the owner's PC it must copy.
         target = self.old()
-        r = self.run_script(self.engine(self.dash))
         if self.host == default_host():
+            r = self.run_script(self.engine(self.dash))
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual(target.read_text(encoding="utf-8"), "NEW")
         else:
-            self.assert_thrown_refusal(r)
+            self.assert_thrown_refusal(self.refusal_as_a_caller_sees_it(self.engine(self.dash)))
             self.assertEqual(target.read_text(encoding="utf-8"), "OLD")
 
     def test_a_named_wrong_host_throws_and_copies_nothing(self):
         target = self.old()
-        r = self.run_script(self.engine(self.dash), "NOT-" + self.host)
+        r = self.refusal_as_a_caller_sees_it(self.engine(self.dash), "NOT-" + self.host)
         self.assert_thrown_refusal(r)
         self.assertEqual(target.read_text(encoding="utf-8"), "OLD")
 

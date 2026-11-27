@@ -611,16 +611,21 @@ A Watchdog taking the seat restarts the refresh in five steps:
 
    **Never run a working tree's copies.**
 2. Extract the engine's `scripts/coord` and `scripts/ci` from `origin/main` into a second new empty
-   directory, the way step 1 does. `refresh.ps1` runs `held_pr_turns.py` from the tree it is given.
+   directory, as step 1 does. If any link of the chain fails, skip steps 2 to 4 this tick.
+   `refresh.ps1` runs `held_pr_turns.py` from this tree, which is not a git repository.
 
-   Then run `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout` naming that directory.
-   Stop if it exits non-zero: steps 3 and 4 do not run this tick.
+   Below, `<repo>` is the engine's git checkout and `<tree>` is the new extract.
 
-       git -C <engine> fetch origin main &&
-         mkdir <engine dir> &&
-         cd <engine dir> &&
-         git -C <engine> archive -o "$PWD/eng.tar" origin/main scripts/coord scripts/ci &&
+       git -C <repo> fetch origin main &&
+         mkdir <tree> &&
+         cd <tree> &&
+         git -C <repo> archive -o "$PWD/eng.tar" origin/main scripts/coord scripts/ci &&
          tar -x -f eng.tar
+
+   Then run step 1's `refresh.ps1` with an `-OutDir` beside it, over that tree. Stop if it exits
+   non-zero: steps 3 and 4 do not run this tick.
+
+       pwsh -NoProfile -File <step 1 dir>/refresh.ps1 -OutDir <OutDir> -EngineCheckout <tree>
 
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
@@ -630,9 +635,11 @@ A Watchdog taking the seat restarts the refresh in five steps:
    build the lander board at"* the owner's dashboard `lander.html`.
 
    The Watchdog chose to keep the artifact, so `lander.html` is a second copy of the build step 2
-   made, never a second run. The script is the extracted copy from step 1, run with PowerShell 7:
+   made, never a second run.
 
-       pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <engine checkout>
+   Step 4 takes the git `<repo>`, never step 2's `<tree>`. The script is the extracted copy from step 1, run with PowerShell 7:
+
+       pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <repo>
 
    It finds the folder through the engine's `render_html.py`, extracted from `origin/main`. It keeps
    the old `lander.html` on every failure, and `tests/` pins that. Every tick runs steps 1 to 4 in
