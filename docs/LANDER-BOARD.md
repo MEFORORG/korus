@@ -610,8 +610,17 @@ A Watchdog taking the seat restarts the refresh in five steps:
          tar -x -f board.tar
 
    **Never run a working tree's copies.**
-2. Run that directory's `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout` naming an
-   engine checkout. Stop here if it exits non-zero: steps 3 and 4 do not run this tick.
+2. Extract the engine's `scripts/coord` and `scripts/ci` from `origin/main` into a second new empty
+   directory, the way step 1 does. `refresh.ps1` runs `held_pr_turns.py` from the tree it is given.
+
+   Then run `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout` naming that directory.
+   Stop if it exits non-zero: steps 3 and 4 do not run this tick.
+
+       git -C <engine> fetch origin main &&
+         mkdir <engine dir> &&
+         cd <engine dir> &&
+         git -C <engine> archive -o "$PWD/eng.tar" origin/main scripts/coord scripts/ci &&
+         tar -x -f eng.tar
 
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
@@ -626,12 +635,12 @@ A Watchdog taking the seat restarts the refresh in five steps:
        pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <engine checkout>
 
    It finds the folder through the engine's `render_html.py`, extracted from `origin/main`. It keeps
-   the old `lander.html` on every failure, and `tests/` pins that. Every tick runs steps 2 to 4 in
+   the old `lander.html` on every failure, and `tests/` pins that. Every tick runs steps 1 to 4 in
    full. If step 3 or step 4 fails, say in your table which page is stale.
 
-   **Step 4 runs only in a session on the owner's PC.** A cloud schedule, the form 9a recommends,
-   never runs it, so `lander.html` goes stale. The Watchdog then says in its table that no
-   owner-PC tick ran, and the Owner starts the loop on that PC.
+   **Only a session on the owner's PC refreshes `lander.html`.** A Watchdog anywhere else, a cloud
+   schedule included, cannot see that file's age. It says so in its table and names the Owner as
+   the one who starts the loop on the owner's PC.
 
 5. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
