@@ -610,7 +610,7 @@ A Watchdog taking the seat restarts the refresh in five steps:
          tar -x -f board.tar
 
    **Never run a working tree's copies.**
-2. Run that directory's `refresh.ps1` with an `-OutDir` beside it.
+2. Run that directory's `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout <engine checkout>`.
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
 
@@ -618,20 +618,21 @@ A Watchdog taking the seat restarts the refresh in five steps:
    Watchdog's chat: *"update the Watchdog playbook to add that you build the lander board at"*
    the owner's dashboard `lander.html`.
 
-   The Watchdog chose to keep the artifact, so this is a second copy of one build. Read the
-   target first, because the folder holds other pages. One command refreshes and copies, and it
-   stops at the first failure:
+   The Watchdog chose to keep the artifact, so this is a second copy of one build: the `board.html`
+   step 2 built, never a second run. Read the target first, because the folder holds other pages.
+   Run this only after step 2 exited zero. It stops at the first failure and removes its temp file:
 
    ```powershell
    if ([Environment]::MachineName -ne 'MEFORDEV01') { Write-Host "STOP     this must run on MEFORDEV01, but this is $([Environment]::MachineName); nothing ran" } else {
-     $engine = '<engine checkout>'; $board = '<extracted scripts/board dir>'; $out = '<scratch OutDir>'
+     $ErrorActionPreference = 'Stop'
+     $engine = '<engine checkout>'; $out = '<step 2 OutDir>'
      $dir = (python "$engine\scripts\dashboard\render_html.py" --print-out-dir)
      if ($LASTEXITCODE -ne 0 -or -not $dir) { throw 'no dashboard folder; nothing copied' }
-     pwsh -NoProfile -File "$board\refresh.ps1" -OutDir $out -EngineCheckout $engine
-     if ($LASTEXITCODE -ne 0) { throw 'refresh failed; nothing copied' }
      $tmp = Join-Path $dir "lander.$([guid]::NewGuid().ToString('N')).tmp"
-     Copy-Item -LiteralPath "$out\board.html" -Destination $tmp -ErrorAction Stop
-     Move-Item -LiteralPath $tmp -Destination (Join-Path $dir 'lander.html') -Force -ErrorAction Stop
+     try {
+       Copy-Item -LiteralPath "$out\board.html" -Destination $tmp
+       [System.IO.File]::Move($tmp, (Join-Path $dir 'lander.html'), $true)
+     } finally { if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp } }
    }
    ```
 
