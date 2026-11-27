@@ -1383,6 +1383,8 @@ of it.
 | A false control claim in any text | Any comment, docstring or doc that misstates what a control does, or when it is safe to rely on it, weakens that control, unless it errs only in the safe direction where *False only in the safe direction* allows. |
 | Why the false-text rows exist | The Lander's reading, decision d20261110T205706609-38b347. Two Lander sessions held every false comment and docstring a change added. Owner, 2026-11-10: *"be sure this change persists. you are the second lander session to make this error"*. |
 | False only in the safe direction | Where engine `main`'s `CLAUDE.md` section 5 states the same exception, such text does not weaken a control. The finding is filed under ledger ruling R2 and does not hold the merge. Name it on the pull request. |
+| What that exception excludes | Register text the owner signs, signed or drafted for signing, is outside the safe-direction exception, so a finding on it takes the route engine CLAUDE.md section 5 gave it before engine PR 3345's carve-out. |
+| Who decided it | Decided by the Lander under the owner's delegation of 2026-11-26: asked *"Should the safe-direction carve-out exclude register text the owner signs? Reply A or B"*, the owner answered *"/driver"* (record d20261127T011443730-344f46). |
 | What the safe direction is | A reader who acts on the text does more than the control needs, never less. |
 | The usual cases | Text that overstates what is stored, exposed or retained, or understates what a control guarantees, but only where acting on it passes that test. |
 | Where storing or retaining is the guarantee | Overstating it is the unsafe direction. An audit trail, a backup or a retention period are examples. |
@@ -1409,13 +1411,6 @@ of it.
 | Name the exposure, because it is real | A subagent dies with you, on a branch you did not author. Make it commit and push, then read `git log -1 --stat <head>` rather than its report. |
 | Post what you ran, and do not dress it as a QA line | That line cites `BUILDER.md` step 11, a step you did not run. Say in your own words what you ran and what it found. |
 | What none of this licenses | A quality opinion on a diff that already carries review proof. Article II: post the reading, not a second verdict. **WIDENED 2026-09-29:** this row read *"already carries a QA line"*. |
-
-#### Register text the owner signs
-
-| Item | Rule |
-| --- | --- |
-| Register text the owner signs | Register text the owner signs, signed or drafted for signing, is outside the safe-direction exception, so a finding on it takes the route engine CLAUDE.md section 5 gave it before engine PR 3345's carve-out. |
-| Who decided it | Decided by the Lander under the owner's delegation of 2026-11-26: asked *"Should the safe-direction carve-out exclude register text the owner signs? Reply A or B"*, the owner answered *"/driver"* (record d20261127T011443730-344f46). |
 
 ### 4b. UNKNOWN is not NOT-BEHIND
 
