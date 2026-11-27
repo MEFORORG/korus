@@ -151,7 +151,7 @@ class CopyToDashboard(unittest.TestCase):
         self.assertFalse(elsewhere.exists())
 
     def test_a_non_ascii_folder_name_is_read_as_utf_8(self):
-        folder = self.tmp / "déjà-vu ☃"
+        folder = self.tmp / "d\u00e9j\u00e0-vu \u2603"
         r = self.run_script(self.engine(folder), self.host)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((folder / "lander.html").read_text(encoding="utf-8"), "NEW")
