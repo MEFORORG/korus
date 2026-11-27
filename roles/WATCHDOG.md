@@ -64,11 +64,14 @@ part of watching the Lander.**
 [LANDER-BOARD.md](../docs/LANDER-BOARD.md) is the specification, written to rebuild it from nothing.
 `scripts/board/` builds it: `collect.py`, then `series.py`, then `build.py`.
 
-**The Watchdog builds the board, and publishes it to one place.** Owner instruction, 2026-11-27,
-in the Watchdog's chat: the board lives at
-`C:\Users\Scott\OneDrive\Desktop\MEFOR\dashboard\lander.html`. Build into a scratch folder with
-`LANDER_BOARD_OUT` and `LANDER_BOARD_ENGINE` set, then copy only `board.html` over `lander.html`.
-Read what is there first: the folder also holds other pages, and a copy replaces the file.
+**The Watchdog builds the board and publishes it to one place.** Owner instruction, 2026-11-27, in
+the Watchdog's chat.
+
+| Item | Rule |
+| --- | --- |
+| Where it lives | `C:\Users\Scott\OneDrive\Desktop\MEFOR\dashboard\lander.html` |
+| How | Build into a scratch folder with `LANDER_BOARD_OUT` and `LANDER_BOARD_ENGINE` set. Copy only `board.html` over `lander.html`. |
+| Before the copy | Read what is there. The folder holds other pages, and a copy replaces the file. |
 
 **This is the seat's first standing duty.** Everything else here waits for the Owner to name a
 subject. This does not.
