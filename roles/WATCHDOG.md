@@ -67,7 +67,7 @@ part of watching the Lander.**
 **The Watchdog builds the board.** Owner instruction, 2026-11-27, in the Watchdog's chat: *"you
 build the lander board"* at the owner's `lander.html`.
 
-The steps are [LANDER-BOARD.md](../docs/LANDER-BOARD.md) 9b, step 2.
+The steps are [LANDER-BOARD.md](../docs/LANDER-BOARD.md) 9b, steps 1 to 4.
 
 **This is the seat's first standing duty.** Everything else here waits for the Owner to name a
 subject. This does not.

@@ -597,7 +597,7 @@ section's first draft.
 Find it instead. The Artifact tool's `list` action returns the account's artifacts by title, and
 the board is titled **Lander Board**. Ask the owner if the listing does not show it.
 
-A Watchdog taking the seat restarts the refresh in four steps:
+A Watchdog taking the seat restarts the refresh in five steps:
 
 1. **Extract the whole `scripts/board` folder from `origin/main` every time**, into a new empty
    directory. The `&&` chain stops at the first failure, in pwsh 7 and Git Bash alike. The
@@ -610,45 +610,27 @@ A Watchdog taking the seat restarts the refresh in four steps:
          tar -x -f board.tar
 
    **Never run a working tree's copies.**
-2. **Refresh, and copy the build to the owner's `lander.html`, with the one command below.**
-   Owner instruction 2026-11-27, in the Watchdog's chat: *"update the Watchdog playbook to add
-   that you build the lander board at"* the owner's dashboard `lander.html`.
+2. Run that directory's `refresh.ps1` with an `-OutDir` beside it and `-EngineCheckout` naming an
+   engine checkout that you have fetched and brought to `origin/main`. Stop here if it exits
+   non-zero: steps 3 and 4 then wait for the next tick.
 
-   The Watchdog chose to keep the artifact, so `lander.html` is a second copy of one build. Read
-   the target first, because the folder holds other pages. Use pwsh 7 or later.
+3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
+   passing its `url`. Read it first if this session has not published it, or the publish is refused.
 
-   The command stops at the first failure, requires the engine checkout to sit at `origin/main`,
-   and clears leftover temp files first. It tries to remove its own temp file, and a killed run
-   can leave one, which the next run clears:
+4. **On the owner's PC only, run `scripts/board/copy-to-dashboard.ps1` after step 3.** Owner
+   instruction 2026-11-27, in the Watchdog's chat: *"update the Watchdog playbook to add that you
+   build the lander board at"* the owner's dashboard `lander.html`.
 
-   ```powershell
-   if ([Environment]::MachineName -ne 'MEFORDEV01') { Write-Host "STOP     this must run on MEFORDEV01, but this is $([Environment]::MachineName); nothing ran" } else { & {
-     $ErrorActionPreference = 'Stop'
-     $engine = '<engine checkout>'; $board = '<extracted scripts/board dir>'; $out = '<scratch OutDir>'
-     git -C $engine fetch origin main
-     if ($LASTEXITCODE -ne 0) { throw 'engine fetch failed; nothing ran' }
-     if ((git -C $engine rev-parse HEAD) -ne (git -C $engine rev-parse origin/main)) { throw 'engine checkout is not at origin/main; nothing ran' }
-     $dir = (python "$engine\scripts\dashboard\render_html.py" --print-out-dir)
-     if ($LASTEXITCODE -ne 0 -or -not $dir) { throw 'no dashboard folder; nothing copied' }
-     pwsh -NoProfile -File "$board\refresh.ps1" -OutDir $out -EngineCheckout $engine
-     if ($LASTEXITCODE -ne 0) { throw 'refresh failed; nothing copied' }
-     Get-ChildItem -LiteralPath $dir -Filter 'lander.*.tmp' | Remove-Item
-     $tmp = Join-Path $dir "lander.$([guid]::NewGuid().ToString('N')).tmp"
-     try {
-       Copy-Item -LiteralPath "$out\board.html" -Destination $tmp
-       [System.IO.File]::Move($tmp, (Join-Path $dir 'lander.html'), $true)
-     } finally { if (Test-Path -LiteralPath $tmp) { try { Remove-Item -LiteralPath $tmp } catch { Write-Warning "temp file left: $tmp" } } }
-   } }
-   ```
+   The Watchdog chose to keep the artifact, so `lander.html` is a second copy of the build step 2
+   made, never a second run. The script is the extracted copy from step 1, run with PowerShell 7:
 
-   Run every tick in full, never one part alone, so the artifact and `lander.html` stay one build.
-   If the command fails, say in your table that both pages are stale, and re-run it next tick.
+       pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <engine checkout>
 
-3. Find the existing artifact as above, then publish the `board.html` that command built to it with
-   the Artifact tool, passing its `url`. Read it first if this session has not published it, or the
-   publish is refused.
+   It finds the folder through the engine's `render_html.py`, extracted from `origin/main`. It keeps
+   the old `lander.html` on every failure, and `tests/` pins that. If step 3 or step 4 fails
+   alone, say in your table which page is stale and re-run the failed step next tick.
 
-4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
+5. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
    cadence nothing enforces.
 

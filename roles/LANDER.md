@@ -2319,7 +2319,7 @@ import, including both DST transition instants.
 The watcher does the board now"*. The owner means the Watchdog's Lander Board: [WATCHDOG.md](WATCHDOG.md),
 *YOUR FIRST STANDING DUTY*. It is a different page and did not inherit this board's sections.
 
-Read it from the artifact or from the owner's `lander.html`: LANDER-BOARD.md 9b, step 2.
+Read it from the artifact or from the owner's `lander.html`: LANDER-BOARD.md 9b, steps 1 to 4.
 
 So this seat no longer builds or republishes a board, or sends the Manager the stopped list that
 fired on generating it. Sections 18a, 18a-BUILD, 18a-BLOCKED, 18b and 18c went with it. A citation
