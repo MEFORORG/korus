@@ -597,23 +597,59 @@ section's first draft.
 Find it instead. The Artifact tool's `list` action returns the account's artifacts by title, and
 the board is titled **Lander Board**. Ask the owner if the listing does not show it.
 
-A Watchdog taking the seat restarts the refresh in four steps:
+A Watchdog taking the seat restarts the refresh in five steps:
 
 1. **Extract the whole `scripts/board` folder from `origin/main` every time**, into a new empty
    directory. The `&&` chain stops at the first failure, in pwsh 7 and Git Bash alike. The
-   `origin/main:scripts/board` form extracts flat.
+   `refs/remotes/origin/main:scripts/board` form extracts flat.
 
        git -C <korus> fetch origin &&
          mkdir <new dir> &&
          cd <new dir> &&
-         git -C <korus> archive -o "$PWD/board.tar" origin/main:scripts/board &&
+         git -C <korus> archive -o "$PWD/board.tar" refs/remotes/origin/main:scripts/board &&
          tar -x -f board.tar
 
    **Never run a working tree's copies.**
-2. Run that directory's `refresh.ps1` with an `-OutDir` beside it.
+2. Extract the engine's `scripts/coord` and `scripts/ci` from `origin/main` into a second new empty
+   directory, as step 1 does. If any link of the chain fails, skip steps 2 to 4 this tick.
+   `refresh.ps1` runs `held_pr_turns.py` from this tree, which is not a git repository.
+
+   Below, `<repo>` is the engine's git checkout and `<tree>` is the new extract.
+
+       git -C <repo> fetch origin main &&
+         mkdir <tree> &&
+         cd <tree> &&
+         git -C <repo> archive -o "$PWD/eng.tar" refs/remotes/origin/main scripts/coord scripts/ci &&
+         tar -x -f eng.tar
+
+   Then run step 1's `refresh.ps1` with an `-OutDir` beside it, over that tree. Stop if it exits
+   non-zero: steps 3 and 4 do not run this tick.
+
+       pwsh -NoProfile -File <step 1 dir>/refresh.ps1 -OutDir <OutDir> -EngineCheckout <tree>
+
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
-4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
+
+4. **On the owner's PC only, run `scripts/board/copy-to-dashboard.ps1` after step 3.** Owner
+   instruction 2026-11-27, in the Watchdog's chat: *"update the Watchdog playbook to add that you
+   build the lander board at"* the owner's dashboard `lander.html`.
+
+   The Watchdog chose to keep the artifact, so `lander.html` is a second copy of the build step 2
+   made, never a second run.
+
+   Step 4 takes the git `<repo>`, never step 2's `<tree>`. The script is the extracted copy from step 1, run with PowerShell 7:
+
+       pwsh -NoProfile -File <new dir>/copy-to-dashboard.ps1 -BoardHtml <OutDir>/board.html -EngineCheckout <repo>
+
+   It finds the folder through the engine's `render_html.py`, extracted from `origin/main`. It keeps
+   the old `lander.html` on every failure, and `tests/` pins that. Every tick runs steps 1 to 4 in
+   full. If step 3 or step 4 fails, say in your table which page is stale.
+
+   **Only a session on the owner's PC refreshes `lander.html`.** A Watchdog anywhere else, a cloud
+   schedule included, cannot see that file's age. It says so in its table and names the Owner as
+   the one who starts the loop on the owner's PC.
+
+5. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
    cadence nothing enforces.
 

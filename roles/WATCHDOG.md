@@ -64,6 +64,11 @@ part of watching the Lander.**
 [LANDER-BOARD.md](../docs/LANDER-BOARD.md) is the specification, written to rebuild it from nothing.
 `scripts/board/` builds it: `collect.py`, then `series.py`, then `build.py`.
 
+**The Watchdog builds the board.** Owner instruction, 2026-11-27, in the Watchdog's chat: *"you
+build the lander board"* at the owner's `lander.html`.
+
+The steps are [LANDER-BOARD.md](../docs/LANDER-BOARD.md) 9b, steps 1 to 5.
+
 **This is the seat's first standing duty.** Everything else here waits for the Owner to name a
 subject. This does not.
 
