@@ -619,7 +619,7 @@ A Watchdog taking the seat restarts the refresh in five steps:
        git -C <repo> fetch origin main &&
          mkdir <tree> &&
          cd <tree> &&
-         git -C <repo> archive -o "$PWD/eng.tar" origin/main scripts/coord scripts/ci &&
+         git -C <repo> archive -o "$PWD/eng.tar" refs/remotes/origin/main scripts/coord scripts/ci &&
          tar -x -f eng.tar
 
    Then run step 1's `refresh.ps1` with an `-OutDir` beside it, over that tree. Stop if it exits

@@ -75,8 +75,9 @@ class CopyToDashboard(unittest.TestCase):
         return subprocess.run(cmd, capture_output=True, text=True, timeout=180)
 
     def refusal_as_a_caller_sees_it(self, engine: Path, host: str | None = None) -> subprocess.CompletedProcess[str]:
-        """Run the script inside a caller's try/catch. A throw is caught and the next statement runs;
-        an exit statement ends the caller's process, so neither CAUGHT nor AFTER prints."""
+        """Run the script inside a caller's try/catch. A throw is caught, so CAUGHT:STOP prints and the
+        next statement runs. Measured: an exit inside the call operator does not end the caller here,
+        so AFTER prints under an exit refusal too; the CAUGHT:STOP assertion is what catches one."""
         args = f"-BoardHtml '{self.board}' -EngineCheckout '{engine}'"
         if host is not None:
             args += f" -ExpectedHost '{host}'"
@@ -171,6 +172,17 @@ class CopyToDashboard(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.dash / "lander.html").exists())
         self.assertFalse(elsewhere.exists())
+
+    def test_a_local_tag_named_origin_main_cannot_stand_in_for_the_fetched_ref(self):
+        decoy = self.tmp / "named-by-the-decoy-tag"
+        engine = self.engine(self.dash)
+        (engine / "scripts/dashboard/render_html.py").write_bytes(helper_source(decoy).encode("utf-8"))
+        subprocess.run(GIT + ["-C", str(engine), "commit", "-q", "-am", "decoy"], check=True)
+        subprocess.run(["git", "-C", str(engine), "tag", "origin/main"], check=True)
+        r = self.run_script(engine, self.host)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.dash / "lander.html").exists())
+        self.assertFalse(decoy.exists())
 
     def test_origin_main_is_fetched_before_it_is_read(self):
         moved = self.tmp / "named-after-origin-moved"

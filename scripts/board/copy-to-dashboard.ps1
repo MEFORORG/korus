@@ -51,7 +51,7 @@ try {
     $scratch = Join-Path ([IO.Path]::GetTempPath()) "board-copy-$([guid]::NewGuid().ToString('N'))"
     New-Item -ItemType Directory -Path $scratch | Out-Null
     $tar = Join-Path $scratch 'dash.tar'
-    git -C $EngineCheckout archive --format=tar -o $tar origin/main scripts/dashboard
+    git -C $EngineCheckout archive --format=tar -o $tar refs/remotes/origin/main scripts/dashboard
     if ($LASTEXITCODE -ne 0) { throw 'copy-to-dashboard.ps1: git archive failed; nothing copied.' }
     # A relative archive name, run from inside the folder: GNU tar reads "C:" in a path as a host.
     Push-Location -LiteralPath $scratch
