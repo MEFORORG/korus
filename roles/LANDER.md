@@ -1055,7 +1055,8 @@ differs.
 #### The transfer, and its order
 
 A hold transfers when its original author has not acknowledged it within 30 minutes. The author
-may also hand it over sooner.
+may also hand it over sooner. *An author-session-closed comment hands the PR over at once* names
+the explicit form.
 
 **An acknowledgement is the original author's comment or commit.** Its unambiguous form is the
 `hold-ack` marker that the engine's `scripts/coord/held_pr_turns.py` reads.
@@ -1141,6 +1142,38 @@ Lander (session <your session id>), <date>. Repair owned by the Repair Manager f
 | A later hold on a transferred PR | Redo steps 1 to 4 for it: send the new hold's URL, confirm delivery, post a fresh marker in a later second, then send the URL again. Always post that marker. |
 | If that send is not delivered | The re-hold is your turn, whatever the script reads. |
 | Why always | Until engine PR 2720 merges, `held_pr_turns.py` on `main` reads a markerless re-hold as the author's turn. |
+
+#### An author-session-closed comment hands the PR over at once
+
+Owner approval 2026-11-27, in a Manager's chat: *"Yes, build it"*. It is the explicit form of the
+author handing the PR over sooner. A closing session posts it on each open PR it authored. Each such
+PR must carry an unminimized hold of yours.
+
+The marker is the comment's FIRST line. Copy it exactly, with no leading spaces:
+
+```text
+<!-- author-session-closed session=<id> -->
+```
+
+Its second line is a plain note: the author session closed, repairs go to the Repair Manager, and
+the merge stays the Lander's.
+
+| Item | Rule |
+| --- | --- |
+| The id | The closing session's CCD `local_` id, 1 to 64 letters, digits, `_` or `-`. |
+| When it is posted | Only while the PR is not queued and has no armed auto-merge request. |
+| When it counts | As engine `held_pr_turns.py`'s header, THE AUTHOR-CLOSED CONTRACT, states; at least: not minimized, a later second than the newest hold, that hold names the head, and no author commit, comment, review, ack or edit at or after it. |
+| What it does | It sends the hold to the transfer above at once, with no 30-minute window and no not-live test. It is not an acknowledgement. Under *Repair a held PR at once* it is an author comment, so its 30-minute wait applies. |
+| The script | The engine change that makes `held_pr_turns.py` flag the PR `author-closed` is on engine branch `b-author-session-closed-marker`, unmerged on 2026-11-27. Until it lands, the script reads the marker as an ordinary reply. Read the comment, not the script's turn. |
+| What it does not do | It never stands in for the hold. With no qualifying hold, there is nothing to transfer. |
+| A marker that does not count | It is an ordinary author reply, so the turn is back with you. |
+| A fresh hold after it | It no longer counts, and a closed author does not post again. This includes the fresh hold the transfer needs when the head moved. The PR then takes the ordinary route. |
+| The transfer | Still the five steps in order: send, confirm delivered, repair-owner marker, send again, mail. |
+| Who wrote it | Every seat posts as one GitHub login, so the login proves nothing. Confirm it against the author's seat record for the PR's worktree. |
+| What the record must read | The engine's `scripts/coord/fleet.ps1` shows it CLOSED. If it does not, read the marker as an ordinary reply. |
+| What CLOSED proves | That the author ran `seat.ps1 -Close`, not that no session runs. A resumed author's comment or commit voids the marker. |
+| Which PRs the author marks | Its own, found from its record and brief. Never from `gh pr list --author @me`, which names every seat's PRs. |
+| What it does not move | At least the cases in *What stays with the original author*, which follow that table's rows. Carry a case waiting on an owner ruling in your owner table. |
 
 #### What stays with the original author
 
