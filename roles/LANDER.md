@@ -1425,13 +1425,15 @@ top of *Repair a held PR at once* says which governs.
 | --- | --- |
 | Register row text, signed or drafted for signing | It is outside the safe-direction exception, *False only in the safe direction*. |
 | A falsehood in signed register row text | It goes to the owner as a void-or-correction question. Like any owner finding, it holds the merge: *A finding that goes to the owner still holds it*. |
-| A draft-row falsehood false only in the safe direction | It must be fixed, or disclosed in the signing guide, before the row is put up for signature. It blocks the signing, not the merge. |
-| How that one is recorded | Name it on the pull request and file it under ledger ruling R2. This row governs it over the other *4a-quinquies* rows. |
+| A falsehood in draft register row text | Every one, in any direction or none, must be fixed or disclosed in the signing guide before the row is put up for signature. That is record d20261126T225830018-38a483's text. |
+| A draft falsehood false only in the safe direction | It does not hold the merge. Name it on the pull request and file it under ledger ruling R2. This row governs it over the other *4a-quinquies* rows. |
 | Why that one does not hold the merge | Record d20261126T225830018-38a483 rejected *"A as first put, holding every merge on it"*. |
-| Every other falsehood in draft register row text | At least: one false in the unsafe direction, a false score, a false anchor. *What still goes to the owner, at least* routes each, and the pull request waits. Ledger ruling R2.4 and the 2026-11-15 ruling stand. |
+| Every other falsehood in draft register row text | It keeps its existing owner route, and the pull request waits. At least: one false in the unsafe direction, a false score, a false anchor. Ledger ruling R2.4 and the 2026-11-15 ruling stand. |
+| A present-tense claim of a live exposure | It keeps its owner route wherever it appears, draft register row text included. |
 | Who makes the fix | The fix is ASVS record work, a Manager's, under the owner ruling of 2026-09-23. |
-| A pull request that records an owner signature | It holds on a falsehood in the row text whose signature it records. |
-| A dated marker on a register row | It is not register row text here. It stays under the safe-direction exception, except a marker that reads an acceptance as void or fired. That one goes to the owner. |
+| A pull request that records an owner signature | It holds on a falsehood in the recorded row text that was neither fixed nor disclosed in the signing guide. The record's *"holds on it"* refers back to that duty. |
+| A disclosed falsehood that was signed | It does not hold the signature pull request. It goes to the owner as a void-or-correction question only if later found false in a way the disclosure did not state. |
+| A dated marker on a register row | It is not register row text here. It stays under the safe-direction exception. Only a false marker reading an acceptance as void or fired goes to the owner; a correct one stays under it. |
 | A marker that reads a fired or void acceptance as in force | It is false in the unsafe direction, so the owner route in *What still goes to the owner, at least* applies. |
 | The owner answers in person | Voiding or correcting signed register row text, and a void-or-fired marker question, are signing or re-signing. Engine `CLAUDE.md` section 5 reserves those to the owner in person. A delegated record does not answer them. |
 | CHANGED 2026-11-26 | Until this subsection, *False only in the safe direction* also covered register row text, as PR 283 wrote it that day. |
