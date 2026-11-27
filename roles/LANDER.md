@@ -1417,22 +1417,23 @@ of it.
 d20261126T225830018-38a483. The record gives the question as *"should the safe-direction carve-out
 exclude register text the owner signs, A or B"*, and the owner's answer as *"/driver"*.
 
-Read it as 38a483 as clarified by d20261127T001516596-98fe64. Manager record
-d20261126T233936172-bb6cdb fits it to the existing rulings. Engine `CLAUDE.md` section 5 is to
-state the same rule; the guard atop *Repair a held PR at once* says which governs where they differ.
+Read it as 38a483 as clarified by d20261127T001516596-98fe64 and d20261127T004118366-4349db, with
+Manager record d20261126T233936172-bb6cdb. Engine `CLAUDE.md` section 5 is to state the same rule;
+the guard atop *Repair a held PR at once* says which governs where they differ.
 
 | Item | Rule |
 | --- | --- |
 | Register row text, signed or drafted for signing | It is outside the safe-direction exception, *False only in the safe direction*. This changes no other owner route, the live-exposure, score and anchor routes included. |
-| A falsehood in draft register row text | It must be fixed, or disclosed in the signing guide, before the row is put up for signature. |
+| A falsehood in draft register row text | It must be fixed before the row is put up for signature. Disclosure in the signing guide does not satisfy that duty. |
 | A draft falsehood false only in the safe direction | On a pull request that neither records a signature nor first puts the row up for signature, it skips the merge hold, blocking the signing instead. Name it on the pull request and file it under ledger ruling R2. |
 | The one owner route that skip removes | The route *A false control claim in any text* gives it. The live-exposure route still applies. |
 | Why the no-hold | Record 38a483 lists *"A as first put, holding every merge on it"* among its rejected alternatives. |
 | Every other falsehood in draft register row text | It keeps the route this section already gives it. So a prose error with no owner route is a filed R2 row. |
 | Who fixes draft register row text | The fix is ASVS record work, a Manager's, under the owner ruling of 2026-09-23. |
-| A signature pull request, or one that first puts a row up for signature | It holds on any falsehood in the row text it records or proposes. There is no disclosure exemption. |
+| A signature pull request, or one that first puts a row up for signature | It holds on any falsehood in the row text it records or proposes. |
 | A falsehood found in signed register row text | It goes to the owner as a void-or-correction question. It holds the pull request that introduces, edits or records that text. |
-| An unrelated pull request that only surfaces it | It does not hold. The falsehood is filed for the owner instead. |
+| A falsehood in signed text the pull request did not touch | It does not hold that pull request. Under ledger ruling R2 it is filed for the owner in that module's open row. |
+| Why that does not narrow the 2026-11-15 ruling | That ruling covers findings on a pull request's own change. Record 4349db says so. |
 | A dated marker on a register row | It is not register row text here, and stays under the safe-direction exception, except a finding that it falsely reads an acceptance as void, fired or in force. That finding goes to the owner. |
 | The owner answers in person | Engine `CLAUDE.md` section 5 reserves signing or re-signing the register to the owner in person. Record 98fe64 reads an edit after signing, and voiding or correcting signed register row text, as re-signing. No delegated record answers either. |
 | The Lander never decides a void | Whether an acceptance is void stays the owner's. |
