@@ -69,7 +69,7 @@ the Watchdog's chat.
 
 | Item | Rule |
 | --- | --- |
-| Where it lives | `C:\Users\Scott\OneDrive\Desktop\MEFOR\dashboard\lander.html` |
+| Where it lives | `lander.html` in the owner's `OneDrive\Desktop\MEFOR\dashboard` folder, under the user profile |
 | How | Build into a scratch folder with `LANDER_BOARD_OUT` and `LANDER_BOARD_ENGINE` set. Copy only `board.html` over `lander.html`. |
 | Before the copy | Read what is there. The folder holds other pages, and a copy replaces the file. |
 
