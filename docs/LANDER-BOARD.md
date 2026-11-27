@@ -613,6 +613,19 @@ A Watchdog taking the seat restarts the refresh in four steps:
 2. Run that directory's `refresh.ps1` with an `-OutDir` beside it.
 3. Find the existing artifact as above, then publish `board.html` to it with the Artifact tool,
    passing its `url`. Read it first if this session has not published it, or the publish is refused.
+
+3a. **Also copy `board.html` to the owner's `lander.html`.** Owner instruction 2026-11-27.
+   The artifact stays. This is a second copy of one build, never a second board.
+
+   - Copy only after step 2 exits zero, through a temp file and a replace.
+     A failed run then never stamps an old board as new.
+   - Name the folder as `resolve_out_dir` does, in the engine's `scripts/dashboard/render_html.py`.
+     It reads `MEFOR_DASHBOARD_DIR`, else `OneDrive\Desktop\MEFOR\dashboard` under the profile.
+   - Read the target first. The folder also holds other pages.
+
+       $dir = if ($env:MEFOR_DASHBOARD_DIR) { $env:MEFOR_DASHBOARD_DIR } else { Join-Path $HOME 'OneDrive\Desktop\MEFOR\dashboard' }
+       Copy-Item <OutDir>\board.html "$dir\lander.html.tmp"; Move-Item -Force "$dir\lander.html.tmp" "$dir\lander.html"
+
 4. Repeat on your own loop. **There is no daemon**: section 9a is why, and the masthead says
    "refreshed by the Watchdog session" so a reader checks the timestamp rather than trusting a
    cadence nothing enforces.
