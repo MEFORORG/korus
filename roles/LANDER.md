@@ -2046,8 +2046,9 @@ way to learn the release is owed.
 
 ### 7d-quinquies. When a batch PR merges, write the runbook workbook
 
-Owner decision 2026-11-27, in a Manager's chat: *"the Lander runs read_batch.py --done MERGED when
-it merges a batch PR, so the merge write never depends on the Manager being alive."*
+On 2026-11-27, in a Manager's chat, asked how to keep the runbook current, the owner answered
+*"Stop hook + Lander"*. That option's Lander half reads: *"the Lander runs read_batch.py --done
+MERGED when it merges a batch PR, so the merge write never depends on the Manager being alive."*
 
 A batch PR is one whose title or body says it builds rows of a runbook batch. A citation of another
 batch, or a ledger PR flipping a batch's banners, is not one.
@@ -2060,7 +2061,9 @@ If that read shows the batch already finished, for example MERGED with this PR, 
 stop: nothing is owed.
 
 Write only in the clean case, which the Manager set on 2026-11-27. The read loaded the ledger, no
-row is PARTIAL by the PR body, the ledger or the workbook's Rows tab, and this PR built every row:
+row is PARTIAL by the PR body, the ledger or the workbook's Rows tab, no row will read PARTIAL once
+you flip its banner under 7d-bis or file the PR's deferred scope on it under ledger ruling R2, and
+this PR built every row:
 
 ```
 read_batch.py --done NN --holder "<the Manager cell's text; if empty, Lander <session> at merge>" --state MERGED --note "<repo> PR <N> (<merge sha>) merged" --row <row>="Built in PR <N> (batch NN), proposed <banner state>"
