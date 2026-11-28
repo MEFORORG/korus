@@ -2009,40 +2009,6 @@ script's own blessing. [MANAGER.md](MANAGER.md), *Always clean up after your tea
 **Do not close the item and leave the release for later.** Later is a different session, and it has no
 way to learn the release is owed.
 
-### 7d-quinquies. When a batch PR merges, write the runbook workbook
-
-Owner decision 2026-11-27, in a Manager's chat: *"the Lander runs read_batch.py --done MERGED when
-it merges a batch PR, so the merge write never depends on the Manager being alive."*
-
-A batch PR is one whose title or body says it builds rows of a runbook batch. A citation of another
-batch, or a ledger PR flipping a batch's banners, is not one.
-
-After one merges, by your hand or by the queue, run the batch skill's `read_batch.py` once per batch
-it built. Use the interpreter the skill's Step 1 names; the project venv has no openpyxl.
-
-```
-read_batch.py --done NN --holder "<the Manager cell's current text, or Lander <session>>" --state MERGED --note "<repo> PR <N> (<merge sha>) merged" --row <row>="<text>"
-```
-
-Give one `--row` for each row the Rows tab still reads Not started or In progress. Take its text
-from the proposed banners in the PR body. Leave out a row whose Status already says where it stands.
-
-Write the text as plain words. A backtick, double quote or `$` is read by the shell.
-
-| Item | Rule |
-| --- | --- |
-| A stale copy | If its `--help` does not list both `--take` and `--done`, stop and report it. |
-| Already written | If `read_batch.py NN` prints a Status reading MERGED with this PR in it, the write is done. |
-| A row is PARTIAL | By the PR body or the ledger, unless the PR body says this PR built its remainder in full. Use `--state "PR OPEN"`, never MERGED. |
-| A row still in another open PR | The same: `--state "PR OPEN"`, with a `--row` naming that PR. |
-| Why not MERGED | Ledger ruling R6 forbids BUILT or DONE while a row is PARTIAL, and `--next` treats MERGED as finished. |
-| The tool refuses MERGED for PARTIAL | Run it again with `--state "PR OPEN"`. |
-| It refuses for a missing `--row` | Add the `--row`. |
-| It refuses because the file changed or could not be saved | Run it once more. |
-| Any other refusal, or no workbook | For example on another PC or in a cloud session. Do not retry, and never pass `--force-take`. |
-| Then say so | One line in a comment on the merged PR, and a row in *Table 2 -- the blockers*, so the Manager or the owner can write it. |
-| The Manager's write | The Manager still runs `--done` when the PR opens. Yours at the merge is the backstop. |
-
 ### 7d-bis. An item whose own body declares any part of itself still open is PARTIAL, never closed
 
 | Item | Rule |
@@ -2077,6 +2043,44 @@ Write the text as plain words. A backtick, double quote or `$` is read by the sh
 | The flip pass reads a merged pull request's BODY, not only its title | A body that says it built or closed a row is read against that row's closing steps, in the same pass as a title citation. Ledger ruling R7, owner-signed 2026-11-04 (vault `docs/LEDGER-INFLOW-RULINGS.md`, PR 2818). |
 | What a body account looks like | A per-row account, such as *"BACKLOG #N: built"* or *"BACKLOG #N: declined"*. Like a title, it is a lead; *7d*, *The bar is a re-read*, holds the closing evidence. |
 | The instrument, and its gap | Vault `scripts/docs/stale_banner_detector.py`. At vault `main` on 2026-11-04 it skips rows whose banner carries an amendment, as most PARTIAL rows do, so it covers R7's main case only once a vault fix lands. Read its header first. |
+
+### 7d-quinquies. When a batch PR merges, write the runbook workbook
+
+Owner decision 2026-11-27, in a Manager's chat: *"the Lander runs read_batch.py --done MERGED when
+it merges a batch PR, so the merge write never depends on the Manager being alive."*
+
+A batch PR is one whose title or body says it builds rows of a runbook batch. A citation of another
+batch, or a ledger PR flipping a batch's banners, is not one.
+
+Use the interpreter the batch skill's Step 1 names. First check the copy: if its `--help` does not
+list both `--take` and `--done`, it is stale, so do not write. Then fetch the vault and read
+`read_batch.py NN`, once per batch the PR built.
+
+If that read shows the batch already finished, for example MERGED with this PR, BUILT or DONE,
+stop: nothing is owed.
+
+Write only in the clean case, which the Manager set on 2026-11-27. The read loaded the ledger, no
+row is PARTIAL by the PR body, the ledger or the workbook's Rows tab, and this PR built every row:
+
+```
+read_batch.py --done NN --holder "<the Manager cell's text; if empty, Lander <session> at merge>" --state MERGED --note "<repo> PR <N> (<merge sha>) merged" --row <row>="Built in PR <N> (batch NN), proposed <banner state>"
+```
+
+Give one `--row` per row still reading Not started or In progress. Write its text as plain words,
+since the shell reads a backtick, double quote or `$`.
+
+In every other case that leaves the workbook stale, do not write. That includes any PARTIAL row, a
+row this PR did not build, a row in another open PR, a stale copy, and no reachable workbook.
+
+Instead add one row to *Table 2 -- the blockers*, naming the batch and the PR, so the Manager or the
+owner writes it. Do not post the workbook path or the tool's output in a public PR comment.
+
+On a changed-file or could-not-save refusal, read `read_batch.py NN` again, then re-run once if the
+write is still owed. Any other refusal, or a second one, takes the Table 2 route. Never pass
+`--force-take`.
+
+The batch skill's *Step 7: after* says what `--done` refuses. The Manager's own `--done` at PR
+open and at merge still stands. Yours is the backstop.
 
 ### 7e. A banner listing only what a change CLOSED and not what it BROKE is half a record
 
