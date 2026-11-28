@@ -2060,10 +2060,13 @@ list both `--take` and `--done`, it is stale, so do not write. Then fetch the va
 If that read shows the batch already finished, for example MERGED with this PR, BUILT or DONE,
 stop: nothing is owed.
 
-Write only in the clean case, which the Manager set on 2026-11-27. The read loaded the ledger, no
-row is PARTIAL by the PR body, the ledger or the workbook's Rows tab, no row will read PARTIAL once
-you flip its banner under 7d-bis or file the PR's deferred scope on it under ledger ruling R2, and
-this PR built every row:
+Write only in the clean case, which the Manager set on 2026-11-27. All of these must hold:
+
+1. The read loaded the ledger, and
+2. no row is PARTIAL by the PR body, the ledger or the workbook's Rows tab, and
+3. no row will read PARTIAL once you flip its banner under 7d-bis or file the PR's deferred scope
+   on it under ledger ruling R2, and
+4. this PR built every row.
 
 ```
 read_batch.py --done NN --holder "<the Manager cell's text; if empty, Lander <session> at merge>" --state MERGED --note "<repo> PR <N> (<merge sha>) merged" --row <row>="Built in PR <N> (batch NN), proposed <banner state>"
