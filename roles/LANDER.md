@@ -2009,6 +2009,40 @@ script's own blessing. [MANAGER.md](MANAGER.md), *Always clean up after your tea
 **Do not close the item and leave the release for later.** Later is a different session, and it has no
 way to learn the release is owed.
 
+### 7d-quinquies. When a batch PR merges, write the runbook workbook
+
+Owner decision 2026-11-27, in a Manager's chat: *"the Lander runs read_batch.py --done MERGED when
+it merges a batch PR, so the merge write never depends on the Manager being alive."*
+
+A batch PR is one whose title or body says it builds rows of a runbook batch. A citation of another
+batch, or a ledger PR flipping a batch's banners, is not one.
+
+After one merges, by your hand or by the queue, run the batch skill's `read_batch.py` once per batch
+it built. Use the interpreter the skill's Step 1 names; the project venv has no openpyxl.
+
+```
+read_batch.py --done NN --holder "<the Manager cell's current text, or Lander <session>>" --state MERGED --note "<repo> PR <N> (<merge sha>) merged" --row <row>="<text>"
+```
+
+Give one `--row` for each row the Rows tab still reads Not started or In progress. Take its text
+from the proposed banners in the PR body. Leave out a row whose Status already says where it stands.
+
+Write the text as plain words. A backtick, double quote or `$` is read by the shell.
+
+| Item | Rule |
+| --- | --- |
+| A stale copy | If its `--help` does not list both `--take` and `--done`, stop and report it. |
+| Already written | If `read_batch.py NN` prints a Status reading MERGED with this PR in it, the write is done. |
+| A row is PARTIAL | By the PR body or the ledger, unless the PR body says this PR built its remainder in full. Use `--state "PR OPEN"`, never MERGED. |
+| A row still in another open PR | The same: `--state "PR OPEN"`, with a `--row` naming that PR. |
+| Why not MERGED | Ledger ruling R6 forbids BUILT or DONE while a row is PARTIAL, and `--next` treats MERGED as finished. |
+| The tool refuses MERGED for PARTIAL | Run it again with `--state "PR OPEN"`. |
+| It refuses for a missing `--row` | Add the `--row`. |
+| It refuses because the file changed or could not be saved | Run it once more. |
+| Any other refusal, or no workbook | For example on another PC or in a cloud session. Do not retry, and never pass `--force-take`. |
+| Then say so | One line in a comment on the merged PR, and a row in *Table 2 -- the blockers*, so the Manager or the owner can write it. |
+| The Manager's write | The Manager still runs `--done` when the PR opens. Yours at the merge is the backstop. |
+
 ### 7d-bis. An item whose own body declares any part of itself still open is PARTIAL, never closed
 
 | Item | Rule |
